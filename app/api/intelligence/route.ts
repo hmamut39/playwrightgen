@@ -6,7 +6,10 @@ import {
     validateOpenAiEnvironment,
     validateRedisEnvironment,
 } from "@/lib/env";
-import { legacyAiRouteQuarantine } from "@/lib/operations/legacy-ai-route";
+import {
+    legacyAiRouteFailure,
+    legacyAiRouteQuarantine,
+} from "@/lib/operations/legacy-ai-route";
 
 const DAILY_FREE_LIMIT = 5;
 
@@ -292,12 +295,7 @@ suggestedNextTests.`,
             },
             remaining,
         });
-    } catch (error) {
-        console.error("Test Intelligence API error:", error);
-
-        return NextResponse.json(
-            { error: "Failed to analyze test intelligence." },
-            { status: 500 }
-        );
+    } catch {
+        return legacyAiRouteFailure("legacy-intelligence");
     }
 }

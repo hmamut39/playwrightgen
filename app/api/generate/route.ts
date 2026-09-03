@@ -4,7 +4,10 @@ import * as cheerio from "cheerio";
 import { Redis } from "@upstash/redis";
 
 import { validateRedisEnvironment } from "@/lib/env";
-import { legacyAiRouteQuarantine } from "@/lib/operations/legacy-ai-route";
+import {
+  legacyAiRouteFailure,
+  legacyAiRouteQuarantine,
+} from "@/lib/operations/legacy-ai-route";
 
 const DAILY_FREE_LIMIT = 5;
 
@@ -629,8 +632,7 @@ ${formsCount}
 Inputs:
 ${inputs.join("\n")}
 `.trim();
-      } catch (error) {
-        console.error("URL fetch error:", error);
+      } catch {
         pageContext = "Could not fetch page HTML context.";
       }
     }
@@ -813,12 +815,7 @@ Return ONLY structured files.
 `,
       remaining,
     }); 
-  } catch (error) {
-    console.error("OpenAI API error:", error);
-
-    const message =
-      error instanceof Error ? error.message : "Unknown server error";
-
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    return legacyAiRouteFailure("legacy-generate");
   }
 }

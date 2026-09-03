@@ -2,7 +2,10 @@ import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import { chromium } from "playwright-core";
 
-import { legacyAiRouteQuarantine } from "@/lib/operations/legacy-ai-route";
+import {
+    legacyAiRouteFailure,
+    legacyAiRouteQuarantine,
+} from "@/lib/operations/legacy-ai-route";
 
 type PageAnalysis = {
     title: string;
@@ -234,12 +237,7 @@ ${pageContext}`,
             analysis,
             pageContext,
         });
-    } catch (error) {
-        console.error("Analyze route error:", error);
-
-        const message =
-            error instanceof Error ? error.message : "Unknown analyze error";
-
-        return NextResponse.json({ error: message }, { status: 500 });
+    } catch {
+        return legacyAiRouteFailure("legacy-analyze");
     }
 }

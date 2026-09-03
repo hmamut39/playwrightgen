@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 
 import { NextResponse } from "next/server";
 
+import { createOperationalResponder } from "@/lib/operations/webhook-telemetry";
+
 export function legacyAiRouteQuarantine(input: {
   replacement: string;
   source?: Readonly<Record<string, string | undefined>>;
@@ -24,6 +26,22 @@ export function legacyAiRouteQuarantine(input: {
         "cache-control": "no-store",
         "x-request-id": requestId,
       },
+    },
+  );
+}
+
+export function legacyAiRouteFailure(surface: string) {
+  return createOperationalResponder({
+    event: "legacy_ai.request",
+    surface,
+  }).json(
+    {
+      error: "This legacy AI request failed.",
+      code: "legacy_endpoint_failed",
+    },
+    {
+      status: 500,
+      code: "legacy_endpoint_failed",
     },
   );
 }

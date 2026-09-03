@@ -488,3 +488,18 @@ one-time grep. Exhaustive discovery prevents a newly added endpoint from being
 silently omitted, while boundary markers and existing negative behavior tests
 make accidental removal of tenant auth, signature verification, pre-work
 limits, or quarantine visible before deployment.
+
+## 037 — Keep temporary legacy-route failures content-free
+
+**Decision:** A server-only migration override may temporarily re-enable a
+quarantined legacy AI route, but its unexpected failure path must use one
+shared responder. The responder returns only a fixed user-safe message and
+code, attaches a request ID and `no-store`, and emits allowlisted operational
+telemetry without accepting the caught exception as input. Nested URL-context
+failures also fall back silently without logging provider or target details.
+
+**Reason:** Quarantine is the primary production control, but a migration flag
+must not reactivate historical raw-exception logging or provider-message
+leakage. A helper that cannot receive the exception makes the safe boundary
+structural and keeps temporary diagnostics correlatable without copying
+secrets, response bodies, URLs, or user content into logs.

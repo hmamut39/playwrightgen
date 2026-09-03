@@ -64,6 +64,11 @@ repository evidence overrides stale prose.
   provider output, safe request/token telemetry, and default quarantine of
   superseded AI endpoints. Live route proof still requires separately approved
   Preview automation/webhook bypass controls.
+- Release validation now fails closed for exact test-database host/name before
+  migrations, the Windows migration wrapper launches npm portably, the
+  dedicated test target has all ten migrations, and all 199 tests pass. Even a
+  temporary legacy AI migration override now returns content-free failures
+  with request IDs rather than logging or returning caught provider errors.
 
 ## Next primary outcome
 
@@ -160,7 +165,7 @@ At the end of every future work session:
 4. leave the working tree clean or clearly document intentional unfinished work;
 5. state the exact first action for the next session.
 
-**Exact first action next session:** run full validation for the AI safety
-checkpoint, record the hosted CI and immutable Preview identifiers, then prepare
-a snapshot-backed migration of only the isolated Preview database. Do not
-enable Checkout or Production.
+**Exact first action next session:** verify the branch-scoped Vercel Preview
+database identity, restore the accepted isolated Neon branch or explicitly
+validate its replacement, and only then prepare a snapshot-backed verified
+migration. Do not enable Checkout or Production.

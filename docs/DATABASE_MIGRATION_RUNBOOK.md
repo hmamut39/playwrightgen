@@ -35,6 +35,15 @@ the environment's authenticated data-flow tests. Record the branch ID,
 migration name, commit SHA, CI run, immutable deployment ID, and recovery
 artifact without recording connection strings or secrets.
 
+## Dedicated test database
+
+Local integration-test migrations use `npm run db:migrate:test`, never a raw
+Prisma command. Set `EXPECTED_TEST_DATABASE_HOST` and
+`EXPECTED_TEST_DATABASE_NAME` to the exact non-secret host and database name
+that were reviewed. The wrapper also requires the target identity to contain a
+`test` or `testing` marker and refuses names that contain a Production marker.
+Use `npm run db:verify:test` to prove the target without starting Prisma.
+
 ## Failure and rollback
 
 - Stop promotion and disable the affected feature flag or checkout switch.

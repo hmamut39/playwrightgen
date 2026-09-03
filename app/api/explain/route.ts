@@ -1,7 +1,10 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
-import { legacyAiRouteQuarantine } from "@/lib/operations/legacy-ai-route";
+import {
+    legacyAiRouteFailure,
+    legacyAiRouteQuarantine,
+} from "@/lib/operations/legacy-ai-route";
 
 export async function POST(req: Request) {
     const quarantine = legacyAiRouteQuarantine({ replacement: "/api/coverage-review" });
@@ -71,12 +74,7 @@ ${code}`,
         const explanation = completion.choices[0]?.message?.content || "";
 
         return NextResponse.json({ explanation });
-    } catch (error) {
-        console.error("Explain API error:", error);
-
-        return NextResponse.json(
-            { error: "Failed to explain test." },
-            { status: 500 }
-        );
+    } catch {
+        return legacyAiRouteFailure("legacy-explain");
     }
 }

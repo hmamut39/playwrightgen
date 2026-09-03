@@ -23,7 +23,9 @@
     "prisma:migrate:deploy": "prisma migrate deploy --config prisma.config.ts",
     "db:inspect-target": "node scripts/inspect-database-target.mjs",
     "db:verify-target": "node scripts/migrate-verified.mjs --verify-only",
-    "db:migrate:verified": "node scripts/migrate-verified.mjs"
+    "db:migrate:verified": "node scripts/migrate-verified.mjs",
+    "db:verify:test": "node scripts/migrate-test-database.mjs --verify-only",
+    "db:migrate:test": "node scripts/migrate-test-database.mjs"
   },
   "dependencies": {
     "@clerk/backend": "3.16.1",

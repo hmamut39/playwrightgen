@@ -59,10 +59,13 @@ if (process.argv.includes("--verify-only")) {
   process.exit(0);
 }
 
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const migration = spawn(
-  npmCommand,
-  ["run", "prisma:migrate:deploy"],
+  process.execPath,
+  [
+    requiredEnvironmentVariable("npm_execpath"),
+    "run",
+    "prisma:migrate:deploy",
+  ],
   {
     env: process.env,
     stdio: "inherit",

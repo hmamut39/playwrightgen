@@ -6,7 +6,10 @@ import {
   validateOpenAiEnvironment,
   validateRedisEnvironment,
 } from "@/lib/env";
-import { legacyAiRouteQuarantine } from "@/lib/operations/legacy-ai-route";
+import {
+  legacyAiRouteFailure,
+  legacyAiRouteQuarantine,
+} from "@/lib/operations/legacy-ai-route";
 
 const DAILY_FREE_LIMIT = 5;
 
@@ -161,14 +164,7 @@ Rules:
     const remaining = Math.max(0, DAILY_FREE_LIMIT - newCount);
 
     return NextResponse.json({ result, remaining });
-  } catch (error) {
-    console.error("Debug API error:", error);
-
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Failed to analyze the issue. Please try again.";
-
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    return legacyAiRouteFailure("legacy-debug");
   }
 }
