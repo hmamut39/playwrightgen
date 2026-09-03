@@ -5,6 +5,12 @@ Update it at the end of every completed milestone or whenever the immediate
 priority changes. `docs/CHECKPOINT_STATUS.md` remains the authoritative ledger;
 repository evidence overrides stale prose.
 
+> **2026-09-02 — repository moved.** The canonical remote is now
+> `hmamut39/playwrightgen`. See
+> [`docs/INFRASTRUCTURE_MIGRATION_2026-09-02.md`](./INFRASTRUCTURE_MIGRATION_2026-09-02.md).
+> CI run IDs and Vercel deployment IDs recorded before this date live under the
+> unrecoverable `hasan-gen` account and can no longer be opened or re-run.
+
 ## Current position
 
 - Current checkpoint: **V1.8 Repository, CI, and isolated execution — in progress**.
