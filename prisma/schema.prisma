@@ -917,6 +917,8 @@ model TestRunAttempt {
   failureDetails   String          @db.Text
   stepResults      Json            @db.JsonB
   evidence         Json            @db.JsonB
+  commitSha        String?         @db.VarChar(40)
+  sourceRef        String?         @db.VarChar(300)
   executedByUserId String          @db.Uuid
   executedAt       DateTime        @default(now()) @db.Timestamptz(3)
 
@@ -930,6 +932,7 @@ model TestRunAttempt {
   @@unique([organizationId, projectId, testRunId, attemptNumber])
   @@unique([organizationId, projectId, testRunId, id])
   @@index([testRunId, executedAt])
+  @@index([organizationId, projectId, commitSha])
 }
 
 model FailureAnalysis {

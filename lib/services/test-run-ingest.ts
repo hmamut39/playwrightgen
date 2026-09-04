@@ -234,6 +234,11 @@ export async function ingestPlaywrightResults(
           baseUrl: payload.baseUrl ?? null,
           durationMs: entry.durationMs ?? null,
           summary: `${payload.run.ref} @ ${payload.run.commitSha.slice(0, 8)}`,
+          // Stored structurally as well as in the summary: comparing a failure
+          // against earlier evidence on the same version needs a queryable
+          // revision, not a formatted string.
+          commitSha: payload.run.commitSha.toLowerCase(),
+          sourceRef: payload.run.ref,
           failureDetails: entry.errorMessage ?? "",
           stepResults: (entry.steps ?? []).map((step, stepIndex) => ({
             stepIndex,

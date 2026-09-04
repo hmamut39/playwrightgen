@@ -6,6 +6,8 @@ import {
   resolveFailureFinding,
   runFailureAnalysis,
 } from "@/lib/services/failure-intelligence";
+import { RunSignalExplanation } from "@/components/workspace/run-signal-badge";
+import { getProjectRunSignals } from "@/lib/services/run-signals";
 import { readTestCaseList } from "@/lib/services/test-cases";
 import {
   cancelTestRun,
@@ -27,11 +29,13 @@ export default async function TestRunDetailPage({
   params: Promise<{ orgSlug: string; projectId: string; testRunId: string }>;
 }) {
   const { orgSlug, projectId, testRunId } = await params;
-  const [detail, analyses] = await Promise.all([
+  const [detail, analyses, signals] = await Promise.all([
     getTestRunDetail({ orgSlug, projectId, testRunId }),
     listFailureAnalyses({ orgSlug, projectId, testRunId }),
+    getProjectRunSignals({ orgSlug, projectId }),
   ]);
   const { testRun } = detail;
+  const runSignal = signals.get(testRun.id);
   const path = `/workspace/${orgSlug}/projects/${projectId}/test-runs/${testRunId}`;
   const listPath = `/workspace/${orgSlug}/projects/${projectId}/test-runs`;
   const steps = readTestCaseList(testRun.testCaseVersion.steps);
@@ -96,6 +100,7 @@ export default async function TestRunDetailPage({
         <div>
           <div className="flex flex-wrap items-center gap-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${resultStyle[testRun.status]}`}>{testRun.status.replace("_", " ")}</span><span className="text-xs text-slate-400">{testRun.latestAttemptNumber} attempts</span></div>
           <h1 className="mt-3 text-3xl font-semibold tracking-tight">{testRun.name}</h1>
+          {runSignal ? <RunSignalExplanation signal={runSignal.signal} detail={runSignal.detail} /> : null}
           <p className="mt-3 text-sm text-slate-500">{testRun.mode.replaceAll("_", " ")} · {testRun.environment} · {testRun.browser}</p>
         </div>
         {testRun.status !== "CANCELED" && detail.canCancel ? <form action={cancelAction}><button className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold">Cancel run</button></form> : null}

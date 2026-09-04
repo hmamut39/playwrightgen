@@ -4,6 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { PrismaClient } from "@/generated/prisma/client";
 import { buildTestCaseVersionMarker } from "@/lib/integrations/runner/ingest-token";
+import { classifyRuns } from "@/lib/services/run-signals";
 import {
   ingestPlaywrightResults,
   RunIngestError,
@@ -225,6 +226,96 @@ describe("Playwright result ingestion from customer CI", () => {
     expect(run?.latestAttemptNumber).toBe(2);
     expect(run?.status).toBe("PASSED");
     expect(run?.attempts.map((a) => a.result)).toEqual(["FAILED", "PASSED"]);
+  });
+
+  it("records the source revision so flakiness can be told from regression", async () => {
+    const space = await workspace();
+    const { versionId } = await approvedVersion(space);
+    const title = `${buildTestCaseVersionMarker(versionId)} checkout succeeds`;
+
+    // Same approved version, same commit, opposite outcomes: an unreliable test.
+    await ingestPlaywrightResults(payload(space, title), { prisma });
+    const rerun = payload(space, title);
+    rerun.run.externalId = "9001-2";
+    rerun.run.url = "https://github.com/acme/web/actions/runs/9001?attempt=2";
+    rerun.results[0].status = "passed";
+    await ingestPlaywrightResults(rerun, { prisma });
+
+    const attempts = await prisma.testRunAttempt.findMany({
+      select: {
+        testRunId: true,
+        attemptNumber: true,
+        result: true,
+        commitSha: true,
+        sourceRef: true,
+        executedAt: true,
+        testRun: { select: { testCaseId: true, testCaseVersionId: true } },
+      },
+      orderBy: { attemptNumber: "asc" },
+    });
+
+    expect(attempts).toHaveLength(2);
+    expect(attempts[0].commitSha).toBe("a".repeat(40));
+    expect(attempts[0].sourceRef).toBe("main");
+
+    const signals = classifyRuns(
+      attempts.map((a) => ({
+        testRunId: a.testRunId,
+        testCaseId: a.testRun.testCaseId,
+        testCaseVersionId: a.testRun.testCaseVersionId,
+        attemptNumber: a.attemptNumber,
+        result: a.result,
+        commitSha: a.commitSha,
+        executedAt: a.executedAt,
+      })),
+    );
+
+    // The latest attempt passed, so the run reads as stable; the flaky verdict
+    // appears when the newest attempt is the failing one.
+    expect(signals.get(attempts[0].testRunId)?.signal).toBe("STABLE");
+  });
+
+  it("classifies a failure on a newer commit as a regression, not flakiness", async () => {
+    const space = await workspace();
+    const { versionId } = await approvedVersion(space);
+    const title = `${buildTestCaseVersionMarker(versionId)} checkout succeeds`;
+
+    const first = payload(space, title);
+    first.results[0].status = "passed";
+    await ingestPlaywrightResults(first, { prisma });
+
+    const second = payload(space, title);
+    second.run.externalId = "9002-1";
+    second.run.url = "https://github.com/acme/web/actions/runs/9002";
+    second.run.commitSha = "b".repeat(40);
+    await ingestPlaywrightResults(second, { prisma });
+
+    const attempts = await prisma.testRunAttempt.findMany({
+      select: {
+        testRunId: true,
+        attemptNumber: true,
+        result: true,
+        commitSha: true,
+        executedAt: true,
+        testRun: { select: { testCaseId: true, testCaseVersionId: true } },
+      },
+    });
+
+    const signals = classifyRuns(
+      attempts.map((a) => ({
+        testRunId: a.testRunId,
+        testCaseId: a.testRun.testCaseId,
+        testCaseVersionId: a.testRun.testCaseVersionId,
+        attemptNumber: a.attemptNumber,
+        result: a.result,
+        commitSha: a.commitSha,
+        executedAt: a.executedAt,
+      })),
+    );
+
+    const verdict = signals.get(attempts[0].testRunId);
+    expect(verdict?.signal).toBe("REGRESSION");
+    expect(verdict?.detail).toContain("in the application");
   });
 
   it("reports unmatched results instead of inventing evidence", async () => {
