@@ -89,6 +89,23 @@ Customer repository variables: `PLAYWRIGHTGEN_ORG_ID`, `PLAYWRIGHTGEN_PROJECT_ID
 `PLAYWRIGHTGEN_URL`, and optionally `PLAYWRIGHTGEN_ENVIRONMENT` and
 `PLAYWRIGHTGEN_BASE_URL`.
 
+### Deployment Protection
+
+Preview deployments run behind Vercel Deployment Protection, which rejects
+unauthenticated requests at the edge: an unsigned `POST /api/runs/ingest`
+returns `401` from Vercel before the route executes. CI therefore cannot report
+into a protected deployment without the project's automation bypass, supplied as
+the optional `VERCEL_PROTECTION_BYPASS` repository secret.
+
+The distinction that makes this acceptable: the bypass grants **reachability,
+not authority**. A request that gets past the edge is still rejected unless its
+HMAC signature verifies against the token derived for the tenant it names. A
+leaked bypass secret lets someone reach the endpoint and receive `401`s; it does
+not let them write evidence into any project.
+
+Production behind a custom domain is not protected this way, so the bypass is a
+Preview concern rather than a permanent requirement.
+
 ## Workspace surface
 
 The project Repositories page shows the ingest token and the three variables a

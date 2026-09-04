@@ -84,12 +84,23 @@ const payload = {
 const body = JSON.stringify(payload);
 const signature = createHmac("sha256", token).update(body, "utf8").digest("hex");
 
+const headers = {
+  "content-type": "application/json",
+  "x-playwrightgen-signature": `sha256=${signature}`,
+};
+
+// Deployments behind Vercel Deployment Protection reject unauthenticated
+// requests before they reach the application. This header only gets the request
+// past that edge check; the ingest endpoint still requires a valid HMAC
+// signature, so the bypass grants reachability, never authority.
+if (process.env.VERCEL_PROTECTION_BYPASS) {
+  headers["x-vercel-protection-bypass"] = process.env.VERCEL_PROTECTION_BYPASS;
+  headers["x-vercel-set-bypass-cookie"] = "false";
+}
+
 const response = await fetch(`${baseUrl}/api/runs/ingest`, {
   method: "POST",
-  headers: {
-    "content-type": "application/json",
-    "x-playwrightgen-signature": `sha256=${signature}`,
-  },
+  headers,
   body,
 });
 

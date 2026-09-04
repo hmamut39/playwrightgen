@@ -10,6 +10,14 @@
 #   PLAYWRIGHTGEN_TOKEN   Project ingest token, shown in Workspace under the
 #                         project's Repositories tab.
 #
+# Optional repository secret:
+#   VERCEL_PROTECTION_BYPASS
+#                         Only needed when the PlaywrightGen deployment sits
+#                         behind Vercel Deployment Protection, which rejects
+#                         unauthenticated requests at the edge. It lets this
+#                         workflow reach the endpoint; the request is still
+#                         rejected unless its HMAC signature is valid.
+#
 # Required repository variables:
 #   PLAYWRIGHTGEN_ORG_ID      Organization UUID, shown next to the token.
 #   PLAYWRIGHTGEN_PROJECT_ID  Project UUID, shown next to the token.
@@ -50,6 +58,7 @@ jobs:
         if: always()
         env:
           PLAYWRIGHTGEN_TOKEN: ${{ secrets.PLAYWRIGHTGEN_TOKEN }}
+          VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
           PLAYWRIGHTGEN_ORG_ID: ${{ vars.PLAYWRIGHTGEN_ORG_ID }}
           PLAYWRIGHTGEN_PROJECT_ID: ${{ vars.PLAYWRIGHTGEN_PROJECT_ID }}
           PLAYWRIGHTGEN_URL: ${{ vars.PLAYWRIGHTGEN_URL }}
