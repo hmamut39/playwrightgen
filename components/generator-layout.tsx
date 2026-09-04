@@ -3,10 +3,10 @@
 import { useState, type ReactNode, type ChangeEvent, type RefObject } from "react";
 import GeneratorSidebar from "./generator-sidebar";
 
-type Mode = "text" | "html" | "api" | "component" | "figma";
+type Mode = "text" | "html" | "api" | "component";
 type StyleMode = "fast" | "clean" | "production";
 type OutputType = "playwright" | "unit";
-type TabType = "generate" | "debug" | "figma";
+type TabType = "generate" | "debug";
 
 type IssueType =
   | "Smart Detect"

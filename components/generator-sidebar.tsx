@@ -3,10 +3,10 @@
 import { useMemo, useState, type ChangeEvent, type RefObject } from "react";
 import { formatDateLabel } from "@/utils/date";
 
-type Mode = "text" | "html" | "api" | "component" | "figma";
+type Mode = "text" | "html" | "api" | "component";
 type StyleMode = "fast" | "clean" | "production";
 type OutputType = "playwright" | "unit";
-type TabType = "generate" | "debug" | "figma";
+type TabType = "generate" | "debug";
 
 type IssueType =
   | "Smart Detect"
@@ -149,8 +149,6 @@ export default function GeneratorSidebar({
                     <span className="text-[11px] font-medium uppercase tracking-[0.14em] opacity-70">
                       {item.tabType === "debug"
                         ? "debug"
-                        : item.tabType === "figma"
-                        ? "figma"
                         : item.generationType === "url"
                         ? "analyze"
                         : item.mode}
