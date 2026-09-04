@@ -171,7 +171,21 @@ At the end of every future work session:
 4. leave the working tree clean or clearly document intentional unfinished work;
 5. state the exact first action for the next session.
 
-**Exact first action next session:** prove the execution loop end to end against
+**Session note 2026-09-04 (end).** The Preview workspace now holds its first
+approved Requirement ("User can sign in with Google") and its first Test Case,
+both taken through draft, review, and approval in the real UI. That confirms the
+Requirements and Test Cases workflows, immutable version snapshots, and the
+review gates all work against the restored Preview database. Verify both read
+`APPROVED` before relying on them.
+
+**Exact first action next session:** link the approved Requirement to the
+approved Test Case so coverage stops reading zero, then generate an automation
+artifact from that approved Test Case version and confirm the generated code
+carries its `[pwg:<testCaseVersionId>]` marker. Those two steps are what make the
+Quality and Release surfaces show real numbers, and the marker is the
+prerequisite for CI results attaching to the right evidence.
+
+**Then:** prove the execution loop end to end against
 a real repository. Open the project's Repositories page, copy the ingest token
 and the three variables into that repository, add both files from
 `templates/github-actions/`, push, and confirm a `TestRunAttempt` appears pinned
