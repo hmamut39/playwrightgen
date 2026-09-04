@@ -15,6 +15,7 @@ import {
   requestAutomationChanges,
   submitAutomationArtifact,
 } from "@/lib/services/automation-artifacts";
+import { readTestCaseVersionMarker } from "@/lib/integrations/runner/ingest-token";
 import {
   approveTestCase,
   createTestCase,
@@ -195,6 +196,44 @@ export default defineConfig({ use: { baseURL: "http://localhost:3000" } });`,
     expect(await prisma.activity.count({
       where: { action: "AUTOMATION_VERSION_GENERATED" },
     })).toBe(2);
+  });
+
+  it("stamps generated code with the pinned version so CI results map back", async () => {
+    const space = await workspace();
+    const approvedTestCase = await testCase(space);
+    const artifact = await generateAutomationArtifact({
+      projectId: space.project.id,
+      testCaseId: approvedTestCase.id,
+      engine: "PLAYWRIGHT_BROWSER",
+    }, deps(space));
+
+    const stored = artifact.versions[0];
+    const title = stored.code.match(/test\(\s*["'`]([^"'`]+)/)?.[1] ?? "";
+
+    // The marker must resolve to the exact immutable version the artifact pins,
+    // otherwise an ingested result would attach to the wrong evidence.
+    expect(readTestCaseVersionMarker(title)).toBe(artifact.testCaseVersionId);
+    expect(stored.validationStatus).toBe("PASSED");
+  });
+
+  it("does not double-stamp when a version is regenerated", async () => {
+    const space = await workspace();
+    const approvedTestCase = await testCase(space);
+    await generateAutomationArtifact({
+      projectId: space.project.id,
+      testCaseId: approvedTestCase.id,
+      engine: "PLAYWRIGHT_BROWSER",
+    }, deps(space));
+    const regenerated = await generateAutomationArtifact({
+      projectId: space.project.id,
+      testCaseId: approvedTestCase.id,
+      engine: "PLAYWRIGHT_BROWSER",
+      guidance: "Prefer the checkout fixture.",
+    }, deps(space));
+
+    for (const version of regenerated.versions) {
+      expect(version.code.match(/\[pwg:/g) ?? []).toHaveLength(1);
+    }
   });
 
   it("requires approved Test Case intent", async () => {

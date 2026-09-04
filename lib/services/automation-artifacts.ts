@@ -16,6 +16,7 @@ import {
   type WorkspacePermission,
 } from "@/lib/auth/workspace-context";
 import { getPrismaClient } from "@/lib/db/prisma";
+import { applyTestCaseVersionMarker } from "@/lib/integrations/runner/ingest-token";
 import {
   OrganizationAiRateLimitError,
   reserveOrganizationAiRequest,
@@ -359,6 +360,16 @@ export async function generateAutomationArtifact(
       error instanceof Error && /^[a-z_]+$/.test(error.message)
         ? error.message
         : "provider_failure";
+  }
+
+  // Stamp the pinned version into the generated code before validation so the
+  // reviewed code and the stored code are byte-identical. Without this marker a
+  // CI result cannot be mapped back to the immutable version it exercised.
+  if (result) {
+    result = {
+      ...result,
+      code: applyTestCaseVersionMarker(result.code, testCaseVersion.id),
+    };
   }
 
   const validation = result

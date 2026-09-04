@@ -3,6 +3,13 @@
 This document defines the V1.8 trust boundary. It is an implementation
 contract, not evidence that remote execution is enabled.
 
+> **Superseded for the first execution slice.** Tests now run in the customer's
+> own GitHub Actions and report results back, so PlaywrightGen executes no
+> repository code and the isolated-runner gates below are not on the critical
+> path. See [`docs/EXECUTION_LOOP.md`](./EXECUTION_LOOP.md). The contract here
+> still governs any future PlaywrightGen-operated runner, which remains
+> unbuilt and disabled.
+
 ## GitHub App boundary
 
 ### Initial permissions

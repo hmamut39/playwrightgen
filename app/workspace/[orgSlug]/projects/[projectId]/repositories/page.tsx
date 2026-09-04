@@ -4,8 +4,10 @@ import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { CiSetupPanel } from "@/components/workspace/ci-setup-panel";
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
+import { getProjectRunnerSetup, type RunnerSetup } from "@/lib/services/runner-setup";
 import { validateGitHubSetupEnvironment } from "@/lib/env";
 import {
   connectVerifiedPublicGitHubRepository,
@@ -148,7 +150,11 @@ export default async function ProjectRepositoriesPage({
     ReturnType<typeof listActiveGitHubInstallations>
   > = [];
   let repositoryDiscoveryFailed = false;
+  // The ingest token authorizes writing evidence into this project, so it is
+  // only resolved for members who may connect a repository.
+  let runnerSetup: RunnerSetup = { configured: false };
   if (context.can("repository:connect")) {
+    runnerSetup = await getProjectRunnerSetup({ orgSlug, projectId });
     activeInstallations = await listActiveGitHubInstallations({
       orgSlug,
       projectId,
@@ -541,7 +547,7 @@ export default async function ProjectRepositoriesPage({
               {[
                 ["Permissions", "Metadata and Contents read only"],
                 ["Imports", "Pinned to an exact commit"],
-                ["Execution", "Disabled until runner isolation passes"],
+                ["Execution", "Runs in your own CI, never ours"],
               ].map(([label, value]) => (
                 <div key={label} className="rounded-2xl bg-slate-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p>
@@ -552,6 +558,21 @@ export default async function ProjectRepositoriesPage({
           </div>
         )}
       </section>
+
+      {context.can("repository:connect") ? (
+        <CiSetupPanel
+          configured={runnerSetup.configured}
+          hasActiveConnection={connections.some(
+            (connection) => connection.status === "ACTIVE",
+          )}
+          organizationId={
+            runnerSetup.configured ? runnerSetup.organizationId : undefined
+          }
+          projectId={runnerSetup.configured ? runnerSetup.projectId : undefined}
+          token={runnerSetup.configured ? runnerSetup.token : undefined}
+          appUrl={process.env.NEXT_PUBLIC_APP_URL ?? ""}
+        />
+      ) : null}
     </div>
   );
 }

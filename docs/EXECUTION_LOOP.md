@@ -23,11 +23,14 @@ for evidence.
 
 ## Flow
 
-1. A reviewer approves an automation artifact for a Test Case version.
-2. `applyTestCaseVersionMarker` stamps `[pwg:<testCaseVersionId>]` into the first
-   `test(` title. The marker is inserted deterministically rather than requested
-   from the model, because a language model transcribing a UUID incorrectly would
-   silently detach a result from its evidence.
+1. An automation artifact is generated for an approved Test Case version. During
+   generation, `applyTestCaseVersionMarker` stamps `[pwg:<testCaseVersionId>]`
+   into the first `test(` title, before validation runs. The marker is inserted
+   deterministically rather than requested from the model, because a language
+   model transcribing a UUID incorrectly would silently detach a result from its
+   evidence.
+2. A reviewer approves the artifact. The marker is already present in the code
+   they reviewed, so approval changes nothing about it.
 3. The customer commits the spec and two workflow files from
    `templates/github-actions/`.
 4. On push, GitHub Actions runs Playwright with the JSON reporter.
@@ -86,14 +89,24 @@ Customer repository variables: `PLAYWRIGHTGEN_ORG_ID`, `PLAYWRIGHTGEN_PROJECT_ID
 `PLAYWRIGHTGEN_URL`, and optionally `PLAYWRIGHTGEN_ENVIRONMENT` and
 `PLAYWRIGHTGEN_BASE_URL`.
 
+## Workspace surface
+
+The project Repositories page shows the ingest token and the three variables a
+repository needs, gated on `repository:connect` because the token authorizes
+writing evidence into the project. It stays hidden until an active
+`RepositoryConnection` exists, since attempts are attributed to that connection's
+creator. When `RUNNER_INGEST_SECRET` is absent the panel says so rather than
+failing.
+
+Generated code is stamped automatically during
+`generateAutomationArtifact`, before validation, so the reviewed code and the
+stored code are byte-identical.
+
 ## Not yet built
 
-- Workspace UI that displays the token and the copyable workflow files.
-- Wiring `applyTestCaseVersionMarker` into artifact approval so approved code is
-  stamped automatically.
 - Trace, screenshot, and video artifact upload and retention.
 - Per-organization ingest quotas and rate limits.
+- Per-project token rotation.
 - Preview end-to-end proof against a real repository.
 
-Until the UI exists, tokens must be derived manually and evidence claims should
-say so.
+No claim of proven execution should be made until the Preview proof exists.
