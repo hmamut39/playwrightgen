@@ -30,6 +30,29 @@ starting the next checkpoint and update it at the end of every work session.
 | V1.9 Execution loop (customer CI) | In progress | Generated Playwright specs now carry a deterministic `[pwg:<testCaseVersionId>]` marker, and `POST /api/runs/ingest` accepts results from the customer's own GitHub Actions, verifying an HMAC over the exact raw body against a per-project token derived from `RUNNER_INGEST_SECRET`. Results map to the pinned immutable `TestCaseVersion` and append `TestRunAttempt` evidence attributed to the human who created the active `RepositoryConnection`; ingest fails closed when no connection is active. Deliveries are idempotent per CI run, and reporting never fails a customer's suite. This deliberately supersedes the isolated-runner prerequisite in `docs/GITHUB_AND_RUNNER_ARCHITECTURE.md` for the first slice: PlaywrightGen executes no repository code, so the sandbox, egress, and escape-test gates do not apply. Rationale and limits in `docs/EXECUTION_LOOP.md`. 223 tests, typecheck, lint, and production build pass locally. Workspace UI for the token, automatic stamping at artifact approval, artifact upload, ingest quotas, and Preview end-to-end proof remain; token rotation is still global. |
 | Figma-to-code removal | Complete | The design-to-code surface was removed rather than revived: `app/api/generate/route.ts` dropped from 821 to 608 lines and no Figma reference remains in `app/`, `components/`, or `lib/`. Visual regression testing remains a future on-strategy capability; design-to-code does not. |
 
+### 2026-09-04 Preview database resolution
+
+The drift is resolved, and the earlier diagnosis was wrong in a way worth
+recording. The ledger attributed it to branch-scoped Vercel variables; a direct
+read of the project environment showed **no branch-scoped variables exist at
+all**. The single Preview `DATABASE_URL` had simply been overwritten.
+
+The accepted branch was never lost. Connecting to it directly reports
+`neon.project_id restless-frost-04247280` and `neon.branch_id
+br-hidden-mode-ax99b5h6` — the ledgered target — still holding the prior
+evidence: one organization, one project, and two repository imports.
+
+The one missing migration, `20260831190000_v1_organization_billing`, was applied
+through `scripts/migrate-verified.mjs` with `EXPECTED_NEON_PROJECT_ID` and
+`EXPECTED_NEON_BRANCH_ID` set, so the fail-closed target check passed before
+Prisma started. All ten migrations are now applied and the existing records are
+intact. Preview `DATABASE_URL` and `DIRECT_URL` were then set to that branch's
+pooled and direct endpoints respectively, and `RUNNER_INGEST_SECRET` was added,
+both marked Sensitive. Preview was redeployed and is Ready.
+
+Data-flow evidence recorded before 2026-09-04 still predates this correction and
+should not be treated as proven against the current target.
+
 ### 2026-09-01 release-audit correction
 
 The schema-only Preview branch `br-hidden-mode-ax99b5h6` was valid at the

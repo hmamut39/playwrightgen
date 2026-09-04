@@ -171,18 +171,18 @@ At the end of every future work session:
 4. leave the working tree clean or clearly document intentional unfinished work;
 5. state the exact first action for the next session.
 
-**Exact first action next session:** set `RUNNER_INGEST_SECRET` on Preview, then
-prove the execution loop end to end against a real repository — copy
-`templates/github-actions/` into it, derive that project's ingest token, push, and
-confirm a `TestRunAttempt` appears pinned to the correct immutable
-`TestCaseVersion`. Then resolve the Preview database identity. Do not enable
-Checkout or Production.
+**Exact first action next session:** prove the execution loop end to end against
+a real repository. Open the project's Repositories page, copy the ingest token
+and the three variables into that repository, add both files from
+`templates/github-actions/`, push, and confirm a `TestRunAttempt` appears pinned
+to the correct immutable `TestCaseVersion`. Do not enable Checkout or Production.
 
-**Corrected 2026-09-04 finding.** The ledger attributes the Preview database
-drift to branch-scoped Vercel variables. A direct read of the project's
-environment shows **no branch-scoped variables exist at all** — every one of the
-20 entries is plain Preview or Production scope. The single Preview
-`DATABASE_URL` was simply overwritten. Both `DATABASE_URL` and `DIRECT_URL` are
-marked Sensitive, so their values cannot be read back from Vercel by anyone; the
-fix is to set them deliberately from the intended Neon branch rather than to
-audit what they currently hold.
+`RUNNER_INGEST_SECRET` is already set on Preview, and the Preview database now
+points at the ledgered Neon branch with all ten migrations applied.
+
+**Resolved 2026-09-04.** The Preview database drift is fixed. It was never
+branch-scoped variables — none exist; the single Preview `DATABASE_URL` had been
+overwritten. The accepted branch `br-hidden-mode-ax99b5h6` was intact and still
+held the prior evidence. The billing migration was applied behind the
+fail-closed target guard, and Preview now points at that branch. Full record in
+`docs/CHECKPOINT_STATUS.md`.
