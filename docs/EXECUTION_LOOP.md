@@ -119,6 +119,23 @@ Generated code is stamped automatically during
 `generateAutomationArtifact`, before validation, so the reviewed code and the
 stored code are byte-identical.
 
+## What the evidence makes possible
+
+Because every attempt records both the immutable Test Case version it exercised
+and the exact revision it ran against, `lib/services/run-signals.ts` can separate
+three failures that most tools collapse into "a test failed":
+
+| Version | Commit | Prior evidence | Verdict |
+| --- | --- | --- | --- |
+| same | same | also passed | the test is unreliable |
+| same | newer | passed on an earlier commit | the application regressed |
+| newer | any | only an older version passed | the intent changed |
+
+The third row is the one worth protecting. A team that deliberately changes what
+a test should assert has not caused a regression, and reporting one would erode
+trust in every other verdict. Attempts recorded without a revision produce no
+verdict at all rather than a guess.
+
 ## Not yet built
 
 - Trace, screenshot, and video artifact upload and retention.

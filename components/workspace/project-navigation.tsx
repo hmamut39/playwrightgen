@@ -20,6 +20,7 @@ export function ProjectNavigation({
     ["Automation", `${base}/automation`],
     ["Repositories", `${base}/repositories`],
     ["Test Runs", `${base}/test-runs`],
+    ["Release", `${base}/release`],
   ] as const;
 
   return (
