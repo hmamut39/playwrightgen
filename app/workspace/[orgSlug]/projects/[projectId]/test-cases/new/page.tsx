@@ -53,37 +53,37 @@ export default async function NewTestCasePage({
 
       <form action={createAction} className="mt-8 space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <label className="block text-sm font-medium">Title
-          <input name="title" required maxLength={300} className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-violet-500" />
+          <input name="title" required maxLength={300} className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500/60" />
         </label>
         <label className="block text-sm font-medium">Objective
-          <textarea name="objective" rows={4} placeholder="What behavior should this test prove?" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-violet-500" />
+          <textarea name="objective" rows={4} placeholder="What behavior should this test prove?" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500/60" />
         </label>
         <label className="block text-sm font-medium">Preconditions
-          <textarea name="preconditions" rows={3} placeholder="Required state, data, or permissions." className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-violet-500" />
+          <textarea name="preconditions" rows={3} placeholder="Required state, data, or permissions." className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500/60" />
         </label>
         <div className="grid gap-5 sm:grid-cols-2">
           <label className="block text-sm font-medium">Steps — one per line
-            <textarea name="steps" rows={8} placeholder={"Open the sign-in page\nEnter valid credentials\nSubmit the form"} className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-violet-500" />
+            <textarea name="steps" rows={8} placeholder={"Open the sign-in page\nEnter valid credentials\nSubmit the form"} className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500/60" />
           </label>
           <label className="block text-sm font-medium">Expected results — one per line
-            <textarea name="expectedResults" rows={8} placeholder={"Workspace opens\nUser identity is visible"} className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-violet-500" />
+            <textarea name="expectedResults" rows={8} placeholder={"Workspace opens\nUser identity is visible"} className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500/60" />
           </label>
         </div>
         <div className="grid gap-5 sm:grid-cols-2">
           <label className="block text-sm font-medium">Type
-            <select name="type" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5">
+            <select name="type" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500/60">
               <option value="FUNCTIONAL">Functional</option><option value="END_TO_END">End to end</option>
               <option value="API">API</option><option value="INTEGRATION">Integration</option><option value="REGRESSION">Regression</option>
             </select>
           </label>
           <label className="block text-sm font-medium">Priority
-            <select name="priority" defaultValue="MEDIUM" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5">
+            <select name="priority" defaultValue="MEDIUM" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500/60">
               <option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>CRITICAL</option>
             </select>
           </label>
         </div>
         <label className="block text-sm font-medium">Tags
-          <input name="tags" placeholder="smoke, checkout, release" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-violet-500" />
+          <input name="tags" placeholder="smoke, checkout, release" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500/60" />
         </label>
         {requirements.length ? (
           <fieldset>

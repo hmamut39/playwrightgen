@@ -60,7 +60,7 @@ export default async function NewRequirementPage({
             name="title"
             required
             maxLength={300}
-            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500"
+            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60"
           />
         </label>
         <label className="block text-sm font-medium">
@@ -69,7 +69,7 @@ export default async function NewRequirementPage({
             name="description"
             rows={7}
             maxLength={50000}
-            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500"
+            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60"
           />
         </label>
         <label className="block text-sm font-medium">
@@ -79,7 +79,7 @@ export default async function NewRequirementPage({
             rows={7}
             maxLength={50000}
             placeholder="Describe observable, testable outcomes."
-            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500"
+            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60"
           />
         </label>
         <label className="block text-sm font-medium">
@@ -88,7 +88,7 @@ export default async function NewRequirementPage({
             name="externalReference"
             maxLength={500}
             placeholder="e.g. JIRA-123 or a source URL"
-            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500"
+            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60"
           />
         </label>
         <button

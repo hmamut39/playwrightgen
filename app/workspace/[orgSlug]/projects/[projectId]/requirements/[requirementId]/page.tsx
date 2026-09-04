@@ -201,7 +201,7 @@ export default async function RequirementDetailPage({
               required
               maxLength={300}
               defaultValue={requirement.title}
-              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500"
+              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60"
             />
           </label>
           <label className="block text-sm font-medium">
@@ -211,7 +211,7 @@ export default async function RequirementDetailPage({
               rows={7}
               maxLength={50000}
               defaultValue={requirement.description}
-              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500"
+              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60"
             />
           </label>
           <label className="block text-sm font-medium">
@@ -221,7 +221,7 @@ export default async function RequirementDetailPage({
               rows={7}
               maxLength={50000}
               defaultValue={requirement.acceptanceCriteria}
-              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500"
+              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60"
             />
           </label>
           <label className="block text-sm font-medium">
@@ -230,7 +230,7 @@ export default async function RequirementDetailPage({
               name="externalReference"
               maxLength={500}
               defaultValue={requirement.externalReference ?? ""}
-              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500"
+              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60"
             />
           </label>
           <button className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">

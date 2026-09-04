@@ -53,22 +53,22 @@ export default async function NewTestRunPage({
       ) : (
         <form action={createAction} className="mt-8 space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <label className="block text-sm font-medium">Approved Test Case
-            <select name="testCaseId" required defaultValue={approved.some((item) => item.id === preferredTestCaseId) ? preferredTestCaseId : ""} className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5">
+            <select name="testCaseId" required defaultValue={approved.some((item) => item.id === preferredTestCaseId) ? preferredTestCaseId : ""} className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60">
               <option value="">Select a Test Case</option>
               {approved.map((testCase) => <option key={testCase.id} value={testCase.id}>{testCase.title} · v{testCase.currentVersionNumber}</option>)}
             </select>
           </label>
           <label className="block text-sm font-medium">Run name
-            <input name="name" required maxLength={300} placeholder="Staging release regression" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5" />
+            <input name="name" required maxLength={300} placeholder="Staging release regression" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60" />
           </label>
           <div className="grid gap-5 sm:grid-cols-3">
-            <label className="block text-sm font-medium">Mode<select name="mode" defaultValue="MANUAL" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5"><option value="MANUAL">Manual</option><option value="PLAYWRIGHT_BROWSER">Playwright Browser</option><option value="API">API</option></select></label>
-            <label className="block text-sm font-medium">Environment<select name="environment" defaultValue="DEVELOPMENT" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5"><option>LOCAL</option><option>DEVELOPMENT</option><option>STAGING</option><option>PRODUCTION</option><option>OTHER</option></select></label>
-            <label className="block text-sm font-medium">Browser<select name="browser" defaultValue="CHROMIUM" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5"><option>CHROMIUM</option><option>FIREFOX</option><option>WEBKIT</option><option>NONE</option></select></label>
+            <label className="block text-sm font-medium">Mode<select name="mode" defaultValue="MANUAL" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60"><option value="MANUAL">Manual</option><option value="PLAYWRIGHT_BROWSER">Playwright Browser</option><option value="API">API</option></select></label>
+            <label className="block text-sm font-medium">Environment<select name="environment" defaultValue="DEVELOPMENT" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60"><option>LOCAL</option><option>DEVELOPMENT</option><option>STAGING</option><option>PRODUCTION</option><option>OTHER</option></select></label>
+            <label className="block text-sm font-medium">Browser<select name="browser" defaultValue="CHROMIUM" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60"><option>CHROMIUM</option><option>FIREFOX</option><option>WEBKIT</option><option>NONE</option></select></label>
           </div>
           <p className="text-xs text-slate-500">API mode automatically stores browser as NONE. Playwright Browser mode requires a browser.</p>
           <label className="block text-sm font-medium">Base URL
-            <input name="baseUrl" type="url" placeholder="https://staging.example.com" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5" />
+            <input name="baseUrl" type="url" placeholder="https://staging.example.com" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60" />
           </label>
           <button className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white">Create run</button>
         </form>
