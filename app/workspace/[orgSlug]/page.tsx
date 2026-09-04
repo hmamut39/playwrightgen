@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
+import { getOrganizationProjectRisk } from "@/lib/services/project-risk";
 import { listProjects } from "@/lib/services/projects";
 
 export default async function OrganizationWorkspacePage({
@@ -9,9 +10,10 @@ export default async function OrganizationWorkspacePage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
-  const [context, projects] = await Promise.all([
+  const [context, projects, risk] = await Promise.all([
     requireWorkspaceContext({ orgSlug }),
     listProjects({ orgSlug, includeArchived: true }),
+    getOrganizationProjectRisk({ orgSlug }),
   ]);
   const canCreate = context.can("project:create");
 
@@ -37,7 +39,9 @@ export default async function OrganizationWorkspacePage({
         </section>
       ) : (
         <section className="mt-8 grid gap-4 xl:grid-cols-2">
-          {projects.map((project) => (
+          {projects.map((project) => {
+            const projectRisk = risk.get(project.id);
+            return (
             <Link
               key={project.id}
               href={`/workspace/${orgSlug}/projects/${project.id}/quality`}
@@ -55,9 +59,36 @@ export default async function OrganizationWorkspacePage({
               <p className="mt-4 line-clamp-2 text-sm leading-6 text-slate-600">
                 {project.description || "No description"}
               </p>
-              <p className="mt-5 text-xs text-slate-400">Updated {project.updatedAt.toLocaleString()}</p>
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                {projectRisk && projectRisk.regressions > 0 ? (
+                  <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
+                    {projectRisk.regressions} regression{projectRisk.regressions === 1 ? "" : "s"}
+                  </span>
+                ) : null}
+                {projectRisk && projectRisk.flaky > 0 ? (
+                  <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">
+                    {projectRisk.flaky} flaky
+                  </span>
+                ) : null}
+                {projectRisk && projectRisk.openFindings > 0 ? (
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                    {projectRisk.openFindings} unreviewed finding{projectRisk.openFindings === 1 ? "" : "s"}
+                  </span>
+                ) : null}
+                {projectRisk?.lastEvidenceAt ? null : (
+                  <span className="rounded-full bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-400">
+                    No run evidence
+                  </span>
+                )}
+              </div>
+              <p className="mt-3 text-xs text-slate-400">
+                {projectRisk?.lastEvidenceAt
+                  ? `Last evidence ${projectRisk.lastEvidenceAt.toLocaleDateString()} · updated ${project.updatedAt.toLocaleDateString()}`
+                  : `Updated ${project.updatedAt.toLocaleString()}`}
+              </p>
             </Link>
-          ))}
+            );
+          })}
         </section>
       )}
     </>
