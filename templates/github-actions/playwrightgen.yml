@@ -1,0 +1,64 @@
+# PlaywrightGen result reporting
+#
+# Copy this file into your repository at .github/workflows/playwrightgen.yml
+#
+# Your Playwright tests run on your own GitHub Actions runners, against your own
+# environment, using your own secrets. PlaywrightGen never executes your code and
+# never receives your repository contents — only a bounded summary of results.
+#
+# Required repository secret:
+#   PLAYWRIGHTGEN_TOKEN   Project ingest token, shown in Workspace under the
+#                         project's Repositories tab.
+#
+# Required repository variables:
+#   PLAYWRIGHTGEN_ORG_ID      Organization UUID, shown next to the token.
+#   PLAYWRIGHTGEN_PROJECT_ID  Project UUID, shown next to the token.
+#   PLAYWRIGHTGEN_URL         Your PlaywrightGen base URL.
+
+name: PlaywrightGen
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      # continue-on-error so failing tests still get reported as evidence.
+      # The job's own result is decided by the reporting step below.
+      - name: Run Playwright
+        id: playwright
+        continue-on-error: true
+        run: npx playwright test --reporter=json > playwright-report.json
+
+      - name: Report results to PlaywrightGen
+        if: always()
+        env:
+          PLAYWRIGHTGEN_TOKEN: ${{ secrets.PLAYWRIGHTGEN_TOKEN }}
+          PLAYWRIGHTGEN_ORG_ID: ${{ vars.PLAYWRIGHTGEN_ORG_ID }}
+          PLAYWRIGHTGEN_PROJECT_ID: ${{ vars.PLAYWRIGHTGEN_PROJECT_ID }}
+          PLAYWRIGHTGEN_URL: ${{ vars.PLAYWRIGHTGEN_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          COMMIT_SHA: ${{ github.sha }}
+          REF_NAME: ${{ github.ref_name }}
+        run: node .github/workflows/playwrightgen-report.mjs
+
+      - name: Fail the job if tests failed
+        if: steps.playwright.outcome == 'failure'
+        run: exit 1

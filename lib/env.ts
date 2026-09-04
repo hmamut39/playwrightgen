@@ -48,6 +48,10 @@ export const githubWebhookEnvironmentSchema = z.object({
   GITHUB_WEBHOOK_SECRET: requiredValue,
 });
 
+export const runnerIngestEnvironmentSchema = z.object({
+  RUNNER_INGEST_SECRET: requiredValue.min(32),
+});
+
 export const githubSetupEnvironmentSchema =
   githubAppAuthenticationEnvironmentSchema.extend({
     GITHUB_APP_SLUG: requiredValue.regex(/^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$/),
@@ -210,6 +214,16 @@ export function validateGitHubWebhookEnvironment(
     githubWebhookEnvironmentSchema,
     source,
     "GitHub webhook",
+  );
+}
+
+export function validateRunnerIngestEnvironment(
+  source: EnvironmentSource = process.env,
+) {
+  return validateEnvironment(
+    runnerIngestEnvironmentSchema,
+    source,
+    "runner ingest",
   );
 }
 

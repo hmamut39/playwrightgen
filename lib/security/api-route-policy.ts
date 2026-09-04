@@ -68,6 +68,10 @@ export const API_ROUTE_SECURITY_POLICY = {
     boundary: "bounded-public",
     requiredMarker: "reservePublicAiRequest",
   },
+  "runs/ingest/route.ts": {
+    boundary: "signed-webhook",
+    requiredMarker: "verifyRunnerSignature",
+  },
   "stripe/webhook/route.ts": {
     boundary: "signed-webhook",
     requiredMarker: "constructEvent",
