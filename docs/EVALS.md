@@ -40,6 +40,32 @@ quote count as a pass.
 
 First recorded result, 2026-09-05, `gpt-5-mini`: 4 of 4 passed.
 
+## Automation generation
+
+`evals/automation-generation.eval.ts` targets what
+`validateAutomationGeneration` cannot check. The validator already rejects unsafe
+primitives, missing assertions, wrong fixtures, and brittle locators, and it runs
+in production, so re-running it would measure nothing new. These cases test the
+judgement calls instead.
+
+| Case | Asserts |
+| --- | --- |
+| `browser-passes-validation` | a well-specified browser request produces no blocking findings |
+| `api-uses-request-fixture` | an API request uses `request`/`APIRequestContext`, not a page |
+| `underspecified-declares-assumptions` | a request with no URL, selectors, or credentials surfaces assumptions rather than inventing them |
+| `no-hard-waits-or-brittle-locators` | no `waitForTimeout`, no DOM-coupled locators |
+
+The last two matter most. Inventing a plausible base URL and login form would
+produce code that looks correct and fails in a way nobody can explain, and hard
+waits and brittle locators are warnings rather than blocks in production, so a
+drift toward them would ship silently without this measurement.
+
+This suite matters more than the analysis one because its output is executed by
+customers: a bad generation costs a CI run and a confusing failure, not merely a
+bad read.
+
+First recorded result, 2026-09-05, `gpt-5-mini`: 4 of 4 passed.
+
 ## Adding a case
 
 Prefer cases that isolate one variable. A case that changes several fields at
@@ -51,6 +77,6 @@ changes, so the effect of a change is visible rather than assumed.
 
 ## Not yet covered
 
-Requirement Review, Coverage Review, Quick Generation, and Automation Generation
-have no eval suite. Automation Generation is the most valuable one to add next,
-because its output is executed rather than read.
+Requirement Review, Coverage Review, and Quick Generation have no eval suite.
+Requirement Review is the most valuable one to add next, because its suggestions
+shape the approved intent everything downstream is measured against.
