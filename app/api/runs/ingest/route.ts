@@ -9,6 +9,10 @@ import {
   deriveProjectRunnerToken,
   verifyRunnerSignature,
 } from "@/lib/integrations/runner/ingest-token";
+import {
+  reserveRunIngest,
+  RunIngestRateLimitError,
+} from "@/lib/operations/run-ingest-guard";
 import { createWebhookResponder } from "@/lib/operations/webhook-telemetry";
 import {
   ingestPayloadSchema,
@@ -25,6 +29,7 @@ type RunIngestRouteDependencies = {
   deriveToken: typeof deriveProjectRunnerToken;
   verifySignature: typeof verifyRunnerSignature;
   loadTokenVersion: (organizationId: string, projectId: string) => Promise<number | null>;
+  reserve: typeof reserveRunIngest;
   ingest: typeof ingestPlaywrightResults;
 };
 
@@ -48,6 +53,7 @@ const defaultDependencies: RunIngestRouteDependencies = {
   deriveToken: deriveProjectRunnerToken,
   verifySignature: verifyRunnerSignature,
   loadTokenVersion: loadProjectTokenVersion,
+  reserve: reserveRunIngest,
   ingest: ingestPlaywrightResults,
 };
 
@@ -115,6 +121,23 @@ export async function handleRunIngestRequest(
     signature: request.headers.get(SIGNATURE_HEADER),
   });
   if (!verified) return errorResponse("invalid_signature", 401);
+
+  // Quota is reserved only after the signature verifies, so an unauthenticated
+  // caller cannot exhaust a tenant's allowance by posting garbage.
+  try {
+    await dependencies.reserve({
+      organizationId: payload.data.organizationId,
+      resultCount: payload.data.results.length,
+    });
+  } catch (error: unknown) {
+    if (error instanceof RunIngestRateLimitError) {
+      return errorResponse(error.code, 429);
+    }
+    // Fails closed. Writing unbounded evidence with no working limiter is worse
+    // than dropping a report: the reporter exits zero on error, so a customer's
+    // suite stays green and the next push retries.
+    return errorResponse("ingest_guard_unavailable", 503);
+  }
 
   try {
     const summary = await dependencies.ingest(payload.data);
