@@ -18,12 +18,16 @@ import {
   OrganizationAiRateLimitError,
   reserveOrganizationAiRequest,
 } from "@/lib/operations/organization-ai-guard";
+import { classifyRuns } from "@/lib/services/run-signals";
 import { readTestCaseList } from "@/lib/services/test-cases";
 import { readEvidence, readStepResults } from "@/lib/services/test-runs";
 
 const uuidSchema = z.string().uuid();
-const PROMPT_VERSION = "failure-analysis-v1";
-const SCHEMA_VERSION = "failure-analysis-schema-v1";
+// Bumped together with the EXECUTION_HISTORY evidence field. Stored analyses
+// keep their original versions, so earlier findings stay interpretable against
+// the prompt and schema that actually produced them.
+const PROMPT_VERSION = "failure-analysis-v2";
+const SCHEMA_VERSION = "failure-analysis-schema-v2";
 
 type Dependencies = WorkspaceContextDependencies & {
   analyzer?: (evidence: FailureAnalysisEvidence) => Promise<FailureAnalysisResult>;
@@ -73,6 +77,7 @@ export function buildFailureEvidence(input: {
   objective: string;
   steps: Prisma.JsonValue;
   expectedResults: Prisma.JsonValue;
+  executionHistory?: string;
 }): FailureAnalysisEvidence {
   return {
     RUN_RESULT: input.result,
@@ -91,6 +96,9 @@ export function buildFailureEvidence(input: {
     EXPECTED_RESULTS: readTestCaseList(input.expectedResults)
       .map((result, index) => `${index + 1}. ${result}`)
       .join("\n"),
+    EXECUTION_HISTORY:
+      input.executionHistory ??
+      "No comparable prior attempts of this approved version were found.",
   };
 }
 
@@ -112,6 +120,67 @@ export async function listFailureAnalyses(
     },
     orderBy: { startedAt: "desc" },
   });
+}
+
+/**
+ * Describes what prior attempts of this same approved version establish.
+ *
+ * Failure analysis previously saw a single attempt and was still asked to judge
+ * whether a failure was flaky, which is not decidable from one execution. The
+ * platform can decide it from immutable records, so the determination is made
+ * here and supplied as evidence rather than left to the model to guess.
+ *
+ * Every sentence is a plain statement of recorded fact, because findings must
+ * quote their evidence field exactly.
+ */
+async function describeExecutionHistory(
+  input: {
+    organizationId: string;
+    projectId: string;
+    testCaseId: string;
+    testRunId: string;
+  },
+  dependencies?: Dependencies,
+): Promise<string> {
+  const rows = await client(dependencies).testRunAttempt.findMany({
+    where: {
+      organizationId: input.organizationId,
+      projectId: input.projectId,
+      testRun: { testCaseId: input.testCaseId },
+    },
+    select: {
+      testRunId: true,
+      attemptNumber: true,
+      result: true,
+      commitSha: true,
+      executedAt: true,
+      testRun: { select: { testCaseId: true, testCaseVersionId: true } },
+    },
+    orderBy: { executedAt: "asc" },
+  });
+
+  const verdict = classifyRuns(
+    rows.map((row) => ({
+      testRunId: row.testRunId,
+      testCaseId: row.testRun.testCaseId,
+      testCaseVersionId: row.testRun.testCaseVersionId,
+      attemptNumber: row.attemptNumber,
+      result: row.result,
+      commitSha: row.commitSha,
+      executedAt: row.executedAt,
+    })),
+  ).get(input.testRunId);
+
+  const own = rows.filter((row) => row.testRunId === input.testRunId);
+  const passed = own.filter((row) => row.result === "PASSED").length;
+  const revisions = new Set(
+    own.map((row) => row.commitSha).filter((sha): sha is string => sha !== null),
+  ).size;
+
+  const counts = `This approved version has ${own.length} recorded attempt${own.length === 1 ? "" : "s"}, of which ${passed} passed, across ${revisions} recorded revision${revisions === 1 ? "" : "s"}.`;
+
+  if (!verdict) return `${counts} No comparable prior evidence was found.`;
+  return `Verdict: ${verdict.signal}. ${verdict.detail} ${counts}`;
 }
 
 export async function runFailureAnalysis(
@@ -164,6 +233,15 @@ export async function runFailureAnalysis(
     schemaVersion: SCHEMA_VERSION,
     createdByUserId: workspace.user.id,
   } });
+  const executionHistory = await describeExecutionHistory(
+    {
+      organizationId: workspace.organization.id,
+      projectId,
+      testCaseId: attempt.testRun.testCaseId,
+      testRunId,
+    },
+    dependencies,
+  );
   const evidence = buildFailureEvidence({
     result: attempt.result,
     summary: attempt.summary,
@@ -173,6 +251,7 @@ export async function runFailureAnalysis(
     objective: attempt.testRun.testCaseVersion.objective,
     steps: attempt.testRun.testCaseVersion.steps,
     expectedResults: attempt.testRun.testCaseVersion.expectedResults,
+    executionHistory,
   });
   let result: FailureAnalysisResult;
   try {

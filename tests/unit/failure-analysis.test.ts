@@ -15,6 +15,8 @@ const evidence: FailureAnalysisEvidence = {
   TEST_OBJECTIVE: "A customer can place an order.",
   TEST_STEPS: "1. Open cart\n2. Submit order",
   EXPECTED_RESULTS: "1. Order confirmation appears",
+  EXECUTION_HISTORY:
+    "Verdict: REGRESSION. The same approved version passed on aaaaaaaa and fails on bbbbbbbb, so the change is in the application.",
 };
 
 describe("Failure Intelligence evidence validation", () => {

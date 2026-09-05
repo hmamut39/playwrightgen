@@ -3,7 +3,10 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { PrismaClient, ProjectMembershipRole } from "@/generated/prisma/client";
-import type { FailureAnalysisResult } from "@/lib/ai/failure-analysis";
+import type {
+  FailureAnalysisEvidence,
+  FailureAnalysisResult,
+} from "@/lib/ai/failure-analysis";
 import { approveTestCase, createTestCase, submitTestCaseForReview } from "@/lib/services/test-cases";
 import {
   listFailureAnalyses,
@@ -95,6 +98,98 @@ describe("tenant-safe Failure Intelligence", () => {
       evidenceField: "FAILURE_DETAILS", evidenceQuote: "POST /orders returned HTTP 500.",
       recommendation: "Inspect order-service logs correlated to this attempt.",
     }],
+  });
+
+  /** Captures the evidence handed to the analyzer so it can be asserted on. */
+  function capturingDeps(space: Awaited<ReturnType<typeof workspace>>) {
+    const seen: FailureAnalysisEvidence[] = [];
+    return {
+      seen,
+      deps: {
+        authenticate: async () => ({
+          userId: space.owner.clerkUserId,
+          orgId: space.organization.clerkOrganizationId,
+        }),
+        prisma,
+        analyzer: async (evidence: FailureAnalysisEvidence) => {
+          seen.push(evidence);
+          return validResult();
+        },
+      },
+    };
+  }
+
+  it("tells the analyzer a regression is the application, not flakiness", async () => {
+    const space = await workspace();
+    const { run, attempt } = await failedAttempt(space);
+
+    // The first attempt becomes a pass on an earlier revision, and the failure
+    // under analysis becomes the latest attempt on a newer revision. That
+    // ordering is what separates an application regression from a flaky test.
+    await prisma.testRunAttempt.update({
+      where: { id: attempt.id },
+      data: {
+        result: "PASSED",
+        commitSha: "a".repeat(40),
+        sourceRef: "main",
+        executedAt: new Date(Date.now() - 60_000),
+      },
+    });
+    const failing = await prisma.testRunAttempt.create({
+      data: {
+        organizationId: space.organization.id,
+        projectId: space.project.id,
+        testRunId: run.id,
+        attemptNumber: 2,
+        result: "FAILED",
+        mode: "MANUAL",
+        environment: "DEVELOPMENT",
+        browser: "NONE",
+        summary: "Checkout returned a server error.",
+        failureDetails: "POST /orders returned HTTP 500.",
+        stepResults: [],
+        evidence: [],
+        commitSha: "b".repeat(40),
+        sourceRef: "main",
+        executedByUserId: space.owner.id,
+      },
+    });
+    await prisma.testRun.update({
+      where: { id: run.id },
+      data: { latestAttemptNumber: 2, status: "FAILED" },
+    });
+
+    const { seen, deps: capturing } = capturingDeps(space);
+    await runFailureAnalysis({
+      projectId: space.project.id,
+      testRunId: run.id,
+      testRunAttemptId: failing.id,
+    }, capturing);
+
+    expect(seen).toHaveLength(1);
+    const history = seen[0].EXECUTION_HISTORY;
+    expect(history).toContain("REGRESSION");
+    expect(history).toContain("in the application");
+    expect(history).toContain("recorded attempt");
+  });
+
+  it("tells the analyzer plainly when there is no prior evidence to compare", async () => {
+    const space = await workspace();
+    const { run, attempt } = await failedAttempt(space);
+
+    const { seen, deps: capturing } = capturingDeps(space);
+    await runFailureAnalysis({
+      projectId: space.project.id,
+      testRunId: run.id,
+      testRunAttemptId: attempt.id,
+    }, capturing);
+
+    // A single manual attempt carries no revision, so neither flakiness nor
+    // regression is established and the model must not be nudged toward either.
+    const history = seen[0].EXECUTION_HISTORY;
+    expect(history).toContain("NEW_FAILURE");
+    expect(history).not.toContain("REGRESSION");
+    expect(history).not.toContain("FLAKY");
   });
 
   it("persists evidence-bound findings, provider metadata, and Activity", async () => {
