@@ -171,6 +171,19 @@ At the end of every future work session:
 4. leave the working tree clean or clearly document intentional unfinished work;
 5. state the exact first action for the next session.
 
+**Preview migrations no longer need setup.** `npm run db:migrate:preview` reads
+`PREVIEW_DATABASE_URL` from `.env.local`, derives the direct host, and runs the
+existing fail-closed verified migration underneath. Do not delete that value
+after use: it is needed on every migration, `.env.local` is gitignored and
+already holds equivalent secrets, and removing it only forces the user back to
+the Neon console.
+
+**Session note 2026-09-05 (end).** Failure analysis is grounded in execution
+history rather than guessing at flakiness; an eval harness exists at
+`npm run evals` with suites for failure analysis and automation generation, both
+4 of 4 on `gpt-5-mini`; and CI ingest tokens are revocable per project from the
+Repositories panel. Preview holds all twelve migrations.
+
 **Session note 2026-09-04 (end).** The Preview workspace now holds its first
 approved Requirement ("User can sign in with Google") and its first Test Case,
 both taken through draft, review, and approval in the real UI. That confirms the
