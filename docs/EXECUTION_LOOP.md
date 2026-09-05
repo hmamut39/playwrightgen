@@ -45,7 +45,10 @@ for evidence.
 Ingest tokens are derived, never stored:
 
 ```
-token = base64url(HMAC-SHA256(RUNNER_INGEST_SECRET, "pwg:runner:v1:<orgId>:<projectId>"))
+token = base64url(HMAC-SHA256(
+  RUNNER_INGEST_SECRET,
+  "pwg:runner:v2:<orgId>:<projectId>:<Project.runnerTokenVersion>"
+))
 ```
 
 The tenant identity in the request body is untrusted until the HMAC over the
@@ -59,10 +62,17 @@ Attempts are attributed to the human who created the project's active
 rather than a synthetic account. Ingest fails closed with `403` when no active
 connection exists.
 
-**Known limitation.** Rotation is global: revoking one project's token requires
-rotating `RUNNER_INGEST_SECRET`, which invalidates every project. Per-project
-rotation needs a stored token version and a migration. Do not describe tokens as
-individually revocable until that exists.
+**Rotation is per project.** Folding `Project.runnerTokenVersion` into the
+derivation makes revocation local: incrementing it invalidates that project's
+token immediately and touches no other project. Rotating is exposed on the
+Repositories panel and recorded as `PROJECT_UPDATED` Activity with
+`change: runner_token_rotated`; the token itself is never written to Activity or
+logs.
+
+The route reads the project's current version before deriving, so a rotated token
+stops verifying at once. A payload naming a project that does not exist is
+answered with `invalid_signature` rather than `404`, so an unauthenticated caller
+cannot enumerate organization and project pairs by watching the status code.
 
 ## Idempotency
 
@@ -140,7 +150,6 @@ verdict at all rather than a guess.
 
 - Trace, screenshot, and video artifact upload and retention.
 - Per-organization ingest quotas and rate limits.
-- Per-project token rotation.
 - Preview end-to-end proof against a real repository.
 
 No claim of proven execution should be made until the Preview proof exists.

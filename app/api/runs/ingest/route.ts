@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 
+import { getPrismaClient } from "@/lib/db/prisma";
 import {
   EnvironmentValidationError,
   validateRunnerIngestEnvironment,
@@ -23,12 +24,30 @@ const SIGNATURE_HEADER = "x-playwrightgen-signature";
 type RunIngestRouteDependencies = {
   deriveToken: typeof deriveProjectRunnerToken;
   verifySignature: typeof verifyRunnerSignature;
+  loadTokenVersion: (organizationId: string, projectId: string) => Promise<number | null>;
   ingest: typeof ingestPlaywrightResults;
 };
+
+/**
+ * Reads the project's current token version, which the derivation depends on so
+ * a rotated token stops verifying. Returns null when no such project exists for
+ * that organization, which the caller treats exactly like a bad signature.
+ */
+async function loadProjectTokenVersion(
+  organizationId: string,
+  projectId: string,
+): Promise<number | null> {
+  const project = await getPrismaClient().project.findFirst({
+    where: { organizationId, id: projectId },
+    select: { runnerTokenVersion: true },
+  });
+  return project?.runnerTokenVersion ?? null;
+}
 
 const defaultDependencies: RunIngestRouteDependencies = {
   deriveToken: deriveProjectRunnerToken,
   verifySignature: verifyRunnerSignature,
+  loadTokenVersion: loadProjectTokenVersion,
   ingest: ingestPlaywrightResults,
 };
 
@@ -74,10 +93,20 @@ export async function handleRunIngestRequest(
   const payload = ingestPayloadSchema.safeParse(parsed);
   if (!payload.success) return errorResponse("invalid_payload", 400);
 
+  const tokenVersion = await dependencies.loadTokenVersion(
+    payload.data.organizationId,
+    payload.data.projectId,
+  );
+  // A missing project is reported as an invalid signature rather than 404, so an
+  // unauthenticated caller cannot probe which organization and project pairs
+  // exist by watching the status code change.
+  if (tokenVersion === null) return errorResponse("invalid_signature", 401);
+
   const token = dependencies.deriveToken({
     secret: ingestSecret,
     organizationId: payload.data.organizationId,
     projectId: payload.data.projectId,
+    tokenVersion,
   });
 
   const verified = dependencies.verifySignature({

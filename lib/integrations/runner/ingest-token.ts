@@ -6,21 +6,23 @@ const signaturePattern = /^sha256=([0-9a-f]{64})$/;
 
 /**
  * Per-project ingest tokens are derived, not stored. A customer's CI holds the
- * derived value; the control plane recomputes it from the server secret and the
- * tenant identity in the payload. Nothing tenant-specific has to be persisted,
- * and a leaked token cannot be replayed against a different project because the
- * tenant identity is part of the derivation input.
- *
- * Limitation to close later: rotation is global. Revoking one project's token
- * requires rotating RUNNER_INGEST_SECRET, which invalidates every project.
+ * derived value; the control plane recomputes it from the server secret, the
+ * tenant identity, and that project's token version. Nothing secret has to be
+ * persisted, a leaked token cannot be replayed against a different project
+ * because the tenant identity is part of the derivation input, and revocation is
+ * local: incrementing one project's version invalidates that project's token
+ * without touching any other.
  */
 export function deriveProjectRunnerToken(input: {
   secret: string;
   organizationId: string;
   projectId: string;
+  tokenVersion: number;
 }): string {
   return createHmac("sha256", input.secret)
-    .update(`pwg:runner:v1:${input.organizationId}:${input.projectId}`)
+    .update(
+      `pwg:runner:v2:${input.organizationId}:${input.projectId}:${input.tokenVersion}`,
+    )
     .digest("base64url");
 }
 

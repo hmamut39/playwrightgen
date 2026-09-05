@@ -540,6 +540,7 @@ model Project {
   createdByUserId  String        @db.Uuid
   archivedByUserId String?       @db.Uuid
   archivedAt       DateTime?     @db.Timestamptz(3)
+  runnerTokenVersion Int         @default(1)
   createdAt        DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt        DateTime      @updatedAt @db.Timestamptz(3)
 

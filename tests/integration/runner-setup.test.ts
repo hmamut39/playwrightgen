@@ -5,7 +5,10 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type { PrismaClient, ProjectMembershipRole } from "@/generated/prisma/client";
 import { WorkspaceAuthorizationError } from "@/lib/auth/workspace-context";
 import { deriveProjectRunnerToken } from "@/lib/integrations/runner/ingest-token";
-import { getProjectRunnerSetup } from "@/lib/services/runner-setup";
+import {
+  getProjectRunnerSetup,
+  rotateProjectRunnerToken,
+} from "@/lib/services/runner-setup";
 import {
   cleanPhase1ATables,
   connectTestDatabase,
@@ -107,7 +110,8 @@ describe("project runner setup", () => {
         secret: SECRET,
         organizationId: space.organization.id,
         projectId: space.project.id,
-      }),
+      tokenVersion: 1,
+    }),
     );
   });
 
@@ -147,6 +151,79 @@ describe("project runner setup", () => {
 
     await expect(
       getProjectRunnerSetup({ projectId: space.project.id }, deps(space, viewer)),
+    ).rejects.toBeInstanceOf(WorkspaceAuthorizationError);
+  });
+
+  it("invalidates only the rotated project's token", async () => {
+    vi.stubEnv("RUNNER_INGEST_SECRET", SECRET);
+    const space = await workspace();
+    const other = await prisma.project.create({
+      data: {
+        organizationId: space.organization.id,
+        name: "Billing",
+        slug: unique("billing"),
+        createdByUserId: space.owner.id,
+      },
+    });
+
+    const before = await getProjectRunnerSetup({ projectId: space.project.id }, deps(space));
+    const otherBefore = await getProjectRunnerSetup({ projectId: other.id }, deps(space));
+
+    const rotated = await rotateProjectRunnerToken({ projectId: space.project.id }, deps(space));
+    const otherAfter = await getProjectRunnerSetup({ projectId: other.id }, deps(space));
+
+    if (!before.configured || !rotated.configured) throw new Error("expected configured");
+    if (!otherBefore.configured || !otherAfter.configured) throw new Error("expected configured");
+
+    expect(rotated.token).not.toBe(before.token);
+    expect(rotated.tokenVersion).toBe(before.tokenVersion + 1);
+    // Revocation must be local. A sibling project keeping its token is the
+    // whole point of moving the version out of the server secret.
+    expect(otherAfter.token).toBe(otherBefore.token);
+  });
+
+  it("returns the same token on repeated reads until it is rotated", async () => {
+    vi.stubEnv("RUNNER_INGEST_SECRET", SECRET);
+    const space = await workspace();
+
+    const first = await getProjectRunnerSetup({ projectId: space.project.id }, deps(space));
+    const second = await getProjectRunnerSetup({ projectId: space.project.id }, deps(space));
+    await rotateProjectRunnerToken({ projectId: space.project.id }, deps(space));
+    const third = await getProjectRunnerSetup({ projectId: space.project.id }, deps(space));
+
+    if (!first.configured || !second.configured || !third.configured) {
+      throw new Error("expected configured");
+    }
+    expect(second.token).toBe(first.token);
+    expect(third.token).not.toBe(first.token);
+  });
+
+  it("records a rotation as auditable Activity without storing the token", async () => {
+    vi.stubEnv("RUNNER_INGEST_SECRET", SECRET);
+    const space = await workspace();
+
+    const rotated = await rotateProjectRunnerToken({ projectId: space.project.id }, deps(space));
+
+    const activity = await prisma.activity.findFirst({
+      where: { organizationId: space.organization.id, projectId: space.project.id },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(activity?.action).toBe("PROJECT_UPDATED");
+    expect(activity?.actorUserId).toBe(space.owner.id);
+    expect(activity?.metadata).toMatchObject({ change: "runner_token_rotated" });
+
+    // A credential must never be written into an audit record.
+    if (!rotated.configured) throw new Error("expected configured");
+    expect(JSON.stringify(activity?.metadata)).not.toContain(rotated.token);
+  });
+
+  it("denies rotation to members who cannot connect a repository", async () => {
+    vi.stubEnv("RUNNER_INGEST_SECRET", SECRET);
+    const space = await workspace();
+    const viewer = await member(space, "VIEWER");
+
+    await expect(
+      rotateProjectRunnerToken({ projectId: space.project.id }, deps(space, viewer)),
     ).rejects.toBeInstanceOf(WorkspaceAuthorizationError);
   });
 

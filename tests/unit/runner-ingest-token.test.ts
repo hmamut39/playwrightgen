@@ -20,24 +20,26 @@ function sign(token: string, body: string) {
 
 describe("deriveProjectRunnerToken", () => {
   it("is deterministic for the same tenant", () => {
-    const first = deriveProjectRunnerToken({ secret: SECRET, organizationId: ORG, projectId: PROJECT });
-    const second = deriveProjectRunnerToken({ secret: SECRET, organizationId: ORG, projectId: PROJECT });
+    const first = deriveProjectRunnerToken({ secret: SECRET, organizationId: ORG, projectId: PROJECT, tokenVersion: 1 });
+    const second = deriveProjectRunnerToken({ secret: SECRET, organizationId: ORG, projectId: PROJECT, tokenVersion: 1 });
 
     expect(first).toBe(second);
     expect(first.length).toBeGreaterThan(20);
   });
 
   it("binds the token to both the organization and the project", () => {
-    const base = deriveProjectRunnerToken({ secret: SECRET, organizationId: ORG, projectId: PROJECT });
+    const base = deriveProjectRunnerToken({ secret: SECRET, organizationId: ORG, projectId: PROJECT, tokenVersion: 1 });
     const otherProject = deriveProjectRunnerToken({
       secret: SECRET,
       organizationId: ORG,
       projectId: "33333333-3333-4333-8333-333333333333",
+      tokenVersion: 1,
     });
     const otherOrganization = deriveProjectRunnerToken({
       secret: SECRET,
       organizationId: "44444444-4444-4444-8444-444444444444",
       projectId: PROJECT,
+      tokenVersion: 1,
     });
 
     expect(otherProject).not.toBe(base);
@@ -45,15 +47,15 @@ describe("deriveProjectRunnerToken", () => {
   });
 
   it("changes when the server secret rotates", () => {
-    const base = deriveProjectRunnerToken({ secret: SECRET, organizationId: ORG, projectId: PROJECT });
-    const rotated = deriveProjectRunnerToken({ secret: "b".repeat(48), organizationId: ORG, projectId: PROJECT });
+    const base = deriveProjectRunnerToken({ secret: SECRET, organizationId: ORG, projectId: PROJECT, tokenVersion: 1 });
+    const rotated = deriveProjectRunnerToken({ secret: "b".repeat(48), organizationId: ORG, projectId: PROJECT, tokenVersion: 1 });
 
     expect(rotated).not.toBe(base);
   });
 });
 
 describe("verifyRunnerSignature", () => {
-  const token = deriveProjectRunnerToken({ secret: SECRET, organizationId: ORG, projectId: PROJECT });
+  const token = deriveProjectRunnerToken({ secret: SECRET, organizationId: ORG, projectId: PROJECT, tokenVersion: 1 });
   const body = JSON.stringify({ organizationId: ORG, projectId: PROJECT, results: [] });
 
   it("accepts a signature produced with the matching token", () => {
@@ -72,6 +74,7 @@ describe("verifyRunnerSignature", () => {
       secret: SECRET,
       organizationId: ORG,
       projectId: "33333333-3333-4333-8333-333333333333",
+      tokenVersion: 1,
     });
 
     expect(verifyRunnerSignature({ token, rawBody: body, signature: sign(foreign, body) })).toBe(false);

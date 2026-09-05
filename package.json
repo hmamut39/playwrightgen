@@ -26,7 +26,8 @@
     "db:migrate:verified": "node scripts/migrate-verified.mjs",
     "db:verify:test": "node scripts/migrate-test-database.mjs --verify-only",
     "db:migrate:test": "node scripts/migrate-test-database.mjs",
-    "evals": "vitest run --config vitest.evals.config.ts"
+    "evals": "vitest run --config vitest.evals.config.ts",
+    "db:migrate:preview": "node scripts/migrate-preview.mjs"
   },
   "dependencies": {
     "@clerk/backend": "3.16.1",

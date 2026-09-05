@@ -7,7 +7,11 @@ import { redirect } from "next/navigation";
 import { CiSetupPanel } from "@/components/workspace/ci-setup-panel";
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
-import { getProjectRunnerSetup, type RunnerSetup } from "@/lib/services/runner-setup";
+import {
+  getProjectRunnerSetup,
+  rotateProjectRunnerToken,
+  type RunnerSetup,
+} from "@/lib/services/runner-setup";
 import { validateGitHubSetupEnvironment } from "@/lib/env";
 import {
   connectVerifiedPublicGitHubRepository,
@@ -33,6 +37,21 @@ const importStatusStyle = {
 
 function shortSha(value: string | null) {
   return value ? value.slice(0, 8) : "Not resolved";
+}
+
+async function rotateRunnerTokenAction(formData: FormData) {
+  "use server";
+
+  const orgSlug = String(formData.get("orgSlug") ?? "");
+  const projectId = String(formData.get("projectId") ?? "");
+  await rotateProjectRunnerToken({ orgSlug, projectId });
+  revalidatePath(
+    "/workspace/" +
+      encodeURIComponent(orgSlug) +
+      "/projects/" +
+      encodeURIComponent(projectId) +
+      "/repositories",
+  );
 }
 
 async function connectRepositoryAction(formData: FormData) {
@@ -570,7 +589,10 @@ export default async function ProjectRepositoriesPage({
           }
           projectId={runnerSetup.configured ? runnerSetup.projectId : undefined}
           token={runnerSetup.configured ? runnerSetup.token : undefined}
+          tokenVersion={runnerSetup.configured ? runnerSetup.tokenVersion : undefined}
+          orgSlug={orgSlug}
           appUrl={process.env.NEXT_PUBLIC_APP_URL ?? ""}
+          rotateAction={rotateRunnerTokenAction}
         />
       ) : null}
     </div>

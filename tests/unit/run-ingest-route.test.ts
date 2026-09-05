@@ -4,7 +4,10 @@ import type { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { handleRunIngestRequest } from "@/app/api/runs/ingest/route";
-import { deriveProjectRunnerToken } from "@/lib/integrations/runner/ingest-token";
+import {
+  deriveProjectRunnerToken,
+  verifyRunnerSignature,
+} from "@/lib/integrations/runner/ingest-token";
 import { RunIngestError } from "@/lib/services/test-run-ingest";
 
 const SECRET = "runner-ingest-secret-for-tests-long-enough";
@@ -49,24 +52,27 @@ function request(body: string, signature: string | null) {
   }) as unknown as NextRequest;
 }
 
-function signed(body: string, projectId = PROJECT) {
+function signed(body: string, projectId = PROJECT, tokenVersion = 1) {
   const token = deriveProjectRunnerToken({
     secret: SECRET,
     organizationId: ORG,
     projectId,
+    tokenVersion,
   });
   return `sha256=${createHmac("sha256", token).update(body, "utf8").digest("hex")}`;
 }
 
-function dependencies(ingest = vi.fn().mockResolvedValue({ recorded: 1, duplicates: 0, unmatched: 0 })) {
+function dependencies(
+  ingest = vi.fn().mockResolvedValue({ recorded: 1, duplicates: 0, unmatched: 0 }),
+  tokenVersion: number | null = 1,
+) {
   return {
     deriveToken: deriveProjectRunnerToken,
-    verifySignature: (input: Parameters<typeof import("@/lib/integrations/runner/ingest-token")["verifyRunnerSignature"]>[0]) => {
-      const expected = signed(
-        typeof input.rawBody === "string" ? input.rawBody : Buffer.from(input.rawBody).toString("utf8"),
-      );
-      return input.signature === expected && input.token.length > 0;
-    },
+    loadTokenVersion: async () => tokenVersion,
+    // The real verifier, so these tests exercise the actual HMAC against the
+    // token the route derived. A stub that ignored the derived token could not
+    // detect a rotated version and would pass while production failed.
+    verifySignature: verifyRunnerSignature,
     ingest,
   };
 }
@@ -106,6 +112,52 @@ describe("run ingest route", () => {
     );
 
     expect(response.status).toBe(401);
+    expect(ingest).not.toHaveBeenCalled();
+  });
+
+  it("rejects a token issued before the project's token was rotated", async () => {
+    withSecret();
+    const body = JSON.stringify(validPayload());
+    const ingest = vi.fn();
+
+    // The CI still holds a version 1 token; the project has moved to version 2.
+    // That is what revocation looks like from the caller's side.
+    const response = await handleRunIngestRequest(
+      request(body, signed(body, PROJECT, 1)),
+      dependencies(ingest, 2),
+    );
+
+    expect(response.status).toBe(401);
+    expect(ingest).not.toHaveBeenCalled();
+  });
+
+  it("accepts a token issued for the project's current version", async () => {
+    withSecret();
+    const body = JSON.stringify(validPayload());
+    const ingest = vi.fn().mockResolvedValue({ recorded: 1, duplicates: 0, unmatched: 0 });
+    const response = await handleRunIngestRequest(
+      request(body, signed(body, PROJECT, 2)),
+      dependencies(ingest, 2),
+    );
+
+    expect(response.status).toBe(200);
+    expect(ingest).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports an unknown project as an invalid signature, not a 404", async () => {
+    withSecret();
+    const body = JSON.stringify(validPayload());
+    const ingest = vi.fn();
+
+    // A 404 here would let an unauthenticated caller enumerate which
+    // organization and project pairs exist by watching the status code.
+    const response = await handleRunIngestRequest(
+      request(body, signed(body)),
+      dependencies(ingest, null),
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({ code: "invalid_signature" });
     expect(ingest).not.toHaveBeenCalled();
   });
 

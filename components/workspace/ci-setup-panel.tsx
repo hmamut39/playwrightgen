@@ -62,7 +62,10 @@ export type CiSetupPanelProps = {
   organizationId?: string;
   projectId?: string;
   token?: string;
+  tokenVersion?: number;
+  orgSlug: string;
   appUrl: string;
+  rotateAction?: (formData: FormData) => void | Promise<void>;
 };
 
 export function CiSetupPanel({
@@ -71,7 +74,10 @@ export function CiSetupPanel({
   organizationId,
   projectId,
   token,
+  tokenVersion,
+  orgSlug,
   appUrl,
+  rotateAction,
 }: CiSetupPanelProps) {
   return (
     <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
@@ -160,11 +166,36 @@ export function CiSetupPanel({
             </li>
           </ol>
 
-          <p className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-500">
-            Treat this token as a credential: it authorizes writing test evidence
-            into this project. Rotation is currently deployment-wide rather than
-            per project, so a leaked token cannot yet be revoked on its own.
-          </p>
+          <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs leading-5 text-slate-500">
+                Treat this token as a credential: it authorizes writing test
+                evidence into this project. Rotating it revokes the current value
+                immediately and affects no other project.
+                {tokenVersion !== undefined ? (
+                  <span className="ml-1 text-slate-400">Version {tokenVersion}.</span>
+                ) : null}
+              </p>
+              {rotateAction ? (
+                <form action={rotateAction} className="shrink-0">
+                  <input type="hidden" name="orgSlug" value={orgSlug} />
+                  <input type="hidden" name="projectId" value={projectId ?? ""} />
+                  <button
+                    type="submit"
+                    className="rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 transition hover:border-red-300 hover:bg-red-50"
+                  >
+                    Rotate token
+                  </button>
+                </form>
+              ) : null}
+            </div>
+            <p className="mt-2 text-xs leading-5 text-slate-400">
+              After rotating, update{" "}
+              <code className="font-mono">PLAYWRIGHTGEN_TOKEN</code> in the
+              repository. Any workflow still holding the old token will be
+              rejected until it is updated, which is what revocation is for.
+            </p>
+          </div>
         </>
       )}
     </section>
