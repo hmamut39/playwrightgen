@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { getProject } from "@/lib/services/projects";
+import { MAX_PAGE_SIZE } from "@/lib/services/list-query";
 import { listTestCases } from "@/lib/services/test-cases";
 import { createTestRun } from "@/lib/services/test-runs";
 
@@ -18,9 +19,9 @@ export default async function NewTestRunPage({
   await requireWorkspaceContext({ orgSlug, projectId, permission: "testrun:create" });
   const [project, testCases] = await Promise.all([
     getProject({ orgSlug, projectId }),
-    listTestCases({ orgSlug, projectId }),
+    listTestCases({ orgSlug, projectId, pageSize: MAX_PAGE_SIZE }),
   ]);
-  const approved = testCases.filter((testCase) => testCase.status === "APPROVED");
+  const approved = testCases.items.filter((testCase) => testCase.status === "APPROVED");
 
   async function createAction(formData: FormData) {
     "use server";

@@ -1,5 +1,10 @@
 import Link from "next/link";
 
+import {
+  ListEmptyState,
+  ListPagination,
+  ListSearch,
+} from "@/components/workspace/list-controls";
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { getProject } from "@/lib/services/projects";
@@ -14,14 +19,18 @@ const statusStyle = {
 
 export default async function TestCasesPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ orgSlug: string; projectId: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const { orgSlug, projectId } = await params;
+  const { q, page } = await searchParams;
+  const basePath = `/workspace/${orgSlug}/projects/${projectId}/test-cases`;
   const [context, project, testCases] = await Promise.all([
     requireWorkspaceContext({ orgSlug, projectId }),
     getProject({ orgSlug, projectId }),
-    listTestCases({ orgSlug, projectId, includeArchived: true }),
+    listTestCases({ orgSlug, projectId, includeArchived: true, search: q, page: page ? Number(page) : undefined }),
   ]);
 
   return (
@@ -47,17 +56,21 @@ export default async function TestCasesPage({
         ) : null}
       </header>
 
-      {testCases.length === 0 ? (
-        <section className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
-          <h2 className="text-lg font-semibold">No test cases yet</h2>
-          <p className="mt-2 text-sm text-slate-500">
-            Create the first manual test and connect it to a Requirement.
-          </p>
-        </section>
+      <div className="mt-6">
+        <ListSearch basePath={basePath} meta={testCases} placeholder="Search test case titles" />
+      </div>
+
+      {testCases.items.length === 0 ? (
+        <ListEmptyState
+          meta={testCases}
+          basePath={basePath}
+          emptyTitle="No test cases yet"
+          emptyDescription="Design the first reviewable test for this project."
+        />
       ) : (
         <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="divide-y divide-slate-200">
-            {testCases.map((testCase) => (
+            {testCases.items.map((testCase) => (
               <Link
                 key={testCase.id}
                 href={`/workspace/${orgSlug}/projects/${projectId}/test-cases/${testCase.id}`}
@@ -91,6 +104,8 @@ export default async function TestCasesPage({
           </div>
         </section>
       )}
+
+      <ListPagination basePath={basePath} meta={testCases} noun="test cases" />
     </div>
   );
 }

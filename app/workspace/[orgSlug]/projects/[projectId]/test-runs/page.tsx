@@ -1,6 +1,11 @@
 import Link from "next/link";
 
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
+import {
+  ListEmptyState,
+  ListPagination,
+  ListSearch,
+} from "@/components/workspace/list-controls";
 import { RunSignalBadge } from "@/components/workspace/run-signal-badge";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { getProject } from "@/lib/services/projects";
@@ -17,16 +22,20 @@ const statusStyle = {
 
 export default async function TestRunsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ orgSlug: string; projectId: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const { orgSlug, projectId } = await params;
+  const { q, page } = await searchParams;
   const [context, project, runs, signals] = await Promise.all([
     requireWorkspaceContext({ orgSlug, projectId }),
     getProject({ orgSlug, projectId }),
-    listTestRuns({ orgSlug, projectId }),
+    listTestRuns({ orgSlug, projectId, search: q, page: page ? Number(page) : undefined }),
     getProjectRunSignals({ orgSlug, projectId }),
   ]);
+  const basePath = `/workspace/${orgSlug}/projects/${projectId}/test-runs`;
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -45,15 +54,21 @@ export default async function TestRunsPage({
         {context.can("testrun:create") ? <Link href={`/workspace/${orgSlug}/projects/${projectId}/test-runs/new`} className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white">New test run</Link> : null}
       </header>
 
-      {runs.length === 0 ? (
-        <section className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
-          <h2 className="text-lg font-semibold">No execution history yet</h2>
-          <p className="mt-2 text-sm text-slate-500">Approve a Test Case, then create its first run.</p>
-        </section>
+      <div className="mt-6">
+        <ListSearch basePath={basePath} meta={runs} placeholder="Search runs or test cases" />
+      </div>
+
+      {runs.items.length === 0 ? (
+        <ListEmptyState
+          meta={runs}
+          basePath={basePath}
+          emptyTitle="No execution history yet"
+          emptyDescription="Approve a Test Case, then create its first run."
+        />
       ) : (
         <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="divide-y divide-slate-200">
-            {runs.map((run) => {
+            {runs.items.map((run) => {
               const signal = signals.get(run.id);
               return (
               <Link key={run.id} href={`/workspace/${orgSlug}/projects/${projectId}/test-runs/${run.id}`} className="block px-5 py-5 transition hover:bg-slate-50 sm:px-6">
@@ -78,6 +93,8 @@ export default async function TestRunsPage({
           </div>
         </section>
       )}
+
+      <ListPagination basePath={basePath} meta={runs} noun="test runs" />
     </div>
   );
 }

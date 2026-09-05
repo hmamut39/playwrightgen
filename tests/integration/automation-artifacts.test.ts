@@ -347,7 +347,7 @@ export default defineConfig({ use: { baseURL: "http://localhost:3000" } });`,
       testCaseId: approvedTestCase.id,
       engine: "PLAYWRIGHT_BROWSER",
     }, deps(first));
-    expect(await listAutomationArtifacts({ projectId: second.project.id }, deps(second)))
+    expect((await listAutomationArtifacts({ projectId: second.project.id }, deps(second))).items)
       .toEqual([]);
     await expect(getAutomationArtifactDetail({
       projectId: second.project.id,

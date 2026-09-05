@@ -13,6 +13,11 @@ import {
   type WorkspacePermission,
 } from "@/lib/auth/workspace-context";
 import { getPrismaClient } from "@/lib/db/prisma";
+import {
+  buildListResult,
+  parseListParams,
+  type ListParams,
+} from "@/lib/services/list-query";
 
 const uuidSchema = z.string().uuid();
 const titleSchema = z.string().trim().min(1).max(300);
@@ -95,7 +100,7 @@ export async function listRequirements(
     projectId: string;
     orgSlug?: string;
     includeArchived?: boolean;
-  },
+  } & ListParams,
   dependencies?: RequirementServiceDependencies,
 ) {
   const { context, projectId } = await requireProjectContext(
@@ -103,18 +108,37 @@ export async function listRequirements(
     "requirement:read",
     dependencies,
   );
+  const params = parseListParams(input);
+  // Title and external reference: people search for a requirement either by what
+  // it says or by the ticket it came from.
+  const where = {
+    organizationId: context.organization.id,
+    projectId,
+    ...(input.includeArchived ? {} : { status: { not: "ARCHIVED" as const } }),
+    ...(params.contains
+      ? {
+          OR: [
+            { title: params.contains },
+            { externalReference: params.contains },
+          ],
+        }
+      : {}),
+  };
 
-  return client(dependencies).requirement.findMany({
-    where: {
-      organizationId: context.organization.id,
-      projectId,
-      ...(input.includeArchived ? {} : { status: { not: "ARCHIVED" } }),
-    },
-    include: {
-      owner: { select: { id: true, displayName: true } },
-    },
-    orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
-  });
+  const [items, total] = await Promise.all([
+    client(dependencies).requirement.findMany({
+      where,
+      include: {
+        owner: { select: { id: true, displayName: true } },
+      },
+      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+      skip: params.skip,
+      take: params.take,
+    }),
+    client(dependencies).requirement.count({ where }),
+  ]);
+
+  return buildListResult(items, total, params);
 }
 
 export async function getRequirementDetail(

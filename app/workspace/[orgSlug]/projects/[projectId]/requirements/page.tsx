@@ -1,5 +1,10 @@
 import Link from "next/link";
 
+import {
+  ListEmptyState,
+  ListPagination,
+  ListSearch,
+} from "@/components/workspace/list-controls";
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { getProject } from "@/lib/services/projects";
@@ -12,16 +17,26 @@ const statusStyle = {
   ARCHIVED: "bg-slate-100 text-slate-500",
 } as const;
 
-export default async function RequirementsPage({
+export default async function ProjectRequirementsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ orgSlug: string; projectId: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const { orgSlug, projectId } = await params;
+  const { q, page } = await searchParams;
+  const basePath = `/workspace/${orgSlug}/projects/${projectId}/requirements`;
   const [context, project, requirements] = await Promise.all([
     requireWorkspaceContext({ orgSlug, projectId }),
     getProject({ orgSlug, projectId }),
-    listRequirements({ orgSlug, projectId, includeArchived: true }),
+    listRequirements({
+      orgSlug,
+      projectId,
+      includeArchived: true,
+      search: q,
+      page: page ? Number(page) : undefined,
+    }),
   ]);
   const canCreate = context.can("requirement:create");
 
@@ -48,17 +63,21 @@ export default async function RequirementsPage({
         ) : null}
       </header>
 
-      {requirements.length === 0 ? (
-        <section className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
-          <h2 className="text-lg font-semibold">No requirements yet</h2>
-          <p className="mt-2 text-sm text-slate-500">
-            Capture the first testable outcome for this project.
-          </p>
-        </section>
+      <div className="mt-6">
+        <ListSearch basePath={basePath} meta={requirements} placeholder="Search title or reference" />
+      </div>
+
+      {requirements.items.length === 0 ? (
+        <ListEmptyState
+          meta={requirements}
+          basePath={basePath}
+          emptyTitle="No requirements yet"
+          emptyDescription="Capture the first testable outcome for this project."
+        />
       ) : (
         <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="divide-y divide-slate-200">
-            {requirements.map((requirement) => (
+            {requirements.items.map((requirement) => (
               <Link
                 key={requirement.id}
                 href={`/workspace/${orgSlug}/projects/${projectId}/requirements/${requirement.id}`}
@@ -90,6 +109,8 @@ export default async function RequirementsPage({
           </div>
         </section>
       )}
+
+      <ListPagination basePath={basePath} meta={requirements} noun="requirements" />
     </div>
   );
 }

@@ -16,6 +16,11 @@ import {
   type WorkspacePermission,
 } from "@/lib/auth/workspace-context";
 import { getPrismaClient } from "@/lib/db/prisma";
+import {
+  buildListResult,
+  parseListParams,
+  type ListParams,
+} from "@/lib/services/list-query";
 
 const uuidSchema = z.string().uuid();
 const titleSchema = z.string().trim().min(1).max(300);
@@ -112,7 +117,11 @@ async function findTestCaseOrThrow(
 }
 
 export async function listTestCases(
-  input: { projectId: string; orgSlug?: string; includeArchived?: boolean },
+  input: {
+    projectId: string;
+    orgSlug?: string;
+    includeArchived?: boolean;
+  } & ListParams,
   dependencies?: TestCaseDependencies,
 ) {
   const { context, projectId } = await requireProjectContext(
@@ -120,18 +129,29 @@ export async function listTestCases(
     "testcase:read",
     dependencies,
   );
-  return client(dependencies).testCase.findMany({
-    where: {
-      organizationId: context.organization.id,
-      projectId,
-      ...(input.includeArchived ? {} : { status: { not: "ARCHIVED" } }),
-    },
-    include: {
-      owner: { select: { id: true, displayName: true } },
-      _count: { select: { requirementLinks: true } },
-    },
-    orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
-  });
+  const params = parseListParams(input);
+  const where = {
+    organizationId: context.organization.id,
+    projectId,
+    ...(input.includeArchived ? {} : { status: { not: "ARCHIVED" as const } }),
+    ...(params.contains ? { title: params.contains } : {}),
+  };
+
+  const [items, total] = await Promise.all([
+    client(dependencies).testCase.findMany({
+      where,
+      include: {
+        owner: { select: { id: true, displayName: true } },
+        _count: { select: { requirementLinks: true } },
+      },
+      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+      skip: params.skip,
+      take: params.take,
+    }),
+    client(dependencies).testCase.count({ where }),
+  ]);
+
+  return buildListResult(items, total, params);
 }
 
 export async function getTestCaseDetail(

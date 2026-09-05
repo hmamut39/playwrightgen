@@ -6,6 +6,7 @@ import {
   generateAutomationArtifact,
   listAutomationArtifacts,
 } from "@/lib/services/automation-artifacts";
+import { MAX_PAGE_SIZE } from "@/lib/services/list-query";
 import { listRequirements } from "@/lib/services/requirements";
 import {
   approveTestCase,
@@ -36,7 +37,7 @@ export default async function TestCaseDetailPage({
   const { orgSlug, projectId, testCaseId } = await params;
   const [detail, requirements, automationArtifacts] = await Promise.all([
     getTestCaseDetail({ orgSlug, projectId, testCaseId, allowArchived: true }),
-    listRequirements({ orgSlug, projectId }),
+    listRequirements({ orgSlug, projectId, pageSize: MAX_PAGE_SIZE }),
     listAutomationArtifacts({ orgSlug, projectId, testCaseId }),
   ]);
   const { testCase } = detail;
@@ -45,7 +46,7 @@ export default async function TestCaseDetailPage({
   const steps = readTestCaseList(testCase.steps);
   const expectedResults = readTestCaseList(testCase.expectedResults);
   const linkedIds = new Set(testCase.requirementLinks.map((link) => link.requirementId));
-  const availableRequirements = requirements.filter((requirement) => !linkedIds.has(requirement.id));
+  const availableRequirements = requirements.items.filter((requirement) => !linkedIds.has(requirement.id));
   const isReviewComplete = Boolean(testCase.objective.trim() && steps.length && expectedResults.length);
 
   async function updateAction(formData: FormData) {
@@ -152,9 +153,9 @@ export default async function TestCaseDetailPage({
             Browser and API engines create separate, reviewable artifacts pinned to this exact approved Test Case version. Generated code is never executed automatically.
           </p>
         </div>
-        {automationArtifacts.length ? (
+        {automationArtifacts.items.length ? (
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            {automationArtifacts.map((artifact) => (
+            {automationArtifacts.items.map((artifact) => (
               <Link
                 key={artifact.id}
                 href={`/workspace/${orgSlug}/projects/${projectId}/automation/${artifact.id}`}

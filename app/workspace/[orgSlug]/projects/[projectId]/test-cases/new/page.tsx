@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { getProject } from "@/lib/services/projects";
+import { MAX_PAGE_SIZE } from "@/lib/services/list-query";
 import { listRequirements } from "@/lib/services/requirements";
 import { createTestCase } from "@/lib/services/test-cases";
 
@@ -19,7 +20,7 @@ export default async function NewTestCasePage({
   await requireWorkspaceContext({ orgSlug, projectId, permission: "testcase:create" });
   const [project, requirements] = await Promise.all([
     getProject({ orgSlug, projectId }),
-    listRequirements({ orgSlug, projectId }),
+    listRequirements({ orgSlug, projectId, pageSize: MAX_PAGE_SIZE }),
   ]);
 
   async function createAction(formData: FormData) {
@@ -85,12 +86,12 @@ export default async function NewTestCasePage({
         <label className="block text-sm font-medium">Tags
           <input name="tags" placeholder="smoke, checkout, release" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500/60" />
         </label>
-        {requirements.length ? (
+        {requirements.items.length ? (
           <fieldset>
             <legend className="text-sm font-medium">Requirement traceability</legend>
             <p className="mt-1 text-xs text-slate-500">Optionally link the test to the product intent it verifies.</p>
             <div className="mt-3 max-h-48 space-y-2 overflow-y-auto rounded-xl border border-slate-200 p-4">
-              {requirements.map((requirement) => (
+              {requirements.items.map((requirement) => (
                 <label key={requirement.id} className="flex items-start gap-3 text-sm">
                   <input type="checkbox" name="requirementIds" value={requirement.id} className="mt-1" />
                   <span>{requirement.title} <span className="text-xs text-slate-400">· {requirement.status.replace("_", " ")}</span></span>

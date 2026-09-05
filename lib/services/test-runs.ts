@@ -15,6 +15,11 @@ import {
   type WorkspacePermission,
 } from "@/lib/auth/workspace-context";
 import { getPrismaClient } from "@/lib/db/prisma";
+import {
+  buildListResult,
+  parseListParams,
+  type ListParams,
+} from "@/lib/services/list-query";
 
 const uuidSchema = z.string().uuid();
 const nameSchema = z.string().trim().min(1).max(300);
@@ -109,20 +114,43 @@ export function readEvidence(value: Prisma.JsonValue) {
 }
 
 export async function listTestRuns(
-  input: { projectId: string; orgSlug?: string },
+  input: { projectId: string; orgSlug?: string } & ListParams,
   dependencies?: TestRunDependencies,
 ) {
   const { context, projectId } = await requireProjectContext(input, "testrun:read", dependencies);
-  return client(dependencies).testRun.findMany({
-    where: { organizationId: context.organization.id, projectId },
-    include: {
-      testCase: { select: { id: true, title: true, type: true } },
-      testCaseVersion: { select: { id: true, versionNumber: true } },
-      createdBy: { select: { id: true, displayName: true } },
-      _count: { select: { attempts: true } },
-    },
-    orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
-  });
+  const params = parseListParams(input);
+  // Searching the run name and the underlying Test Case title, because people
+  // look for a run by the behaviour it covers as often as by what it was called.
+  const where = {
+    organizationId: context.organization.id,
+    projectId,
+    ...(params.contains
+      ? {
+          OR: [
+            { name: params.contains },
+            { testCase: { title: params.contains } },
+          ],
+        }
+      : {}),
+  };
+
+  const [items, total] = await Promise.all([
+    client(dependencies).testRun.findMany({
+      where,
+      include: {
+        testCase: { select: { id: true, title: true, type: true } },
+        testCaseVersion: { select: { id: true, versionNumber: true } },
+        createdBy: { select: { id: true, displayName: true } },
+        _count: { select: { attempts: true } },
+      },
+      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+      skip: params.skip,
+      take: params.take,
+    }),
+    client(dependencies).testRun.count({ where }),
+  ]);
+
+  return buildListResult(items, total, params);
 }
 
 export async function getTestRunDetail(

@@ -21,6 +21,11 @@ import {
   OrganizationAiRateLimitError,
   reserveOrganizationAiRequest,
 } from "@/lib/operations/organization-ai-guard";
+import {
+  buildListResult,
+  parseListParams,
+  type ListParams,
+} from "@/lib/services/list-query";
 import { readTestCaseList } from "@/lib/services/test-cases";
 
 const uuidSchema = z.string().uuid();
@@ -126,7 +131,7 @@ export async function listAutomationArtifacts(
     projectId: string;
     testCaseId?: string;
     includeArchived?: boolean;
-  },
+  } & ListParams,
   dependencies?: Dependencies,
 ) {
   const { workspace, projectId } = await context(
@@ -135,24 +140,44 @@ export async function listAutomationArtifacts(
     dependencies,
   );
   const testCaseId = input.testCaseId ? parseUuid(input.testCaseId) : undefined;
-  return client(dependencies).automationArtifact.findMany({
-    where: {
-      organizationId: workspace.organization.id,
-      projectId,
-      ...(testCaseId ? { testCaseId } : {}),
-      ...(input.includeArchived ? {} : { status: { not: "ARCHIVED" } }),
-    },
-    include: {
-      testCase: { select: { id: true, title: true, status: true } },
-      testCaseVersion: { select: { versionNumber: true } },
-      createdBy: { select: { displayName: true } },
-      versions: {
-        orderBy: { versionNumber: "desc" },
-        take: 1,
+  const params = parseListParams(input);
+  // Artifact name and the Test Case it automates, since an artifact is usually
+  // remembered by the behaviour it covers.
+  const where = {
+    organizationId: workspace.organization.id,
+    projectId,
+    ...(testCaseId ? { testCaseId } : {}),
+    ...(input.includeArchived ? {} : { status: { not: "ARCHIVED" as const } }),
+    ...(params.contains
+      ? {
+          OR: [
+            { name: params.contains },
+            { testCase: { title: params.contains } },
+          ],
+        }
+      : {}),
+  };
+
+  const [items, total] = await Promise.all([
+    client(dependencies).automationArtifact.findMany({
+      where,
+      include: {
+        testCase: { select: { id: true, title: true, status: true } },
+        testCaseVersion: { select: { versionNumber: true } },
+        createdBy: { select: { displayName: true } },
+        versions: {
+          orderBy: { versionNumber: "desc" },
+          take: 1,
+        },
       },
-    },
-    orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
-  });
+      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+      skip: params.skip,
+      take: params.take,
+    }),
+    client(dependencies).automationArtifact.count({ where }),
+  ]);
+
+  return buildListResult(items, total, params);
 }
 
 export async function getAutomationArtifactDetail(

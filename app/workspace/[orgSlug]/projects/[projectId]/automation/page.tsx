@@ -1,5 +1,9 @@
 import Link from "next/link";
 
+import {
+  ListPagination,
+  ListSearch,
+} from "@/components/workspace/list-controls";
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
 import { listAutomationArtifacts } from "@/lib/services/automation-artifacts";
 
@@ -18,11 +22,15 @@ const validationStyle = {
 
 export default async function AutomationPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ orgSlug: string; projectId: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const { orgSlug, projectId } = await params;
-  const artifacts = await listAutomationArtifacts({ orgSlug, projectId });
+  const { q, page } = await searchParams;
+  const basePath = `/workspace/${orgSlug}/projects/${projectId}/automation`;
+  const artifacts = await listAutomationArtifacts({ orgSlug, projectId, search: q, page: page ? Number(page) : undefined });
   const base = `/workspace/${orgSlug}/projects/${projectId}`;
 
   return (
@@ -50,9 +58,13 @@ export default async function AutomationPage({
         </Link>
       </header>
 
+      <div className="mt-6">
+        <ListSearch basePath={basePath} meta={artifacts} placeholder="Search artifacts or test cases" />
+      </div>
+
       <section className="mt-8 grid gap-4">
-        {artifacts.length ? (
-          artifacts.map((artifact) => {
+        {artifacts.items.length ? (
+          artifacts.items.map((artifact) => {
             const currentVersion = artifact.versions[0];
             return (
               <Link
@@ -103,6 +115,8 @@ export default async function AutomationPage({
           </div>
         )}
       </section>
+
+      <ListPagination basePath={basePath} meta={artifacts} noun="artifacts" />
     </div>
   );
 }

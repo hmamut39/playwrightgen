@@ -337,10 +337,10 @@ describe("tenant-safe Requirement workflow", () => {
     const member = await addProjectMember(workspace, "MEMBER");
 
     expect(
-      await listRequirements(
+      (await listRequirements(
         { projectId: workspace.project.id },
         dependencies(workspace, member),
-      ),
+      )).items,
     ).toEqual([]);
     await expect(
       createRequirement(
