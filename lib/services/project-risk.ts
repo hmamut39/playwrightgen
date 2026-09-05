@@ -5,7 +5,7 @@ import {
   type WorkspaceContextDependencies,
 } from "@/lib/auth/workspace-context";
 import { getPrismaClient } from "@/lib/db/prisma";
-import { classifyRuns } from "@/lib/services/run-signals";
+import { classifyRuns, loadAttemptFacts } from "@/lib/services/run-signals";
 
 /**
  * A compact risk summary for every project in one organization.
@@ -42,19 +42,7 @@ export async function getOrganizationProjectRisk(
   const organizationId = workspace.organization.id;
 
   const [attemptRows, findingGroups] = await Promise.all([
-    prisma.testRunAttempt.findMany({
-      where: { organizationId },
-      select: {
-        projectId: true,
-        testRunId: true,
-        attemptNumber: true,
-        result: true,
-        commitSha: true,
-        executedAt: true,
-        testRun: { select: { testCaseId: true, testCaseVersionId: true } },
-      },
-      orderBy: { executedAt: "asc" },
-    }),
+    loadAttemptFacts(prisma, { organizationId }),
     prisma.failureFinding.groupBy({
       by: ["projectId"],
       where: { organizationId, status: "OPEN" },
@@ -68,17 +56,7 @@ export async function getOrganizationProjectRisk(
 
   // Runs are classified once across the organization, then attributed to the
   // project each run belongs to.
-  const signals = classifyRuns(
-    attemptRows.map((row) => ({
-      testRunId: row.testRunId,
-      testCaseId: row.testRun.testCaseId,
-      testCaseVersionId: row.testRun.testCaseVersionId,
-      attemptNumber: row.attemptNumber,
-      result: row.result,
-      commitSha: row.commitSha,
-      executedAt: row.executedAt,
-    })),
-  );
+  const signals = classifyRuns(attemptRows);
 
   const projectOfRun = new Map(attemptRows.map((row) => [row.testRunId, row.projectId]));
   const latestEvidence = new Map<string, Date>();

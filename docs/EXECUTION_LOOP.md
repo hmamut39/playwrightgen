@@ -74,6 +74,30 @@ stops verifying at once. A payload naming a project that does not exist is
 answered with `invalid_signature` rather than `404`, so an unauthenticated caller
 cannot enumerate organization and project pairs by watching the status code.
 
+## Quotas
+
+`reserveRunIngest` reserves capacity for the organization after the signature
+verifies and before any evidence is written. Reserving earlier would let an
+unauthenticated caller exhaust a tenant's allowance by posting garbage.
+
+Two windows, bounding different risks. The per-minute window bounds request rate
+and protects the endpoint. The daily window counts **results**, not requests,
+because one accepted post can carry hundreds and that is what writes rows and
+costs storage; limiting requests alone would let a misconfigured workflow insert
+a very large number of attempts while appearing well inside its quota.
+
+Defaults are deliberately generous — 60 requests per minute and 20,000 results
+per day, overridable with `RUN_INGEST_MINUTE_LIMIT` and
+`RUN_INGEST_DAILY_RESULT_LIMIT`. A limit that trips during ordinary work trains
+people to ignore it.
+
+A batch that would cross the daily limit is refused whole rather than partially
+recorded, because half a run's evidence is worse than none: it looks complete.
+
+The guard fails closed. If the limiter is unreachable the request is answered
+`503` rather than admitted unmetered, and because the reporter exits zero on
+error the customer's suite stays green and the next push retries.
+
 ## Idempotency
 
 GitHub retries and re-runs must not inflate evidence. Each attempt records a
@@ -146,10 +170,30 @@ a test should assert has not caused a regression, and reporting one would erode
 trust in every other verdict. Attempts recorded without a revision produce no
 verdict at all rather than a guess.
 
+## Bounded history
+
+Verdicts consider attempts from the last `SIGNAL_WINDOW_DAYS` (90), capped at
+`SIGNAL_ATTEMPT_CAP` (20,000), through the single loader in
+`lib/services/run-signals.ts`.
+
+This is not an optimisation, it is a correctness requirement. Attempts are the
+fastest-growing table once CI reports on every push, and the Projects list, the
+Test Runs list, the Release report, and failure analysis all classify runs. Read
+unbounded, each of those pages would get measurably slower every day a customer
+used the product.
+
+A time window rather than a bare row cap: a cap alone drops arbitrary rows, so a
+verdict would depend on which ones happened to survive. Ninety days keeps the
+comparison meaningful, since evidence older than that usually describes an
+application that has moved on, and the count cap exists only as a ceiling for
+pathological volumes.
+
+Anything comparing runs must use `loadAttemptFacts` rather than querying
+attempts directly.
+
 ## Not yet built
 
 - Trace, screenshot, and video artifact upload and retention.
-- Per-organization ingest quotas and rate limits.
 - Preview end-to-end proof against a real repository.
 
 No claim of proven execution should be made until the Preview proof exists.

@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { PrismaClient } from "@/generated/prisma/client";
+
 import {
   requireWorkspaceContext,
   type WorkspaceContextDependencies,
@@ -166,30 +168,76 @@ export async function getProjectRunSignals(
   );
   const prisma = dependencies?.prisma ?? getPrismaClient();
 
+  return classifyRuns(
+    await loadAttemptFacts(prisma, {
+      organizationId: workspace.organization.id,
+      projectId: input.projectId,
+    }),
+  );
+}
+
+/**
+ * Attempts grow without limit once CI reports on every push, so the rows behind
+ * a verdict have to be bounded or every page that shows a signal gets slower
+ * every day.
+ *
+ * A time window rather than a bare row cap, because a cap drops arbitrary rows
+ * and would make verdicts depend on which ones happened to survive. Ninety days
+ * keeps the comparison meaningful — evidence older than that describes an
+ * application that has usually moved on — and the count cap exists only as a
+ * ceiling for pathological volumes.
+ *
+ * Both are deliberately visible here rather than hidden in each caller, so the
+ * window a verdict rests on is one number in one place.
+ */
+export const SIGNAL_WINDOW_DAYS = 90;
+export const SIGNAL_ATTEMPT_CAP = 20_000;
+
+/**
+ * Loads the bounded attempt history used for classification.
+ *
+ * Ordered newest-first so the cap keeps the most recent evidence, then reversed
+ * because `classifyRuns` reasons about attempts in the order they happened.
+ */
+export async function loadAttemptFacts(
+  prisma: PrismaClient,
+  scope: { organizationId: string; projectId?: string; testCaseId?: string; now?: Date },
+): Promise<Array<AttemptFact & { projectId: string }>> {
+  const now = scope.now ?? new Date();
+  const cutoff = new Date(now.getTime() - SIGNAL_WINDOW_DAYS * 86_400_000);
+
   const rows = await prisma.testRunAttempt.findMany({
-    where: { organizationId: workspace.organization.id, projectId: input.projectId },
+    where: {
+      organizationId: scope.organizationId,
+      ...(scope.projectId ? { projectId: scope.projectId } : {}),
+      ...(scope.testCaseId ? { testRun: { testCaseId: scope.testCaseId } } : {}),
+      executedAt: { gte: cutoff },
+    },
     select: {
       testRunId: true,
+      projectId: true,
       attemptNumber: true,
       result: true,
       commitSha: true,
       executedAt: true,
       testRun: { select: { testCaseId: true, testCaseVersionId: true } },
     },
-    orderBy: { executedAt: "asc" },
+    orderBy: { executedAt: "desc" },
+    take: SIGNAL_ATTEMPT_CAP,
   });
 
-  return classifyRuns(
-    rows.map((row) => ({
+  return rows
+    .map((row) => ({
       testRunId: row.testRunId,
+      projectId: row.projectId,
       testCaseId: row.testRun.testCaseId,
       testCaseVersionId: row.testRun.testCaseVersionId,
       attemptNumber: row.attemptNumber,
       result: row.result,
       commitSha: row.commitSha,
       executedAt: row.executedAt,
-    })),
-  );
+    }))
+    .reverse();
 }
 
 export const runSignalLabel: Record<RunSignal, string> = {

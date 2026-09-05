@@ -6,7 +6,7 @@ import {
 } from "@/lib/auth/workspace-context";
 import { getPrismaClient } from "@/lib/db/prisma";
 import { getProjectQualityIntelligence } from "@/lib/services/project-quality";
-import { classifyRuns, type RunSignal } from "@/lib/services/run-signals";
+import { classifyRuns, loadAttemptFacts, type RunSignal } from "@/lib/services/run-signals";
 
 /**
  * Answers "can this be released?" without inventing a number.
@@ -69,29 +69,11 @@ export async function getReleaseReadiness(
 
   const quality = await getProjectQualityIntelligence(input, dependencies);
 
-  const attemptRows = await prisma.testRunAttempt.findMany({
-    where: { organizationId: workspace.organization.id, projectId: input.projectId },
-    select: {
-      testRunId: true,
-      attemptNumber: true,
-      result: true,
-      commitSha: true,
-      executedAt: true,
-      testRun: { select: { testCaseId: true, testCaseVersionId: true } },
-    },
-    orderBy: { executedAt: "asc" },
-  });
-
   const signals = classifyRuns(
-    attemptRows.map((row) => ({
-      testRunId: row.testRunId,
-      testCaseId: row.testRun.testCaseId,
-      testCaseVersionId: row.testRun.testCaseVersionId,
-      attemptNumber: row.attemptNumber,
-      result: row.result,
-      commitSha: row.commitSha,
-      executedAt: row.executedAt,
-    })),
+    await loadAttemptFacts(prisma, {
+      organizationId: workspace.organization.id,
+      projectId: input.projectId,
+    }),
   );
 
   const bySignal = (signal: RunSignal) =>

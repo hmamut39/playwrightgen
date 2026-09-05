@@ -18,7 +18,7 @@ import {
   OrganizationAiRateLimitError,
   reserveOrganizationAiRequest,
 } from "@/lib/operations/organization-ai-guard";
-import { classifyRuns } from "@/lib/services/run-signals";
+import { classifyRuns, loadAttemptFacts } from "@/lib/services/run-signals";
 import { readTestCaseList } from "@/lib/services/test-cases";
 import { readEvidence, readStepResults } from "@/lib/services/test-runs";
 
@@ -142,34 +142,13 @@ async function describeExecutionHistory(
   },
   dependencies?: Dependencies,
 ): Promise<string> {
-  const rows = await client(dependencies).testRunAttempt.findMany({
-    where: {
-      organizationId: input.organizationId,
-      projectId: input.projectId,
-      testRun: { testCaseId: input.testCaseId },
-    },
-    select: {
-      testRunId: true,
-      attemptNumber: true,
-      result: true,
-      commitSha: true,
-      executedAt: true,
-      testRun: { select: { testCaseId: true, testCaseVersionId: true } },
-    },
-    orderBy: { executedAt: "asc" },
+  const rows = await loadAttemptFacts(client(dependencies), {
+    organizationId: input.organizationId,
+    projectId: input.projectId,
+    testCaseId: input.testCaseId,
   });
 
-  const verdict = classifyRuns(
-    rows.map((row) => ({
-      testRunId: row.testRunId,
-      testCaseId: row.testRun.testCaseId,
-      testCaseVersionId: row.testRun.testCaseVersionId,
-      attemptNumber: row.attemptNumber,
-      result: row.result,
-      commitSha: row.commitSha,
-      executedAt: row.executedAt,
-    })),
-  ).get(input.testRunId);
+  const verdict = classifyRuns(rows).get(input.testRunId);
 
   const own = rows.filter((row) => row.testRunId === input.testRunId);
   const passed = own.filter((row) => row.result === "PASSED").length;

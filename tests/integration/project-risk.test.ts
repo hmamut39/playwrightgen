@@ -112,6 +112,7 @@ describe("organization project risk", () => {
       },
     });
 
+    const baseTime = Date.now() - 3_600_000;
     const attempt = (attemptNumber: number, result: "PASSED" | "FAILED", commitSha: string) => ({
       organizationId: space.org.id,
       projectId,
@@ -128,12 +129,14 @@ describe("organization project risk", () => {
       commitSha,
       sourceRef: "main",
       executedByUserId: space.owner.id,
-      executedAt: new Date(attemptNumber * 1_000_000),
+      // Recent, and ordered, because signals only consider a bounded recent
+      // window. Epoch-era timestamps fall outside it.
+      executedAt: new Date(baseTime + attemptNumber * 60_000),
     });
 
     await prisma.testRunAttempt.create({ data: attempt(1, "PASSED", SHA_A) });
     await prisma.testRunAttempt.create({ data: attempt(2, "FAILED", SHA_B) });
-    return run;
+    return { run, latestEvidenceAt: new Date(baseTime + 2 * 60_000) };
   }
 
   it("attributes a regression to the project that owns the run", async () => {
@@ -162,11 +165,11 @@ describe("organization project risk", () => {
   it("records the latest evidence timestamp per project", async () => {
     const space = await organization();
     const target = await project(space, "Checkout");
-    await regressingRun(space, target.id);
+    const { latestEvidenceAt } = await regressingRun(space, target.id);
 
     const risk = await getOrganizationProjectRisk({}, deps(space));
 
-    expect(risk.get(target.id)?.lastEvidenceAt).toEqual(new Date(2_000_000));
+    expect(risk.get(target.id)?.lastEvidenceAt).toEqual(latestEvidenceAt);
   });
 
   it("does not include another organization's projects", async () => {

@@ -1,6 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { classifyRuns, type AttemptFact } from "@/lib/services/run-signals";
+import {
+  classifyRuns,
+  loadAttemptFacts,
+  SIGNAL_ATTEMPT_CAP,
+  SIGNAL_WINDOW_DAYS,
+  type AttemptFact,
+} from "@/lib/services/run-signals";
 
 const V1 = "11111111-1111-4111-8111-111111111111";
 const V2 = "22222222-2222-4222-8222-222222222222";
@@ -141,5 +147,64 @@ describe("classifyRuns", () => {
 
   it("returns nothing for a run with no attempts", () => {
     expect(classifyRuns([]).size).toBe(0);
+  });
+});
+
+describe("loadAttemptFacts", () => {
+  const ORG = "88888888-8888-4888-8888-888888888888";
+
+  function stubPrisma(rows: unknown[] = []) {
+    const findMany = vi.fn().mockResolvedValue(rows);
+    return { prisma: { testRunAttempt: { findMany } } as never, findMany };
+  }
+
+  it("bounds the query by time and by row count", async () => {
+    const { prisma, findMany } = stubPrisma();
+    const now = new Date("2026-09-05T00:00:00.000Z");
+
+    await loadAttemptFacts(prisma, { organizationId: ORG, now });
+
+    const [args] = findMany.mock.calls[0];
+    // Unbounded here means every attempt ever recorded is read on each page
+    // view, and attempts are the fastest-growing table once CI reports.
+    expect(args.take).toBe(SIGNAL_ATTEMPT_CAP);
+    expect(args.orderBy).toEqual({ executedAt: "desc" });
+
+    const cutoff = args.where.executedAt.gte as Date;
+    const days = (now.getTime() - cutoff.getTime()) / 86_400_000;
+    expect(days).toBe(SIGNAL_WINDOW_DAYS);
+  });
+
+  it("scopes to the organization, and to a project when given one", async () => {
+    const { prisma, findMany } = stubPrisma();
+
+    await loadAttemptFacts(prisma, { organizationId: ORG });
+    expect(findMany.mock.calls[0][0].where).toMatchObject({ organizationId: ORG });
+    expect(findMany.mock.calls[0][0].where.projectId).toBeUndefined();
+
+    await loadAttemptFacts(prisma, { organizationId: ORG, projectId: "p1" });
+    expect(findMany.mock.calls[1][0].where).toMatchObject({ organizationId: ORG, projectId: "p1" });
+  });
+
+  it("returns attempts oldest-first even though the query takes the newest", async () => {
+    const row = (id: string, at: string) => ({
+      testRunId: id,
+      projectId: "p1",
+      attemptNumber: 1,
+      result: "PASSED" as const,
+      commitSha: null,
+      executedAt: new Date(at),
+      testRun: { testCaseId: "c1", testCaseVersionId: "v1" },
+    });
+    // The query orders newest-first so the cap keeps recent evidence; the
+    // classifier reasons in the order things happened.
+    const { prisma } = stubPrisma([
+      row("newest", "2026-09-05T00:00:00.000Z"),
+      row("oldest", "2026-09-01T00:00:00.000Z"),
+    ]);
+
+    const facts = await loadAttemptFacts(prisma, { organizationId: ORG });
+
+    expect(facts.map((f) => f.testRunId)).toEqual(["oldest", "newest"]);
   });
 });
