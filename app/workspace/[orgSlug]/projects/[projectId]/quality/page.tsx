@@ -1,7 +1,10 @@
 import Link from "next/link";
 
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
+import { SetupChecklist } from "@/components/workspace/setup-checklist";
+import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { getProjectQualityIntelligence } from "@/lib/services/project-quality";
+import { getProjectSetup } from "@/lib/services/project-setup";
 
 const freshnessStyle = {
   FRESH: "bg-emerald-50 text-emerald-700 ring-emerald-200",
@@ -23,10 +26,11 @@ export default async function ProjectQualityPage({
   params: Promise<{ orgSlug: string; projectId: string }>;
 }) {
   const { orgSlug, projectId } = await params;
-  const intelligence = await getProjectQualityIntelligence({
-    orgSlug,
-    projectId,
-  });
+  const [intelligence, setup, context] = await Promise.all([
+    getProjectQualityIntelligence({ orgSlug, projectId }),
+    getProjectSetup({ orgSlug, projectId }),
+    requireWorkspaceContext({ orgSlug, projectId }),
+  ]);
   const base = `/workspace/${orgSlug}/projects/${projectId}`;
   const totalActionableGaps =
     intelligence.gaps.requirementsWithoutApprovedTests.length +
@@ -74,6 +78,8 @@ export default async function ProjectQualityPage({
           </div>
         </div>
       </header>
+
+      <SetupChecklist setup={setup} canAct={context.can("requirement:create")} />
 
       <section className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Measured quality signals">
         <SignalCard
