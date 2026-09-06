@@ -2,6 +2,8 @@ import "server-only";
 
 import { z } from "zod";
 
+import { webUrlSchema } from "@/lib/validation/url";
+
 import type {
   Prisma,
   TestBrowser,
@@ -28,7 +30,7 @@ const modeSchema = z.enum(["MANUAL", "PLAYWRIGHT_BROWSER", "API"]);
 const environmentSchema = z.enum(["LOCAL", "DEVELOPMENT", "STAGING", "PRODUCTION", "OTHER"]);
 const browserSchema = z.enum(["NONE", "CHROMIUM", "FIREFOX", "WEBKIT"]);
 const resultSchema = z.enum(["PASSED", "FAILED", "BLOCKED"]);
-const nullableUrlSchema = z.string().trim().url().max(2_000).nullable();
+const nullableUrlSchema = webUrlSchema().nullable();
 const stepResultsSchema = z.array(z.object({
   stepIndex: z.number().int().nonnegative(),
   result: z.enum(["PASSED", "FAILED", "BLOCKED", "SKIPPED"]),
@@ -37,7 +39,7 @@ const stepResultsSchema = z.array(z.object({
 const evidenceSchema = z.array(z.object({
   kind: z.enum(["SCREENSHOT", "VIDEO", "TRACE", "LOG", "LINK"]),
   label: z.string().trim().min(1).max(200),
-  url: z.string().trim().url().max(2_000),
+  url: webUrlSchema(),
 })).max(50);
 
 type TestRunDependencies = WorkspaceContextDependencies;

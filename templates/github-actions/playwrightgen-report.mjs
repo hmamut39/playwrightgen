@@ -33,6 +33,48 @@ try {
   process.exit(0);
 }
 
+// Where the workflow uploaded playwright-report and test-results, if it did.
+// Playwright records local runner paths for traces, screenshots and videos, and
+// those paths mean nothing once the runner is gone, so an artifact is only
+// worth reporting when there is somewhere durable to point at.
+const artifactUrl = (process.env.PLAYWRIGHTGEN_ARTIFACT_URL ?? "").trim();
+
+const attachmentKind = (attachment) => {
+  const name = String(attachment.name ?? "").toLowerCase();
+  const type = String(attachment.contentType ?? "").toLowerCase();
+  if (name.includes("trace") || type === "application/zip") return "TRACE";
+  if (name.includes("screenshot") || type.startsWith("image/")) return "SCREENSHOT";
+  if (name.includes("video") || type.startsWith("video/")) return "VIDEO";
+  if (type.startsWith("text/")) return "LOG";
+  return null;
+};
+
+/**
+ * One entry per kind of artifact this test produced.
+ *
+ * Every entry points at the uploaded archive rather than at an individual file,
+ * because GitHub exposes a URL for the artifact as a whole and not for its
+ * contents. The label says so, so a reviewer following the link knows they are
+ * downloading an archive to look inside rather than opening the trace itself.
+ */
+function artifactsFor(result) {
+  if (!artifactUrl) return undefined;
+  const kinds = new Set();
+  for (const attachment of result.attachments ?? []) {
+    const kind = attachmentKind(attachment);
+    if (kind) kinds.add(kind);
+  }
+  if (kinds.size === 0) return undefined;
+
+  const label = {
+    TRACE: "Trace (in CI artifacts)",
+    SCREENSHOT: "Screenshot (in CI artifacts)",
+    VIDEO: "Video (in CI artifacts)",
+    LOG: "Log (in CI artifacts)",
+  };
+  return [...kinds].map((kind) => ({ kind, label: label[kind], url: artifactUrl }));
+}
+
 /** Playwright nests specs inside arbitrarily deep suites. */
 function collect(suite, out) {
   for (const spec of suite.specs ?? []) {
@@ -51,6 +93,7 @@ function collect(suite, out) {
         title: String(step.title).slice(0, 500),
         status: step.error ? "failed" : "passed",
       })),
+      artifacts: artifactsFor(result),
     });
   }
   for (const child of suite.suites ?? []) collect(child, out);

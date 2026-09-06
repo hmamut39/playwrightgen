@@ -54,6 +54,23 @@ jobs:
         continue-on-error: true
         run: npx playwright test --reporter=json > playwright-report.json
 
+      # Traces, screenshots and videos live on the runner, which is destroyed
+      # when the job ends. Uploading them first gives the reporting step a
+      # durable URL to attach to each failing test, so a reviewer opening the
+      # failure weeks later can still see what the browser did. Skipped when
+      # nothing was captured, which is the usual case for a fully passing run.
+      - name: Upload Playwright artifacts
+        id: artifacts
+        if: always() && hashFiles('test-results/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results
+            playwright-report
+          retention-days: 30
+          if-no-files-found: ignore
+
       - name: Report results to PlaywrightGen
         if: always()
         env:
@@ -66,6 +83,9 @@ jobs:
           RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_SHA: ${{ github.sha }}
           REF_NAME: ${{ github.ref_name }}
+          # Empty when nothing was captured, in which case no artifact links are
+          # reported rather than links that would lead nowhere.
+          PLAYWRIGHTGEN_ARTIFACT_URL: ${{ steps.artifacts.outputs.artifact-url }}
         run: node .github/workflows/playwrightgen-report.mjs
 
       - name: Fail the job if tests failed

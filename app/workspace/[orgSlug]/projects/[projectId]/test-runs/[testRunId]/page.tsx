@@ -23,6 +23,20 @@ const resultStyle = {
   CANCELED: "bg-slate-100 text-slate-500",
 } as const;
 
+/**
+ * Evidence chips are styled by kind because a trace, a screenshot and a link to
+ * a workflow are used for different things. Rendered identically, a reviewer has
+ * to click each one to discover what it is, which is the opposite of what
+ * evidence attached to a failure is for.
+ */
+const evidenceStyle: Record<string, { chip: string; glyph: string }> = {
+  TRACE: { chip: "border-violet-300 bg-violet-50 text-violet-800", glyph: "◴" },
+  SCREENSHOT: { chip: "border-sky-300 bg-sky-50 text-sky-800", glyph: "▣" },
+  VIDEO: { chip: "border-fuchsia-300 bg-fuchsia-50 text-fuchsia-800", glyph: "▶" },
+  LOG: { chip: "border-slate-300 bg-slate-50 text-slate-700", glyph: "≡" },
+  LINK: { chip: "border-slate-300 bg-white text-cyan-700", glyph: "↗" },
+};
+
 export default async function TestRunDetailPage({
   params,
 }: {
@@ -141,7 +155,7 @@ export default async function TestRunDetailPage({
 
       <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <h2 className="text-lg font-semibold">Attempt history</h2><p className="mt-1 text-sm text-slate-500">Newest first. Stored evidence cannot be edited or deleted.</p>
-        {testRun.attempts.length === 0 ? <p className="mt-5 rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-500">No attempts recorded.</p> : <div className="mt-6 space-y-4">{testRun.attempts.map((attempt) => { const evidence = readEvidence(attempt.evidence); const stepResults = readStepResults(attempt.stepResults); return <details key={attempt.id} className="rounded-xl border border-slate-200 p-4"><summary className="flex cursor-pointer list-none items-center justify-between gap-4"><div className="flex items-center gap-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${resultStyle[attempt.result]}`}>{attempt.result}</span><span className="text-sm font-semibold">Attempt {attempt.attemptNumber}</span></div><span className="text-xs text-slate-400">{attempt.executedBy.displayName || "Workspace member"} · {attempt.executedAt.toLocaleString()}</span></summary><div className="mt-4 border-t border-slate-200 pt-4 text-sm text-slate-700"><p>{attempt.summary || "No summary."}</p>{attempt.durationMs !== null ? <p className="mt-2 text-xs text-slate-400">Duration {(attempt.durationMs / 1000).toFixed(3)} seconds</p> : null}{attempt.failureDetails ? <div className="mt-4 rounded-lg bg-red-50 p-3 text-red-900"><span className="font-semibold">Failure/blocker: </span>{attempt.failureDetails}</div> : null}{stepResults.length ? <ul className="mt-4 space-y-2">{stepResults.map((step) => <li key={step.stepIndex} className="rounded-lg bg-slate-50 p-3"><span className="font-semibold">Step {step.stepIndex + 1}: {step.result}</span>{step.notes ? ` · ${step.notes}` : ""}</li>)}</ul> : null}{evidence.length ? <div className="mt-4 flex flex-wrap gap-2">{evidence.map((item) => <a key={`${item.label}-${item.url}`} href={item.url} target="_blank" rel="noreferrer" className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-cyan-700">{item.label}</a>)}</div> : null}</div></details>; })}</div>}
+        {testRun.attempts.length === 0 ? <p className="mt-5 rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-500">No attempts recorded.</p> : <div className="mt-6 space-y-4">{testRun.attempts.map((attempt) => { const evidence = readEvidence(attempt.evidence); const stepResults = readStepResults(attempt.stepResults); return <details key={attempt.id} className="rounded-xl border border-slate-200 p-4"><summary className="flex cursor-pointer list-none items-center justify-between gap-4"><div className="flex items-center gap-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${resultStyle[attempt.result]}`}>{attempt.result}</span><span className="text-sm font-semibold">Attempt {attempt.attemptNumber}</span></div><span className="text-xs text-slate-400">{attempt.executedBy.displayName || "Workspace member"} · {attempt.executedAt.toLocaleString()}</span></summary><div className="mt-4 border-t border-slate-200 pt-4 text-sm text-slate-700"><p>{attempt.summary || "No summary."}</p>{attempt.durationMs !== null ? <p className="mt-2 text-xs text-slate-400">Duration {(attempt.durationMs / 1000).toFixed(3)} seconds</p> : null}{attempt.failureDetails ? <div className="mt-4 rounded-lg bg-red-50 p-3 text-red-900"><span className="font-semibold">Failure/blocker: </span>{attempt.failureDetails}</div> : null}{stepResults.length ? <ul className="mt-4 space-y-2">{stepResults.map((step) => <li key={step.stepIndex} className="rounded-lg bg-slate-50 p-3"><span className="font-semibold">Step {step.stepIndex + 1}: {step.result}</span>{step.notes ? ` · ${step.notes}` : ""}</li>)}</ul> : null}{evidence.length ? <div className="mt-4"><p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Captured evidence</p><div className="mt-2 flex flex-wrap gap-2">{evidence.map((item) => { const style = evidenceStyle[item.kind] ?? evidenceStyle.LINK; return <a key={`${item.label}-${item.url}`} href={item.url} target="_blank" rel="noreferrer" className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${style.chip}`}><span aria-hidden="true">{style.glyph}</span>{item.label}</a>; })}</div>{evidence.some((item) => item.kind === "TRACE") ? <p className="mt-3 text-xs leading-5 text-slate-500">A Playwright trace is a downloadable archive, not a page. Download it, then open it with <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px]">npx playwright show-trace &lt;file&gt;</code> to step through what the browser actually did.</p> : null}</div> : null}</div></details>; })}</div>}
       </section>
     </div>
   );

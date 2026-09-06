@@ -5,6 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { buildTestCaseVersionMarker } from "@/lib/integrations/runner/ingest-token";
 import { classifyRuns } from "@/lib/services/run-signals";
+import { readEvidence } from "@/lib/services/test-runs";
 import {
   ingestPlaywrightResults,
   RunIngestError,
@@ -160,6 +161,71 @@ describe("Playwright result ingestion from customer CI", () => {
       ...overrides,
     };
   }
+
+  it("stores the artifacts a failing test produced alongside the workflow link", async () => {
+    // A failure message says something broke and nothing about what the browser
+    // did. The trace and screenshot are the evidence a reviewer actually opens,
+    // so they have to survive on the attempt rather than only in CI.
+    const space = await workspace();
+    const { versionId } = await approvedVersion(space);
+    const title = `${buildTestCaseVersionMarker(versionId)} checkout shows a confirmation`;
+
+    await ingestPlaywrightResults(payload(space, title, {
+      results: [{
+        title,
+        status: "failed",
+        errorMessage: "expect(received).toBeVisible()",
+        artifacts: [
+          { kind: "TRACE", label: "Trace (in CI artifacts)", url: "https://example.com/run.zip" },
+          { kind: "SCREENSHOT", url: "https://example.com/shot.png" },
+        ],
+      }],
+    }), { prisma });
+
+    const attempt = await prisma.testRunAttempt.findFirstOrThrow({
+      where: { organizationId: space.organization.id, projectId: space.project.id },
+      orderBy: { executedAt: "desc" },
+    });
+    const evidence = readEvidence(attempt.evidence);
+
+    // The workflow link stays first: the idempotency check matches on it.
+    expect(evidence[0]).toMatchObject({ kind: "LINK", url: "https://github.com/acme/web/actions/runs/9001" });
+    expect(evidence).toHaveLength(3);
+    expect(evidence).toContainEqual({
+      kind: "TRACE", label: "Trace (in CI artifacts)", url: "https://example.com/run.zip",
+    });
+    // Unlabelled artifacts are named after their kind rather than left blank.
+    expect(evidence).toContainEqual({
+      kind: "SCREENSHOT", label: "Screenshot", url: "https://example.com/shot.png",
+    });
+  });
+
+  it("numbers repeated artifacts of one kind so the links are distinguishable", async () => {
+    const space = await workspace();
+    const { versionId } = await approvedVersion(space);
+    const title = `${buildTestCaseVersionMarker(versionId)} checkout retries`;
+
+    await ingestPlaywrightResults(payload(space, title, {
+      results: [{
+        title,
+        status: "failed",
+        artifacts: [
+          { kind: "SCREENSHOT", url: "https://example.com/1.png" },
+          { kind: "SCREENSHOT", url: "https://example.com/2.png" },
+        ],
+      }],
+    }), { prisma });
+
+    const attempt = await prisma.testRunAttempt.findFirstOrThrow({
+      where: { organizationId: space.organization.id, projectId: space.project.id },
+      orderBy: { executedAt: "desc" },
+    });
+    const labels = readEvidence(attempt.evidence)
+      .filter((item) => item.kind === "SCREENSHOT")
+      .map((item) => item.label);
+
+    expect(labels).toEqual(["Screenshot 1", "Screenshot 2"]);
+  });
 
   it("records a CI result as immutable evidence pinned to the approved version", async () => {
     const space = await workspace();

@@ -2,6 +2,8 @@ import "server-only";
 
 import { z } from "zod";
 
+import { webUrlSchema } from "@/lib/validation/url";
+
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { getPrismaClient } from "@/lib/db/prisma";
 import { readTestCaseVersionMarker } from "@/lib/integrations/runner/ingest-token";
@@ -38,13 +40,13 @@ export const ingestPayloadSchema = z.object({
   run: z.object({
     provider: z.literal("github_actions"),
     externalId: z.string().trim().min(1).max(200),
-    url: z.string().trim().url().max(2_000),
+    url: webUrlSchema(),
     commitSha: z.string().trim().regex(/^[0-9a-f]{40}$/i),
     ref: z.string().trim().min(1).max(300),
   }),
   environment: z.enum(["LOCAL", "DEVELOPMENT", "STAGING", "PRODUCTION", "OTHER"]),
   browser: z.enum(["NONE", "CHROMIUM", "FIREFOX", "WEBKIT"]),
-  baseUrl: z.string().trim().url().max(2_000).nullable().optional(),
+  baseUrl: webUrlSchema().nullable().optional(),
   results: z
     .array(
       z.object({
@@ -61,6 +63,23 @@ export const ingestPayloadSchema = z.object({
           )
           .max(200)
           .optional(),
+        // Per-test artifacts. A failure that says only "expected true, got
+        // false" tells a reviewer that something broke and nothing about what
+        // the browser actually did; the trace, screenshot and video are the
+        // evidence they need, and Playwright already produces them on every
+        // failing test. Links rather than uploads: CI has already stored these
+        // somewhere durable, so pointing at them adds no storage, no retention
+        // policy and no new place for customer data to sit.
+        artifacts: z
+          .array(
+            z.object({
+              kind: z.enum(["TRACE", "SCREENSHOT", "VIDEO", "LOG", "LINK"]),
+              label: z.string().trim().min(1).max(200).optional(),
+              url: webUrlSchema(),
+            }),
+          )
+          .max(20)
+          .optional(),
       }),
     )
     .min(1)
@@ -68,6 +87,47 @@ export const ingestPayloadSchema = z.object({
 });
 
 export type IngestPayload = z.infer<typeof ingestPayloadSchema>;
+
+const artifactKindLabel = {
+  TRACE: "Trace",
+  SCREENSHOT: "Screenshot",
+  VIDEO: "Video",
+  LOG: "Log",
+  LINK: "Link",
+} as const;
+
+/**
+ * Turns the artifacts reported for one test into evidence entries.
+ *
+ * Labels are generated when CI does not supply one, and numbered when a test
+ * produced several of a kind, because three links all reading "Screenshot" are
+ * no more useful to a reviewer than no label at all.
+ */
+function artifactEvidence(
+  artifacts: IngestPayload["results"][number]["artifacts"],
+): Array<{ kind: string; label: string; url: string }> {
+  if (!artifacts?.length) return [];
+  const seen = new Map<string, number>();
+  const totals = new Map<string, number>();
+  for (const artifact of artifacts) {
+    if (artifact.label) continue;
+    totals.set(artifact.kind, (totals.get(artifact.kind) ?? 0) + 1);
+  }
+
+  return artifacts.map((artifact) => {
+    if (artifact.label) {
+      return { kind: artifact.kind, label: artifact.label, url: artifact.url };
+    }
+    const position = (seen.get(artifact.kind) ?? 0) + 1;
+    seen.set(artifact.kind, position);
+    const base = artifactKindLabel[artifact.kind];
+    return {
+      kind: artifact.kind,
+      label: (totals.get(artifact.kind) ?? 0) > 1 ? `${base} ${position}` : base,
+      url: artifact.url,
+    };
+  });
+}
 
 export class RunIngestError extends Error {
   readonly code: string;
@@ -245,8 +305,12 @@ export async function ingestPlaywrightResults(
             result: toStepResult(step.status),
             notes: step.title.slice(0, 5_000),
           })) as Prisma.InputJsonValue,
+          // The workflow link first, then whatever the run captured for this
+          // specific test. The workflow link stays the first element because
+          // the idempotency check above matches on it.
           evidence: [
             { kind: "LINK", label: evidenceLabel, url: payload.run.url },
+            ...artifactEvidence(entry.artifacts),
           ] as Prisma.InputJsonValue,
           executedByUserId: actorUserId,
         },
