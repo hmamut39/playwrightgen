@@ -131,6 +131,76 @@ describe("tenant-safe workspace authorization", () => {
     await expect(promise).rejects.toMatchObject({ status, code });
   }
 
+  it("recovers when Clerk knows an organization the database does not", async () => {
+    // A missed webhook delivery used to lock a genuine member out of their own
+    // workspace behind a bare "this page couldn't load". The organization is
+    // created from Clerk instead, and the lookup retried.
+    const workspace = await createWorkspace();
+    const orphanOrgId = uniqueValue("clerk-org");
+
+    let asked = 0;
+    const context = await requireWorkspaceContext(
+      { permission: "organization:read" },
+      {
+        authenticate: async () => ({
+          userId: workspace.clerkUserId,
+          orgId: orphanOrgId,
+        }),
+        prisma,
+        provisionWorkspace: async ({ clerkOrganizationId }) => {
+          asked += 1;
+          await prisma.organization.create({
+            data: {
+              clerkOrganizationId,
+              name: "Recovered workspace",
+              slug: uniqueValue("recovered"),
+            },
+          });
+          const organization = await prisma.organization.findUniqueOrThrow({
+            where: { clerkOrganizationId },
+          });
+          const user = await prisma.user.findUniqueOrThrow({
+            where: { clerkUserId: workspace.clerkUserId },
+          });
+          await prisma.membership.create({
+            data: {
+              organizationId: organization.id,
+              userId: user.id,
+              role: "OWNER",
+            },
+          });
+          return true;
+        },
+      },
+    );
+
+    expect(asked).toBe(1);
+    expect(context.organization.clerkOrganizationId).toBe(orphanOrgId);
+  });
+
+  it("still refuses when the organization cannot be recovered", async () => {
+    // Provisioning runs on a path that was already failing, so when Clerk is
+    // unreachable or returns nothing the original not-found has to stand rather
+    // than be replaced by an error about provisioning.
+    const workspace = await createWorkspace();
+
+    await expectAuthorizationError(
+      requireWorkspaceContext(
+        {},
+        {
+          authenticate: async () => ({
+            userId: workspace.clerkUserId,
+            orgId: uniqueValue("clerk-org"),
+          }),
+          prisma,
+          provisionWorkspace: async () => false,
+        },
+      ),
+      404,
+      "workspace_not_found",
+    );
+  });
+
   it("returns 401 when no Clerk user is authenticated", async () => {
     await expectAuthorizationError(
       requireWorkspaceContext(

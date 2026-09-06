@@ -11,6 +11,7 @@ import type {
   User,
 } from "@/generated/prisma/client";
 import { getPrismaClient } from "@/lib/db/prisma";
+import { provisionWorkspaceFromClerk } from "@/lib/auth/workspace-provisioning";
 
 export type WorkspacePermission =
   | "organization:read"
@@ -78,6 +79,11 @@ type WorkspaceAuthState = {
 export type WorkspaceContextDependencies = {
   authenticate: () => Promise<WorkspaceAuthState>;
   prisma: PrismaClient;
+  /** Injectable so tests can exercise the recovery path without calling Clerk. */
+  provisionWorkspace?: (input: {
+    clerkOrganizationId: string;
+    prisma: PrismaClient;
+  }) => Promise<boolean>;
 };
 
 export type RequireWorkspaceContextInput = {
@@ -208,14 +214,31 @@ export async function requireWorkspaceContext(
 
   const prisma = dependencies?.prisma ?? getPrismaClient();
 
-  const [user, organization] = await Promise.all([
-    prisma.user.findUnique({
-      where: { clerkUserId: authState.userId },
-    }),
-    prisma.organization.findUnique({
-      where: { clerkOrganizationId: authState.orgId },
-    }),
-  ]);
+  const lookup = () =>
+    Promise.all([
+      prisma.user.findUnique({
+        where: { clerkUserId: authState.userId as string },
+      }),
+      prisma.organization.findUnique({
+        where: { clerkOrganizationId: authState.orgId as string },
+      }),
+    ]);
+
+  let [user, organization] = await lookup();
+
+  // Clerk says this person is a member of an organization the database has
+  // never heard of, which happens when a webhook delivery was missed. Rather
+  // than lock someone out of their own workspace with a bare error, the mirror
+  // is created from Clerk and the lookup retried once. If that does not
+  // succeed, the original not-found stands.
+  if (!organization) {
+    const provisioned = await (
+      dependencies?.provisionWorkspace ?? provisionWorkspaceFromClerk
+    )({ clerkOrganizationId: authState.orgId, prisma });
+    if (provisioned) {
+      [user, organization] = await lookup();
+    }
+  }
 
   if (!organization) {
     notFound();
