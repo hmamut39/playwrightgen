@@ -111,6 +111,44 @@ const changeImpactFocus = [
     "production",
 ];
 
+/**
+ * A worked example, filled in by one click.
+ *
+ * This form asks for more than a dozen fields, and someone arriving for the
+ * first time has no way to tell whether "change summary" wants a sentence or a
+ * design document. Guessing wrong produces a shallow review, which reads as the
+ * tool being weak rather than the input being thin.
+ *
+ * The example is deliberately a change with real risk surface -- it moves work
+ * off the request path, alters who can act, and has downstream consumers -- so
+ * the review it produces demonstrates what the tool actually looks for instead
+ * of returning generic advice about a trivial change.
+ */
+const exampleReview = {
+    projectName: "Move refund approval to an async queue",
+    changeSummary:
+        "Refunds over $500 currently block the support agent's request while a synchronous call to the payment provider completes, which times out under load. This change writes the refund to a durable queue and returns immediately; a worker calls the provider and settles the refund within a few minutes. Support agents keep the same button, but the confirmation now says the refund is pending rather than complete.",
+    expectedBehavior:
+        "Submitting a refund over $500 returns within 300ms with a Pending status. The refund settles to Completed once the worker succeeds, or to Failed with a reason the agent can read. Refunds are never applied twice, even if the worker retries.",
+    beforeBehavior:
+        "The agent waits for the payment provider inline. Under load the call exceeds the 30s gateway timeout, the agent sees a generic error, and it is not possible to tell from the UI whether the refund was actually issued. Agents retry, which has caused duplicate refunds.",
+    acceptanceCriteria:
+        `1. A refund over $500 returns Pending in under 300ms.
+2. A settled refund moves to Completed and appears in the customer's ledger exactly once.
+3. A provider failure moves the refund to Failed with an agent-readable reason, and does not silently disappear.
+4. Submitting the same refund twice creates one refund, not two.
+5. Refunds under $500 keep their existing synchronous behavior.`,
+    categories: ["API / Contract", "Data Integrity", "Integration", "Feature Flag / Rollout"],
+    affectedApplications: ["Support Console", "Payments Service", "Ledger"],
+    roles: ["Support Agent", "Administrator", "Customer"],
+    featureFlagStatus: "Yes" as FeatureFlagStatus,
+    featureFlagName: "async_refund_queue",
+    rolloutStrategy: "Internal users first",
+    rolloutContext:
+        "Enabled for the internal support team for one week, then 10% of agents, then all. Rollback is flipping the flag off, which returns to the synchronous path; refunds already queued still settle.",
+    downstreamConsumers: ["Finance reconciliation export", "Customer ledger", "Partner refund webhook"],
+};
+
 export default function EngineeringReviewPage() {
     const [projectName, setProjectName] = useState("");
     const [changeSummary, setChangeSummary] = useState("");
@@ -157,6 +195,33 @@ export default function EngineeringReviewPage() {
             block: "start",
         });
     }, [result]);
+
+    const applyExample = () => {
+        setProjectName(exampleReview.projectName);
+        setChangeSummary(exampleReview.changeSummary);
+        setExpectedBehavior(exampleReview.expectedBehavior);
+        setBeforeBehavior(exampleReview.beforeBehavior);
+        setAcceptanceCriteria(exampleReview.acceptanceCriteria);
+        setSelectedCategories(exampleReview.categories);
+        setCustomCategory("");
+        setAffectedApplications(exampleReview.affectedApplications);
+        setAffectedApplicationDraft("");
+        setSelectedRoles(exampleReview.roles);
+        setCustomRole("");
+        setFeatureFlagStatus(exampleReview.featureFlagStatus);
+        setFeatureFlagName(exampleReview.featureFlagName);
+        setRolloutStrategy(exampleReview.rolloutStrategy);
+        setRolloutContext(exampleReview.rolloutContext);
+        setDownstreamConsumers(exampleReview.downstreamConsumers);
+        setDownstreamConsumerDraft("");
+        // Expanded so the optional fields it filled are visible. Filling inputs
+        // hidden behind a collapsed section would look like the button did less
+        // than it did, and would teach nothing about what that section is for.
+        setContextExpanded(true);
+        setFieldErrors({ changeSummary: "", expectedBehavior: "" });
+        setResult(null);
+        setError("");
+    };
 
     const invalidateResult = () => {
         setResult(null);
@@ -477,10 +542,23 @@ export default function EngineeringReviewPage() {
                             Start with the required fields. Additional context improves evidence
                             confidence and result specificity.
                         </p>
-                        <p className="mt-3 text-sm font-medium text-slate-700">
-                            <span className="text-red-600" aria-hidden="true">*</span>{" "}
-                            Required
-                        </p>
+                        <div className="mt-4 flex flex-wrap items-center gap-3">
+                            <p className="text-sm font-medium text-slate-700">
+                                <span className="text-red-600" aria-hidden="true">*</span>{" "}
+                                Required
+                            </p>
+                            <button
+                                type="button"
+                                onClick={applyExample}
+                                className="rounded-xl border border-sky-300 bg-sky-50 px-3.5 py-2 text-xs font-semibold text-sky-800 transition hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60"
+                            >
+                                Fill in an example
+                            </button>
+                            <span className="text-xs text-slate-500">
+                                A real change with risk in it, so you can see what a
+                                review looks like before writing your own.
+                            </span>
+                        </div>
                     </header>
 
                     <div className="mt-6 space-y-6">
