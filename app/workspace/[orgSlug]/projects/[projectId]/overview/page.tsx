@@ -1,11 +1,14 @@
 import { revalidatePath } from "next/cache";
 
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
+import { SetupChecklist } from "@/components/workspace/setup-checklist";
+import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import {
   archiveProject,
   getProjectOverview,
   restoreProject,
 } from "@/lib/services/projects";
+import { getProjectSetup } from "@/lib/services/project-setup";
 
 export default async function ProjectOverviewPage({
   params,
@@ -13,11 +16,11 @@ export default async function ProjectOverviewPage({
   params: Promise<{ orgSlug: string; projectId: string }>;
 }) {
   const { orgSlug, projectId } = await params;
-  const overview = await getProjectOverview({
-    orgSlug,
-    projectId,
-    allowArchived: true,
-  });
+  const [overview, setup, context] = await Promise.all([
+    getProjectOverview({ orgSlug, projectId, allowArchived: true }),
+    getProjectSetup({ orgSlug, projectId }),
+    requireWorkspaceContext({ orgSlug, projectId }),
+  ]);
   const { project } = overview;
 
   async function transitionAction(formData: FormData) {
@@ -56,6 +59,12 @@ export default async function ProjectOverviewPage({
           </form>
         ) : null}
       </div>
+
+      {/* The landing page for a project is where someone arrives immediately
+          after creating one, so the chain belongs here rather than only on
+          Quality, which a new user has no reason to open. It hides itself once
+          every step is done, so an established project pays nothing for it. */}
+      <SetupChecklist setup={setup} canAct={context.can("requirement:create")} />
 
       <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <dl className="grid gap-6 sm:grid-cols-2">

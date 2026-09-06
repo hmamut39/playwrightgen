@@ -36,8 +36,45 @@ const signalFor = (facts: AttemptFact[], runId = RUN) =>
   classifyRuns(facts).get(runId)?.signal;
 
 describe("classifyRuns", () => {
-  it("reports a passing latest attempt as stable", () => {
-    expect(signalFor([attempt({ result: "PASSED" })])).toBe("STABLE");
+  it("reports a single passing attempt as passing, not stable", () => {
+    // One green attempt is one observation. Calling it stable would inflate a
+    // single data point into a claim that the behaviour holds over time.
+    expect(signalFor([attempt({ result: "PASSED" })])).toBe("PASSING");
+    expect(classifyRuns([attempt({ result: "PASSED" })]).get(RUN)?.detail).toContain(
+      "does not yet show the behaviour holding",
+    );
+  });
+
+  it("reports stability only once one version passed across revisions", () => {
+    const facts = [
+      attempt({ attemptNumber: 1, result: "PASSED", commitSha: SHA_A }),
+      attempt({ attemptNumber: 2, result: "PASSED", commitSha: SHA_B }),
+    ];
+
+    expect(signalFor(facts)).toBe("STABLE");
+    expect(classifyRuns(facts).get(RUN)?.detail).toContain("passed on 2 revisions");
+  });
+
+  it("does not treat repeated passes on one revision as stability", () => {
+    // Re-running the same commit produces more attempts but no new evidence
+    // about whether the behaviour survives a change.
+    const facts = [
+      attempt({ attemptNumber: 1, result: "PASSED", commitSha: SHA_A }),
+      attempt({ attemptNumber: 2, result: "PASSED", commitSha: SHA_A }),
+    ];
+
+    expect(signalFor(facts)).toBe("PASSING");
+  });
+
+  it("keeps a pass with no recorded revision as passing", () => {
+    // A manual run that records no revision has nothing to hold across, so it
+    // can never earn the stronger label however often it is repeated.
+    const facts = [
+      attempt({ attemptNumber: 1, result: "PASSED", commitSha: null }),
+      attempt({ attemptNumber: 2, result: "PASSED", commitSha: null }),
+    ];
+
+    expect(signalFor(facts)).toBe("PASSING");
   });
 
   it("calls the same version failing and passing on one commit flaky", () => {
@@ -142,7 +179,7 @@ describe("classifyRuns", () => {
 
     const signals = classifyRuns(facts);
     expect(signals.get(RUN)?.signal).toBe("FLAKY");
-    expect(signals.get(OTHER_RUN)?.signal).toBe("STABLE");
+    expect(signals.get(OTHER_RUN)?.signal).toBe("PASSING");
   });
 
   it("returns nothing for a run with no attempts", () => {

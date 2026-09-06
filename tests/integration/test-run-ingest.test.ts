@@ -270,9 +270,11 @@ describe("Playwright result ingestion from customer CI", () => {
       })),
     );
 
-    // The latest attempt passed, so the run reads as stable; the flaky verdict
-    // appears when the newest attempt is the failing one.
-    expect(signals.get(attempts[0].testRunId)?.signal).toBe("STABLE");
+    // The latest attempt passed, so the run reads as passing; the flaky verdict
+    // appears when the newest attempt is the failing one. It is not "stable"
+    // because both attempts are on one commit, which says nothing about whether
+    // the behaviour survives a change.
+    expect(signals.get(attempts[0].testRunId)?.signal).toBe("PASSING");
   });
 
   it("classifies a failure on a newer commit as a regression, not flakiness", async () => {

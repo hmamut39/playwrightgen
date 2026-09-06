@@ -27,6 +27,7 @@ import { getPrismaClient } from "@/lib/db/prisma";
  */
 export type RunSignal =
   | "STABLE"
+  | "PASSING"
   | "FLAKY"
   | "REGRESSION"
   | "INTENT_CHANGED"
@@ -88,10 +89,35 @@ export function classifyRuns(
     }
 
     if (isPassing(latest.result)) {
-      results.set(testRunId, {
-        signal: "STABLE",
-        detail: `Latest attempt passed on ${latest.commitSha ? latest.commitSha.slice(0, 8) : "an unrecorded revision"}.`,
-      });
+      // "Stable" is a claim about behaviour holding over time, so it requires
+      // the approved version to have passed on more than one revision. A single
+      // green attempt is one observation, and reporting it as stability inflates
+      // thin evidence into a reliability claim the data does not support --
+      // which is the same overstatement as calling an unexecuted project
+      // releasable. Manual runs that record no revision stay "Passing" for the
+      // same reason: without a revision there is nothing to hold across.
+      const passedRevisions = new Set(
+        (passingByTestCase.get(latest.testCaseId) ?? [])
+          .filter(
+            (attempt) =>
+              attempt.testCaseVersionId === latest.testCaseVersionId &&
+              attempt.commitSha !== null,
+          )
+          .map((attempt) => attempt.commitSha as string),
+      );
+
+      results.set(
+        testRunId,
+        passedRevisions.size >= 2
+          ? {
+              signal: "STABLE",
+              detail: `The same approved version passed on ${passedRevisions.size} revisions, most recently ${latest.commitSha ? latest.commitSha.slice(0, 8) : "an unrecorded revision"}.`,
+            }
+          : {
+              signal: "PASSING",
+              detail: `Latest attempt passed on ${latest.commitSha ? latest.commitSha.slice(0, 8) : "an unrecorded revision"}. Only one revision has passed for this version, which does not yet show the behaviour holding.`,
+            },
+      );
       continue;
     }
 
@@ -242,6 +268,7 @@ export async function loadAttemptFacts(
 
 export const runSignalLabel: Record<RunSignal, string> = {
   STABLE: "Stable",
+  PASSING: "Passing",
   FLAKY: "Flaky",
   REGRESSION: "Regression",
   INTENT_CHANGED: "Intent changed",
