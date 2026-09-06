@@ -64,4 +64,57 @@ describe("Failure Intelligence evidence validation", () => {
       }],
     }, evidence)).toThrowError(FailureAnalysisProviderError);
   });
+  const finding = (overrides: Record<string, unknown>) => ({
+    summary: "A failure was analyzed.",
+    findings: [{
+      category: "UNKNOWN" as const,
+      confidence: 20,
+      title: "A finding",
+      explanation: "An explanation.",
+      evidenceField: "FAILURE_DETAILS" as const,
+      evidenceQuote: "POST /orders returned HTTP 500.",
+      recommendation: "A recommendation.",
+      ...overrides,
+    }],
+  });
+
+  it("rejects a citation too short to identify what it refers to", () => {
+    // "the" occurs in almost any evidence field, so a substring match alone
+    // would let a finding claim a citation while proving nothing.
+    expect(() => validateFailureAnalysisEvidence(
+      finding({ evidenceField: "SUMMARY", evidenceQuote: "the" }),
+      evidence,
+    )).toThrowError(FailureAnalysisProviderError);
+
+    expect(() => validateFailureAnalysisEvidence(
+      finding({ evidenceField: "SUMMARY", evidenceQuote: "a" }),
+      evidence,
+    )).toThrowError(FailureAnalysisProviderError);
+  });
+
+  it("accepts a short quote when it is the whole evidence field", () => {
+    // RUN_RESULT is "FAILED". Quoting it whole is the most precise citation
+    // available for that field, so brevity there is not vagueness.
+    expect(() => validateFailureAnalysisEvidence(
+      finding({ evidenceField: "RUN_RESULT", evidenceQuote: "FAILED" }),
+      evidence,
+    )).not.toThrow();
+  });
+
+  it("still accepts a substantial quote from a longer field", () => {
+    expect(() => validateFailureAnalysisEvidence(
+      finding({ evidenceField: "SUMMARY", evidenceQuote: "Checkout returned a server error." }),
+      evidence,
+    )).not.toThrow();
+  });
+
+  it("rejects a quote from a field the finding did not cite", () => {
+    // The quote is real, but it belongs to FAILURE_DETAILS. Attributing it to
+    // the wrong field would make the citation uncheckable by a reader who goes
+    // looking for it where the finding said it was.
+    expect(() => validateFailureAnalysisEvidence(
+      finding({ evidenceField: "TEST_OBJECTIVE", evidenceQuote: "POST /orders returned HTTP 500." }),
+      evidence,
+    )).toThrowError(FailureAnalysisProviderError);
+  });
 });

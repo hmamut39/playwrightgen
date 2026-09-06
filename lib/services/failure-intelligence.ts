@@ -23,10 +23,17 @@ import { readTestCaseList } from "@/lib/services/test-cases";
 import { readEvidence, readStepResults } from "@/lib/services/test-runs";
 
 const uuidSchema = z.string().uuid();
-// Bumped together with the EXECUTION_HISTORY evidence field. Stored analyses
-// keep their original versions, so earlier findings stay interpretable against
-// the prompt and schema that actually produced them.
-const PROMPT_VERSION = "failure-analysis-v2";
+// Bumped whenever the prompt or the schema changes. Stored analyses keep their
+// original versions, so earlier findings stay interpretable against the prompt
+// and schema that actually produced them.
+//
+// v3 tells the model that EVIDENCE_LINKS holds artifact names and URLs whose
+// contents it has not been given. Runs began attaching traces, screenshots and
+// videos, and a field that now reads "Screenshot (SCREENSHOT): https://..."
+// invites a model to describe what the screenshot shows -- which would be an
+// invented observation presented as cited evidence, in the one place this
+// product promises never to do that. The schema is unchanged.
+const PROMPT_VERSION = "failure-analysis-v3";
 const SCHEMA_VERSION = "failure-analysis-schema-v2";
 
 type Dependencies = WorkspaceContextDependencies & {
