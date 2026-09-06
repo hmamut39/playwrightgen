@@ -1,6 +1,8 @@
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 
+import { CodeBlock } from "@/components/workspace/code-block";
+
 import {
   approveAutomationArtifact,
   generateAutomationArtifact,
@@ -244,7 +246,9 @@ export default async function AutomationArtifactPage({
                     <h2 className="text-lg font-semibold">Playwright test</h2>
                     <span className="text-xs text-slate-400">TypeScript · not executed</span>
                   </div>
-                  <pre className="mt-5 max-h-[46rem] overflow-auto whitespace-pre text-xs leading-6"><code>{currentVersion.code}</code></pre>
+                  <div className="mt-5">
+                    <CodeBlock code={currentVersion.code} />
+                  </div>
                 </div>
               </section>
 
@@ -253,7 +257,9 @@ export default async function AutomationArtifactPage({
                 <p className="mt-2 text-sm text-slate-500">
                   Declared dependencies: {currentVersion.dependencies.join(", ") || "None"}
                 </p>
-                <pre className="mt-5 max-h-96 overflow-auto rounded-xl bg-slate-950 p-5 text-xs leading-6 text-slate-100"><code>{currentVersion.configuration}</code></pre>
+                <div className="mt-5">
+                  <CodeBlock code={currentVersion.configuration} maxHeight="24rem" />
+                </div>
               </section>
             </>
           ) : null}
