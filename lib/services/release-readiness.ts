@@ -45,9 +45,17 @@ export type ReleaseReadiness = {
     openFindings: number;
   };
   evidence: {
+    /**
+     * How recently anything in the project changed, including requirement and
+     * test-case edits. It answers "was this touched", not "was this run", and
+     * must not be presented as execution evidence on its own.
+     */
     freshness: "FRESH" | "AGING" | "STALE" | "MISSING";
     lastEvidenceAt: Date | null;
     ageDays: number | null;
+    /** Whether any attempt has ever been recorded. The execution question. */
+    hasExecution: boolean;
+    attemptCount: number;
   };
   findings: ReadinessFinding[];
   /** True only when no blocker is present. Cautions do not stop a release. */
@@ -69,12 +77,23 @@ export async function getReleaseReadiness(
 
   const quality = await getProjectQualityIntelligence(input, dependencies);
 
-  const signals = classifyRuns(
-    await loadAttemptFacts(prisma, {
+  // Counted directly rather than inferred from the evidence freshness clock.
+  // That clock is refreshed by requirement and test-case edits as well as by
+  // runs, so on a project whose documents were approved today it reads "fresh"
+  // while nothing has ever executed. Using it as the execution gate turned an
+  // untested project into a green "nothing is blocking this release", which is
+  // the single most consequential claim this page makes. An indexed count over
+  // the append-only attempt table answers the execution question directly.
+  const [attemptFacts, totalAttempts] = await Promise.all([
+    loadAttemptFacts(prisma, {
       organizationId: workspace.organization.id,
       projectId: input.projectId,
     }),
-  );
+    prisma.testRunAttempt.count({
+      where: { organizationId: workspace.organization.id, projectId: input.projectId },
+    }),
+  ]);
+  const signals = classifyRuns(attemptFacts);
 
   const bySignal = (signal: RunSignal) =>
     [...signals.values()].filter((entry) => entry.signal === signal).length;
@@ -122,13 +141,13 @@ export async function getReleaseReadiness(
     });
   }
 
-  if (quality.evidence.freshness === "MISSING") {
+  if (totalAttempts === 0) {
     findings.push({
       severity: "BLOCKER",
       code: "evidence_missing",
       title: "No execution evidence exists",
       detail:
-        "Nothing has been run, so there is no basis on which to judge this release. An empty queue is not confidence.",
+        "Nothing has ever been run for this project, so there is no basis on which to judge this release. Approved documents describe intended behaviour; they do not demonstrate it.",
       href: `${base}/test-runs`,
       count: 1,
     });
@@ -213,6 +232,8 @@ export async function getReleaseReadiness(
       freshness: quality.evidence.freshness,
       lastEvidenceAt: quality.evidence.lastEvidenceAt,
       ageDays: quality.evidence.ageDays,
+      hasExecution: totalAttempts > 0,
+      attemptCount: totalAttempts,
     },
     findings,
     releasable: !findings.some((finding) => finding.severity === "BLOCKER"),

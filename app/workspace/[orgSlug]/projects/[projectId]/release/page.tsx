@@ -62,10 +62,15 @@ export default async function ReleaseReadinessPage({
           evidence. Every claim below links to the record it came from. No score is
           produced, because a single number would hide the detail a reviewer needs.
         </p>
+        {/* The freshness clock counts requirement and test-case edits as well
+            as runs, so it can read "fresh" on a project that has never executed
+            anything. Stating the execution count alongside it keeps the header
+            from implying evidence that does not exist. */}
         <p className="mt-3 text-xs text-slate-400">
-          Measured {readiness.measuredAt.toLocaleString()} · Evidence{" "}
-          {freshnessLabel[readiness.evidence.freshness].toLowerCase()}
-          {readiness.evidence.ageDays !== null ? `, ${readiness.evidence.ageDays} days old` : ""}
+          Measured {readiness.measuredAt.toLocaleString()} ·{" "}
+          {readiness.evidence.hasExecution
+            ? `${readiness.evidence.attemptCount} recorded ${readiness.evidence.attemptCount === 1 ? "attempt" : "attempts"}, last activity ${freshnessLabel[readiness.evidence.freshness].toLowerCase()}${readiness.evidence.ageDays !== null ? ` at ${readiness.evidence.ageDays} days old` : ""}`
+            : "No execution has ever been recorded"}
         </p>
       </header>
 
