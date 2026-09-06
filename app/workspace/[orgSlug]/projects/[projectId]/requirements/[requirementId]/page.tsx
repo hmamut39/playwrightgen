@@ -161,6 +161,18 @@ export default async function RequirementDetailPage({
               </form>
             </>
           ) : null}
+          {/* Product intent changes, so approved intent has to be reopenable.
+              Recorded versions, automation and runs stay pinned to the version
+              they were made for; this Requirement simply stops counting as
+              approved coverage until it is approved again. */}
+          {requirement.status === "APPROVED" && detail.canApprove ? (
+            <form action={transitionAction}>
+              <input type="hidden" name="intent" value="request-changes" />
+              <button className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-900 hover:bg-amber-100">
+                Revise this requirement
+              </button>
+            </form>
+          ) : null}
           {requirement.status !== "ARCHIVED" && detail.canArchive ? (
             <form action={transitionAction}>
               <input type="hidden" name="intent" value="archive" />

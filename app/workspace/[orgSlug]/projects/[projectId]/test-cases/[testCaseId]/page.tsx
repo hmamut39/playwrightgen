@@ -119,6 +119,11 @@ export default async function TestCaseDetailPage({
           {testCase.status === "APPROVED" && detail.canCreateRun ? <Link href={`/workspace/${orgSlug}/projects/${projectId}/test-runs/new?testCaseId=${testCase.id}`} className="rounded-lg bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white">Create Test Run</Link> : null}
           {testCase.status === "DRAFT" && detail.canSubmit && isReviewComplete ? <form action={transitionAction}><input type="hidden" name="intent" value="submit" /><button className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white">Submit for review</button></form> : null}
           {testCase.status === "IN_REVIEW" && detail.canApprove ? <><form action={transitionAction}><input type="hidden" name="intent" value="request-changes" /><button className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold">Request changes</button></form><form action={transitionAction}><input type="hidden" name="intent" value="approve" /><button className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white">Approve</button></form></> : null}
+          {/* Revising approved intent is how a Test Case keeps up with the
+              product. Automation and runs already recorded stay pinned to the
+              version they were made for, so nothing is rewritten; the Test Case
+              simply stops counting as coverage until it is approved again. */}
+          {testCase.status === "APPROVED" && detail.canApprove ? <form action={transitionAction}><input type="hidden" name="intent" value="request-changes" /><button className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-900">Revise this test case</button></form> : null}
           {testCase.status !== "ARCHIVED" && detail.canArchive ? <form action={transitionAction}><input type="hidden" name="intent" value="archive" /><button className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold">Archive</button></form> : null}
         </div>
       </header>

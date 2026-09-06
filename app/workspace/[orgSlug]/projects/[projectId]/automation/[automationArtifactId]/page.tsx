@@ -44,6 +44,12 @@ export default async function AutomationArtifactPage({
   const findings = currentVersion
     ? readAutomationValidationFindings(currentVersion.validationFindings)
     : [];
+  // Superseded intent: the Test Case has advanced past the version this
+  // automation was generated for, so anything it produces is evidence about
+  // behaviour that is no longer the approved behaviour.
+  const intentMovedOn =
+    artifact.testCase.currentVersionNumber > artifact.testCaseVersion.versionNumber;
+
   const canSubmitCurrent = Boolean(
     currentVersion &&
       currentVersion.generationStatus === "SUCCEEDED" &&
@@ -113,6 +119,22 @@ export default async function AutomationArtifactPage({
             </Link>{" "}
             version {artifact.testCaseVersion.versionNumber}. Test intent remains immutable.
           </p>
+          {/* Pinning is what makes a result traceable, but on its own it says
+              nothing about whether the pin is still current. Stated alone on
+              superseded automation it reads as reassurance, on the very page
+              where someone decides whether to approve or trust this code. */}
+          {intentMovedOn ? (
+            <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+              <span className="font-semibold">
+                The approved intent has moved on since this was generated.
+              </span>{" "}
+              This artifact exercises version {artifact.testCaseVersion.versionNumber}, and the
+              Test Case is now at version {artifact.testCase.currentVersionNumber}. Results
+              from it describe the older behaviour and cannot be read as evidence
+              for the current version. Regenerate against the current version to
+              cover it.
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           {artifact.status === "DRAFT" && detail.canSubmit && canSubmitCurrent ? (

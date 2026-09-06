@@ -19,7 +19,9 @@ import { readTestCaseVersionMarker } from "@/lib/integrations/runner/ingest-toke
 import {
   approveTestCase,
   createTestCase,
+  requestTestCaseChanges,
   submitTestCaseForReview,
+  updateTestCaseDraft,
 } from "@/lib/services/test-cases";
 import {
   cleanPhase1ATables,
@@ -168,6 +170,60 @@ export default defineConfig({ use: { baseURL: "http://localhost:3000" } });`,
     }
     return record;
   }
+
+  it("exposes that the pinned version has been superseded", async () => {
+    // The artifact page states that automation is pinned to a Test Case
+    // version, which is reassuring on its own and misleading once the intent
+    // has moved on. It can only warn about that if the detail carries the Test
+    // Case's current version alongside the pinned one.
+    const space = await workspace();
+    const approvedTestCase = await testCase(space);
+    const artifact = await generateAutomationArtifact({
+      projectId: space.project.id,
+      testCaseId: approvedTestCase.id,
+      engine: "PLAYWRIGHT_BROWSER",
+    }, deps(space));
+
+    const pinned = await getAutomationArtifactDetail({
+      projectId: space.project.id,
+      automationArtifactId: artifact.id,
+    }, deps(space));
+    expect(pinned.artifact.testCaseVersion.versionNumber).toBe(1);
+    expect(pinned.artifact.testCase.currentVersionNumber).toBe(1);
+
+    // The intent moves on: the Test Case returns to draft, is revised, and is
+    // approved again at version 2. The artifact stays pinned to version 1.
+    await requestTestCaseChanges({
+      projectId: space.project.id,
+      testCaseId: approvedTestCase.id,
+    }, deps(space));
+    await updateTestCaseDraft({
+      projectId: space.project.id,
+      testCaseId: approvedTestCase.id,
+      expectedVersion: 1,
+      expectedResults: ["Order confirmation is displayed", "A receipt is emailed"],
+    }, deps(space));
+    await submitTestCaseForReview({
+      projectId: space.project.id,
+      testCaseId: approvedTestCase.id,
+    }, deps(space));
+    await approveTestCase({
+      projectId: space.project.id,
+      testCaseId: approvedTestCase.id,
+    }, deps(space));
+
+    const superseded = await getAutomationArtifactDetail({
+      projectId: space.project.id,
+      automationArtifactId: artifact.id,
+    }, deps(space));
+
+    expect(superseded.artifact.testCaseVersion.versionNumber).toBe(1);
+    expect(superseded.artifact.testCase.currentVersionNumber).toBe(2);
+    expect(
+      superseded.artifact.testCase.currentVersionNumber >
+        superseded.artifact.testCaseVersion.versionNumber,
+    ).toBe(true);
+  });
 
   it("pins an approved Test Case version and appends generated versions", async () => {
     const space = await workspace();

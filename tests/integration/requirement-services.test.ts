@@ -141,6 +141,51 @@ describe("tenant-safe Requirement workflow", () => {
     );
   }
 
+  it("reopens approved intent for revision and keeps version 1 intact", async () => {
+    // Product intent changes. A Requirement that could never be reopened forced
+    // a team to abandon it and create a new one, which breaks the traceability
+    // chain the product exists to keep. Revising appends a version instead, so
+    // whatever was approved as version 1 still reads as it did then.
+    const workspace = await createWorkspace();
+    const requirement = await createCompleteRequirement(workspace);
+    await submitRequirementForReview({
+      projectId: workspace.project.id, requirementId: requirement.id,
+    }, dependencies(workspace));
+    await approveRequirement({
+      projectId: workspace.project.id, requirementId: requirement.id,
+    }, dependencies(workspace));
+
+    const reopened = await requestRequirementChanges({
+      projectId: workspace.project.id, requirementId: requirement.id,
+    }, dependencies(workspace));
+    expect(reopened).toMatchObject({ status: "DRAFT", currentVersionNumber: 1 });
+
+    const revised = await updateRequirementDraft({
+      projectId: workspace.project.id,
+      requirementId: requirement.id,
+      expectedVersion: 1,
+      acceptanceCriteria:
+        "A valid account receives a single-use recovery link that expires in one hour.",
+    }, dependencies(workspace));
+    expect(revised.currentVersionNumber).toBe(2);
+
+    await submitRequirementForReview({
+      projectId: workspace.project.id, requirementId: requirement.id,
+    }, dependencies(workspace));
+    const reapproved = await approveRequirement({
+      projectId: workspace.project.id, requirementId: requirement.id,
+    }, dependencies(workspace));
+    expect(reapproved).toMatchObject({ status: "APPROVED", currentVersionNumber: 2 });
+
+    const versions = await prisma.requirementVersion.findMany({
+      where: { requirementId: requirement.id }, orderBy: { versionNumber: "asc" },
+    });
+    expect(versions).toHaveLength(2);
+    expect(versions[0].acceptanceCriteria).toBe(
+      "A valid account receives a single-use recovery link.",
+    );
+  });
+
   it("creates version 1 and Activity atomically", async () => {
     const workspace = await createWorkspace();
     const requirement = await createCompleteRequirement(workspace);

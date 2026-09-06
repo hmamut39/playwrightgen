@@ -512,7 +512,13 @@ export function requestRequirementChanges(
     input,
     {
       permission: "requirement:approve",
-      from: ["IN_REVIEW"],
+      // Approved as well as in-review. Product intent changes, and a Requirement
+      // that could never be reopened forced a team to abandon it and start a new
+      // one, breaking the traceability chain that is the point of this product.
+      // Recorded versions stay immutable; only new work against unapproved
+      // intent is refused, and coverage correctly reads as lost until it is
+      // approved again.
+      from: ["IN_REVIEW", "APPROVED"],
       to: "DRAFT",
       action: "REQUIREMENT_CHANGES_REQUESTED",
     },

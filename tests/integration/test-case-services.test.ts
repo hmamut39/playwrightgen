@@ -169,6 +169,72 @@ describe("tenant-safe Test Case workflow", () => {
     expect(await prisma.testCaseVersion.count({ where: { testCaseId: testCase.id } })).toBe(1);
   });
 
+  it("reopens approved intent for revision and keeps earlier versions intact", async () => {
+    // Approved intent used to be frozen for good, so a team whose behaviour
+    // changed had to abandon the Test Case and start a new one, breaking the
+    // traceability chain. Reopening appends a version rather than rewriting
+    // one, so the evidence recorded against version 1 stays exactly as it was.
+    const workspace = await createWorkspace();
+    const testCase = await createCompleteTestCase(workspace);
+    await submitTestCaseForReview({
+      projectId: workspace.project.id, testCaseId: testCase.id,
+    }, dependencies(workspace));
+    const approved = await approveTestCase({
+      projectId: workspace.project.id, testCaseId: testCase.id,
+    }, dependencies(workspace));
+    expect(approved).toMatchObject({ status: "APPROVED", currentVersionNumber: 1 });
+
+    const reopened = await requestTestCaseChanges({
+      projectId: workspace.project.id, testCaseId: testCase.id,
+    }, dependencies(workspace));
+    expect(reopened).toMatchObject({ status: "DRAFT", currentVersionNumber: 1 });
+
+    const revised = await updateTestCaseDraft({
+      projectId: workspace.project.id,
+      testCaseId: testCase.id,
+      expectedVersion: 1,
+      expectedResults: ["Order confirmation is displayed", "A receipt is emailed"],
+    }, dependencies(workspace));
+    expect(revised.currentVersionNumber).toBe(2);
+
+    await submitTestCaseForReview({
+      projectId: workspace.project.id, testCaseId: testCase.id,
+    }, dependencies(workspace));
+    const reapproved = await approveTestCase({
+      projectId: workspace.project.id, testCaseId: testCase.id,
+    }, dependencies(workspace));
+    expect(reapproved).toMatchObject({ status: "APPROVED", currentVersionNumber: 2 });
+
+    // Version 1 is untouched: it still records what was approved at the time.
+    const versions = await prisma.testCaseVersion.findMany({
+      where: { testCaseId: testCase.id }, orderBy: { versionNumber: "asc" },
+    });
+    expect(versions).toHaveLength(2);
+    expect(versions[0].versionNumber).toBe(1);
+    expect(versions[0].expectedResults).toEqual(["Order confirmation is displayed"]);
+    expect(versions[1].expectedResults).toEqual([
+      "Order confirmation is displayed",
+      "A receipt is emailed",
+    ]);
+  });
+
+  it("still refuses to edit a Test Case that is awaiting review", async () => {
+    // Reopening is a deliberate act by someone who can approve. It must not
+    // become a way to edit intent that is currently in front of a reviewer.
+    const workspace = await createWorkspace();
+    const testCase = await createCompleteTestCase(workspace);
+    await submitTestCaseForReview({
+      projectId: workspace.project.id, testCaseId: testCase.id,
+    }, dependencies(workspace));
+
+    await expect(updateTestCaseDraft({
+      projectId: workspace.project.id,
+      testCaseId: testCase.id,
+      expectedVersion: 1,
+      objective: "Changed while under review.",
+    }, dependencies(workspace))).rejects.toMatchObject({ code: "test_case_not_editable" });
+  });
+
   it("links and unlinks a same-project Requirement without duplicate activity", async () => {
     const workspace = await createWorkspace();
     const testCase = await createCompleteTestCase(workspace);

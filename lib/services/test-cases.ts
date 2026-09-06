@@ -525,8 +525,26 @@ type TransitionInput = { projectId: string; testCaseId: string; orgSlug?: string
 export function submitTestCaseForReview(input: TransitionInput, dependencies?: TestCaseDependencies) {
   return transitionTestCase(input, { permission: "testcase:submit", from: ["DRAFT"], to: "IN_REVIEW", action: "TEST_CASE_SUBMITTED_FOR_REVIEW" }, dependencies);
 }
+/**
+ * Sends a Test Case back to draft, from review or from approval.
+ *
+ * Reopening an approved Test Case is what lets intent change as the product
+ * does. Without it an approved Test Case was frozen for good, and a team whose
+ * behaviour changed had to abandon it and start a new one, losing the
+ * traceability chain this product exists to keep. Three features were already
+ * written for intent that moves on -- the superseded-automation gap, the
+ * release caution for automation pinned to an old version, and the
+ * INTENT_CHANGED run signal -- and none of them could ever fire, which is what
+ * showed the transition was missing rather than withheld.
+ *
+ * Nothing already recorded is disturbed. Versions stay immutable, and automation
+ * and runs stay pinned to the version they were made for. Only new automation
+ * and new runs are refused while the Test Case sits in draft, because both
+ * require approved intent, and coverage correctly reads as lost until it is
+ * approved again.
+ */
 export function requestTestCaseChanges(input: TransitionInput, dependencies?: TestCaseDependencies) {
-  return transitionTestCase(input, { permission: "testcase:approve", from: ["IN_REVIEW"], to: "DRAFT", action: "TEST_CASE_CHANGES_REQUESTED" }, dependencies);
+  return transitionTestCase(input, { permission: "testcase:approve", from: ["IN_REVIEW", "APPROVED"], to: "DRAFT", action: "TEST_CASE_CHANGES_REQUESTED" }, dependencies);
 }
 export function approveTestCase(input: TransitionInput, dependencies?: TestCaseDependencies) {
   return transitionTestCase(input, { permission: "testcase:approve", from: ["IN_REVIEW"], to: "APPROVED", action: "TEST_CASE_APPROVED" }, dependencies);

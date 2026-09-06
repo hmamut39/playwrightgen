@@ -204,7 +204,13 @@ export async function getAutomationArtifactDetail(
       },
     },
     include: {
-      testCase: { select: { id: true, title: true, status: true } },
+      // The Test Case's current version is loaded so the artifact page can say
+      // whether the version it is pinned to is still the current one. Without
+      // it the page can only state that a pin exists, which reads as reassuring
+      // on automation whose intent has since moved on.
+      testCase: {
+        select: { id: true, title: true, status: true, currentVersionNumber: true },
+      },
       testCaseVersion: true,
       createdBy: { select: { displayName: true } },
       approvedBy: { select: { displayName: true } },
