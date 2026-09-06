@@ -1,5 +1,6 @@
 "use client";
 
+import { GenerationProgress } from "@/components/free-tools/generation-progress";
 import { useMemo, useRef, useState } from "react";
 
 import { ResultActions } from "@/components/free-tools/result-actions";
@@ -54,6 +55,20 @@ function titleFromInput(requirement: string, pageUrl: string) {
   if (pageUrl) return `Quality review: ${pageUrl.slice(0, 240)}`;
   return "Quality review follow-up";
 }
+
+const exampleRequirement = `A signed-in customer can apply one promotion code at checkout.
+
+The discount is shown as a separate line before tax. An expired or unknown code shows an inline error and leaves the total unchanged. Only one code applies at a time; entering a second replaces the first.`;
+
+const exampleTests = `import { test, expect } from "@playwright/test";
+
+test("applies a promo code", async ({ page }) => {
+  await page.goto("/checkout");
+  await page.locator("#promo").fill("SAVE10");
+  await page.locator("button.apply").click();
+  await page.waitForTimeout(2000);
+  expect(await page.locator(".total").textContent()).toBeTruthy();
+});`;
 
 export default function CoverageReviewPage() {
   const [lens, setLens] = useState<ReviewLens>("COVERAGE");
@@ -166,6 +181,22 @@ export default function CoverageReviewPage() {
           <div className="mt-6 grid gap-6 lg:grid-cols-2">
             <label className="text-sm font-semibold text-slate-800">
               Requirement or user flow
+              <div className="mb-3 flex justify-end">
+                {/* Reviewing coverage needs two inputs, which is twice the blank
+                    page. One click supplies a requirement and a deliberately
+                    weak test so the tool has something real to find. */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRequirement(exampleRequirement);
+                    setExistingTests(exampleTests);
+                    invalidate();
+                  }}
+                  className="rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-800 transition hover:border-cyan-300 hover:bg-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
+                >
+                  Use an example
+                </button>
+              </div>
               <textarea value={requirement} onChange={(event) => { setRequirement(event.target.value); invalidate(); }} rows={7} maxLength={30_000} placeholder="Describe the observable behavior, roles, constraints, and acceptance criteria…" className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm leading-6 outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100" />
             </label>
             <label className="text-sm font-semibold text-slate-800">
@@ -194,7 +225,17 @@ export default function CoverageReviewPage() {
           </div>
         </section>
 
-        {result ? (
+        {loading ? (
+          <GenerationProgress
+            message="Reviewing coverage against the requirement"
+            steps={[
+              "Comparing the supplied tests against the behaviour described",
+              "Identifying scenarios that nothing currently exercises",
+              "Checking assertions actually prove the stated outcome",
+              "Flagging fixed waits and DOM-coupled selectors",
+            ]}
+          />
+        ) : result ? (
           <section id="coverage-result" className="scroll-mt-24 mt-8 space-y-6">
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
               <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
@@ -227,7 +268,35 @@ export default function CoverageReviewPage() {
 
             <div className="rounded-[2rem] border border-cyan-200 bg-cyan-50 p-6 sm:p-8"><div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-800">Turn a finding into team-owned intent</p><h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Continue as a draft Requirement</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Choose a project, edit the proposed content, and create an AI-suggested draft. A person still decides whether it is correct and worthy of approval.</p></div>{handoff ? <WorkspaceHandoffButton handoff={handoff} className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-slate-950 px-5 text-sm font-bold text-white hover:bg-cyan-700 lg:w-auto">Continue in Workspace →</WorkspaceHandoffButton> : null}</div></div>
           </section>
-        ) : null}
+        ) : (
+          /* Rendered nothing before, so the page ended in blank space and gave
+             no reason to believe the review would be worth two paste operations. */
+          <section className="mt-8 rounded-[2rem] border border-dashed border-slate-300 bg-white p-6 sm:p-8">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+              What this review reports
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">
+              Gaps you can check, not a score
+            </h2>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              {[
+                ["Scenarios nothing covers", "Behaviour the requirement describes that no supplied test exercises."],
+                ["Weak or missing assertions", "Tests that run without proving the outcome the requirement asks for."],
+                ["Brittle patterns", "Fixed waits and DOM-coupled selectors that will fail for reasons unrelated to the product."],
+                ["Nothing invented", "Findings come from the text you supply. Missing detail is reported as missing."],
+              ].map(([title, detail]) => (
+                <div key={title} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+                  <p className="mt-1.5 text-xs leading-5 text-slate-600">{detail}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-6 text-xs leading-5 text-slate-500">
+              No coverage percentage is produced. A number would hide which
+              scenarios are actually unverified, which is the only part worth acting on.
+            </p>
+          </section>
+        )}
       </div>
     </main>
   );

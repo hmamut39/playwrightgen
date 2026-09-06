@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 
+import { GenerationProgress } from "@/components/free-tools/generation-progress";
 import { ResultActions } from "@/components/free-tools/result-actions";
 import { WorkspaceHandoffButton } from "@/components/free-tools/workspace-handoff-button";
 import type { FreeToolHandoff } from "@/lib/free-tools/handoff";
@@ -30,30 +31,59 @@ const modes: Array<{
   label: string;
   description: string;
   placeholder: string;
+  example: string;
 }> = [
   {
     id: "FLOW",
     label: "User flow",
     description: "Start from a requirement, acceptance criteria, or behavior description.",
     placeholder: "A signed-out user can submit valid credentials and reach the dashboard. Invalid credentials show a visible error without navigating…",
+    example: `A signed-in customer opens /cart with one item already added.
+
+They click the button labelled "Place order", enter a valid test card, and submit.
+
+Expected: an order confirmation appears containing an order number. If the card is declined, an inline error is shown and the customer stays on the checkout page.`,
   },
   {
     id: "MARKUP",
     label: "HTML or JSX",
     description: "Derive user-facing scenarios from supplied markup without inventing implementation.",
     placeholder: "Paste the relevant HTML or JSX here…",
+    example: `<form aria-label="Sign in">
+  <label for="email">Email</label>
+  <input id="email" name="email" type="email" required />
+  <label for="password">Password</label>
+  <input id="password" name="password" type="password" required />
+  <p role="alert" data-testid="signin-error" hidden>Invalid email or password.</p>
+  <button type="submit">Sign in</button>
+</form>`,
   },
   {
     id: "COMPONENT",
     label: "Component behavior",
     description: "Describe a component contract and receive a Playwright browser-test draft.",
     placeholder: "The checkout summary updates totals when quantity changes and announces validation errors…",
+    example: `Component: OrderSummary
+
+Props: items (an array of name, quantity and unitPrice), plus currency.
+
+Behaviour: renders one row per item and shows a Subtotal equal to the sum of quantity multiplied by unitPrice. The Checkout button is disabled when there are no items. Changing a quantity updates the Subtotal immediately, and a quantity below 1 shows a validation message announced to screen readers.`,
   },
   {
     id: "API",
     label: "API contract",
     description: "Create Playwright request-fixture tests from an endpoint contract.",
     placeholder: "POST /api/orders requires an authenticated user and valid line items. Expect 201 with an order id…",
+    example: `POST /api/orders
+
+Auth: requires a bearer token. Without one it responds 401.
+
+Body: items, each with a sku and a quantity.
+
+Responses:
+201 with an orderId and status CONFIRMED when every sku is valid and in stock
+422 with code OUT_OF_STOCK and the offending sku when one is unavailable
+400 when items is empty`,
   },
 ];
 
@@ -203,8 +233,23 @@ export default function QuickGeneratePage() {
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-700">2 · Supply intent and evidence</p>
             <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">{activeMode.label}</h2>
 
-            <label className="mt-6 block text-sm font-semibold text-slate-800">
-              Behavior, requirement, or contract
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+              <span className="text-sm font-semibold text-slate-800">
+                Behavior, requirement, or contract
+              </span>
+              {/* A blank textarea is the single biggest reason someone leaves
+                  without trying the product. One click should show them what
+                  good input looks like and what comes back. */}
+              <button
+                type="button"
+                onClick={() => { setRequest(activeMode.example); resetResult(); }}
+                className="rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-800 transition hover:border-cyan-300 hover:bg-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
+              >
+                Use an example
+              </button>
+            </div>
+            <label className="block text-sm font-semibold text-slate-800">
+              <span className="sr-only">Behavior, requirement, or contract</span>
               <textarea
                 rows={9}
                 value={request}
@@ -253,7 +298,17 @@ export default function QuickGeneratePage() {
           </div>
         </section>
 
-        {result ? (
+        {loading ? (
+          <GenerationProgress
+            message="Building a structured Playwright draft"
+            steps={[
+              "Reading the behaviour, evidence, and any files you attached",
+              "Planning scenarios before writing any code",
+              "Generating TypeScript with role and label based locators",
+              "Running deterministic checks for unsafe patterns and weak assertions",
+            ]}
+          />
+        ) : result ? (
           <section id="quick-generate-result" className="scroll-mt-24 mt-8 space-y-6">
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
               <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
@@ -302,7 +357,38 @@ export default function QuickGeneratePage() {
               </div>
             </div>
           </section>
-        ) : null}
+        ) : (
+          /* Previously this rendered nothing, so a first-time visitor saw a form
+             and then blank space, with no idea what came back or whether it was
+             worth the effort. Stating the shape of the output up front is the
+             cheapest way to earn the first attempt. */
+          <section className="mt-8 rounded-[2rem] border border-dashed border-slate-300 bg-white p-6 sm:p-8">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+              What you get back
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">
+              A reviewable draft, not a black box
+            </h2>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              {[
+                ["A test plan", "Each scenario with its intent and the outcome it expects, so you can judge the thinking before reading any code."],
+                ["Runnable Playwright code", "TypeScript using @playwright/test, with role and label based locators rather than brittle selectors."],
+                ["Assumptions it had to make", "Anything not in your input is listed rather than invented — no imagined URLs, selectors, or credentials."],
+                ["Warnings and checks", "Deterministic checks run locally over the output, so weak assertions and unsafe patterns are flagged."],
+              ].map(([title, detail]) => (
+                <div key={title} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+                  <p className="mt-1.5 text-xs leading-5 text-slate-600">{detail}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-6 text-xs leading-5 text-slate-500">
+              Nothing is stored and nothing is executed. This is a disposable
+              starting point; turning it into evidence your team can rely on
+              happens in Workspace, where intent is reviewed and approved first.
+            </p>
+          </section>
+        )}
       </div>
     </main>
   );

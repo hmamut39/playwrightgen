@@ -918,6 +918,38 @@ export default function EngineeringReviewPage() {
                     </div>
                 </section>
 
+                {!result && !loading && (
+                    /* This page is the best guided of the three, but it still
+                       ended in blank space before a review existed. Saying what
+                       comes back, and what deliberately does not, is what makes
+                       the output trustworthy when it arrives. */
+                    <section className="mx-auto mt-10 max-w-5xl rounded-[2rem] border border-dashed border-slate-300 bg-white p-6 sm:p-8">
+                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+                            What this review returns
+                        </p>
+                        <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">
+                            Where a change lands, and what to verify
+                        </h2>
+                        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                            {[
+                                ["Affected areas", "The surfaces a change is likely to touch, derived from what you describe rather than assumed."],
+                                ["Risks worth checking", "Specific things that could break, each tied to the part of the change that causes it."],
+                                ["Verification steps", "What to test before release, in the order that finds problems soonest."],
+                                ["Open questions", "Detail the review needed and did not have, stated plainly instead of filled in."],
+                            ].map(([title, detail]) => (
+                                <div key={title} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                    <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+                                    <p className="mt-1.5 text-xs leading-5 text-slate-600">{detail}</p>
+                                </div>
+                            ))}
+                        </div>
+                        <p className="mt-6 text-xs leading-5 text-slate-500">
+                            This is advisory. It does not approve a release, and it
+                            cannot see your code — only what you describe here.
+                        </p>
+                    </section>
+                )}
+
                 {result && (
                     <section
                         ref={resultSectionRef}
