@@ -1362,11 +1362,27 @@ function ImpactSummary({ result }: { result: EngineeringReviewResult }) {
                         {result.executiveSummary}
                     </p>
                 </div>
-                <div className="rounded-xl bg-slate-950 p-5 text-white lg:min-w-52">
+                {/* A bare percentage invites the reading it least deserves.
+                    This number says how much of the review rests on evidence
+                    that was submitted rather than inferred from a description,
+                    and says nothing about whether the change is safe. Stating
+                    that next to it, along with the one action that raises it,
+                    keeps it from being read as a quality score. */}
+                <div className="rounded-xl bg-slate-950 p-5 text-white lg:min-w-56">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-200">
                         Evidence Confidence
                     </p>
                     <p className="mt-2 text-3xl font-bold">{result.overallScore}%</p>
+                    <p className="mt-3 text-xs leading-5 text-slate-300">
+                        How much of this review rests on evidence you submitted
+                        rather than inference. It is not a safety or quality
+                        score.
+                    </p>
+                    {result.overallScore < 85 ? (
+                        <p className="mt-2 text-xs leading-5 text-sky-200">
+                            Attach the source files the change touches to raise it.
+                        </p>
+                    ) : null}
                 </div>
             </div>
             <div className="mt-4 rounded-xl border border-sky-200 bg-white p-4">

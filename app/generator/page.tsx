@@ -322,6 +322,21 @@ export default function QuickGeneratePage() {
                 </span>
               </div>
 
+              {/* The badge above reports static checks over the text of the
+                  generated code and nothing more. Sitting alone and green at
+                  the top of a result, it reads as "this test works", which is a
+                  far broader claim than was made. The scope is stated next to
+                  it rather than only in the introduction above the form, which
+                  is scrolled well out of view by the time a result appears. */}
+              <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
+                <span className="font-semibold text-slate-800">
+                  These checks read the code; they never run it.
+                </span>{" "}
+                They catch weak assertions and unsafe patterns in the text of the
+                draft. Whether it passes against your application is only known
+                once you run it.
+              </p>
+
               <div className="mt-7 grid gap-4 lg:grid-cols-2">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
                   <h3 className="font-semibold text-slate-950">Test plan</h3>

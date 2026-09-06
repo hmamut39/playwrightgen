@@ -277,7 +277,13 @@ Every finding must have exactly this structure:
   "recommendation": "Concrete action, affected area, and reason."
 }
 
-overallScore is Evidence Confidence only, not safety or readiness. scores is always []. productionReadiness.status is exactly "Partially Ready" for compatibility only. productionReadiness.reason describes Evidence Quality and must not describe readiness, approval, blocking, or a release decision.`;
+overallScore is Evidence Confidence only, not safety or readiness. It measures how much of this review rests on submitted evidence rather than inference from a description, and nothing else. Use these bands so the same input scores the same way every time:
+- 85-100: source files covering the changed area were supplied, and most findings cite them.
+- 65-84: source files were supplied but cover only part of the change, or written context is detailed enough that findings are strong inferences.
+- 40-64: no source files, but before and after behavior, acceptance criteria and affected areas were described.
+- 15-39: a change summary and expected behavior only, so most findings are [POSSIBLE] inference.
+- 0-14: too little was submitted to review the change.
+Never raise the band because the change looks safe or lower it because the change looks risky; that is severity, not confidence. scores is always []. productionReadiness.status is exactly "Partially Ready" for compatibility only. productionReadiness.reason describes Evidence Quality and must not describe readiness, approval, blocking, or a release decision.`;
 
 async function requestInitialAnalysis(
     client: OpenAI,
