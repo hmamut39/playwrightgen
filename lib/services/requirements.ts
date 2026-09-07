@@ -182,6 +182,8 @@ export async function getRequirementDetail(
   return {
     requirement,
     canUpdate: context.can("requirement:update"),
+    // Proposing Test Cases creates Test Cases, so the effect decides the gate.
+    canProposeTestCases: context.can("testcase:create"),
     canSubmit: context.can("requirement:submit"),
     canApprove: context.can("requirement:approve"),
     canArchive: context.can("requirement:archive"),

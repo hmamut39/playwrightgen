@@ -66,7 +66,11 @@ function positiveLimit(
 
 export async function reserveOrganizationAiRequest(input: {
   organizationId: string;
-  surface: "requirement-review" | "failure-analysis" | "automation-generation";
+  surface:
+    | "requirement-review"
+    | "failure-analysis"
+    | "automation-generation"
+    | "test-case-proposals";
   source?: EnvironmentSource;
   now?: Date;
   execute?: (keys: string[], args: string[]) => Promise<unknown>;
