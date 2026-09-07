@@ -38,6 +38,10 @@ shows up in your workspace as an unmatched result rather than an error.
 
 Create a new empty repository on GitHub, then from this folder:
 
+`package-lock.json` is committed on purpose. The workflow runs `npm ci` and
+`actions/setup-node` caches against a lock file, and both fail outright without
+one -- in under fifteen seconds, before a single test runs.
+
 ```bash
 npm install
 git init
