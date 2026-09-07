@@ -14,15 +14,17 @@ export const FREE_PLAN = {
 };
 
 export const PRO_PLAN = {
-  name: "Team + CI",
-  priceLabel: "Waitlist",
-  intervalLabel: "",
+  name: "Team",
+  priceLabel: "$19",
+  intervalLabel: "per workspace, per month",
+  trialLabel: "7 days free",
   features: [
-    "GitHub and CI integration",
-    "Isolated Playwright execution",
-    "Pull-request quality reporting",
-    "Organization usage controls",
-    "Production support terms",
+    "150 AI operations per day, shared across the workspace",
+    "CI result ingestion with traces, screenshots and video",
+    "Automatic failure analysis on every failed run",
+    "Release evidence reports you can print or attach to a ticket",
+    "Immutable requirement, test case and run history",
+    "Unlimited projects and workspace members",
   ],
 };
 

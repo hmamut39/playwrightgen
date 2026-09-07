@@ -14,6 +14,13 @@ import {
   validateStripeCheckoutEnvironment,
 } from "@/lib/env";
 
+/**
+ * Long enough to run the product against a real project and see evidence come
+ * back from CI, which is the only thing that demonstrates what this costs money
+ * for. A shorter trial ends before the first real run arrives.
+ */
+const TRIAL_DAYS = 7;
+
 const requestSchema = z.object({
   orgSlug: z.string().trim().min(1).max(100),
 });
@@ -90,6 +97,10 @@ export async function POST(request: Request) {
           playwrightgenOrganizationId: context.organization.id,
         },
         subscription_data: {
+          // Set here rather than on the Stripe price so the trial cannot be
+          // lost by someone editing the price in the dashboard, and so it is
+          // identical in test and live mode.
+          trial_period_days: TRIAL_DAYS,
           metadata: {
             playwrightgenOrganizationId: context.organization.id,
             playwrightgenPlan: "TEAM",

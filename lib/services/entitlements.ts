@@ -39,7 +39,14 @@ export type OrganizationLimits = {
  * paid tier has to earn its price by offering more, not by taking away.
  */
 export const FREE_LIMITS = { aiDailyLimit: 20, aiMinuteLimit: 4 } as const;
-export const TEAM_LIMITS = { aiDailyLimit: 500, aiMinuteLimit: 20 } as const;
+/**
+ * Set against what the plan actually costs to serve rather than picked to sound
+ * generous. Every operation is a real model call, so a ceiling far above what a
+ * team uses is not a feature -- it is an invitation for one heavy workspace to
+ * cost more than it pays. This is roughly seven times the free allowance, which
+ * is a real difference without being an open bar.
+ */
+export const TEAM_LIMITS = { aiDailyLimit: 150, aiMinuteLimit: 12 } as const;
 
 function numeric(value: string | undefined, fallback: number): number {
   const parsed = Number(value);
