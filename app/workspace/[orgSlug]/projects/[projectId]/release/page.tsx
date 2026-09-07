@@ -66,6 +66,18 @@ export default async function ReleaseReadinessPage({
             as runs, so it can read "fresh" on a project that has never executed
             anything. Stating the execution count alongside it keeps the header
             from implying evidence that does not exist. */}
+        <div className="mt-5 print:hidden">
+          <Link
+            href={`/workspace/${orgSlug}/projects/${projectId}/release/report`}
+            className="inline-flex rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            Open the evidence report →
+          </Link>
+          <p className="mt-2 text-xs leading-5 text-slate-500">
+            Every requirement, what verifies it, and how each verifying test last
+            ran. Built to print or attach to a release ticket.
+          </p>
+        </div>
         <p className="mt-3 text-xs text-slate-400">
           Measured {readiness.measuredAt.toLocaleString()} ·{" "}
           {readiness.evidence.hasExecution
