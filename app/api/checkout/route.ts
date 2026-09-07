@@ -135,7 +135,22 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    console.error("Stripe checkout failed safely.");
+    // Stripe's own error identifiers, and nothing else. A bare "failed safely"
+    // is undiagnosable in production: it cannot distinguish a wrong price id
+    // from a rejected key from an account that is not activated, which is
+    // exactly what an operator needs to know. The type, code and status are
+    // classifiers Stripe publishes; the message is deliberately excluded
+    // because it can quote back request parameters.
+    const stripeError =
+      typeof error === "object" && error !== null
+        ? {
+            type: "type" in error ? String(error.type).slice(0, 100) : null,
+            code: "code" in error ? String(error.code).slice(0, 100) : null,
+            statusCode:
+              "statusCode" in error ? String(error.statusCode).slice(0, 10) : null,
+          }
+        : null;
+    console.error("Stripe checkout failed safely.", stripeError);
     return NextResponse.json(
       { status: "error", code: "checkout_failed" },
       { status: 500 },
