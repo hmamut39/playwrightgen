@@ -12,6 +12,7 @@ import {
   requestAutomationChanges,
   submitAutomationArtifact,
 } from "@/lib/services/automation-artifacts";
+import { personName } from "@/lib/format/person-name";
 
 const statusStyle = {
   DRAFT: "bg-slate-100 text-slate-700",
@@ -220,26 +221,50 @@ export default async function AutomationArtifactPage({
 
           {currentVersion.generationStatus === "SUCCEEDED" ? (
             <>
-              <section className="mt-8 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+              {/* minmax(0,...) rather than a bare fraction: a grid column
+                  defaults to min-width:auto, so the code panel beside this one
+                  can refuse to shrink and squeeze the plan into a ribbon of
+                  two-word lines. Assumptions used to live in this column too,
+                  and they are long prose that had no business in the narrower
+                  half; they now sit full width below, where they are readable. */}
+              <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
                 <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                   <h2 className="text-lg font-semibold">Automation plan</h2>
-                  <div className="mt-5 space-y-3">
+                  <p className="mt-1 text-sm text-slate-500">
+                    What the generated test does, step by step, and what each step proves.
+                  </p>
+                  <ol className="mt-5 space-y-3">
                     {plan.map((item, index) => (
-                      <div key={`${index}-${item.title}`} className="rounded-xl bg-slate-50 p-4">
-                        <p className="text-sm font-semibold">{index + 1}. {item.title}</p>
-                        <p className="mt-2 text-sm text-slate-600">{item.intent}</p>
-                        <p className="mt-2 text-xs font-medium text-cyan-800">
-                          Assert: {item.expectedAssertion}
-                        </p>
-                      </div>
+                      <li
+                        key={`${index}-${item.title}`}
+                        className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"
+                      >
+                        <div className="flex items-start gap-3">
+                          <span
+                            aria-hidden="true"
+                            className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white"
+                          >
+                            {index + 1}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold leading-6 text-slate-950">
+                              {item.title}
+                            </p>
+                            <p className="mt-1.5 text-sm leading-6 text-slate-600">
+                              {item.intent}
+                            </p>
+                            <p className="mt-3 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs leading-5 text-cyan-900">
+                              <span className="font-semibold uppercase tracking-[0.08em]">
+                                Asserts
+                              </span>
+                              <br />
+                              {item.expectedAssertion}
+                            </p>
+                          </div>
+                        </div>
+                      </li>
                     ))}
-                  </div>
-                  <h3 className="mt-6 text-sm font-semibold">Assumptions</h3>
-                  <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-slate-600">
-                    {currentVersion.assumptions.length ? currentVersion.assumptions.map((assumption) => (
-                      <li key={assumption}>{assumption}</li>
-                    )) : <li>No assumptions recorded.</li>}
-                  </ul>
+                  </ol>
                 </div>
                 <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-slate-100 shadow-sm">
                   <div className="flex items-center justify-between gap-4">
@@ -250,6 +275,35 @@ export default async function AutomationArtifactPage({
                     <CodeBlock code={currentVersion.code} />
                   </div>
                 </div>
+              </section>
+
+              {/* Full width because these are sentences, not labels. Each one
+                  is something the model could not know and had to decide, which
+                  is the first thing a reviewer needs to disagree with. */}
+              <section className="mt-8 rounded-2xl border border-amber-200 bg-amber-50/40 p-6 shadow-sm sm:p-8">
+                <h2 className="text-lg font-semibold text-slate-950">
+                  Assumptions it had to make
+                </h2>
+                <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
+                  Anything the approved Test Case did not specify. Each of these is a
+                  decision to confirm or correct before this automation is trusted.
+                </p>
+                {currentVersion.assumptions.length ? (
+                  <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+                    {currentVersion.assumptions.map((assumption) => (
+                      <li
+                        key={assumption}
+                        className="rounded-xl border border-amber-200 bg-white p-4 text-sm leading-6 text-slate-700"
+                      >
+                        {assumption}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-5 rounded-xl border border-dashed border-amber-300 bg-white p-4 text-sm text-slate-500">
+                    No assumptions recorded.
+                  </p>
+                )}
               </section>
 
               <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
@@ -302,7 +356,7 @@ export default async function AutomationArtifactPage({
                   {artifact.approvedVersionNumber === version.versionNumber ? " · APPROVED" : ""}
                 </span>
                 <span className="text-xs text-slate-400">
-                  {version.generationStatus} · {version.validationStatus} · {version.createdBy.displayName || "Workspace member"} · {version.startedAt.toLocaleString()}
+                  {version.generationStatus} · {version.validationStatus} · {personName(version.createdBy.displayName)} · {version.startedAt.toLocaleString()}
                 </span>
               </summary>
               <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-700">

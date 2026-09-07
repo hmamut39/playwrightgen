@@ -9,6 +9,7 @@ import {
   restoreProject,
 } from "@/lib/services/projects";
 import { getProjectSetup } from "@/lib/services/project-setup";
+import { personName } from "@/lib/format/person-name";
 
 export default async function ProjectOverviewPage({
   params,
@@ -70,7 +71,7 @@ export default async function ProjectOverviewPage({
         <dl className="grid gap-6 sm:grid-cols-2">
           <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Status</dt><dd className="mt-2 text-sm font-medium">{project.status}</dd></div>
           <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Your role</dt><dd className="mt-2 text-sm font-medium">{overview.role}</dd></div>
-          <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Creator</dt><dd className="mt-2 text-sm font-medium">{project.createdBy.displayName || "Workspace member"}</dd></div>
+          <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Creator</dt><dd className="mt-2 text-sm font-medium">{personName(project.createdBy.displayName)}</dd></div>
           <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Created</dt><dd className="mt-2 text-sm">{project.createdAt.toLocaleString()}</dd></div>
           <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Updated</dt><dd className="mt-2 text-sm">{project.updatedAt.toLocaleString()}</dd></div>
         </dl>

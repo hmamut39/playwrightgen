@@ -14,6 +14,7 @@ import {
   submitRequirementForReview,
   updateRequirementDraft,
 } from "@/lib/services/requirements";
+import { personName } from "@/lib/format/person-name";
 
 const statusStyle = {
   DRAFT: "bg-slate-100 text-slate-700",
@@ -131,8 +132,8 @@ export default async function RequirementDetailPage({
             {requirement.title}
           </h1>
           <p className="mt-3 text-sm text-slate-500">
-            Owned by {requirement.owner.displayName || "Workspace member"} · Created by{" "}
-            {requirement.createdBy.displayName || "Workspace member"}
+            Owned by {personName(requirement.owner.displayName)} · Created by{" "}
+            {personName(requirement.createdBy.displayName)}
           </p>
         </div>
 
@@ -302,7 +303,7 @@ export default async function RequirementDetailPage({
                       Version {requirement.versions.find((version) => version.id === review.requirementVersionId)?.versionNumber ?? "?"}
                     </p>
                     <p className="mt-1 text-xs text-slate-400">
-                      {review.model} · {review.createdBy.displayName || "Workspace member"} ·{" "}
+                      {review.model} · {personName(review.createdBy.displayName)} ·{" "}
                       {review.startedAt.toLocaleString()}
                     </p>
                   </div>
@@ -374,7 +375,7 @@ export default async function RequirementDetailPage({
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
                 <span className="text-sm font-semibold">Version {version.versionNumber}</span>
                 <span className="text-xs text-slate-400">
-                  {version.createdBy.displayName || "Workspace member"} ·{" "}
+                  {personName(version.createdBy.displayName)} ·{" "}
                   {version.createdAt.toLocaleString()}
                 </span>
               </summary>

@@ -9,6 +9,7 @@ import { ProjectNavigation } from "@/components/workspace/project-navigation";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { getProject } from "@/lib/services/projects";
 import { listRequirements } from "@/lib/services/requirements";
+import { personName } from "@/lib/format/person-name";
 
 const statusStyle = {
   DRAFT: "bg-slate-100 text-slate-700",
@@ -98,7 +99,7 @@ export default async function ProjectRequirementsPage({
                 </div>
                 <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-400">
                   <span>Version {requirement.currentVersionNumber}</span>
-                  <span>{requirement.owner.displayName || "Workspace member"}</span>
+                  <span>{personName(requirement.owner.displayName)}</span>
                   <span>Updated {requirement.updatedAt.toLocaleString()}</span>
                   {requirement.externalReference ? (
                     <span>{requirement.externalReference}</span>
