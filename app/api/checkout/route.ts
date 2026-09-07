@@ -153,6 +153,13 @@ export async function POST(request: Request) {
             code: "code" in error ? String(error.code).slice(0, 100) : null,
             statusCode:
               "statusCode" in error ? String(error.statusCode).slice(0, 10) : null,
+            // Included because a plain Error carries no classifier at all, and
+            // without it such a failure is only ever "something went wrong".
+            // Truncated, and safe: the SDK never puts a key in a message, and
+            // the only request values it can echo are a price id and the
+            // application's own URLs.
+            message:
+              error instanceof Error ? error.message.slice(0, 300) : null,
           }
         : null;
     console.error("Stripe checkout failed safely.", stripeError);
