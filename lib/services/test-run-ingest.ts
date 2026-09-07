@@ -2,6 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
+import { stripControlSequences } from "@/lib/integrations/runner/ansi";
 import { webUrlSchema } from "@/lib/validation/url";
 
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
@@ -299,11 +300,11 @@ export async function ingestPlaywrightResults(
           // revision, not a formatted string.
           commitSha: payload.run.commitSha.toLowerCase(),
           sourceRef: payload.run.ref,
-          failureDetails: entry.errorMessage ?? "",
+          failureDetails: stripControlSequences(entry.errorMessage ?? ""),
           stepResults: (entry.steps ?? []).map((step, stepIndex) => ({
             stepIndex,
             result: toStepResult(step.status),
-            notes: step.title.slice(0, 5_000),
+            notes: stripControlSequences(step.title).slice(0, 5_000),
           })) as Prisma.InputJsonValue,
           // The workflow link first, then whatever the run captured for this
           // specific test. The workflow link stays the first element because
