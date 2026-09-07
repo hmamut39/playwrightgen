@@ -19,7 +19,7 @@ export const PRO_PLAN = {
   intervalLabel: "per workspace, per month",
   trialLabel: "7 days free",
   features: [
-    "150 AI operations per day, shared across the workspace",
+    "60 AI operations per day, shared across the workspace",
     "CI result ingestion with traces, screenshots and video",
     "Automatic failure analysis on every failed run",
     "Release evidence reports you can print or attach to a ticket",

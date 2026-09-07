@@ -40,13 +40,18 @@ export type OrganizationLimits = {
  */
 export const FREE_LIMITS = { aiDailyLimit: 20, aiMinuteLimit: 4 } as const;
 /**
- * Set against what the plan actually costs to serve rather than picked to sound
- * generous. Every operation is a real model call, so a ceiling far above what a
- * team uses is not a feature -- it is an invitation for one heavy workspace to
- * cost more than it pays. This is roughly seven times the free allowance, which
- * is a real difference without being an open bar.
+ * Set against arithmetic rather than against how generous it sounds.
+ *
+ * Every operation is a real model call billed to whoever runs this deployment.
+ * At current gpt-5-mini rates an operation costs on the order of a cent, so a
+ * subscriber who used 150 a day would cost about $31 a month against $19 of
+ * revenue -- a plan that loses money precisely on the customers who like it
+ * most. Sixty a day is three times the free allowance and stays profitable even
+ * when a subscriber uses every single one, which is the only number worth
+ * publishing: a ceiling you cannot afford to have taken up is not a limit, it
+ * is a hope.
  */
-export const TEAM_LIMITS = { aiDailyLimit: 150, aiMinuteLimit: 12 } as const;
+export const TEAM_LIMITS = { aiDailyLimit: 60, aiMinuteLimit: 12 } as const;
 
 function numeric(value: string | undefined, fallback: number): number {
   const parsed = Number(value);
