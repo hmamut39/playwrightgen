@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 
+import { ResultActions } from "@/components/free-tools/result-actions";
 import { CodeBlock } from "@/components/workspace/code-block";
 
 import {
@@ -267,14 +268,101 @@ export default async function AutomationArtifactPage({
                   </ol>
                 </div>
                 <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-slate-100 shadow-sm">
-                  <div className="flex items-center justify-between gap-4">
-                    <h2 className="text-lg font-semibold">Playwright test</h2>
-                    <span className="text-xs text-slate-400">TypeScript · not executed</span>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-lg font-semibold">Playwright test</h2>
+                      <span className="text-xs text-slate-400">TypeScript · not executed</span>
+                    </div>
+                    {/* Copying this code is the point of the page: it is meant to
+                        end up in a repository. Reading it here and selecting it
+                        by hand risks losing the [pwg:...] version marker in the
+                        title, which is what binds a result back to the approved
+                        version it covers, and losing it fails silently. */}
+                    <ResultActions
+                      content={currentVersion.code}
+                      filename={`${artifact.testCase.title
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, "-")
+                        .replace(/^-|-$/g, "") || "automation"}.spec.ts`}
+                      tone="dark"
+                    />
                   </div>
                   <div className="mt-5">
                     <CodeBlock code={currentVersion.code} />
                   </div>
                 </div>
+              </section>
+
+              {/* The page showed the code and stopped, leaving the reader to
+                  work out that it belongs in a repository, that the marker in
+                  the title is load-bearing, and where results turn up
+                  afterwards. Losing the marker fails silently -- the run is
+                  reported and matches nothing -- so it is stated here rather
+                  than left to be discovered. */}
+              <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
+                  Next
+                </p>
+                <h2 className="mt-2 text-lg font-semibold text-slate-950">
+                  What to do with this test
+                </h2>
+                <ol className="mt-5 space-y-4">
+                  {[
+                    [
+                      "Copy it into your repository",
+                      <>
+                        Use the Copy button above and save it under your Playwright
+                        test directory, usually{" "}
+                        <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">
+                          tests/
+                        </code>
+                        . PlaywrightGen never runs your tests; they run on your
+                        machines, against your environment, using your secrets.
+                      </>,
+                    ],
+                    [
+                      "Leave the test title alone",
+                      <>
+                        The title starts with a marker like{" "}
+                        <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">
+                          [pwg:…]
+                        </code>
+                        . That marker is how a result finds the approved Test Case
+                        version it is evidence for. Edit or drop it and the run is
+                        still reported but attaches to nothing, with no error to
+                        tell you why.
+                      </>,
+                    ],
+                    [
+                      "Push, then read the evidence",
+                      <>
+                        With a repository connected and CI configured on the{" "}
+                        <Link href={`${base}/repositories`} className="font-semibold text-cyan-700 hover:text-cyan-800">
+                          Repositories
+                        </Link>{" "}
+                        tab, each run appears under{" "}
+                        <Link href={`${base}/test-runs`} className="font-semibold text-cyan-700 hover:text-cyan-800">
+                          Test Runs
+                        </Link>{" "}
+                        as an immutable attempt, with any trace, screenshot or video
+                        the run captured.
+                      </>,
+                    ],
+                  ].map(([title, body], index) => (
+                    <li key={String(title)} className="flex items-start gap-3">
+                      <span
+                        aria-hidden="true"
+                        className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-600 text-xs font-bold text-white"
+                      >
+                        {index + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-950">{title}</p>
+                        <p className="mt-1 text-sm leading-6 text-slate-600">{body}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
               </section>
 
               {/* Full width because these are sentences, not labels. Each one
@@ -307,10 +395,18 @@ export default async function AutomationArtifactPage({
               </section>
 
               <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-                <h2 className="text-lg font-semibold">Configuration and dependencies</h2>
-                <p className="mt-2 text-sm text-slate-500">
-                  Declared dependencies: {currentVersion.dependencies.join(", ") || "None"}
-                </p>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold">Configuration and dependencies</h2>
+                    <p className="mt-2 text-sm text-slate-500">
+                      Declared dependencies: {currentVersion.dependencies.join(", ") || "None"}
+                    </p>
+                  </div>
+                  <ResultActions
+                    content={currentVersion.configuration}
+                    filename="playwright.config.ts"
+                  />
+                </div>
                 <div className="mt-5">
                   <CodeBlock code={currentVersion.configuration} maxHeight="24rem" />
                 </div>
