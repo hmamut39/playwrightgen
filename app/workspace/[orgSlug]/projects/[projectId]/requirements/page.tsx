@@ -91,11 +91,43 @@ export default async function ProjectRequirementsPage({
                       {requirement.description || "Draft description not added yet."}
                     </p>
                   </div>
-                  <span
-                    className={`w-fit shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${statusStyle[requirement.status]}`}
-                  >
-                    {requirement.status.replace("_", " ")}
-                  </span>
+                  <div className="flex w-fit shrink-0 flex-col items-end gap-2">
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusStyle[requirement.status]}`}
+                    >
+                      {requirement.status.replace("_", " ")}
+                    </span>
+                    {/* Coverage stated beside status, because they answer
+                        different questions and only one of them was being
+                        asked. A requirement can be approved and verified by
+                        nothing at all, which is exactly the gap worth seeing
+                        while scanning a list. */}
+                    {(() => {
+                      const linked = requirement.testCaseLinks.length;
+                      const approved = requirement.testCaseLinks.filter(
+                        (link) => link.testCase.status === "APPROVED",
+                      ).length;
+                      if (approved > 0) {
+                        return (
+                          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                            {approved} approved test{approved === 1 ? "" : "s"}
+                          </span>
+                        );
+                      }
+                      if (linked > 0) {
+                        return (
+                          <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
+                            {linked} draft test{linked === 1 ? "" : "s"}
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
+                          No tests
+                        </span>
+                      );
+                    })()}
+                  </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-400">
                   <span>Version {requirement.currentVersionNumber}</span>

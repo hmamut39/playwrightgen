@@ -130,6 +130,13 @@ export async function listRequirements(
       where,
       include: {
         owner: { select: { id: true, displayName: true } },
+        // Enough to say whether anything verifies each requirement. The list
+        // showed approval status only, so a requirement nothing tests looked
+        // exactly like a fully covered one, and the gap the product exists to
+        // surface was invisible on the page where someone scans for it.
+        testCaseLinks: {
+          select: { testCase: { select: { status: true } } },
+        },
       },
       orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
       skip: params.skip,
