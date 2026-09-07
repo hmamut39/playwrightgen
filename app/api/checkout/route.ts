@@ -144,6 +144,11 @@ export async function POST(request: Request) {
     const stripeError =
       typeof error === "object" && error !== null
         ? {
+            // The class name says which layer failed -- Stripe, Prisma, or the
+            // runtime -- without quoting anything from the request. Stripe
+            // errors always carry a type; an error with none did not come from
+            // the provider at all, and without this the two are indistinguishable.
+            name: error.constructor?.name ?? null,
             type: "type" in error ? String(error.type).slice(0, 100) : null,
             code: "code" in error ? String(error.code).slice(0, 100) : null,
             statusCode:

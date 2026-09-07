@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { PRO_PLAN } from "@/lib/plan";
+
 const plans = [
   {
     name: "Free tools",
@@ -149,29 +151,47 @@ export default function PricingPage() {
           ))}
         </section>
 
-        <section className="mt-4 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
+        {/* The waitlist card this replaces was honest when written: it refused
+            to name a price before the entitlements existed. They exist now --
+            CI ingestion, evidence reports, automatic failure analysis -- so the
+            price is stated, and the promise that pricing would arrive with real
+            entitlements is kept rather than quietly dropped. */}
+        <section className="mt-4 rounded-[1.75rem] border border-slate-900 bg-slate-950 p-6 text-white shadow-sm sm:p-8">
+          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-start">
             <div className="max-w-3xl">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-semibold text-slate-950">Team + CI</p>
-                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">Coming after production gates</span>
+                <p className="text-sm font-semibold">{PRO_PLAN.name}</p>
+                <span className="rounded-full bg-cyan-400/15 px-2.5 py-1 text-xs font-medium text-cyan-200">
+                  {PRO_PLAN.trialLabel}
+                </span>
               </div>
-              <p className="mt-3 text-sm leading-6 text-slate-600">
-                GitHub import, isolated execution, pull-request reporting, collaboration,
-                usage controls, and support will define the paid plan. Pricing has not
-                been invented before those entitlements exist.
+              <p className="mt-3 text-4xl font-bold tracking-tight">
+                {PRO_PLAN.priceLabel}
+                <span className="ml-2 text-sm font-normal text-slate-400">
+                  {PRO_PLAN.intervalLabel}
+                </span>
+              </p>
+              <ul className="mt-5 grid gap-2 text-sm leading-6 text-slate-300 sm:grid-cols-2">
+                {PRO_PLAN.features.map((feature) => (
+                  <li key={feature} className="flex gap-2">
+                    <span aria-hidden="true" className="text-cyan-300">✓</span>
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-4 text-xs leading-5 text-slate-400">
+                Cancel at any time during the trial and you are charged nothing.
+                Your evidence stays yours either way: a workspace that stops
+                paying returns to the free allowance rather than losing the
+                records it created.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setShowWaitlist(true);
-                setWaitlistMessage("");
-              }}
-              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-cyan-600"
+            <Link
+              href="/workspace"
+              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-white px-5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-100"
             >
-              Join team-access waitlist
-            </button>
+              Start the {PRO_PLAN.trialLabel.toLowerCase()}
+            </Link>
           </div>
         </section>
       </div>
