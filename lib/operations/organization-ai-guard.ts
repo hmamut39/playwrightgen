@@ -4,6 +4,7 @@ import { Redis } from "@upstash/redis";
 import { z } from "zod";
 
 import { validateRedisEnvironment } from "@/lib/env";
+import { getOrganizationLimits } from "@/lib/services/entitlements";
 
 type EnvironmentSource = Readonly<Record<string, string | undefined>>;
 
@@ -54,16 +55,6 @@ function secondsUntilUtcDayEnd(now: Date): number {
   return Math.max(60, Math.ceil((end - now.getTime()) / 1_000));
 }
 
-function positiveLimit(
-  source: EnvironmentSource,
-  name: string,
-  fallback: number,
-): number {
-  const raw = source[name]?.trim();
-  if (!raw) return fallback;
-  return z.coerce.number().int().positive().max(100_000).parse(raw);
-}
-
 export async function reserveOrganizationAiRequest(input: {
   organizationId: string;
   surface:
@@ -74,21 +65,26 @@ export async function reserveOrganizationAiRequest(input: {
   source?: EnvironmentSource;
   now?: Date;
   execute?: (keys: string[], args: string[]) => Promise<unknown>;
+  resolveLimits?: typeof getOrganizationLimits;
 }) {
   const organizationId = uuid.parse(input.organizationId);
   const source = input.source ?? process.env;
   const redisConfig = validateRedisEnvironment(source);
   const now = input.now ?? new Date();
-  const minuteLimit = positiveLimit(
+
+  // Resolved from the organization's entitlements rather than from a constant.
+  // Subscriptions were being recorded and never read, so an organization that
+  // paid received exactly the allowance it already had for nothing -- which is
+  // worse than offering no paid plan, because it takes money and changes
+  // nothing. Limits are injectable so the guard stays testable without a
+  // database.
+  const limits = await (input.resolveLimits ?? getOrganizationLimits)({
+    organizationId,
+    now,
     source,
-    "ORGANIZATION_AI_MINUTE_LIMIT",
-    4,
-  );
-  const dailyLimit = positiveLimit(
-    source,
-    "ORGANIZATION_AI_DAILY_LIMIT",
-    20,
-  );
+  });
+  const minuteLimit = limits.aiMinuteLimit;
+  const dailyLimit = limits.aiDailyLimit;
   const prefix = `playwrightgen:organization-ai:${organizationId}`;
   const keys = [
     `${prefix}:minute`,
