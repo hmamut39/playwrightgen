@@ -158,6 +158,15 @@ export type IngestSummary = {
   recorded: number;
   duplicates: number;
   unmatched: number;
+  /**
+   * Attempts recorded by this delivery that did not pass, so the caller can
+   * analyze them without querying for what it just wrote. Returned rather than
+   * analyzed here: ingest answers a signed webhook and must stay fast and
+   * side-effect free with respect to the model provider.
+   */
+  failures: Array<{ testRunId: string; testRunAttemptId: string }>;
+  organizationId: string;
+  actorUserId: string;
 };
 
 /**
@@ -196,7 +205,14 @@ export async function ingestPlaywrightResults(
 
   const actorUserId = await resolveAutomationActor(prisma, organizationId, projectId);
 
-  const summary: IngestSummary = { recorded: 0, duplicates: 0, unmatched: 0 };
+  const summary: IngestSummary = {
+    recorded: 0,
+    duplicates: 0,
+    unmatched: 0,
+    failures: [],
+    organizationId,
+    actorUserId,
+  };
 
   for (const entry of payload.results) {
     const testCaseVersionId = readTestCaseVersionMarker(entry.title);
@@ -247,7 +263,7 @@ export async function ingestPlaywrightResults(
           select: { id: true, latestAttemptNumber: true, status: true },
         }));
 
-      if (testRun.status === "CANCELED") return false;
+      if (testRun.status === "CANCELED") return null;
 
       // Idempotency: the same workflow run must not create a second attempt.
       // The conditional update below serializes concurrent deliveries for the
@@ -265,7 +281,7 @@ export async function ingestPlaywrightResults(
         },
         select: { id: true },
       });
-      if (duplicate) return false;
+      if (duplicate) return null;
 
       const attemptNumber = testRun.latestAttemptNumber + 1;
       const result = toResult(entry.status);
@@ -338,11 +354,18 @@ export async function ingestPlaywrightResults(
         },
       });
 
-      return true;
+      return { testRunId: testRun.id, testRunAttemptId: attempt.id, result };
     });
 
-    if (recordedNow) summary.recorded += 1;
-    else summary.duplicates += 1;
+    if (recordedNow) {
+      summary.recorded += 1;
+      if (recordedNow.result !== "PASSED") {
+        summary.failures.push({
+          testRunId: recordedNow.testRunId,
+          testRunAttemptId: recordedNow.testRunAttemptId,
+        });
+      }
+    } else summary.duplicates += 1;
   }
 
   return summary;

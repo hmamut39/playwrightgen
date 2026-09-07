@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { after, NextRequest } from "next/server";
 
 import { getPrismaClient } from "@/lib/db/prisma";
 import {
@@ -9,6 +9,7 @@ import {
   deriveProjectRunnerToken,
   verifyRunnerSignature,
 } from "@/lib/integrations/runner/ingest-token";
+import { analyzeReportedFailures } from "@/lib/operations/auto-failure-analysis";
 import {
   reserveRunIngest,
   RunIngestRateLimitError,
@@ -31,6 +32,7 @@ type RunIngestRouteDependencies = {
   loadTokenVersion: (organizationId: string, projectId: string) => Promise<number | null>;
   reserve: typeof reserveRunIngest;
   ingest: typeof ingestPlaywrightResults;
+  analyzeFailures?: typeof analyzeReportedFailures;
 };
 
 /**
@@ -55,6 +57,7 @@ const defaultDependencies: RunIngestRouteDependencies = {
   loadTokenVersion: loadProjectTokenVersion,
   reserve: reserveRunIngest,
   ingest: ingestPlaywrightResults,
+  analyzeFailures: analyzeReportedFailures,
 };
 
 /**
@@ -141,8 +144,30 @@ export async function handleRunIngestRequest(
 
   try {
     const summary = await dependencies.ingest(payload.data);
+
+    // Analysed after the response is sent. CI is waiting on this request, and a
+    // model call takes seconds, so making a runner hold the connection open to
+    // learn something it does not use would trade a fast webhook for nothing.
+    // Defensive: an ingest implementation that reports no failures list must
+    // not turn a successful webhook into a 500. The evidence is already stored
+    // by this point, and losing the response would make CI retry a delivery
+    // that actually succeeded.
+    const failures = summary.failures ?? [];
+    if (failures.length > 0) {
+      const analyze = dependencies.analyzeFailures ?? analyzeReportedFailures;
+      after(() => analyze({ ...summary, failures }, payload.data.projectId));
+    }
+
+    // The attempt identifiers stay server-side. A runner needs to know what was
+    // recorded, not the internal ids of records it cannot read.
+    const counts = {
+      recorded: summary.recorded,
+      duplicates: summary.duplicates,
+      unmatched: summary.unmatched,
+    };
+
     return responder.json(
-      { status: "ok", ...summary },
+      { status: "ok", ...counts },
       { status: 200, code: "recorded" },
     );
   } catch (error: unknown) {

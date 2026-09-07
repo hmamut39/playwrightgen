@@ -234,7 +234,7 @@ describe("Playwright result ingestion from customer CI", () => {
 
     const summary = await ingestPlaywrightResults(payload(space, title), { prisma });
 
-    expect(summary).toEqual({ recorded: 1, duplicates: 0, unmatched: 0 });
+    expect(summary).toMatchObject({ recorded: 1, duplicates: 0, unmatched: 0 });
 
     const run = await prisma.testRun.findFirst({
       where: { organizationId: space.organization.id, projectId: space.project.id },
@@ -272,7 +272,7 @@ describe("Playwright result ingestion from customer CI", () => {
     await ingestPlaywrightResults(payload(space, title), { prisma });
     const replay = await ingestPlaywrightResults(payload(space, title), { prisma });
 
-    expect(replay).toEqual({ recorded: 0, duplicates: 1, unmatched: 0 });
+    expect(replay).toMatchObject({ recorded: 0, duplicates: 1, unmatched: 0 });
     expect(await prisma.testRunAttempt.count()).toBe(1);
   });
 
@@ -393,7 +393,7 @@ describe("Playwright result ingestion from customer CI", () => {
     const unknownVersion = `${buildTestCaseVersionMarker("55555555-5555-4555-8555-555555555555")} orphan`;
     const summary = await ingestPlaywrightResults(payload(space, unknownVersion), { prisma });
 
-    expect(summary).toEqual({ recorded: 0, duplicates: 0, unmatched: 1 });
+    expect(summary).toMatchObject({ recorded: 0, duplicates: 0, unmatched: 1 });
     expect(await prisma.testRunAttempt.count()).toBe(0);
   });
 
@@ -403,7 +403,7 @@ describe("Playwright result ingestion from customer CI", () => {
 
     const summary = await ingestPlaywrightResults(payload(space, "some unrelated spec"), { prisma });
 
-    expect(summary).toEqual({ recorded: 0, duplicates: 0, unmatched: 1 });
+    expect(summary).toMatchObject({ recorded: 0, duplicates: 0, unmatched: 1 });
     expect(await prisma.testRun.count()).toBe(0);
   });
 

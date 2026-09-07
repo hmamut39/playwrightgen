@@ -169,6 +169,22 @@ async function describeExecutionHistory(
   return `Verdict: ${verdict.signal}. ${verdict.detail} ${counts}`;
 }
 
+/**
+ * Who an analysis is recorded as having been run by.
+ *
+ * A person clicking Analyze and a result arriving from CI produce the same
+ * findings, but the audit trail must not pretend a machine was a person. The
+ * scope is resolved by the caller -- from a session for the first, from the
+ * repository connection for the second -- so the analysis itself never has to
+ * know which it is.
+ */
+export type FailureAnalysisScope = {
+  organizationId: string;
+  projectId: string;
+  actorUserId: string;
+  source: "USER" | "SYSTEM";
+};
+
 export async function runFailureAnalysis(
   input: {
     orgSlug?: string;
@@ -179,12 +195,30 @@ export async function runFailureAnalysis(
   },
   dependencies?: Dependencies,
 ) {
+  const { workspace, projectId } = await context(input, "failure:analyze", dependencies);
+  return analyzeAttempt(
+    {
+      organizationId: workspace.organization.id,
+      projectId,
+      actorUserId: workspace.user.id,
+      source: "USER",
+    },
+    { testRunId: input.testRunId, testRunAttemptId: input.testRunAttemptId, requestId: input.requestId },
+    dependencies,
+  );
+}
+
+export async function analyzeAttempt(
+  scope: FailureAnalysisScope,
+  input: { testRunId: string; testRunAttemptId: string; requestId?: string },
+  dependencies?: Dependencies,
+) {
   const testRunId = parseUuid(input.testRunId);
   const testRunAttemptId = parseUuid(input.testRunAttemptId);
-  const { workspace, projectId } = await context(input, "failure:analyze", dependencies);
+  const projectId = scope.projectId;
   const attempt = await client(dependencies).testRunAttempt.findUnique({
     where: { organizationId_projectId_testRunId_id: {
-      organizationId: workspace.organization.id,
+      organizationId: scope.organizationId,
       projectId,
       testRunId,
       id: testRunAttemptId,
@@ -198,7 +232,7 @@ export async function runFailureAnalysis(
   if (!dependencies?.analyzer) {
     try {
       await reserveOrganizationAiRequest({
-        organizationId: workspace.organization.id,
+        organizationId: scope.organizationId,
         surface: "failure-analysis",
       });
     } catch (error) {
@@ -210,18 +244,18 @@ export async function runFailureAnalysis(
   }
   const configuredModel = process.env.OPENAI_FAILURE_ANALYSIS_MODEL?.trim() || "gpt-5-mini";
   const analysis = await client(dependencies).failureAnalysis.create({ data: {
-    organizationId: workspace.organization.id,
+    organizationId: scope.organizationId,
     projectId,
     testRunId,
     testRunAttemptId,
     model: configuredModel,
     promptVersion: PROMPT_VERSION,
     schemaVersion: SCHEMA_VERSION,
-    createdByUserId: workspace.user.id,
+    createdByUserId: scope.actorUserId,
   } });
   const executionHistory = await describeExecutionHistory(
     {
-      organizationId: workspace.organization.id,
+      organizationId: scope.organizationId,
       projectId,
       testCaseId: attempt.testRun.testCaseId,
       testRunId,
@@ -268,7 +302,7 @@ export async function runFailureAnalysis(
       },
     });
     await transaction.failureFinding.createMany({ data: result.findings.map((finding) => ({
-      organizationId: workspace.organization.id,
+      organizationId: scope.organizationId,
       projectId,
       testRunId,
       testRunAttemptId,
@@ -276,10 +310,10 @@ export async function runFailureAnalysis(
       ...finding,
     })) });
     await transaction.activity.create({ data: {
-      organizationId: workspace.organization.id,
+      organizationId: scope.organizationId,
       projectId,
-      actorUserId: workspace.user.id,
-      source: "USER",
+      actorUserId: scope.actorUserId,
+      source: scope.source,
       action: "FAILURE_ANALYSIS_COMPLETED",
       targetType: "FAILURE_ANALYSIS",
       targetId: analysis.id,
