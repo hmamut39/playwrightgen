@@ -173,6 +173,25 @@ export async function getRequirementDetail(
         },
         orderBy: { versionNumber: "desc" },
       },
+      // What actually verifies this requirement. The page reported its own
+      // approval state and said nothing about coverage, so a requirement with
+      // no test at all looked identical to one that was fully covered, and a
+      // newly proposed draft had nowhere to appear.
+      testCaseLinks: {
+        include: {
+          testCase: {
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              source: true,
+              currentVersionNumber: true,
+              updatedAt: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      },
     },
   });
   if (!requirement || (requirement.status === "ARCHIVED" && !input.allowArchived)) {

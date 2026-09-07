@@ -16,6 +16,7 @@ import {
 } from "@/lib/services/requirements";
 import { personName } from "@/lib/format/person-name";
 import { proposeTestCasesForRequirement } from "@/lib/services/test-case-proposals";
+import { ProposeTestCases, type ProposalState } from "@/components/workspace/propose-test-cases";
 
 const statusStyle = {
   DRAFT: "bg-slate-100 text-slate-700",
@@ -86,15 +87,44 @@ export default async function RequirementDetailPage({
     revalidatePath(listPath);
   }
 
-  async function proposeTestCasesAction(formData: FormData) {
+  async function proposeTestCasesAction(
+    _state: ProposalState,
+    formData: FormData,
+  ): Promise<ProposalState> {
     "use server";
-    await proposeTestCasesForRequirement({
-      orgSlug,
-      projectId,
-      requirementId,
-      guidance: String(formData.get("guidance") ?? ""),
-    });
-    revalidatePath(requirementPath);
+    try {
+      const outcome = await proposeTestCasesForRequirement({
+        orgSlug,
+        projectId,
+        requirementId,
+        guidance: String(formData.get("guidance") ?? ""),
+      });
+      revalidatePath(requirementPath);
+      return {
+        status: "created",
+        created: outcome.created,
+        openQuestions: outcome.openQuestions,
+        message: "",
+      };
+    } catch (error) {
+      // Reported rather than thrown: a failure here should leave the page
+      // usable and say what happened, not replace it with an error screen.
+      const code =
+        typeof error === "object" && error !== null && "code" in error
+          ? String((error as { code: unknown }).code)
+          : "unknown_error";
+      return {
+        status: "error",
+        created: [],
+        openQuestions: [],
+        message:
+          code === "organization_ai_rate_limited"
+            ? "This workspace has reached its AI request limit for now."
+            : code === "requirement_not_approved"
+              ? "Only an approved requirement can be used."
+              : "The model could not be reached.",
+      };
+    }
   }
 
   async function runReviewAction() {
@@ -197,47 +227,85 @@ export default async function RequirementDetailPage({
         </div>
       </header>
 
-      {/* The one step the product still left to hand-writing. Automation was
-          generated from approved intent, but the intent itself had to be typed
-          out first, which is the slowest part of the chain and the part people
-          skip -- leaving requirements approved and unverified. Proposals arrive
-          as drafts, linked to this Requirement, and still need approving. */}
       {requirement.status === "APPROVED" && detail.canProposeTestCases ? (
-        <section className="mt-8 rounded-3xl border border-violet-200 bg-violet-50/40 p-6 sm:p-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-700">
-            Coverage
-          </p>
-          <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">
-            Propose Test Cases for this requirement
-          </h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Reads this approved requirement and drafts the Test Cases that would
-            verify it, each one linked to this requirement from the moment it is
-            created. They arrive as drafts: nothing counts as coverage until you
-            review and approve it, exactly as if you had written it yourself.
-          </p>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-            It has not seen your application, so it will not invent URLs,
-            selectors or credentials. Anything this requirement leaves undecided
-            comes back as a question for you rather than a guess.
-          </p>
-          <form action={proposeTestCasesAction} className="mt-5 flex flex-col gap-3 sm:flex-row">
-            <input
-              name="guidance"
-              maxLength={2000}
-              placeholder="Optional: known constraints, roles, or areas to focus on"
-              className="min-w-0 flex-1 rounded-xl border border-violet-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500/60"
-            />
-            <button className="shrink-0 rounded-xl bg-violet-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-800">
-              Propose Test Cases
-            </button>
-          </form>
-          <p className="mt-3 text-xs text-slate-500">
-            Usually takes 20&ndash;40 seconds. Existing linked Test Cases are sent
-            along so it does not repeat coverage you already have.
-          </p>
-        </section>
+        <ProposeTestCases
+          action={proposeTestCasesAction}
+          testCasesHref={`/workspace/${orgSlug}/projects/${projectId}/test-cases`}
+        />
       ) : null}
+
+      {/* Coverage, stated on the requirement itself. The page reported whether
+          the requirement was approved and nothing about whether anything
+          verifies it, so a requirement covered by nothing looked exactly like
+          one covered thoroughly -- and a freshly proposed draft had nowhere to
+          land. An approved requirement with no approved test is called what it
+          is rather than left blank. */}
+      <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-700">
+              Traceability
+            </p>
+            <h2 className="mt-2 text-lg font-semibold text-slate-950">
+              Test Cases verifying this requirement
+            </h2>
+          </div>
+          <Link
+            href={`/workspace/${orgSlug}/projects/${projectId}/test-cases`}
+            className="text-sm font-semibold text-violet-700 hover:text-violet-800"
+          >
+            All Test Cases →
+          </Link>
+        </div>
+
+        {requirement.testCaseLinks.length === 0 ? (
+          <p className="mt-5 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm leading-6 text-slate-600">
+            Nothing verifies this requirement yet, so it counts as uncovered
+            wherever coverage is reported.
+            {requirement.status === "APPROVED" ? " Propose Test Cases above, or write one by hand." : null}
+          </p>
+        ) : (
+          <>
+            <div className="mt-5 space-y-2">
+              {requirement.testCaseLinks.map((link) => (
+                <Link
+                  key={link.testCase.id}
+                  href={`/workspace/${orgSlug}/projects/${projectId}/test-cases/${link.testCase.id}`}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-4 transition hover:border-violet-300 hover:bg-violet-50/40"
+                >
+                  <span className="min-w-0 text-sm font-semibold text-slate-900">
+                    {link.testCase.title}
+                    <span className="ml-2 font-normal text-xs text-slate-400">
+                      v{link.testCase.currentVersionNumber}
+                      {link.testCase.source === "AI_SUGGESTED" ? " · proposed" : null}
+                    </span>
+                  </span>
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      link.testCase.status === "APPROVED"
+                        ? "bg-emerald-50 text-emerald-700"
+                        : link.testCase.status === "IN_REVIEW"
+                          ? "bg-amber-50 text-amber-800"
+                          : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {link.testCase.status.replace("_", " ")}
+                  </span>
+                </Link>
+              ))}
+            </div>
+            {requirement.testCaseLinks.every(
+              (link) => link.testCase.status !== "APPROVED",
+            ) ? (
+              <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+                None of these is approved yet, so this requirement still reads as
+                unverified. A draft describes intended coverage; approving it is
+                what makes it count.
+              </p>
+            ) : null}
+          </>
+        )}
+      </section>
 
       {requirement.status === "DRAFT" && detail.canSubmit && !isReviewComplete ? (
         <p className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
