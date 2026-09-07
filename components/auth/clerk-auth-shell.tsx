@@ -57,7 +57,10 @@ export function ClerkAuthShell({
             ))}
           </div>
 
-          <div className="mt-10 grid grid-cols-3 gap-3 border-t border-white/10 pt-6 text-xs text-slate-400">
+          {/* Stacked on the narrowest screens. Three columns of label-plus-caption
+              inside a phone's width leaves each about a hundred pixels, which
+              breaks every caption onto three lines. */}
+          <div className="mt-10 grid grid-cols-1 gap-3 border-t border-white/10 pt-6 text-xs text-slate-400 sm:grid-cols-3">
             <div><strong className="block text-lg text-white">AI</strong>Quality planning</div>
             <div><strong className="block text-lg text-white">V1.6</strong>Automation Studio</div>
             <div><strong className="block text-lg text-white">RBAC</strong>Tenant safe</div>
