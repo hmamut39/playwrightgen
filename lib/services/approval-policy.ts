@@ -68,7 +68,7 @@ export async function checkSelfApproval(
  * excluded -- a colleague who has left cannot be the reason a record stays
  * unapproved.
  */
-async function countOtherApprovers(
+export async function countOtherApprovers(
   transaction: Prisma.TransactionClient,
   input: { organizationId: string; projectId: string; approverUserId: string },
 ) {

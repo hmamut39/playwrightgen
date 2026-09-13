@@ -24,6 +24,8 @@ export const PRO_PLAN = {
     "Automatic failure analysis on every failed run",
     "Release evidence reports you can print or attach to a ticket",
     "Immutable requirement, test case and run history",
+    "Team roles: members write, leads approve, nobody approves their own work",
+    "Use approved tests from VS Code, Cursor and Claude Code (MCP)",
     "Unlimited projects and workspace members",
   ],
 };

@@ -15,6 +15,7 @@ export function ProjectNavigation({
   const items = [
     ["Quality", `${base}/quality`],
     ["Overview", `${base}/overview`],
+    ["Reviews", `${base}/reviews`],
     ["Requirements", `${base}/requirements`],
     ["Test Cases", `${base}/test-cases`],
     ["Automation", `${base}/automation`],

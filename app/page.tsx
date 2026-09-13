@@ -76,7 +76,33 @@ const workspaceCapabilities = [
   "Requirement-to-Test Case traceability",
   "Separate Browser and API automation engines",
   "Append-only run attempts and failure evidence",
-  "Roles, approvals, and activity history",
+  "Members write, leads approve, nobody approves their own work",
+  "Results from your own CI, pinned to approved versions",
+  "Connects to VS Code, Cursor and Claude Code over MCP",
+] as const;
+
+const integrations = [
+  {
+    label: "Your editor",
+    title: "Approved tests, inside VS Code, Cursor and Claude Code",
+    description:
+      "Connect your editor's AI assistant to a project over MCP. It writes tests against the approved test case instead of a guess, keeps the version marker that links results back, and pulls reviewed automation into your repository.",
+    detail: "Read-only · personal token · revoked when access ends",
+  },
+  {
+    label: "Your CI",
+    title: "Your runners, your secrets, our evidence",
+    description:
+      "Tests run in your own GitHub Actions. Only a bounded summary of results comes back, and each one attaches to the exact approved version it exercised.",
+    detail: "Signed reports · nothing of yours executes here",
+  },
+  {
+    label: "Your team",
+    title: "A second pair of eyes on every approval",
+    description:
+      "Members write requirements, test cases and automation. Leads approve them. Nobody approves their own submission while someone else can, and every step shows who did it and when.",
+    detail: "Leads · Members · Viewers · review queue",
+  },
 ] as const;
 
 const principles = [
@@ -415,6 +441,57 @@ export default function Home() {
       </section>
 
       <section className="px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
+        <div className="mx-auto max-w-7xl">
+          <div className="max-w-3xl">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-700">
+              Works where your team already works
+            </p>
+            <h2 className="mt-4 text-4xl font-semibold tracking-[-0.045em] sm:text-5xl">
+              Your editor writes the code. PlaywrightGen keeps the proof.
+            </h2>
+            <p className="mt-5 text-lg leading-8 text-slate-600">
+              Every editor now has an assistant that writes Playwright. What it
+              cannot know is which behaviour your team agreed on, and whether the
+              last run proved it. That is what PlaywrightGen gives it.
+            </p>
+          </div>
+
+          <div className="mt-12 grid gap-5 lg:grid-cols-3">
+            {integrations.map((integration) => (
+              <div
+                key={integration.label}
+                className="flex flex-col rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm"
+              >
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-700">
+                  {integration.label}
+                </p>
+                <h3 className="mt-4 text-xl font-semibold tracking-[-0.025em] text-slate-950">
+                  {integration.title}
+                </h3>
+                <p className="mt-3 flex-1 leading-7 text-slate-600">{integration.description}</p>
+                <p className="mt-6 rounded-xl bg-slate-50 px-3.5 py-2.5 text-xs font-medium text-slate-500">
+                  {integration.detail}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-slate-800 bg-slate-950 p-5 font-mono text-[13px] leading-6 text-slate-300 shadow-xl sm:p-7">
+            <p className="text-slate-500"># In VS Code, Cursor or Claude Code</p>
+            <p className="mt-2">
+              <span className="text-cyan-300">you</span> Using PlaywrightGen, write the test for our checkout test case.
+            </p>
+            <p className="mt-2">
+              <span className="text-emerald-300">assistant</span> Read &ldquo;Customer completes checkout&rdquo; &mdash;
+              approved, version 3, 4 steps. Writing{" "}
+              <span className="text-slate-100">tests/customer-completes-checkout.spec.ts</span> with the title{" "}
+              <span className="text-amber-200">[pwg:7c1e&hellip;]</span> so your CI results attach to version 3.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="px-4 pb-20 sm:px-6 lg:px-8 lg:pb-28">
         <div className="mx-auto max-w-7xl">
           <div className="text-center">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-700">

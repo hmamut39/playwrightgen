@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { getOrganizationProjectRisk } from "@/lib/services/project-risk";
 import { listProjects } from "@/lib/services/projects";
+import { getOrganizationReviewCounts } from "@/lib/services/review-queue";
 import { LocalTime } from "@/components/workspace/local-time";
 
 export default async function OrganizationWorkspacePage({
@@ -11,10 +12,11 @@ export default async function OrganizationWorkspacePage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
-  const [context, projects, risk] = await Promise.all([
+  const [context, projects, risk, reviewCounts] = await Promise.all([
     requireWorkspaceContext({ orgSlug }),
     listProjects({ orgSlug, includeArchived: true }),
     getOrganizationProjectRisk({ orgSlug }),
+    getOrganizationReviewCounts({ orgSlug }),
   ]);
   const canCreate = context.can("project:create");
 
@@ -61,6 +63,11 @@ export default async function OrganizationWorkspacePage({
                 {project.description || "No description"}
               </p>
               <div className="mt-5 flex flex-wrap items-center gap-2">
+                {reviewCounts.get(project.id) ? (
+                  <span className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-800">
+                    {reviewCounts.get(project.id)} waiting for review
+                  </span>
+                ) : null}
                 {projectRisk && projectRisk.regressions > 0 ? (
                   <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
                     {projectRisk.regressions} regression{projectRisk.regressions === 1 ? "" : "s"}
