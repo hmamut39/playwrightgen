@@ -74,7 +74,9 @@ export default async function ProjectRequirementsPage({
           meta={requirements}
           basePath={basePath}
           emptyTitle="No requirements yet"
-          emptyDescription="Capture the first testable outcome for this project."
+          emptyDescription="A requirement says what the product must do, in plain words, with how you would know it works. Everything else in the project is tested against it."
+          example="Example: A signed-in customer can pay by card and sees an order confirmation with the order number."
+          action={canCreate ? { label: "Write the first requirement", href: `${basePath}/new` } : undefined}
         />
       ) : (
         <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import Link from "next/link";
 
 import { ResultActions } from "@/components/free-tools/result-actions";
@@ -6,13 +7,17 @@ import { CodeBlock } from "@/components/workspace/code-block";
 
 import {
   approveAutomationArtifact,
-  generateAutomationArtifact,
   getAutomationArtifactDetail,
+  isGenerationStalled,
   readAutomationPlan,
   readAutomationValidationFindings,
   requestAutomationChanges,
+  startAutomationArtifactGeneration,
   submitAutomationArtifact,
 } from "@/lib/services/automation-artifacts";
+import { AutoRefresh } from "@/components/workspace/auto-refresh";
+import { NextStep } from "@/components/workspace/next-step";
+import { humanLabel } from "@/lib/format/label";
 import { personName } from "@/lib/format/person-name";
 import { PendingButton, PendingNotice } from "@/components/workspace/pending-button";
 import { ReviewTrailPanel } from "@/components/workspace/review-trail";
@@ -57,21 +62,50 @@ export default async function AutomationArtifactPage({
   const intentMovedOn =
     artifact.testCase.currentVersionNumber > artifact.testCaseVersion.versionNumber;
 
+  const generating = Boolean(
+    currentVersion &&
+      currentVersion.generationStatus === "RUNNING" &&
+      !isGenerationStalled(currentVersion),
+  );
+  const stalled = Boolean(currentVersion && isGenerationStalled(currentVersion));
+
   const canSubmitCurrent = Boolean(
     currentVersion &&
       currentVersion.generationStatus === "SUCCEEDED" &&
       currentVersion.validationStatus !== "BLOCKED",
   );
+  const next: { title: string; detail: string } | null = generating || stalled
+    ? null
+    : artifact.status === "DRAFT" && detail.canSubmit && canSubmitCurrent
+      ? {
+          title: "Read the code and its assumptions, then submit it for review",
+          detail: "Check the plan and the assumptions below. If something is wrong, add guidance and generate the next version instead.",
+        }
+      : artifact.status === "IN_REVIEW" && detail.canApprove && !detail.reviewTrail.awaitingAnotherApprover
+        ? {
+            title: "Approve it, or request changes",
+            detail: "Approved code is what your team puts in the repository, and what results from CI are counted against.",
+          }
+        : artifact.status === "APPROVED"
+          ? {
+              title: "Put this test in your repository",
+              detail: "Copy or download it below, or pull it from VS Code, Cursor or Claude Code (Automation page). Keep the [pwg:…] marker in the title so CI results attach here.",
+            }
+          : null;
+
 
   async function regenerateAction(formData: FormData) {
     "use server";
-    await generateAutomationArtifact({
-      orgSlug,
-      projectId,
-      testCaseId: artifact.testCaseId,
-      engine: artifact.engine,
-      guidance: String(formData.get("guidance") ?? ""),
-    });
+    await startAutomationArtifactGeneration(
+      {
+        orgSlug,
+        projectId,
+        testCaseId: artifact.testCaseId,
+        engine: artifact.engine,
+        guidance: String(formData.get("guidance") ?? ""),
+      },
+      after,
+    );
     revalidatePath(artifactPath);
     revalidatePath(`${base}/automation`);
     revalidatePath(`${base}/test-cases/${artifact.testCaseId}`);
@@ -173,13 +207,37 @@ export default async function AutomationArtifactPage({
         </div>
       </header>
 
+      {next ? <NextStep {...next} /> : null}
+
       <ReviewTrailPanel
         trail={detail.reviewTrail}
         status={artifact.status}
         canApprove={detail.canApprove}
       />
 
-      {currentVersion ? (
+      {generating ? (
+        <section
+          role="status"
+          aria-live="polite"
+          className="mt-8 rounded-2xl border border-cyan-200 bg-white p-8 text-center shadow-sm"
+        >
+          <AutoRefresh />
+          <span className="mx-auto block h-8 w-8 animate-spin rounded-full border-4 border-cyan-600 border-t-transparent" />
+          <h2 className="mt-5 text-lg font-semibold text-slate-950">Writing your Playwright test&hellip;</h2>
+          <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">
+            Turning the approved test case into code, then checking it for weak
+            assertions and unsafe patterns. This usually takes 30&ndash;90
+            seconds. The page updates by itself, and you can leave and come back.
+          </p>
+        </section>
+      ) : stalled ? (
+        <p className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900">
+          This version did not finish generating. Nothing was lost; generate the
+          next version below to try again.
+        </p>
+      ) : null}
+
+      {currentVersion && !generating && !stalled ? (
         <>
           <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
@@ -427,7 +485,7 @@ export default async function AutomationArtifactPage({
         </>
       ) : null}
 
-      {detail.canGenerate && artifact.status !== "IN_REVIEW" && artifact.status !== "ARCHIVED" ? (
+      {detail.canGenerate && !generating && artifact.status !== "IN_REVIEW" && artifact.status !== "ARCHIVED" ? (
         <section className="mt-8 rounded-2xl border border-cyan-200 bg-cyan-50/40 p-6 shadow-sm sm:p-8">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">New immutable version</p>
           <h2 className="mt-2 text-lg font-semibold">Regenerate with reviewer guidance</h2>
@@ -443,13 +501,13 @@ export default async function AutomationArtifactPage({
               className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm"
             />
             <div className="mt-3">
-              <PendingButton pendingLabel="Generating the next version…" className="rounded-lg bg-cyan-700 px-4 py-2.5 text-sm font-semibold text-white">
+              <PendingButton pendingLabel="Starting…" className="rounded-lg bg-cyan-700 px-4 py-2.5 text-sm font-semibold text-white">
                 Generate next version
               </PendingButton>
             </div>
             <PendingNotice>
-              Creating a new immutable version with your guidance. Earlier versions
-              stay exactly as they are. This usually takes 30&ndash;60 seconds.
+              Starting a new version with your guidance. Earlier versions stay
+              exactly as they are.
             </PendingNotice>
           </form>
         </section>
@@ -469,7 +527,10 @@ export default async function AutomationArtifactPage({
                   {artifact.approvedVersionNumber === version.versionNumber ? " · APPROVED" : ""}
                 </span>
                 <span className="text-xs text-slate-400">
-                  {version.generationStatus} · {version.validationStatus} · {personName(version.createdBy.displayName)} · <LocalTime value={version.startedAt} />
+                  {version.generationStatus === "RUNNING"
+                    ? "Writing…"
+                    : `${humanLabel(version.generationStatus)} · validation ${version.validationStatus.toLowerCase()}`}{" "}
+                  · {personName(version.createdBy.displayName)} · <LocalTime value={version.startedAt} />
                 </span>
               </summary>
               <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-700">

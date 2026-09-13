@@ -1,9 +1,10 @@
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 
 import {
-  generateAutomationArtifact,
+  startAutomationArtifactGeneration,
   listAutomationArtifacts,
 } from "@/lib/services/automation-artifacts";
 import { MAX_PAGE_SIZE } from "@/lib/services/list-query";
@@ -20,8 +21,10 @@ import {
   updateTestCaseDraft,
 } from "@/lib/services/test-cases";
 import { personName } from "@/lib/format/person-name";
+import { humanLabel } from "@/lib/format/label";
 import { PendingButton, PendingNotice } from "@/components/workspace/pending-button";
 import { ReviewTrailPanel } from "@/components/workspace/review-trail";
+import { NextStep } from "@/components/workspace/next-step";
 import { LocalTime } from "@/components/workspace/local-time";
 
 const statusStyle = {
@@ -52,6 +55,35 @@ export default async function TestCaseDetailPage({
   const linkedIds = new Set(testCase.requirementLinks.map((link) => link.requirementId));
   const availableRequirements = requirements.items.filter((requirement) => !linkedIds.has(requirement.id));
   const isReviewComplete = Boolean(testCase.objective.trim() && steps.length && expectedResults.length);
+  const automationBase = `/workspace/${orgSlug}/projects/${projectId}/automation`;
+  const approvedAutomation = automationArtifacts.items.find((artifact) => artifact.status === "APPROVED");
+  const pendingAutomation = automationArtifacts.items.find(
+    (artifact) => artifact.status === "DRAFT" || artifact.status === "IN_REVIEW",
+  );
+  const next: { title: string; detail: string; action?: { label: string; href: string } } | null =
+    testCase.status === "DRAFT" && detail.canSubmit
+      ? isReviewComplete
+        ? { title: "Submit it for review", detail: "Use “Submit for review” at the top. A lead checks the steps before it counts." }
+        : { title: "Add the objective, steps and expected results", detail: "Save them below, then submit it for review." }
+      : testCase.status === "IN_REVIEW" && detail.canApprove && !detail.reviewTrail.awaitingAnotherApprover
+        ? { title: "Approve it, or request changes", detail: "Once approved, PlaywrightGen can write the Playwright code for it." }
+        : testCase.status === "APPROVED" && testCase.requirementLinks.length === 0 && detail.canManageTraceability
+          ? { title: "Link it to the requirement it verifies", detail: "The link is what makes it count as coverage. Use the Traceability section below." }
+          : testCase.status === "APPROVED" && !approvedAutomation && pendingAutomation
+            ? {
+                title: "Review the generated automation",
+                detail: "Check the code, then submit it for review and approve it.",
+                action: { label: "Open automation", href: `${automationBase}/${pendingAutomation.id}` },
+              }
+            : testCase.status === "APPROVED" && automationArtifacts.items.length === 0 && detail.canGenerateAutomation
+              ? { title: "Generate the Playwright code", detail: "Use “Generate Browser automation” below. It takes about half a minute, and a person reviews it before it is trusted." }
+              : testCase.status === "APPROVED" && approvedAutomation
+                ? {
+                    title: "Put the approved test in your repository",
+                    detail: "Copy or download it, or pull it straight from VS Code, Cursor or Claude Code. Results from your CI then appear under Test Runs.",
+                    action: { label: "Open approved automation", href: `${automationBase}/${approvedAutomation.id}` },
+                  }
+                : null;
 
   async function updateAction(formData: FormData) {
     "use server";
@@ -96,14 +128,19 @@ export default async function TestCaseDetailPage({
     if (engine !== "PLAYWRIGHT_BROWSER" && engine !== "PLAYWRIGHT_API") {
       throw new Error("Invalid automation engine");
     }
-    const artifact = await generateAutomationArtifact({
-      orgSlug,
-      projectId,
-      testCaseId,
-      engine,
-      guidance: String(formData.get("guidance") ?? ""),
-    });
-    redirect(`/workspace/${orgSlug}/projects/${projectId}/automation/${artifact.id}`);
+    // Starts the generation and opens the artifact at once; the page there
+    // shows progress and fills in when the code is ready.
+    const started = await startAutomationArtifactGeneration(
+      {
+        orgSlug,
+        projectId,
+        testCaseId,
+        engine,
+        guidance: String(formData.get("guidance") ?? ""),
+      },
+      after,
+    );
+    redirect(`/workspace/${orgSlug}/projects/${projectId}/automation/${started.automationArtifactId}`);
   }
 
   return (
@@ -117,7 +154,7 @@ export default async function TestCaseDetailPage({
             <span className="rounded bg-violet-50 px-2 py-1 text-xs font-semibold text-violet-700">{testCase.type.replaceAll("_", " ")}</span>
           </div>
           <h1 className="mt-3 text-3xl font-semibold tracking-tight">{testCase.title}</h1>
-          <p className="mt-3 text-sm text-slate-500">{testCase.priority} priority · Automation: {testCase.automationStatus} · Owner: {personName(testCase.owner.displayName)}</p>
+          <p className="mt-3 text-sm text-slate-500">{humanLabel(testCase.priority)} priority · {testCase.automationStatus === "AUTOMATED" ? "Automated" : testCase.automationStatus === "DRAFT" ? "Automation in progress" : "Not automated yet"} · Owner: {personName(testCase.owner.displayName)}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {testCase.status === "APPROVED" && detail.canCreateRun ? <Link href={`/workspace/${orgSlug}/projects/${projectId}/test-runs/new?testCaseId=${testCase.id}`} className="rounded-lg bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white">Create Test Run</Link> : null}
@@ -131,6 +168,8 @@ export default async function TestCaseDetailPage({
           {testCase.status !== "ARCHIVED" && detail.canArchive ? <form action={transitionAction}><input type="hidden" name="intent" value="archive" /><button className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold">Archive</button></form> : null}
         </div>
       </header>
+
+      {next ? <NextStep {...next} /> : null}
 
       <ReviewTrailPanel trail={detail.reviewTrail} status={testCase.status} canApprove={detail.canApprove} />
 
@@ -198,17 +237,16 @@ export default async function TestCaseDetailPage({
               />
             </label>
             <div className="mt-3 flex flex-wrap gap-2">
-              <PendingButton name="engine" value="PLAYWRIGHT_BROWSER" pendingLabel="Generating Browser automation…" className="rounded-lg bg-cyan-700 px-4 py-2.5 text-sm font-semibold text-white">
+              <PendingButton name="engine" value="PLAYWRIGHT_BROWSER" pendingLabel="Starting…" className="rounded-lg bg-cyan-700 px-4 py-2.5 text-sm font-semibold text-white">
                 Generate Browser automation
               </PendingButton>
-              <PendingButton name="engine" value="PLAYWRIGHT_API" pendingLabel="Generating API automation…" className="rounded-lg border border-cyan-300 bg-white px-4 py-2.5 text-sm font-semibold text-cyan-800">
+              <PendingButton name="engine" value="PLAYWRIGHT_API" pendingLabel="Starting…" className="rounded-lg border border-cyan-300 bg-white px-4 py-2.5 text-sm font-semibold text-cyan-800">
                 Generate API automation
               </PendingButton>
             </div>
             <PendingNotice>
-              Writing a Playwright test from this approved Test Case, then checking
-              it for weak assertions and unsafe patterns. This usually takes
-              30&ndash;60 seconds &mdash; the page will open the result when it&rsquo;s ready.
+              Opening the automation page, where you can watch the test being
+              written. It usually takes 30&ndash;90 seconds.
             </PendingNotice>
           </form>
         ) : testCase.status !== "APPROVED" ? (

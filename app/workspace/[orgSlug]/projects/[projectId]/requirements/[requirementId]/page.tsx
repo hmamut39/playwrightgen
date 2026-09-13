@@ -19,6 +19,7 @@ import { proposeTestCasesForRequirement } from "@/lib/services/test-case-proposa
 import { ProposeTestCases, type ProposalState } from "@/components/workspace/propose-test-cases";
 import { PendingButton, PendingNotice } from "@/components/workspace/pending-button";
 import { ReviewTrailPanel } from "@/components/workspace/review-trail";
+import { NextStep } from "@/components/workspace/next-step";
 import { LocalTime } from "@/components/workspace/local-time";
 
 const statusStyle = {
@@ -53,6 +54,38 @@ export default async function RequirementDetailPage({
   const isReviewComplete = Boolean(
     requirement.description.trim() && requirement.acceptanceCriteria.trim(),
   );
+
+  const approvedTests = requirement.testCaseLinks.filter(
+    (link) => link.testCase.status === "APPROVED",
+  ).length;
+  const next: { title: string; detail: string; action?: { label: string; href: string } } | null =
+    requirement.status === "DRAFT" && detail.canSubmit
+      ? isReviewComplete
+        ? {
+            title: "Submit it for review",
+            detail:
+              "Use “Submit for review” at the top. Optional first: run the AI review below to catch gaps and edge cases (about 30 seconds).",
+          }
+        : {
+            title: "Add a description and acceptance criteria",
+            detail: "Acceptance criteria say how you would know it works. Save, then submit it for review.",
+          }
+      : requirement.status === "IN_REVIEW" && detail.canApprove && !detail.reviewTrail.awaitingAnotherApprover
+        ? {
+            title: "Approve it, or request changes",
+            detail: "Once approved, AI can propose the test cases that verify it.",
+          }
+        : requirement.status === "APPROVED" && requirement.testCaseLinks.length === 0 && detail.canProposeTestCases
+          ? {
+              title: "Let AI propose test cases",
+              detail: "Use “Propose Test Cases” below. You review each one before anything counts as coverage.",
+            }
+          : requirement.status === "APPROVED" && requirement.testCaseLinks.length > 0 && approvedTests === 0
+            ? {
+                title: "Review and approve its test cases",
+                detail: "Open each proposed test case below, check the steps, and approve the ones you agree with.",
+              }
+            : null;
 
   async function updateDraftAction(formData: FormData) {
     "use server";
@@ -231,6 +264,8 @@ export default async function RequirementDetailPage({
           ) : null}
         </div>
       </header>
+
+      {next ? <NextStep {...next} /> : null}
 
       <ReviewTrailPanel
         trail={detail.reviewTrail}

@@ -62,6 +62,9 @@ export async function getProjectSetup(
     automation,
     connections,
     attempts,
+    latestRequirement,
+    approvedRequirement,
+    approvedTestCase,
   ] = await Promise.all([
     prisma.requirement.count({ where: { ...scope, status: "APPROVED" } }),
     prisma.testCase.count({ where: { ...scope, status: "APPROVED" } }),
@@ -69,6 +72,23 @@ export async function getProjectSetup(
     prisma.automationArtifact.count({ where: { ...scope, status: { not: "ARCHIVED" } } }),
     prisma.repositoryConnection.count({ where: { ...scope, status: "ACTIVE" } }),
     prisma.testRunAttempt.count({ where: scope }),
+    // Enough to send each button to the one screen where the step is done,
+    // rather than to a list the person then has to search.
+    prisma.requirement.findFirst({
+      where: { ...scope, status: { in: ["DRAFT", "IN_REVIEW"] } },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, status: true },
+    }),
+    prisma.requirement.findFirst({
+      where: { ...scope, status: "APPROVED" },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true },
+    }),
+    prisma.testCase.findFirst({
+      where: { ...scope, status: "APPROVED" },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true },
+    }),
   ]);
 
   const steps: SetupStep[] = [
@@ -79,8 +99,14 @@ export async function getProjectSetup(
         "Coverage is measured against intent someone agreed to, so nothing counts until a requirement is approved.",
       done: approvedRequirements > 0,
       count: approvedRequirements,
-      href: `${base}/requirements`,
-      actionLabel: "Write a requirement",
+      href: latestRequirement
+        ? `${base}/requirements/${latestRequirement.id}`
+        : `${base}/requirements/new`,
+      actionLabel: !latestRequirement
+        ? "Write a requirement"
+        : latestRequirement.status === "IN_REVIEW"
+          ? "Review and approve it"
+          : "Finish and submit it",
     },
     {
       key: "test-case",
@@ -88,8 +114,10 @@ export async function getProjectSetup(
       detail: "An approved test case is the reviewed intent that automation and runs are pinned to.",
       done: approvedTestCases > 0,
       count: approvedTestCases,
-      href: `${base}/test-cases`,
-      actionLabel: "Design a test case",
+      href: approvedRequirement
+        ? `${base}/requirements/${approvedRequirement.id}`
+        : `${base}/test-cases/new`,
+      actionLabel: approvedRequirement ? "Let AI propose test cases" : "Design a test case",
     },
     {
       key: "link",
@@ -108,8 +136,8 @@ export async function getProjectSetup(
         "Generated code is pinned to the approved version it covers, so a later result attaches to the right evidence.",
       done: automation > 0,
       count: automation,
-      href: `${base}/automation`,
-      actionLabel: "Generate",
+      href: approvedTestCase ? `${base}/test-cases/${approvedTestCase.id}` : `${base}/automation`,
+      actionLabel: approvedTestCase ? "Generate Playwright code" : "Generate",
     },
     {
       key: "repository",

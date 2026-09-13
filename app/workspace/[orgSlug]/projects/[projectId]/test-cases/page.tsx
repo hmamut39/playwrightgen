@@ -66,7 +66,8 @@ export default async function TestCasesPage({
           meta={testCases}
           basePath={basePath}
           emptyTitle="No test cases yet"
-          emptyDescription="Design the first reviewable test for this project."
+          emptyDescription="A test case lists the steps and expected results that prove a requirement works. The quickest way to get them: open an approved requirement and let AI propose them, or write one yourself."
+          action={context.can("testcase:create") ? { label: "Write a test case", href: `${basePath}/new` } : undefined}
         />
       ) : (
         <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

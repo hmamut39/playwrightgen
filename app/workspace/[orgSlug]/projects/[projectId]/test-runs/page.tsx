@@ -63,8 +63,9 @@ export default async function TestRunsPage({
         <ListEmptyState
           meta={runs}
           basePath={basePath}
-          emptyTitle="No execution history yet"
-          emptyDescription="Approve a Test Case, then create its first run."
+          emptyTitle="No results yet"
+          emptyDescription="Results arrive here two ways: automatically from your CI once a repository is connected, or by recording a manual run with “New test run”. Each one is saved against the approved test case version it checked."
+          action={context.can("repository:connect") ? { label: "Set up CI results", href: `/workspace/${orgSlug}/projects/${projectId}/repositories` } : undefined}
         />
       ) : (
         <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

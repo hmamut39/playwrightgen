@@ -130,11 +130,17 @@ export function ListEmptyState({
   emptyTitle,
   emptyDescription,
   basePath,
+  action,
+  example,
 }: {
   meta: ListMeta;
   emptyTitle: string;
   emptyDescription: string;
   basePath: string;
+  /** The one thing to do next, so an empty page is never a dead end. */
+  action?: { label: string; href: string };
+  /** A concrete sample, because "a testable outcome" means little on day one. */
+  example?: string;
 }) {
   if (meta.search) {
     return (
@@ -156,7 +162,20 @@ export function ListEmptyState({
   return (
     <section className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
       <h2 className="text-lg font-semibold text-slate-900">{emptyTitle}</h2>
-      <p className="mt-2 text-sm text-slate-500">{emptyDescription}</p>
+      <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">{emptyDescription}</p>
+      {example ? (
+        <p className="mx-auto mt-4 max-w-xl rounded-xl bg-slate-50 px-4 py-3 text-sm italic leading-6 text-slate-600">
+          {example}
+        </p>
+      ) : null}
+      {action ? (
+        <Link
+          href={action.href}
+          className="mt-5 inline-flex rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
+        >
+          {action.label}
+        </Link>
+      ) : null}
     </section>
   );
 }
