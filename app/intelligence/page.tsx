@@ -56,6 +56,46 @@ function titleFromInput(requirement: string, pageUrl: string) {
   return "Quality review follow-up";
 }
 
+type LiveCoveragePage =
+  | {
+      status: "read";
+      url: string;
+      title: string;
+      counts: { buttons: number; links: number; fields: number; headings: number };
+      controls: number;
+      surface: {
+        total: number;
+        mentioned: { role: string; name: string }[];
+        unmentioned: { role: string; name: string }[];
+      } | null;
+    }
+  | { status: "not_read"; reason: string };
+
+const LIVE_REASONS: Record<string, string> = {
+  blocked_address: "Only public web addresses can be opened (not localhost or private networks).",
+  timeout: "The page took too long to load.",
+  unreachable: "The page could not be opened.",
+  not_configured: "Page reading is not available right now.",
+};
+
+/** A public practice site, so the first review runs against a real page. */
+const LIVE_EXAMPLE = {
+  url: "https://www.saucedemo.com/",
+  requirement: `A standard user signs in with a username and password and lands on the products page.
+
+A locked-out user sees an error explaining the account is locked. A wrong password shows an error and keeps the user on the sign-in page.`,
+  tests: `import { test, expect } from "@playwright/test";
+
+test("user can log in", async ({ page }) => {
+  await page.goto("https://www.saucedemo.com/");
+  await page.getByPlaceholder("Username").fill("standard_user");
+  await page.locator("#password").fill(process.env.SAUCE_PASSWORD!);
+  await page.locator("#login-button").click();
+  await page.waitForTimeout(2000);
+  expect(page.url()).toContain("inventory");
+});`,
+};
+
 const exampleRequirement = `A signed-in customer can apply one promotion code at checkout.
 
 The discount is shown as a separate line before tax. An expired or unknown code shows an inline error and leaves the total unchanged. Only one code applies at a time; entering a second replaces the first.`;
@@ -78,6 +118,7 @@ export default function CoverageReviewPage() {
   const [testFile, setTestFile] = useState<File | null>(null);
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [result, setResult] = useState<CoverageResult | null>(null);
+  const [livePage, setLivePage] = useState<LiveCoveragePage | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -112,6 +153,7 @@ export default function CoverageReviewPage() {
         return;
       }
       setResult(data.result);
+      setLivePage(data.livePage ?? null);
       if (typeof data.remaining === "number") setRemaining(data.remaining);
       window.requestAnimationFrame(() => document.getElementById("coverage-result")?.scrollIntoView({ behavior: "smooth", block: "start" }));
     } catch {
@@ -179,9 +221,27 @@ export default function CoverageReviewPage() {
           </div>
 
           <div className="mt-6 grid gap-6 lg:grid-cols-2">
-            <label className="text-sm font-semibold text-slate-800">
-              Requirement or user flow
-              <div className="mb-3 flex justify-end">
+            {/* The example buttons sit beside the label, not inside it: a
+                <label> names its first labelable descendant, so wrapping
+                buttons made the first button carry the whole label as its
+                name and left the text box with none. */}
+            <div className="text-sm font-semibold text-slate-800">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <label htmlFor="coverage-requirement">Requirement or user flow</label>
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLens("COVERAGE");
+                    setRequirement(LIVE_EXAMPLE.requirement);
+                    setExistingTests(LIVE_EXAMPLE.tests);
+                    setPageUrl(LIVE_EXAMPLE.url);
+                    invalidate();
+                  }}
+                  className="rounded-xl border border-slate-900 bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
+                >
+                  Try it on a live page
+                </button>
                 {/* Reviewing coverage needs two inputs, which is twice the blank
                     page. One click supplies a requirement and a deliberately
                     weak test so the tool has something real to find. */}
@@ -197,8 +257,9 @@ export default function CoverageReviewPage() {
                   Use an example
                 </button>
               </div>
-              <textarea value={requirement} onChange={(event) => { setRequirement(event.target.value); invalidate(); }} rows={7} maxLength={30_000} placeholder="Describe the observable behavior, roles, constraints, and acceptance criteria…" className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm leading-6 outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100" />
-            </label>
+              </div>
+              <textarea id="coverage-requirement" value={requirement} onChange={(event) => { setRequirement(event.target.value); invalidate(); }} rows={7} maxLength={30_000} placeholder="Describe the observable behavior, roles, constraints, and acceptance criteria…" className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm leading-6 outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100" />
+            </div>
             <label className="text-sm font-semibold text-slate-800">
               Existing Playwright tests
               <textarea value={existingTests} onChange={(event) => { setExistingTests(event.target.value); invalidate(); }} rows={7} maxLength={250_000} placeholder="Paste the tests that currently cover this behavior…" className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-3 font-mono text-xs leading-6 outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100" />
@@ -207,7 +268,7 @@ export default function CoverageReviewPage() {
 
           <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_0.9fr_0.9fr]">
             <label className="text-sm font-semibold text-slate-800">
-              Page URL <span className="font-normal text-slate-400">(context only; not visited)</span>
+              Page URL <span className="font-normal text-slate-400">(optional &mdash; we open it and compare its controls with your tests)</span>
               <input value={pageUrl} onChange={(event) => { setPageUrl(event.target.value); invalidate(); }} maxLength={2_000} placeholder="https://app.example.com/checkout" className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-cyan-600" />
             </label>
             <EvidenceUpload label="Test or framework file" detail={testFile?.name} onChoose={() => testFileRef.current?.click()}>
@@ -237,6 +298,7 @@ export default function CoverageReviewPage() {
           />
         ) : result ? (
           <section id="coverage-result" className="scroll-mt-24 mt-8 space-y-6">
+            {livePage ? <LiveCoveragePanel livePage={livePage} /> : null}
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
               <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
                 <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-700">Preliminary review</p><h2 className="mt-2 text-3xl font-semibold tracking-[-0.035em]">What the supplied evidence suggests</h2><p className="mt-3 max-w-4xl leading-7 text-slate-600">{result.summary}</p></div>
@@ -309,4 +371,67 @@ function EvidenceUpload({ label, detail, onChoose, children }: { label: string; 
 function SignalCard({ title, items, tone }: { title: string; items: string[]; tone: "emerald" | "amber" | "slate" }) {
   const tones = { emerald: "border-emerald-200 bg-emerald-50", amber: "border-amber-200 bg-amber-50", slate: "border-slate-200 bg-slate-50" };
   return <div className={`rounded-2xl border p-4 ${tones[tone]}`}><h3 className="text-sm font-semibold text-slate-950">{title}</h3>{items.length ? <ul className="mt-3 space-y-2 text-xs leading-5 text-slate-600">{items.map((item, index) => <li key={`${item}-${index}`} className="flex gap-2"><span>•</span><span>{item}</span></li>)}</ul> : <p className="mt-2 text-xs text-slate-500">None identified.</p>}</div>;
+}
+
+/**
+ * The real page next to the pasted tests.
+ *
+ * Every control listed here comes from the page's accessibility tree, and
+ * whether a test mentions it is a plain text match computed on the server --
+ * not a model's opinion. It is a mention check, so the panel says so.
+ */
+function LiveCoveragePanel({ livePage }: { livePage: LiveCoveragePage }) {
+  if (livePage.status === "not_read") {
+    return (
+      <p className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm leading-6 text-amber-900">
+        <span className="font-semibold">We could not open the page, so this review uses your text only.</span>{" "}
+        {LIVE_REASONS[livePage.reason] ?? LIVE_REASONS.unreachable}
+      </p>
+    );
+  }
+  const surface = livePage.surface;
+  return (
+    <div className="rounded-[2rem] border border-emerald-200 bg-emerald-50/60 p-6 sm:p-8">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-800">Read from the live page</p>
+          <h2 className="mt-1 truncate text-xl font-semibold text-slate-950">{livePage.title || livePage.url}</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            {livePage.controls} named controls: {livePage.counts.buttons} buttons, {livePage.counts.fields} fields,{" "}
+            {livePage.counts.links} links &middot; seen signed out
+          </p>
+        </div>
+        {surface && surface.total > 0 ? (
+          <span
+            className={`w-fit shrink-0 rounded-full border bg-white px-3 py-1 text-xs font-bold ${
+              surface.unmentioned.length === 0 ? "border-emerald-300 text-emerald-800" : "border-amber-300 text-amber-800"
+            }`}
+          >
+            Your tests target {surface.mentioned.length} of {surface.total} controls by name
+          </span>
+        ) : null}
+      </div>
+      {surface && surface.unmentioned.length ? (
+        <div className="mt-5 rounded-2xl border border-amber-200 bg-white p-4">
+          <p className="text-sm font-semibold text-amber-900">Controls on this page your tests never target by name</p>
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {surface.unmentioned.map((control) => (
+              <li key={`${control.role}-${control.name}`} className="rounded-lg bg-amber-50 px-2.5 py-1 text-xs text-amber-900">
+                <span className="text-amber-700">{control.role}</span> &ldquo;{control.name}&rdquo;
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs leading-5 text-slate-500">
+            Counted from getByRole, getByLabel, getByText and getByPlaceholder in your tests. A control reached only
+            by a CSS id or test id is listed here too &mdash; switching it to a role-based locator makes the test
+            follow what users see.
+          </p>
+        </div>
+      ) : surface ? (
+        <p className="mt-5 text-sm text-emerald-900">Your tests target every named control on this page by name.</p>
+      ) : (
+        <p className="mt-5 text-sm text-slate-600">Paste your existing tests to see which of these controls they never touch.</p>
+      )}
+    </div>
+  );
 }

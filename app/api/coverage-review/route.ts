@@ -13,6 +13,8 @@ import {
   reservePublicAiRequest,
 } from "@/lib/operations/public-ai-guard";
 import { logOperationalEvent } from "@/lib/operations/safe-telemetry";
+import { capturePageSnapshot, type PageSnapshot } from "@/lib/free-tools/page-snapshot";
+import { measureSurfaceCoverage, readControls } from "@/lib/free-tools/surface-coverage";
 
 const lenses = new Set<CoverageReviewInput["lens"]>(["COVERAGE", "FLAKY", "ARCHITECTURE", "ASSERTIONS"]);
 
@@ -44,6 +46,21 @@ export async function POST(req: Request) {
       requestId,
     });
 
+    // Read after the quota is reserved, so the page reader cannot be used free.
+    let snapshot: PageSnapshot | null = null;
+    if (pageUrl) {
+      const snapshotStartedAt = Date.now();
+      snapshot = await capturePageSnapshot(pageUrl);
+      logOperationalEvent(snapshot.ok ? "info" : "warn", {
+        event: "public_ai.page_snapshot",
+        requestId,
+        status: snapshot.ok ? "succeeded" : "failed",
+        code: snapshot.ok ? undefined : snapshot.reason,
+        durationMs: Date.now() - snapshotStartedAt,
+        surface: "coverage-review",
+      });
+    }
+
     const reviewed = await reviewCoverage(
       {
         lens,
@@ -51,6 +68,7 @@ export async function POST(req: Request) {
         requirement,
         existingTests,
         screenshotDataUrl: screenshot ? await imageDataUrl(screenshot) : "",
+        pageSnapshot: snapshot?.ok ? snapshot : null,
       },
       { requestId },
     );
@@ -69,7 +87,23 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json(
-      { result, remaining: quota.remaining },
+      {
+        result,
+        remaining: quota.remaining,
+        livePage: snapshot
+          ? snapshot.ok
+            ? {
+                status: "read",
+                url: snapshot.finalUrl,
+                title: snapshot.title,
+                counts: snapshot.counts,
+                controls: readControls(snapshot.aria).length,
+                // Computed from the page and the pasted tests, not by the model.
+                surface: existingTests ? measureSurfaceCoverage(snapshot.aria, existingTests) : null,
+              }
+            : { status: "not_read", reason: snapshot.reason }
+          : null,
+      },
       { headers: { "x-request-id": requestId } },
     );
   } catch (error) {
