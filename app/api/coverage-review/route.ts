@@ -9,9 +9,10 @@ import {
 } from "@/lib/ai/coverage-review";
 import { EnvironmentValidationError } from "@/lib/env";
 import {
-  PublicAiRateLimitError,
-  reservePublicAiRequest,
-} from "@/lib/operations/public-ai-guard";
+  FreeToolLimitError,
+  freeToolLimitBody,
+  reserveFreeToolRun,
+} from "@/lib/operations/free-tool-access";
 import { logOperationalEvent } from "@/lib/operations/safe-telemetry";
 import { capturePageSnapshot, type PageSnapshot } from "@/lib/free-tools/page-snapshot";
 import { measureSurfaceCoverage, readControls } from "@/lib/free-tools/surface-coverage";
@@ -40,11 +41,7 @@ export async function POST(req: Request) {
     if (pageUrl.length > 2_000 || requirement.length > 30_000 || existingTests.length > 250_000) return NextResponse.json({ error: "The submitted evidence is too large for one preliminary review." }, { status: 413 });
     if (screenshot && (!screenshot.type.startsWith("image/") || screenshot.size > 2_000_000)) return NextResponse.json({ error: "Use a PNG, JPEG, or WebP screenshot under 2MB." }, { status: 413 });
 
-    const quota = await reservePublicAiRequest({
-      request: req,
-      surface: "coverage-review",
-      requestId,
-    });
+    const quota = await reserveFreeToolRun({ request: req, surface: "coverage-review", requestId });
 
     // Read after the quota is reserved, so the page reader cannot be used free.
     let snapshot: PageSnapshot | null = null;
@@ -107,7 +104,7 @@ export async function POST(req: Request) {
       { headers: { "x-request-id": requestId } },
     );
   } catch (error) {
-    if (error instanceof PublicAiRateLimitError) {
+    if (error instanceof FreeToolLimitError) {
       logOperationalEvent("warn", {
         event: "public_ai.rejected",
         requestId,
@@ -117,7 +114,7 @@ export async function POST(req: Request) {
         surface: "coverage-review",
       });
       return NextResponse.json(
-        { error: "Too many requests. Try again later.", remaining: 0 },
+        freeToolLimitBody(error),
         {
           status: 429,
           headers: {

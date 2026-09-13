@@ -5,9 +5,10 @@ import { NextResponse } from "next/server";
 
 import { EnvironmentValidationError, validateOpenAiEnvironment } from "@/lib/env";
 import {
-    PublicAiRateLimitError,
-    reservePublicAiRequest,
-} from "@/lib/operations/public-ai-guard";
+  FreeToolLimitError,
+  freeToolLimitBody,
+  reserveFreeToolRun,
+} from "@/lib/operations/free-tool-access";
 import { logOperationalEvent } from "@/lib/operations/safe-telemetry";
 
 const MAX_SOURCE_LENGTH = 360_000;
@@ -918,11 +919,7 @@ export async function POST(req: Request) {
             );
         }
 
-        const quota = await reservePublicAiRequest({
-            request: req,
-            surface: "release-review",
-            requestId,
-        });
+        const quota = await reserveFreeToolRun({ request: req, surface: "release-review", requestId });
 
         const initialCompletion = await requestInitialAnalysis(
             client,
@@ -1005,7 +1002,7 @@ export async function POST(req: Request) {
             { headers: { "x-request-id": requestId } }
         );
     } catch (error) {
-        if (error instanceof PublicAiRateLimitError) {
+        if (error instanceof FreeToolLimitError) {
             logOperationalEvent("warn", {
                 event: "public_ai.rejected",
                 requestId,
@@ -1015,7 +1012,7 @@ export async function POST(req: Request) {
                 surface: "release-review",
             });
             return NextResponse.json(
-                { error: "Too many requests. Try again later.", remaining: 0 },
+                freeToolLimitBody(error),
                 {
                     status: 429,
                     headers: {

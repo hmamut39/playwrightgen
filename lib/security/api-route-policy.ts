@@ -41,7 +41,8 @@ export const API_ROUTE_SECURITY_POLICY = {
   },
   "coverage-review/route.ts": {
     boundary: "bounded-public",
-    requiredMarker: "reservePublicAiRequest",
+    // Visitors: five a day by address. Team customers: their workspace's allowance.
+    requiredMarker: "reserveFreeToolRun",
   },
   "debug/route.ts": {
     boundary: "legacy-quarantined",
@@ -49,7 +50,8 @@ export const API_ROUTE_SECURITY_POLICY = {
   },
   "engineering-review/route.ts": {
     boundary: "bounded-public",
-    requiredMarker: "reservePublicAiRequest",
+    // Visitors: five a day by address. Team customers: their workspace's allowance.
+    requiredMarker: "reserveFreeToolRun",
   },
   "explain/route.ts": {
     boundary: "legacy-quarantined",
@@ -81,7 +83,8 @@ export const API_ROUTE_SECURITY_POLICY = {
   },
   "quick-generate/route.ts": {
     boundary: "bounded-public",
-    requiredMarker: "reservePublicAiRequest",
+    // Visitors: five a day by address. Team customers: their workspace's allowance.
+    requiredMarker: "reserveFreeToolRun",
   },
   "runs/ingest/route.ts": {
     boundary: "signed-webhook",

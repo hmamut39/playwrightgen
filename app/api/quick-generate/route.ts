@@ -10,9 +10,10 @@ import {
 import { EnvironmentValidationError } from "@/lib/env";
 import { capturePageSnapshot, type PageSnapshot } from "@/lib/free-tools/page-snapshot";
 import {
-  PublicAiRateLimitError,
-  reservePublicAiRequest,
-} from "@/lib/operations/public-ai-guard";
+  FreeToolLimitError,
+  freeToolLimitBody,
+  reserveFreeToolRun,
+} from "@/lib/operations/free-tool-access";
 import { logOperationalEvent } from "@/lib/operations/safe-telemetry";
 
 const MAX_TEXT_FILE_BYTES = 250_000;
@@ -53,11 +54,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const quota = await reservePublicAiRequest({
-      request: req,
-      surface: "quick-generate",
-      requestId,
-    });
+    const quota = await reserveFreeToolRun({ request: req, surface: "quick-generate", requestId });
 
     const textParts: string[] = [];
     const imageDataUrls: string[] = [];
@@ -134,7 +131,7 @@ export async function POST(req: Request) {
       remaining: quota.remaining,
     }, { headers: { "x-request-id": requestId } });
   } catch (error) {
-    if (error instanceof PublicAiRateLimitError) {
+    if (error instanceof FreeToolLimitError) {
       logOperationalEvent("warn", {
         event: "public_ai.rejected",
         requestId,
@@ -144,7 +141,7 @@ export async function POST(req: Request) {
         surface: "quick-generate",
       });
       return NextResponse.json(
-        { error: "Too many requests. Try again later.", remaining: 0 },
+        freeToolLimitBody(error),
         {
           status: 429,
           headers: {

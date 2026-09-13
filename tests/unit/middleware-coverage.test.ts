@@ -57,7 +57,12 @@ function matches(pattern: string, path: string): boolean {
 
 describe("middleware covers every authenticated API route", () => {
   const authenticated = routeFiles(API_ROOT)
-    .filter((file) => readFileSync(file, "utf8").includes("requireWorkspaceContext"))
+    .filter((file) => {
+      const source = readFileSync(file, "utf8");
+      // Both read the Clerk session: one to authorize, one to decide whose
+      // allowance pays for a free-tool run.
+      return source.includes("requireWorkspaceContext") || source.includes("reserveFreeToolRun");
+    })
     .map(urlPathFor)
     .sort();
 

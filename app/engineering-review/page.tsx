@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ResultActions } from "@/components/free-tools/result-actions";
 import { WorkspaceHandoffButton } from "@/components/free-tools/workspace-handoff-button";
 import type { FreeToolHandoff } from "@/lib/free-tools/handoff";
+import { LimitReached, readFreeToolLimit, type FreeToolLimit } from "@/components/free-tools/limit-reached";
 
 type Severity = "Critical" | "High" | "Medium" | "Low";
 
@@ -177,6 +178,7 @@ export default function EngineeringReviewPage() {
     const [loading, setLoading] = useState(false);
     const [remaining, setRemaining] = useState<number | null>(null);
     const [error, setError] = useState("");
+    const [limit, setLimit] = useState<FreeToolLimit | null>(null);
     const [result, setResult] = useState<EngineeringReviewResult | null>(null);
     const inputWorkspaceRef = useRef<HTMLElement>(null);
     const resultSectionRef = useRef<HTMLElement>(null);
@@ -402,6 +404,7 @@ export default function EngineeringReviewPage() {
 
         try {
             setLoading(true);
+            setLimit(null);
             setError("");
             setResult(null);
 
@@ -447,7 +450,9 @@ export default function EngineeringReviewPage() {
             const data = await response.json();
 
             if (!response.ok) {
-                setError(data.error || "Failed to analyze change impact.");
+                const reached = readFreeToolLimit(response.status, data);
+                setLimit(reached);
+                setError(reached ? "" : data.error || "Failed to analyze change impact.");
                 if (typeof data.remaining === "number") setRemaining(data.remaining);
                 return;
             }
@@ -972,6 +977,7 @@ export default function EngineeringReviewPage() {
                                 </button>
                             </div>
 
+                            {limit ? <LimitReached limit={limit} returnTo="/engineering-review" /> : null}
                             {error && (
                                 <div
                                     role="alert"

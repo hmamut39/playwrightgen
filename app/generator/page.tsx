@@ -8,6 +8,7 @@ import { GenerationProgress } from "@/components/free-tools/generation-progress"
 import { ResultActions } from "@/components/free-tools/result-actions";
 import { WorkspaceHandoffButton } from "@/components/free-tools/workspace-handoff-button";
 import type { FreeToolHandoff } from "@/lib/free-tools/handoff";
+import { LimitReached, readFreeToolLimit, type FreeToolLimit } from "@/components/free-tools/limit-reached";
 
 type GenerationMode = "FLOW" | "MARKUP" | "COMPONENT" | "API";
 type GenerationDepth = "FOCUSED" | "EXPANDED";
@@ -131,6 +132,7 @@ export default function QuickGeneratePage() {
   const [remaining, setRemaining] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [limit, setLimit] = useState<FreeToolLimit | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeMode = useMemo(
@@ -152,6 +154,7 @@ export default function QuickGeneratePage() {
 
     try {
       setLoading(true);
+      setLimit(null);
       setError("");
       setResult(null);
 
@@ -165,7 +168,9 @@ export default function QuickGeneratePage() {
       const response = await fetch("/api/quick-generate", { method: "POST", body: formData });
       const data = await response.json();
       if (!response.ok) {
-        setError(data.error || "Quick Generate failed.");
+        const reached = readFreeToolLimit(response.status, data);
+        setLimit(reached);
+        setError(reached ? "" : data.error || "Quick Generate failed.");
         if (typeof data.remaining === "number") setRemaining(data.remaining);
         return;
       }
@@ -328,6 +333,7 @@ export default function QuickGeneratePage() {
               </div>
             ) : null}
 
+            {limit ? <LimitReached limit={limit} returnTo="/generator" /> : null}
             {error ? <p role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
 
             <div className="mt-6 flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">

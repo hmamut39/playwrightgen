@@ -27,6 +27,7 @@ export const PRO_PLAN = {
     "Team roles: members write, leads approve, nobody approves their own work",
     "Use approved tests from VS Code, Cursor and Claude Code (MCP)",
     "Unlimited projects and workspace members",
+    "Free tools without the 5-a-day limit, using your workspace allowance",
   ],
 };
 

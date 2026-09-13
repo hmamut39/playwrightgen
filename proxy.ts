@@ -28,6 +28,12 @@ const JSON_ROUTES = [
   "/api/check-pro",
   "/api/checkout",
   "/api/checkout-session",
+  // The free tools are public, but read the session when there is one so a
+  // Team customer draws on their workspace's allowance instead of the
+  // five-a-day visitor limit.
+  "/api/quick-generate",
+  "/api/coverage-review",
+  "/api/engineering-review",
 ];
 
 export default clerkMiddleware(async (auth, request) => {
@@ -54,5 +60,8 @@ export const config = {
     "/api/check-pro",
     "/api/checkout",
     "/api/checkout-session",
+    "/api/quick-generate",
+    "/api/coverage-review",
+    "/api/engineering-review",
   ],
 };
