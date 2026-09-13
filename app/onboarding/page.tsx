@@ -8,7 +8,7 @@ export default function OnboardingPage() {
     <ClerkAuthShell
       eyebrow="Welcome to PlaywrightGen"
       title="One quick step."
-      description="Name the workspace where your projects, test cases and team will live. Then we'll walk you through your first project."
+      description="Join the team that invited you, or name a new workspace for your projects and team. Every screen after this tells you what to do next."
     >
       <WorkspaceOnboardingStep />
     </ClerkAuthShell>

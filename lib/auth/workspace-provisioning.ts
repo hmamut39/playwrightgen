@@ -4,6 +4,7 @@ import { clerkClient } from "@clerk/nextjs/server";
 
 import type { PrismaClient } from "@/generated/prisma/client";
 import {
+  dispatchClerkWebhook,
   reconcileClerkOrganizationSnapshot,
   type ClerkReconciliationSnapshot,
 } from "@/lib/services/clerk-sync";
@@ -114,6 +115,9 @@ export async function provisionWorkspaceFromClerk(input: {
   prisma: PrismaClient;
   fetchSnapshot?: ClerkSnapshotFetcher;
 }): Promise<boolean> {
+  if (!input.fetchSnapshot && process.env.PLAYWRIGHTGEN_DISABLE_CLERK_RECOVERY === "1") {
+    return false;
+  }
   try {
     const snapshot = await (input.fetchSnapshot ?? fetchClerkSnapshot)(
       input.clerkOrganizationId,
@@ -133,6 +137,71 @@ export async function provisionWorkspaceFromClerk(input: {
     // Quiet for the person, not for us: without this the reason a workspace
     // could not be recovered was invisible in the logs.
     console.warn("[provisioning] workspace recovery failed", {
+      clerkOrganizationId: input.clerkOrganizationId,
+      message: error instanceof Error ? error.message.slice(0, 300) : String(error),
+    });
+    return false;
+  }
+}
+
+type ClerkMembershipFetcher = (input: {
+  clerkOrganizationId: string;
+  clerkUserId: string;
+}) => Promise<unknown | null>;
+
+async function fetchClerkMembership(input: {
+  clerkOrganizationId: string;
+  clerkUserId: string;
+}): Promise<unknown | null> {
+  const client = await clerkClient();
+  const memberships = await client.users.getOrganizationMembershipList({
+    userId: input.clerkUserId,
+    limit: 100,
+  });
+  const membership = memberships.data.find(
+    (candidate) => candidate.organization.id === input.clerkOrganizationId,
+  );
+  // The raw JSON is the same shape a webhook delivers, so it can go through
+  // the webhook's own validation and sync rather than a second code path.
+  return membership?.raw ?? null;
+}
+
+/**
+ * Creates one person's local membership from Clerk, on demand.
+ *
+ * The organization exists but this person's membership does not -- the usual
+ * state for a few seconds after someone accepts an invitation and is sent
+ * straight into the workspace, before Clerk's webhook lands. Without this
+ * they met "forbidden" on their very first page in a team they had just
+ * joined. The membership is fetched from Clerk and applied through the same
+ * sync as the webhook, including the project roles they were invited with.
+ * When the webhook then arrives it finds the work done.
+ *
+ * Returns true when a membership was applied. Quiet on failure: a person with
+ * no membership in Clerk either is simply not a member.
+ */
+export async function provisionMembershipFromClerk(input: {
+  clerkOrganizationId: string;
+  clerkUserId: string;
+  prisma: PrismaClient;
+  fetchMembership?: ClerkMembershipFetcher;
+}): Promise<boolean> {
+  if (!input.fetchMembership && process.env.PLAYWRIGHTGEN_DISABLE_CLERK_RECOVERY === "1") {
+    return false;
+  }
+  try {
+    const raw = await (input.fetchMembership ?? fetchClerkMembership)(input);
+    if (!raw || typeof raw !== "object") return false;
+    const membership = raw as { id?: string; updated_at?: number };
+    const result = await dispatchClerkWebhook({
+      type: "organizationMembership.created",
+      data: raw,
+      eventId: `recovery:${membership.id ?? "unknown"}:${membership.updated_at ?? 0}`,
+      prisma: input.prisma,
+    });
+    return result.status === "applied" || result.status === "duplicate";
+  } catch (error) {
+    console.warn("[provisioning] membership recovery failed", {
       clerkOrganizationId: input.clerkOrganizationId,
       message: error instanceof Error ? error.message.slice(0, 300) : String(error),
     });

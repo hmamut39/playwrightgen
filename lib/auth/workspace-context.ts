@@ -11,7 +11,10 @@ import type {
   User,
 } from "@/generated/prisma/client";
 import { getPrismaClient } from "@/lib/db/prisma";
-import { provisionWorkspaceFromClerk } from "@/lib/auth/workspace-provisioning";
+import {
+  provisionMembershipFromClerk,
+  provisionWorkspaceFromClerk,
+} from "@/lib/auth/workspace-provisioning";
 
 export type WorkspacePermission =
   | "organization:read"
@@ -82,6 +85,12 @@ export type WorkspaceContextDependencies = {
   /** Injectable so tests can exercise the recovery path without calling Clerk. */
   provisionWorkspace?: (input: {
     clerkOrganizationId: string;
+    prisma: PrismaClient;
+  }) => Promise<boolean>;
+  /** Injectable for the same reason as provisionWorkspace. */
+  provisionMembership?: (input: {
+    clerkOrganizationId: string;
+    clerkUserId: string;
     prisma: PrismaClient;
   }) => Promise<boolean>;
   /** Waits between recovery attempts; injectable so tests need not sleep. */
@@ -290,19 +299,38 @@ export async function requireWorkspaceContext(
   if (organization.status === "SUSPENDED") {
     forbidden();
   }
+  const findMembership = (userId: string) =>
+    prisma.membership.findUnique({
+      where: {
+        organizationId_userId: { organizationId: organization.id, userId },
+      },
+    });
+  let membership = user ? await findMembership(user.id) : null;
+
+  // Clerk's session says this person belongs to the organization, but the
+  // database has no membership row for them -- the normal state for a few
+  // seconds after accepting an invitation, before the webhook lands. The
+  // membership is fetched from Clerk rather than refused. Only an absent row
+  // is recovered: a membership that exists but was removed stays removed.
+  if (!membership && (!user || user.status === "ACTIVE")) {
+    const recovered = await (
+      dependencies?.provisionMembership ?? provisionMembershipFromClerk
+    )({
+      clerkOrganizationId: authState.orgId,
+      clerkUserId: authState.userId,
+      prisma,
+    });
+    if (recovered) {
+      user = await prisma.user.findUnique({
+        where: { clerkUserId: authState.userId as string },
+      });
+      membership = user ? await findMembership(user.id) : null;
+    }
+  }
+
   if (!user || user.status !== "ACTIVE") {
     forbidden();
   }
-
-  const membership = await prisma.membership.findUnique({
-    where: {
-      organizationId_userId: {
-        organizationId: organization.id,
-        userId: user.id,
-      },
-    },
-  });
-
   if (!membership || membership.status !== "ACTIVE") {
     forbidden();
   }

@@ -124,6 +124,7 @@ export async function authenticateEditorRequest(
     }),
     // The organization was just read, so there is nothing to recover.
     provisionWorkspace: async () => false,
+    provisionMembership: async () => false,
   };
 
   // The same check the browser gets: an active membership, and a project role

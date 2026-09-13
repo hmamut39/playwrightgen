@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { PrismaClient, ProjectMembershipRole } from "@/generated/prisma/client";
+import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
+import { provisionMembershipFromClerk } from "@/lib/auth/workspace-provisioning";
 import { dispatchClerkWebhook } from "@/lib/services/clerk-sync";
 import { readInvitedProjectRoles } from "@/lib/services/invited-project-roles";
 import {
@@ -320,6 +322,102 @@ describe("project team and invitations", () => {
         ),
       ).rejects.toMatchObject({ code: "permission_denied" });
       expect(sent).toHaveLength(0);
+    });
+  });
+
+  describe("joining before the webhook lands", () => {
+    // The minutes that matter most for a team: someone accepts an invitation
+    // and is sent straight into the workspace. The organization exists; their
+    // membership row does not yet.
+    async function orgWithProject() {
+      const ownerClerkId = unique("owner");
+      const organization = { id: unique("org"), slug: unique("slug"), creatorUserId: ownerClerkId };
+      await dispatchClerkWebhook({
+        type: "organizationMembership.created",
+        data: clerkMembershipData({ id: unique("mem"), userId: ownerClerkId, organization }),
+        eventId: unique("event"),
+        prisma,
+      });
+      const org = await prisma.organization.findUniqueOrThrow({
+        where: { clerkOrganizationId: organization.id },
+      });
+      const owner = await prisma.user.findUniqueOrThrow({ where: { clerkUserId: ownerClerkId } });
+      const project = await prisma.project.create({
+        data: { organizationId: org.id, name: "Checkout", slug: unique("p"), createdByUserId: owner.id },
+      });
+      return { organization, org, project };
+    }
+
+    it("lets an invited person in on their first request, with their project role", async () => {
+      const { organization, org, project } = await orgWithProject();
+      const inviteeClerkId = unique("invitee");
+      let asked = 0;
+
+      const context = await requireWorkspaceContext(
+        { projectId: project.id, permission: "testcase:create" },
+        {
+          authenticate: async () => ({ userId: inviteeClerkId, orgId: organization.id }),
+          prisma,
+          provisionMembership: (input) =>
+            provisionMembershipFromClerk({
+              ...input,
+              fetchMembership: async () => {
+                asked += 1;
+                return {
+                  ...clerkMembershipData({ id: unique("mem"), userId: inviteeClerkId, organization }),
+                  public_metadata: { playwrightgenProjectRoles: { [project.id]: "MEMBER" } },
+                };
+              },
+            }),
+        },
+      );
+
+      expect(asked).toBe(1);
+      expect(context.organization.id).toBe(org.id);
+      expect(context.projectRole).toBe("MEMBER");
+      expect(context.can("testcase:create")).toBe(true);
+    });
+
+    it("does not bring back a membership that was removed", async () => {
+      const { organization, project } = await orgWithProject();
+      const formerClerkId = unique("former");
+      const membershipId = unique("mem");
+      const data = clerkMembershipData({ id: membershipId, userId: formerClerkId, organization });
+      await dispatchClerkWebhook({
+        type: "organizationMembership.created", data, eventId: unique("event"), prisma,
+      });
+      await prisma.membership.updateMany({
+        where: { clerkMembershipId: membershipId },
+        data: { status: "REMOVED", removedAt: new Date() },
+      });
+      let asked = 0;
+
+      await expect(requireWorkspaceContext(
+        { projectId: project.id, permission: "project:read" },
+        {
+          authenticate: async () => ({ userId: formerClerkId, orgId: organization.id }),
+          prisma,
+          provisionMembership: async () => {
+            asked += 1;
+            return true;
+          },
+        },
+      )).rejects.toMatchObject({ status: 403 });
+      expect(asked).toBe(0);
+    });
+
+    it("refuses someone Clerk does not list as a member", async () => {
+      const { organization, project } = await orgWithProject();
+      const strangerClerkId = unique("stranger");
+      await expect(requireWorkspaceContext(
+        { projectId: project.id, permission: "project:read" },
+        {
+          authenticate: async () => ({ userId: strangerClerkId, orgId: organization.id }),
+          prisma,
+          provisionMembership: (input) =>
+            provisionMembershipFromClerk({ ...input, fetchMembership: async () => null }),
+        },
+      )).rejects.toMatchObject({ status: 403 });
     });
   });
 });
