@@ -13,3 +13,9 @@ export const SITE_NAME = "PlaywrightGen";
 export const SITE_TAGLINE = "Evidence-backed quality for Playwright teams";
 export const SITE_DESCRIPTION =
   "Turn requirements into reviewed Playwright tests, run them in your own CI, and see whether a release is safe to ship — with every approval and result on record.";
+
+/**
+ * The generated share card. A page that sets its own openGraph replaces the
+ * site-wide one, image included, so pages with their own titles name it again.
+ */
+export const SHARE_IMAGE = { url: "/opengraph-image", width: 1200, height: 630 };

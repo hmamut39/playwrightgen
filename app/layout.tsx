@@ -4,7 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 
 import { SiteNavigation } from "@/components/site-navigation";
 import { validatePublicClerkEnvironment } from "@/lib/env";
-import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, siteUrl } from "@/lib/site";
+import { SHARE_IMAGE, SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, siteUrl } from "@/lib/site";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -38,6 +38,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
+    images: [SHARE_IMAGE.url],
     title: `${SITE_NAME} — Know what to test. Know whether to ship.`,
     description: SITE_DESCRIPTION,
   },
