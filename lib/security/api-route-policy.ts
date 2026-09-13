@@ -7,7 +7,10 @@ export type ApiRouteSecurityPolicy = {
     // a cache so repeated calls cannot load the dependencies it reports on.
     | "public-status"
     | "legacy-quarantined"
-    | "signed-webhook";
+    | "signed-webhook"
+    // A personal bearer token bound to one user and one project, re-checked
+    // against that user's current access on every request.
+    | "personal-token";
   requiredMarker: string;
 };
 
@@ -71,6 +74,10 @@ export const API_ROUTE_SECURITY_POLICY = {
   "intelligence/route.ts": {
     boundary: "legacy-quarantined",
     requiredMarker: "legacyAiRouteQuarantine",
+  },
+  "mcp/route.ts": {
+    boundary: "personal-token",
+    requiredMarker: "authenticateEditorRequest",
   },
   "quick-generate/route.ts": {
     boundary: "bounded-public",

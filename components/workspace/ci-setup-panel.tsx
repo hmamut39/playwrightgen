@@ -8,7 +8,7 @@ type CopyFieldProps = {
   secret?: boolean;
 };
 
-function CopyField({ label, value, secret = false }: CopyFieldProps) {
+export function CopyField({ label, value, secret = false }: CopyFieldProps) {
   const [revealed, setRevealed] = useState(!secret);
   const [copied, setCopied] = useState(false);
 

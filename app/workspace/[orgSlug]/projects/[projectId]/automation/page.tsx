@@ -5,7 +5,9 @@ import {
   ListSearch,
 } from "@/components/workspace/list-controls";
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
+import { EditorSetupPanel } from "@/components/workspace/editor-setup-panel";
 import { listAutomationArtifacts } from "@/lib/services/automation-artifacts";
+import { getEditorSetup } from "@/lib/services/editor-access";
 
 const statusStyle = {
   DRAFT: "bg-slate-100 text-slate-700",
@@ -30,7 +32,11 @@ export default async function AutomationPage({
   const { orgSlug, projectId } = await params;
   const { q, page } = await searchParams;
   const basePath = `/workspace/${orgSlug}/projects/${projectId}/automation`;
-  const artifacts = await listAutomationArtifacts({ orgSlug, projectId, search: q, page: page ? Number(page) : undefined });
+  const [artifacts, editorSetup] = await Promise.all([
+    listAutomationArtifacts({ orgSlug, projectId, search: q, page: page ? Number(page) : undefined }),
+    getEditorSetup({ orgSlug, projectId }),
+  ]);
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
   const base = `/workspace/${orgSlug}/projects/${projectId}`;
 
   return (
@@ -117,6 +123,10 @@ export default async function AutomationPage({
       </section>
 
       <ListPagination basePath={basePath} meta={artifacts} noun="artifacts" />
+
+      {editorSetup.configured && appUrl ? (
+        <EditorSetupPanel mcpUrl={`${appUrl}/api/mcp`} token={editorSetup.token} />
+      ) : null}
     </div>
   );
 }
