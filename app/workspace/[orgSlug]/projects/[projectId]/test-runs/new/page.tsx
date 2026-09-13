@@ -43,7 +43,7 @@ export default async function NewTestRunPage({
       <Link href={`/workspace/${orgSlug}/projects/${projectId}/test-runs`} className="text-sm font-medium text-cyan-700 hover:text-cyan-900">← Test Runs</Link>
       <p className="mt-8 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">{project.name}</p>
       <h1 className="mt-2 text-3xl font-semibold tracking-tight">New test run</h1>
-      <p className="mt-2 text-sm text-slate-600">The run permanently pins the currently approved Test Case version.</p>
+      <p className="mt-2 text-sm text-slate-600">Record a test you ran yourself, outside CI. The result is saved against the test case exactly as it was approved, so later edits never change what this run proved.</p>
 
       {approved.length === 0 ? (
         <section className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-6">
@@ -60,15 +60,15 @@ export default async function NewTestRunPage({
             </select>
           </label>
           <label className="block text-sm font-medium">Run name
-            <input name="name" required maxLength={300} placeholder="Staging release regression" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60" />
+            <input name="name" required maxLength={300} placeholder="For example: Release 2.3 check on staging" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60" />
           </label>
           <div className="grid gap-5 sm:grid-cols-3">
             <label className="block text-sm font-medium">Mode<select name="mode" defaultValue="MANUAL" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60"><option value="MANUAL">Manual</option><option value="PLAYWRIGHT_BROWSER">Playwright Browser</option><option value="API">API</option></select></label>
-            <label className="block text-sm font-medium">Environment<select name="environment" defaultValue="DEVELOPMENT" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60"><option>LOCAL</option><option>DEVELOPMENT</option><option>STAGING</option><option>PRODUCTION</option><option>OTHER</option></select></label>
-            <label className="block text-sm font-medium">Browser<select name="browser" defaultValue="CHROMIUM" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60"><option>CHROMIUM</option><option>FIREFOX</option><option>WEBKIT</option><option>NONE</option></select></label>
+            <label className="block text-sm font-medium">Environment<select name="environment" defaultValue="DEVELOPMENT" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60"><option value="LOCAL">Local machine</option><option value="DEVELOPMENT">Development</option><option value="STAGING">Staging</option><option value="PRODUCTION">Production</option><option value="OTHER">Other</option></select></label>
+            <label className="block text-sm font-medium">Browser<select name="browser" defaultValue="CHROMIUM" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60"><option value="CHROMIUM">Chrome / Edge (Chromium)</option><option value="FIREFOX">Firefox</option><option value="WEBKIT">Safari (WebKit)</option><option value="NONE">No browser</option></select></label>
           </div>
-          <p className="text-xs text-slate-500">API mode automatically stores browser as NONE. Playwright Browser mode requires a browser.</p>
-          <label className="block text-sm font-medium">Base URL
+          <p className="text-xs text-slate-500">Use &ldquo;Manual&rdquo; for a test you clicked through yourself. API tests do not use a browser, so the browser choice is ignored for them.</p>
+          <label className="block text-sm font-medium">Address you tested <span className="font-normal text-slate-400">(optional)</span>
             <input name="baseUrl" type="url" placeholder="https://staging.example.com" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60" />
           </label>
           <button className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white">Create run</button>
