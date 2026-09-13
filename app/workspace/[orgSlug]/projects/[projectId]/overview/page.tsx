@@ -10,6 +10,7 @@ import {
 } from "@/lib/services/projects";
 import { getProjectSetup } from "@/lib/services/project-setup";
 import { personName } from "@/lib/format/person-name";
+import { LocalTime } from "@/components/workspace/local-time";
 
 export default async function ProjectOverviewPage({
   params,
@@ -72,8 +73,8 @@ export default async function ProjectOverviewPage({
           <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Status</dt><dd className="mt-2 text-sm font-medium">{project.status}</dd></div>
           <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Your role</dt><dd className="mt-2 text-sm font-medium">{overview.role}</dd></div>
           <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Creator</dt><dd className="mt-2 text-sm font-medium">{personName(project.createdBy.displayName)}</dd></div>
-          <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Created</dt><dd className="mt-2 text-sm">{project.createdAt.toLocaleString()}</dd></div>
-          <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Updated</dt><dd className="mt-2 text-sm">{project.updatedAt.toLocaleString()}</dd></div>
+          <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Created</dt><dd className="mt-2 text-sm"><LocalTime value={project.createdAt} /></dd></div>
+          <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Updated</dt><dd className="mt-2 text-sm"><LocalTime value={project.updatedAt} /></dd></div>
         </dl>
         <div className="mt-8 border-t border-slate-200 pt-6">
           <h2 className="text-sm font-semibold">Description</h2>

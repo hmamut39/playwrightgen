@@ -9,6 +9,7 @@ import { ProjectNavigation } from "@/components/workspace/project-navigation";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { getProject } from "@/lib/services/projects";
 import { listTestCases } from "@/lib/services/test-cases";
+import { LocalTime } from "@/components/workspace/local-time";
 
 const statusStyle = {
   DRAFT: "bg-slate-100 text-slate-700",
@@ -97,7 +98,7 @@ export default async function TestCasesPage({
                   <span>{testCase.priority} priority</span>
                   <span>{testCase._count.requirementLinks} linked requirements</span>
                   <span>Automation: {testCase.automationStatus}</span>
-                  <span>Updated {testCase.updatedAt.toLocaleString()}</span>
+                  <span>Updated <LocalTime value={testCase.updatedAt} /></span>
                 </div>
               </Link>
             ))}

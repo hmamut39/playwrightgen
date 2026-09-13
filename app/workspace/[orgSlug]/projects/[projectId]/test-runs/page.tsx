@@ -11,6 +11,7 @@ import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { getProject } from "@/lib/services/projects";
 import { getProjectRunSignals } from "@/lib/services/run-signals";
 import { listTestRuns } from "@/lib/services/test-runs";
+import { LocalTime } from "@/components/workspace/local-time";
 
 const statusStyle = {
   NOT_STARTED: "bg-slate-100 text-slate-700",
@@ -85,7 +86,7 @@ export default async function TestRunsPage({
                 <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-400">
                   <span>{run.mode.replaceAll("_", " ")}</span><span>{run.environment}</span>
                   <span>{run.browser}</span><span>{run._count.attempts} attempts</span>
-                  <span>Updated {run.updatedAt.toLocaleString()}</span>
+                  <span>Updated <LocalTime value={run.updatedAt} /></span>
                 </div>
               </Link>
               );

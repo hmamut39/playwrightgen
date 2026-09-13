@@ -5,6 +5,7 @@ import { SetupChecklist } from "@/components/workspace/setup-checklist";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { getProjectQualityIntelligence } from "@/lib/services/project-quality";
 import { getProjectSetup } from "@/lib/services/project-setup";
+import { LocalTime } from "@/components/workspace/local-time";
 
 const freshnessStyle = {
   FRESH: "bg-emerald-50 text-emerald-700 ring-emerald-200",
@@ -73,7 +74,7 @@ export default async function ProjectQualityPage({
               {formatAge(intelligence.evidence.ageDays)}
             </p>
             <p className="mt-2 text-xs text-slate-500">
-              Measured {intelligence.measuredAt.toLocaleString()}
+              Measured <LocalTime value={intelligence.measuredAt} />
             </p>
           </div>
         </div>
@@ -202,7 +203,7 @@ export default async function ProjectQualityPage({
                   key={item.id}
                   href={`${base}/test-runs/${item.testRunId}`}
                   title={item.runName}
-                  meta={`${item.result.toLowerCase()} · ${item.testCaseTitle} · ${item.executedAt.toLocaleString()}`}
+                  meta={<>{item.result.toLowerCase()} · {item.testCaseTitle} · <LocalTime value={item.executedAt} /></>}
                 />
               ))}
             </GapGroup>
@@ -293,7 +294,7 @@ function GapGroup({
   );
 }
 
-function GapLink({ href, title, meta }: { href: string; title: string; meta: string }) {
+function GapLink({ href, title, meta }: { href: string; title: string; meta: React.ReactNode }) {
   return (
     <Link href={href} className="group flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 transition hover:border-cyan-300 hover:bg-cyan-50/50">
       <span className="min-w-0">

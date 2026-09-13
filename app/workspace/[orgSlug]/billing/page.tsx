@@ -1,6 +1,7 @@
 import { BillingActions } from "@/app/workspace/[orgSlug]/billing/billing-actions";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { getOrganizationBillingSnapshot } from "@/lib/services/billing";
+import { LocalTime } from "@/components/workspace/local-time";
 
 function label(value: string) {
   return value.toLowerCase().replaceAll("_", " ");
@@ -51,7 +52,7 @@ export default async function BillingPage({
             </p>
             {activeSubscription?.currentPeriodEnd ? (
               <p className="mt-1 text-xs text-slate-500">
-                Current period ends {activeSubscription.currentPeriodEnd.toLocaleDateString()}.
+                Current period ends <LocalTime value={activeSubscription.currentPeriodEnd} style="date" />.
               </p>
             ) : null}
           </div>

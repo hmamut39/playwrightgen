@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
 import { getReleaseReadiness } from "@/lib/services/release-readiness";
+import { LocalTime } from "@/components/workspace/local-time";
 
 const freshnessLabel = {
   FRESH: "Fresh",
@@ -79,7 +80,7 @@ export default async function ReleaseReadinessPage({
           </p>
         </div>
         <p className="mt-3 text-xs text-slate-400">
-          Measured {readiness.measuredAt.toLocaleString()} ·{" "}
+          Measured <LocalTime value={readiness.measuredAt} /> ·{" "}
           {readiness.evidence.hasExecution
             ? `${readiness.evidence.attemptCount} recorded ${readiness.evidence.attemptCount === 1 ? "attempt" : "attempts"}, last activity ${freshnessLabel[readiness.evidence.freshness].toLowerCase()}${readiness.evidence.ageDays !== null ? ` at ${readiness.evidence.ageDays} days old` : ""}`
             : "No execution has ever been recorded"}

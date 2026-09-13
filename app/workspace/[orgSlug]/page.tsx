@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { getOrganizationProjectRisk } from "@/lib/services/project-risk";
 import { listProjects } from "@/lib/services/projects";
+import { LocalTime } from "@/components/workspace/local-time";
 
 export default async function OrganizationWorkspacePage({
   params,
@@ -82,9 +83,16 @@ export default async function OrganizationWorkspacePage({
                 )}
               </div>
               <p className="mt-3 text-xs text-slate-400">
-                {projectRisk?.lastEvidenceAt
-                  ? `Last evidence ${projectRisk.lastEvidenceAt.toLocaleDateString()} · updated ${project.updatedAt.toLocaleDateString()}`
-                  : `Updated ${project.updatedAt.toLocaleString()}`}
+                {projectRisk?.lastEvidenceAt ? (
+                  <>
+                    Last evidence <LocalTime value={projectRisk.lastEvidenceAt} style="date" /> · updated{" "}
+                    <LocalTime value={project.updatedAt} style="date" />
+                  </>
+                ) : (
+                  <>
+                    Updated <LocalTime value={project.updatedAt} />
+                  </>
+                )}
               </p>
             </Link>
             );

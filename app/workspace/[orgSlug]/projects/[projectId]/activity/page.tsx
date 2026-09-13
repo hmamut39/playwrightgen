@@ -4,6 +4,7 @@ import { ListEmptyState, ListPagination } from "@/components/workspace/list-cont
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
 import { personName } from "@/lib/format/person-name";
 import { groupActivityByDay, listProjectActivity } from "@/lib/services/activity-feed";
+import { LocalTime } from "@/components/workspace/local-time";
 
 /**
  * What changed while you were away.
@@ -95,10 +96,7 @@ export default async function ProjectActivityPage({
                           {entry.summary}
                         </p>
                         <span className="shrink-0 text-xs text-slate-400">
-                          {entry.createdAt.toLocaleTimeString(undefined, {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          <LocalTime value={entry.createdAt} style="time" />
                         </span>
                       </div>
                     );

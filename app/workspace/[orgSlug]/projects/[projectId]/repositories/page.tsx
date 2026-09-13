@@ -21,6 +21,7 @@ import {
   listConnectableGitHubRepositories,
   listRepositoryConnections,
 } from "@/lib/services/repository-imports";
+import { LocalTime } from "@/components/workspace/local-time";
 
 const connectionStatusStyle = {
   ACTIVE: "bg-emerald-50 text-emerald-700",
@@ -384,9 +385,13 @@ export default async function ProjectRepositoriesPage({
                     </div>
                     <div className="flex flex-col items-start gap-3 sm:items-end">
                       <p className="text-xs text-slate-500">
-                        {connection.lastImportedAt
-                          ? `Last imported ${connection.lastImportedAt.toLocaleString()}`
-                          : "No import recorded"}
+                        {connection.lastImportedAt ? (
+                          <>
+                            Last imported <LocalTime value={connection.lastImportedAt} />
+                          </>
+                        ) : (
+                          "No import recorded"
+                        )}
                       </p>
                       {context.can("repository:import") &&
                       connection.status === "ACTIVE" &&

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { PrintButton } from "@/components/workspace/print-button";
 import { getReleaseEvidenceReport } from "@/lib/services/release-evidence";
+import { LocalTime } from "@/components/workspace/local-time";
 
 /**
  * The evidence pack behind a release decision.
@@ -68,7 +69,7 @@ export default async function ReleaseEvidenceReportPage({
           than assumed to be fine.
         </p>
         <p className="mt-3 text-xs text-slate-500">
-          Generated {report.generatedAt.toLocaleString()}
+          Generated <LocalTime value={report.generatedAt} />
         </p>
         <div className="mt-5 flex flex-wrap gap-3 print:hidden">
           <PrintButton />
@@ -167,7 +168,7 @@ export default async function ReleaseEvidenceReportPage({
                           </td>
                           <td className="py-2.5 text-xs text-slate-500">
                             {testCase.latestExecutedAt
-                              ? testCase.latestExecutedAt.toLocaleString()
+                              ? <LocalTime value={testCase.latestExecutedAt} />
                               : "—"}
                             {shortSha(testCase.latestCommitSha)
                               ? ` · ${shortSha(testCase.latestCommitSha)}`
