@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   FailureAnalysisProviderError,
+  keepVerifiedFindings,
   validateFailureAnalysisEvidence,
   type FailureAnalysisEvidence,
 } from "@/lib/ai/failure-analysis";
@@ -116,5 +117,41 @@ describe("Failure Intelligence evidence validation", () => {
       finding({ evidenceField: "TEST_OBJECTIVE", evidenceQuote: "POST /orders returned HTTP 500." }),
       evidence,
     )).toThrowError(FailureAnalysisProviderError);
+  });
+});
+
+describe("keeping only verified findings", () => {
+  const finding = (evidenceQuote: string) => ({
+    category: "PRODUCT_DEFECT" as const,
+    confidence: 70,
+    title: "Order endpoint failed",
+    explanation: "A server-side failure.",
+    evidenceField: "FAILURE_DETAILS" as const,
+    evidenceQuote,
+    recommendation: "Check the order service logs.",
+  });
+
+  it("drops a fabricated finding and keeps the correctly quoted ones", () => {
+    const { analysis, dropped } = keepVerifiedFindings({
+      summary: "Mixed.",
+      findings: [finding("POST /orders returned HTTP 500."), finding("database connection timed out")],
+    }, evidence);
+    expect(dropped).toBe(1);
+    expect(analysis.findings.map((kept) => kept.evidenceQuote)).toEqual(["POST /orders returned HTTP 500."]);
+  });
+
+  it("accepts a quote wrapped in its own quotation marks or curly quotes", () => {
+    const { dropped } = keepVerifiedFindings({
+      summary: "Quoted.",
+      findings: [finding("“POST /orders returned HTTP 500”")],
+    }, evidence);
+    expect(dropped).toBe(0);
+  });
+
+  it("still fails when nothing verifies", () => {
+    expect(() => keepVerifiedFindings({
+      summary: "Invented.",
+      findings: [finding("database connection timed out")],
+    }, evidence)).toThrowError(FailureAnalysisProviderError);
   });
 });

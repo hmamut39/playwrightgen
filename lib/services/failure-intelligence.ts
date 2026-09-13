@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { Prisma } from "@/generated/prisma/client";
 import {
   analyzeFailureEvidence,
-  validateFailureAnalysisEvidence,
+  keepVerifiedFindings,
   type FailureAnalysisEvidence,
   type FailureAnalysisResult,
 } from "@/lib/ai/failure-analysis";
@@ -275,8 +275,17 @@ export async function analyzeAttempt(
   });
   let result: FailureAnalysisResult;
   try {
-    result = await (dependencies?.analyzer ?? analyzeFailureEvidence)(evidence);
-    validateFailureAnalysisEvidence(result, evidence);
+    const verified = keepVerifiedFindings(
+      await (dependencies?.analyzer ?? analyzeFailureEvidence)(evidence),
+      evidence,
+    );
+    result = verified.analysis;
+    if (verified.dropped > 0) {
+      console.warn("[failure-analysis] dropped findings with unverifiable quotes", {
+        dropped: verified.dropped,
+        kept: result.findings.length,
+      });
+    }
   } catch (error) {
     const failureCode = error instanceof Error && /^[a-z_]+$/.test(error.message)
       ? error.message

@@ -60,7 +60,27 @@ export class FailureAnalysisProviderError extends Error {
 }
 
 function normalize(value: string): string {
-  return value.toLowerCase().replace(/\s+/g, " ").trim();
+  return value
+    .toLowerCase()
+    // Models swap straight and curly quotes freely; the words are what count.
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/\s+/g, " ")
+    .trim()
+    // A quote wrapped in its own quotation marks or trailing ellipsis still
+    // cites the same text.
+    .replace(/^["'….]+|["'….]+$/g, "")
+    .trim();
+}
+
+function isVerifiedQuote(
+  finding: { evidenceQuote: string; evidenceField: keyof FailureAnalysisEvidence },
+  evidence: FailureAnalysisEvidence,
+) {
+  const quote = normalize(finding.evidenceQuote);
+  const source = normalize(evidence[finding.evidenceField]);
+  if (!quote || !source.includes(quote)) return false;
+  return quote.length >= MIN_QUOTE_LENGTH || quote === source;
 }
 
 /**
@@ -90,6 +110,30 @@ export function validateFailureAnalysisEvidence(
       throw new FailureAnalysisProviderError("invalid_output");
     }
   }
+}
+
+/**
+ * Keeps the findings whose quotes verify and drops the rest.
+ *
+ * Rejecting the whole analysis over one bad citation threw away findings that
+ * were correctly quoted -- in a real run, a person pressed "Analyze" and got
+ * an error page instead of three sound findings and one fabricated one. A
+ * finding still never reaches anyone without an exact quote behind it; only
+ * the unverifiable ones are removed. If none verify, the analysis fails as
+ * before.
+ */
+export function keepVerifiedFindings<T extends z.infer<typeof failureAnalysisSchema>>(
+  analysis: T,
+  evidence: FailureAnalysisEvidence,
+): { analysis: T; dropped: number } {
+  const verified = analysis.findings.filter((finding) => isVerifiedQuote(finding, evidence));
+  if (analysis.findings.length > 0 && verified.length === 0) {
+    throw new FailureAnalysisProviderError("invalid_output");
+  }
+  return {
+    analysis: { ...analysis, findings: verified },
+    dropped: analysis.findings.length - verified.length,
+  };
 }
 
 export async function analyzeFailureEvidence(
