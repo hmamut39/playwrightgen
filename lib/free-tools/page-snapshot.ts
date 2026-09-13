@@ -1,6 +1,6 @@
 import "server-only";
 
-import { chromium } from "playwright-core";
+import { chromium, type Browser } from "playwright-core";
 
 /**
  * What a real page looks like to a test: its accessibility tree.
@@ -77,6 +77,18 @@ function countRoles(aria: string) {
     fields: count(/^\s*- (?:textbox|searchbox|combobox|checkbox|radio|spinbutton|slider|switch)\b/gm),
     headings: count(/^\s*- heading\b/gm),
   };
+}
+
+/**
+ * A browser in the remote service, or null when it is not configured.
+ * Everything a free tool opens runs there, never on our servers.
+ */
+export async function connectRemoteBrowser(options: { endpoint?: string } = {}): Promise<Browser | null> {
+  const token = process.env.BROWSERLESS_API_KEY?.trim();
+  if (!token && !options.endpoint) return null;
+  const endpoint =
+    options.endpoint ?? `wss://production-sfo.browserless.io?token=${encodeURIComponent(token!)}`;
+  return chromium.connectOverCDP(endpoint, { timeout: 12_000 });
 }
 
 export async function capturePageSnapshot(

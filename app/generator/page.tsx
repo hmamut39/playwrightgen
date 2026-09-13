@@ -9,6 +9,7 @@ import { ResultActions } from "@/components/free-tools/result-actions";
 import { WorkspaceHandoffButton } from "@/components/free-tools/workspace-handoff-button";
 import type { FreeToolHandoff } from "@/lib/free-tools/handoff";
 import { LimitReached, readFreeToolLimit, type FreeToolLimit } from "@/components/free-tools/limit-reached";
+import { PreviewRunPanel } from "@/components/free-tools/preview-run-panel";
 
 type GenerationMode = "FLOW" | "MARKUP" | "COMPONENT" | "API";
 type GenerationDepth = "FOCUSED" | "EXPANDED";
@@ -416,6 +417,9 @@ export default function QuickGeneratePage() {
                 <ResultActions content={result.code} filename="playwright-draft.spec.ts" tone="dark" />
               </div>
               <SyntaxHighlighter language="typescript" style={vscDarkPlus} customStyle={{ margin: 0, padding: "1.5rem", background: "#020617", fontSize: "0.82rem", minHeight: "18rem" }} wrapLongLines>{result.code}</SyntaxHighlighter>
+              {livePage?.status === "read" && mode !== "API" ? (
+                <PreviewRunPanel key={result.code} code={result.code} pageUrl={livePage.url} />
+              ) : null}
               <RunSteps baseUrl={originOf(livePage?.status === "read" ? livePage.url : pageUrl)} isApi={mode === "API"} />
             </div>
 

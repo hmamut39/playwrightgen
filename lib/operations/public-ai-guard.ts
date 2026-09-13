@@ -79,7 +79,7 @@ export function publicAiClientFingerprint(input: {
 
 export async function reservePublicAiRequest(input: {
   request: Request;
-  surface: "quick-generate" | "coverage-review" | "release-review";
+  surface: "quick-generate" | "coverage-review" | "release-review" | "preview-run";
   dailyLimit?: number;
   minuteLimit?: number;
   requestId?: string;

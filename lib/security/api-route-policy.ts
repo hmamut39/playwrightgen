@@ -81,6 +81,10 @@ export const API_ROUTE_SECURITY_POLICY = {
     boundary: "personal-token",
     requiredMarker: "authenticateEditorRequest",
   },
+  "preview-run/route.ts": {
+    boundary: "bounded-public",
+    requiredMarker: "reservePublicAiRequest",
+  },
   "quick-generate/route.ts": {
     boundary: "bounded-public",
     // Visitors: five a day by address. Team customers: their workspace's allowance.
