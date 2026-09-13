@@ -79,4 +79,27 @@ test('x', async ({ page, request }) => {
 });`);
     expect(plan.tests[0].steps[0].operations[0]).toMatchObject({ op: "expect", matcher: "toBeVisible", negated: true });
   });
+
+  it("reads filter({ hasText }) with a variable and locators chained from it", () => {
+    const plan = planPreviewRun(`test('x', async ({ page }) => {
+  const TODO1 = 'Buy milk';
+  await test.step('complete', async () => {
+    const item = page.getByRole('listitem').filter({ hasText: TODO1 });
+    const toggle = item.getByRole('checkbox');
+    await toggle.check();
+    await expect(item).not.toBeVisible();
+  });
+});`);
+    const operations = plan.tests[0].steps[0].operations;
+    expect(operations[0]).toMatchObject({
+      op: "action",
+      action: "check",
+      locator: [
+        { by: "role", role: "listitem" },
+        { by: "filter", hasText: { kind: "string", value: "Buy milk" } },
+        { by: "role", role: "checkbox" },
+      ],
+    });
+    expect(operations[1]).toMatchObject({ op: "expect", matcher: "toBeVisible", negated: true });
+  });
 });

@@ -148,7 +148,9 @@ export function planPreviewRun(code: string): RunPlan {
   }
 
   function locatorFrom(method: string, args: readonly ts.Expression[], scope: Map<string, Value>): LocatorStep | null {
-    const first = args[0] ? evaluate(args[0], scope) : null;
+    // filter() takes an options object, read by objectOptions below; every
+    // other locator method takes a value first.
+    const first = args[0] && method !== "filter" ? evaluate(args[0], scope) : null;
     // Say exactly why a value cannot be used ("needs SECRET from your
     // environment") rather than a generic "not a literal".
     if (first?.type === "unknown") throw new Unsupported(first.reason);
@@ -185,6 +187,7 @@ export function planPreviewRun(code: string): RunPlan {
         return { by: "nth", index: first.value };
       case "filter": {
         const options = objectOptions(args[0], scope);
+        if (options.hasText?.type === "unknown") throw new Unsupported(options.hasText.reason);
         const hasText = options.hasText ? asTextMatch(options.hasText) : null;
         if (!hasText) throw new Unsupported("only filter({ hasText }) runs in the preview");
         return { by: "filter", hasText };

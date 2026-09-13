@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { LimitReached, readFreeToolLimit, type FreeToolLimit } from "@/components/free-tools/limit-reached";
+
 type OperationResult = { source: string; status: "passed" | "failed" | "skipped" | "not_reached"; detail?: string };
 type StepResult = { name: string; status: "passed" | "failed" | "partial" | "not_reached"; operations: OperationResult[] };
 type TestResult = {
@@ -9,6 +11,14 @@ type TestResult = {
   status: "passed" | "failed" | "incomplete";
   steps: StepResult[];
   failureScreenshot?: string;
+  failureSnapshot?: string;
+};
+
+export type FixedDraft = {
+  code: string;
+  explanation: string;
+  validation: { status: "PASSED" | "WARNINGS" | "BLOCKED"; findings: { severity: "BLOCKING" | "WARNING"; code: string; message: string }[] };
+  locatorCheck: { checked: number; found: number; notFound: string[] };
 };
 type RunResult = {
   tests: TestResult[];
@@ -32,7 +42,21 @@ const STATUS_ICON: Record<OperationResult["status"], { icon: string; tone: strin
  * in Playwright, and comes back with the reason and a screenshot of the page
  * at that moment -- which is usually all it takes to fix the locator.
  */
-export function PreviewRunPanel({ code, pageUrl }: { code: string; pageUrl: string }) {
+export function PreviewRunPanel({
+  code,
+  pageUrl,
+  pageTreeAtStart,
+  onFixed,
+}: {
+  code: string;
+  pageUrl: string;
+  pageTreeAtStart?: string;
+  /** Receives a corrected draft; the page swaps it in so it can be run again. */
+  onFixed?: (fixed: FixedDraft) => void;
+}) {
+  const [fixing, setFixing] = useState<
+    { status: "idle" | "working" } | { status: "error"; message: string } | { status: "limit"; limit: FreeToolLimit }
+  >({ status: "idle" });
   const [state, setState] = useState<
     { status: "idle" } | { status: "running" } | { status: "done"; result: RunResult } | { status: "error"; message: string }
   >({ status: "idle" });
@@ -63,6 +87,34 @@ export function PreviewRunPanel({ code, pageUrl }: { code: string; pageUrl: stri
           .find(({ step }) => step.status === "failed")
       : undefined;
   const failedOperation = firstFailure?.step.operations.find((operation) => operation.status === "failed");
+
+  async function fix() {
+    if (!firstFailure || !failedOperation || !firstFailure.test.failureSnapshot) return;
+    setFixing({ status: "working" });
+    try {
+      const response = await fetch("/api/repair-draft", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          code,
+          pageUrl,
+          failure: { step: firstFailure.step.name, line: failedOperation.source, reason: failedOperation.detail ?? "" },
+          pageTreeAtFailure: firstFailure.test.failureSnapshot,
+          ...(pageTreeAtStart ? { pageTreeAtStart } : {}),
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        const limit = readFreeToolLimit(response.status, data);
+        setFixing(limit ? { status: "limit", limit } : { status: "error", message: data.error || "The draft could not be fixed automatically." });
+        return;
+      }
+      setFixing({ status: "idle" });
+      onFixed?.(data.result);
+    } catch {
+      setFixing({ status: "error", message: "Could not reach the service." });
+    }
+  }
 
   return (
     <div className="border-t border-white/10 px-5 py-5 text-sm text-slate-300">
@@ -109,6 +161,30 @@ export function PreviewRunPanel({ code, pageUrl }: { code: string; pageUrl: stri
                   <p className="mt-2 text-xs leading-5 text-red-100">{failedOperation.detail}</p>
                 </>
               ) : null}
+              {onFixed && firstFailure.test.failureSnapshot && failedOperation ? (
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <button
+                    type="button"
+                    onClick={fix}
+                    disabled={fixing.status === "working"}
+                    className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-white px-3.5 text-xs font-bold text-slate-950 hover:bg-cyan-100 disabled:opacity-60"
+                  >
+                    {fixing.status === "working" ? (
+                      <>
+                        <span className="h-3 w-3 animate-spin rounded-full border-2 border-slate-900 border-t-transparent" />
+                        Fixing from what the page really had&hellip;
+                      </>
+                    ) : (
+                      "Fix this step with AI"
+                    )}
+                  </button>
+                  <span className="text-xs text-red-100/80">
+                    Uses the page as it was when the step failed, then you run it again to check.
+                  </span>
+                </div>
+              ) : null}
+              {fixing.status === "error" ? <p className="mt-2 text-xs text-red-200">{fixing.message}</p> : null}
+              {fixing.status === "limit" ? <LimitReached limit={fixing.limit} returnTo="/generator" /> : null}
               {firstFailure.test.failureScreenshot ? (
                 <details className="mt-3">
                   <summary className="cursor-pointer text-xs font-semibold text-red-100">The page at that moment</summary>

@@ -130,6 +130,7 @@ export default function QuickGeneratePage() {
   const [result, setResult] = useState<QuickGenerationResult | null>(null);
   const [inputSignals, setInputSignals] = useState<string[]>([]);
   const [livePage, setLivePage] = useState<LivePage | null>(null);
+  const [fixNote, setFixNote] = useState<string | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -177,6 +178,7 @@ export default function QuickGeneratePage() {
       }
 
       setResult(data.result);
+      setFixNote(null);
       setInputSignals(Array.isArray(data.inputSignals) ? data.inputSignals : []);
       setLivePage(data.livePage ?? null);
       if (typeof data.remaining === "number") setRemaining(data.remaining);
@@ -416,9 +418,23 @@ export default function QuickGeneratePage() {
                 <div><p className="text-sm font-semibold text-white">Playwright TypeScript draft</p><p className="mt-1 text-xs text-slate-400">Generated, not executed · Review before use</p></div>
                 <ResultActions content={result.code} filename="playwright-draft.spec.ts" tone="dark" />
               </div>
+              {fixNote ? (
+                <p className="border-b border-white/10 bg-emerald-500/10 px-5 py-3 text-sm text-emerald-100">
+                  <span className="font-semibold">Fixed by AI:</span> {fixNote} Run it again below to check.
+                </p>
+              ) : null}
               <SyntaxHighlighter language="typescript" style={vscDarkPlus} customStyle={{ margin: 0, padding: "1.5rem", background: "#020617", fontSize: "0.82rem", minHeight: "18rem" }} wrapLongLines>{result.code}</SyntaxHighlighter>
               {livePage?.status === "read" && mode !== "API" ? (
-                <PreviewRunPanel key={result.code} code={result.code} pageUrl={livePage.url} />
+                <PreviewRunPanel
+                  key={result.code}
+                  code={result.code}
+                  pageUrl={livePage.url}
+                  pageTreeAtStart={livePage.excerpt}
+                  onFixed={(fixed) => {
+                    setResult({ ...result, code: fixed.code, validation: fixed.validation, locatorCheck: fixed.locatorCheck });
+                    setFixNote(fixed.explanation);
+                  }}
+                />
               ) : null}
               <RunSteps baseUrl={originOf(livePage?.status === "read" ? livePage.url : pageUrl)} isApi={mode === "API"} />
             </div>

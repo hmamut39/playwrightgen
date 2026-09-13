@@ -85,6 +85,10 @@ export const API_ROUTE_SECURITY_POLICY = {
     boundary: "bounded-public",
     requiredMarker: "reservePublicAiRequest",
   },
+  "repair-draft/route.ts": {
+    boundary: "bounded-public",
+    requiredMarker: "reserveFreeToolRun",
+  },
   "quick-generate/route.ts": {
     boundary: "bounded-public",
     // Visitors: five a day by address. Team customers: their workspace's allowance.

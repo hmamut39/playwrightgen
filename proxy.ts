@@ -34,6 +34,7 @@ const JSON_ROUTES = [
   "/api/quick-generate",
   "/api/coverage-review",
   "/api/engineering-review",
+  "/api/repair-draft",
 ];
 
 export default clerkMiddleware(async (auth, request) => {
@@ -63,5 +64,6 @@ export const config = {
     "/api/quick-generate",
     "/api/coverage-review",
     "/api/engineering-review",
+    "/api/repair-draft",
   ],
 };
