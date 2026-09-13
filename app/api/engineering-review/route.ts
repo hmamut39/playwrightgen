@@ -233,7 +233,7 @@ Never fabricate files, components, endpoints, services, dependencies, owners, sc
 
 SECTION MAPPING
 
-- executiveSummary: Impact Summary. State primary direct impact, most important downstream implication, highest-impact uncertainty, and evidence confidence in no more than 120 words.
+- executiveSummary: Impact Summary. State the primary direct impact, the most important downstream implication, and the highest-impact uncertainty in no more than 120 words. Do not state an evidence-confidence level or percentage here; the page computes and shows that separately.
 - criticalFindings: Directly Affected Areas.
 - architectureIntelligence: Downstream and Indirect Effects.
 - testIntelligence: Affected Validation Areas.
@@ -244,7 +244,11 @@ SECTION MAPPING
 
 Always return at least one meaningful finding in criticalFindings, testIntelligence, maintainabilityIntelligence, and recommendedActions. With minimal evidence, use careful LIKELY, POSSIBLE, and UNKNOWN findings. Optional sections may be empty only when genuinely irrelevant. Return no more than four findings per array.
 
-Each recommendation must identify the concrete action, affected area, and why it is needed. Never give generic advice such as "add tests," "review code," "monitor production," or "check security." Required Follow-up titles must begin exactly with P0 —, P1 —, or P2 —. Use P0 only for a serious unresolved risk created by the submitted change.
+Each recommendation must identify the concrete action, affected area, and why it is needed. Never give generic advice such as "add tests," "review code," "ensure it is robust," "verify it works," "monitor production," or "check security."
+
+In testIntelligence, every recommendation must be one concrete test scenario written as "Given ... When ... Then ...", naming the specific data, boundary or actor from the submission (for example an amount just above and just below a stated threshold, a second agent acting on the same record, a retry after a partial failure) and the exact observable outcome to assert.
+
+In recommendedActions and securityIntelligence, name the specific failure mode the action prevents (for example duplicate processing on retry, out-of-order events reaching a downstream consumer, a status that never leaves Pending when the worker is down, a rollback that leaves queued items unprocessed) rather than a category. In performanceIntelligence, name the concrete signal to watch after release and the value that should trigger a rollback when rollout or monitoring context was supplied. Required Follow-up titles must begin exactly with P0 —, P1 —, or P2 —. Use P0 only for a serious unresolved risk created by the submitted change.
 
 Do not duplicate substantially identical findings within a section. The same feature may appear across different sections when it represents a distinct impact dimension.
 
@@ -285,6 +289,23 @@ overallScore is Evidence Confidence only, not safety or readiness. It measures h
 - 0-14: too little was submitted to review the change.
 Never raise the band because the change looks safe or lower it because the change looks risky; that is severity, not confidence. scores is always []. productionReadiness.status is exactly "Partially Ready" for compatibility only. productionReadiness.reason describes Evidence Quality and must not describe readiness, approval, blocking, or a release decision.`;
 
+/**
+ * The model behind Release Review, configurable like the other free tools.
+ *
+ * It was hard-coded to gpt-4o while Quick Generate and Coverage Review moved to
+ * a reasoning model, and its reviews read generic by comparison ("ensure the
+ * worker is robust"). Reasoning models reject a custom temperature and spend
+ * part of the completion budget thinking, so both are set accordingly.
+ */
+const RELEASE_REVIEW_MODEL = process.env.OPENAI_RELEASE_REVIEW_MODEL?.trim() || "gpt-5-mini";
+const usesReasoningModel = /^(gpt-5|o\d)/.test(RELEASE_REVIEW_MODEL);
+
+function modelSettings(temperature: number) {
+    return usesReasoningModel
+        ? { model: RELEASE_REVIEW_MODEL, max_completion_tokens: 16_000, reasoning_effort: "low" as const }
+        : { model: RELEASE_REVIEW_MODEL, temperature, max_completion_tokens: 5_000 };
+}
+
 async function requestInitialAnalysis(
     client: OpenAI,
     context: AnalysisContext,
@@ -292,9 +313,7 @@ async function requestInitialAnalysis(
 ) {
     return client.chat.completions.create(
         {
-            model: "gpt-4o",
-            temperature: 0.15,
-            max_completion_tokens: 5_000,
+            ...modelSettings(0.15),
             response_format: { type: "json_object" },
             messages: [
                 { role: "system", content: systemPrompt },
@@ -319,9 +338,7 @@ async function requestControlledRepair(
 ) {
     return client.chat.completions.create(
         {
-            model: "gpt-4o",
-            temperature: 0,
-            max_completion_tokens: 5_000,
+            ...modelSettings(0),
             response_format: { type: "json_object" },
             messages: [
                 { role: "system", content: systemPrompt },
