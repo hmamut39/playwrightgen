@@ -1,5 +1,10 @@
 import Link from "next/link";
 
+export const metadata = {
+  title: "Terms",
+  description: "The terms for using PlaywrightGen.",
+};
+
 const sections = [
   {
     title: "Preview status",

@@ -2,6 +2,11 @@ import { SignUp } from "@clerk/nextjs";
 
 import { ClerkAuthShell } from "@/components/auth/clerk-auth-shell";
 
+export const metadata = {
+  title: "Create your account",
+  description: "Create a free PlaywrightGen account: requirements, reviewed Playwright tests and release evidence in one workspace.",
+};
+
 export default function SignUpPage() {
   return (
     <ClerkAuthShell

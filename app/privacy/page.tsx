@@ -1,5 +1,10 @@
 import Link from "next/link";
 
+export const metadata = {
+  title: "Privacy",
+  description: "How PlaywrightGen handles your data.",
+};
+
 const sections = [
   {
     title: "What the preview processes",

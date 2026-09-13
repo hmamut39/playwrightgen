@@ -2,6 +2,11 @@ import { SignIn } from "@clerk/nextjs";
 
 import { ClerkAuthShell } from "@/components/auth/clerk-auth-shell";
 
+export const metadata = {
+  title: "Sign in",
+  description: "Sign in to your PlaywrightGen workspace.",
+};
+
 export default function SignInPage() {
   return (
     <ClerkAuthShell

@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 
 import { SiteNavigation } from "@/components/site-navigation";
 import { validatePublicClerkEnvironment } from "@/lib/env";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, siteUrl } from "@/lib/site";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -17,9 +18,29 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PlaywrightGen",
-  description:
-    "AI-powered Playwright test generation for developers, automation engineers, and SDETs.",
+  metadataBase: new URL(siteUrl()),
+  // Every page had the same title and a description from an earlier
+  // positioning, so browser tabs, search results and shared links could not
+  // tell one page from another. Pages now set their own title into this
+  // template.
+  title: {
+    default: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    template: `%s · ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    title: `${SITE_NAME} — Know what to test. Know whether to ship.`,
+    description: SITE_DESCRIPTION,
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${SITE_NAME} — Know what to test. Know whether to ship.`,
+    description: SITE_DESCRIPTION,
+  },
 };
 
 export default function RootLayout({

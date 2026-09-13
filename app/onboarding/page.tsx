@@ -1,7 +1,7 @@
 import { ClerkAuthShell } from "@/components/auth/clerk-auth-shell";
 import { WorkspaceOnboardingStep } from "@/components/auth/workspace-onboarding-step";
 
-export const metadata = { title: "Welcome · PlaywrightGen" };
+export const metadata = { title: "Welcome" };
 
 export default function OnboardingPage() {
   return (
