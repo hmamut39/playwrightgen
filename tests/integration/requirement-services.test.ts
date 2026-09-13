@@ -368,6 +368,8 @@ describe("tenant-safe Requirement workflow", () => {
       dependencies(workspace, lead),
     );
     expect(leadView.reviewTrail.awaitingAnotherApprover).toBe(true);
+    // The person waiting is told who can approve, not just that someone can.
+    expect(leadView.reviewTrail.otherApprovers).toEqual(["Workspace owner"]);
     await expect(
       approveRequirement(
         { projectId: workspace.project.id, requirementId: requirement.id },

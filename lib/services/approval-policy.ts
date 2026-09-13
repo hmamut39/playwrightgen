@@ -107,6 +107,8 @@ export type ReviewTrail = {
   } | null;
   /** The viewer submitted this and somebody else is able to approve it. */
   awaitingAnotherApprover: boolean;
+  /** Who can, when the viewer cannot: "waiting for someone" names them. */
+  otherApprovers: string[];
 };
 
 /**
@@ -169,13 +171,14 @@ export async function describeReviewTrail(
   ).find((event) => event.action !== input.actions.submitted);
 
   let awaitingAnotherApprover = false;
+  let otherApprovers: string[] = [];
   if (input.inReview && submission?.actorUserId === input.viewerUserId) {
-    awaitingAnotherApprover =
-      (await countOtherApprovers(reader, {
-        organizationId: input.organizationId,
-        projectId: input.projectId,
-        approverUserId: input.viewerUserId,
-      })) > 0;
+    otherApprovers = await listOtherApproverNames(reader, {
+      organizationId: input.organizationId,
+      projectId: input.projectId,
+      approverUserId: input.viewerUserId,
+    });
+    awaitingAnotherApprover = otherApprovers.length > 0;
   }
 
   return {
@@ -193,5 +196,43 @@ export async function describeReviewTrail(
         }
       : null,
     awaitingAnotherApprover,
+    otherApprovers,
   };
+}
+
+/** Names of up to three other people who could approve, leads first. */
+async function listOtherApproverNames(
+  reader: Prisma.TransactionClient,
+  input: { organizationId: string; projectId: string; approverUserId: string },
+): Promise<string[]> {
+  const [leads, admins] = await Promise.all([
+    reader.projectMembership.findMany({
+      where: {
+        organizationId: input.organizationId,
+        projectId: input.projectId,
+        userId: { not: input.approverUserId },
+        role: "PROJECT_LEAD",
+        status: "ACTIVE",
+        membership: { status: "ACTIVE", user: { status: "ACTIVE" } },
+      },
+      select: { membership: { select: { user: { select: { displayName: true } } } } },
+      take: 3,
+    }),
+    reader.membership.findMany({
+      where: {
+        organizationId: input.organizationId,
+        userId: { not: input.approverUserId },
+        role: { in: ["OWNER", "ADMIN"] },
+        status: "ACTIVE",
+        user: { status: "ACTIVE" },
+      },
+      select: { user: { select: { displayName: true } } },
+      take: 3,
+    }),
+  ]);
+  const names = [
+    ...leads.map((row) => row.membership.user.displayName),
+    ...admins.map((row) => row.user.displayName),
+  ].map((name) => name?.trim() || "a workspace member");
+  return [...new Set(names)].slice(0, 3);
 }

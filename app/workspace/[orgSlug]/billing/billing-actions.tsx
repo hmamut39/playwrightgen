@@ -61,7 +61,7 @@ export function BillingActions({
         </button>
       ) : (
         <span className="rounded-lg bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-900">
-          Checkout remains locked until release approval.
+          Upgrading is not available on this deployment yet.
         </span>
       )}
       {hasBillingAccount ? (

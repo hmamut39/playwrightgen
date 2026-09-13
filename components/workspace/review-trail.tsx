@@ -25,7 +25,9 @@ export function ReviewTrailPanel({
   const next =
     status === "IN_REVIEW"
       ? trail.awaitingAnotherApprover
-        ? "You submitted this, so a different person has to approve it. Any project lead, admin or owner can."
+        ? `You submitted this, so a different person has to approve it${
+            trail.otherApprovers.length ? `: ${trail.otherApprovers.join(", ")}` : ""
+          }.`
         : canApprove
           ? "Waiting for a decision. Approve it, or request changes to send it back to draft."
           : "Waiting for a project lead, admin or owner to approve it."
