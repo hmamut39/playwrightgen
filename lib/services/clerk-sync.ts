@@ -299,6 +299,11 @@ async function syncOrganizationEvent(
         ["status", existing.status !== "ACTIVE"],
       ]);
 
+      await releaseSlugFromArchivedOrganization(
+        transaction,
+        event.slug,
+        event.clerkOrganizationId,
+      );
       const organization = await transaction.organization.update({
         where: { id: existing.id },
         data: {
@@ -329,6 +334,11 @@ async function syncOrganizationEvent(
       return { status: "applied" };
     }
 
+    await releaseSlugFromArchivedOrganization(
+      transaction,
+      event.slug,
+      event.clerkOrganizationId,
+    );
     const organization = await transaction.organization.create({
       data: {
         clerkOrganizationId: event.clerkOrganizationId,
@@ -354,6 +364,43 @@ async function syncOrganizationEvent(
     });
 
     return { status: "applied" };
+  });
+}
+
+/**
+ * Frees a slug still held by an archived organization.
+ *
+ * Deleting an organization in Clerk archives it here rather than removing it,
+ * because its evidence and audit trail must outlive it -- but the archived row
+ * kept its slug, and slugs are unique. Clerk releases the name the moment the
+ * organization is deleted, so a person who deleted a workspace and recreated it
+ * under the same name received a webhook carrying a slug the database refused.
+ * The new workspace never arrived, the repair path failed on the same
+ * constraint, and they were shown "this page couldn't load" with no way to tell
+ * that the cause was a workspace they had deliberately removed.
+ *
+ * Only an archived holder is renamed. Archived organizations cannot be opened
+ * by slug anyway, so nothing that works today changes. An active holder is a
+ * genuine conflict between two live organizations, and that write is left to
+ * fail rather than guessed at. The new slug embeds the row id, which guarantees
+ * it is unique and says plainly why it changed.
+ */
+async function releaseSlugFromArchivedOrganization(
+  transaction: Prisma.TransactionClient,
+  slug: string,
+  clerkOrganizationId: string,
+): Promise<void> {
+  const holder = await transaction.organization.findUnique({ where: { slug } });
+  if (
+    !holder ||
+    holder.clerkOrganizationId === clerkOrganizationId ||
+    holder.status !== "ARCHIVED"
+  ) {
+    return;
+  }
+  await transaction.organization.update({
+    where: { id: holder.id },
+    data: { slug: `${slug.slice(0, 50)}--archived-${holder.id}` },
   });
 }
 
@@ -421,6 +468,11 @@ async function ensureMembershipParents(
   });
 
   if (!organization) {
+    await releaseSlugFromArchivedOrganization(
+      transaction,
+      event.organization.slug,
+      event.clerkOrganizationId,
+    );
     organization = await transaction.organization.create({
       data: {
         clerkOrganizationId: event.clerkOrganizationId,
@@ -892,6 +944,11 @@ export async function reconcileClerkOrganizationSnapshot(input: {
     const previousOrganization = await transaction.organization.findUnique({
       where: { clerkOrganizationId: snapshot.organization.id },
     });
+    await releaseSlugFromArchivedOrganization(
+      transaction,
+      snapshot.organization.slug,
+      snapshot.organization.id,
+    );
     const organization = await transaction.organization.upsert({
       where: { clerkOrganizationId: snapshot.organization.id },
       create: {

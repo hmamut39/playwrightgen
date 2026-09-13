@@ -270,6 +270,58 @@ describe("Clerk to PostgreSQL synchronization", () => {
     expect(organization.archivedAt).not.toBeNull();
   });
 
+  it("lets a deleted workspace's name be used again", async () => {
+    // Deleting an organization archives it here, but its slug stayed taken.
+    // Clerk frees the name immediately, so recreating a workspace under the
+    // same name produced a webhook the database refused -- and the person was
+    // left on "this page couldn't load" because of a workspace they had
+    // deliberately removed.
+    const slug = uniqueValue("mamuti-sdet");
+    const firstId = uniqueValue("org");
+    const secondId = uniqueValue("org");
+
+    await synchronize("organization.created", clerkOrganizationData({ id: firstId, slug }));
+    await synchronize("organization.deleted", { id: firstId, deleted: true });
+
+    const result = await synchronize(
+      "organization.created",
+      clerkOrganizationData({ id: secondId, slug }),
+    );
+
+    expect(result.status).toBe("applied");
+    const recreated = await prisma.organization.findUniqueOrThrow({
+      where: { clerkOrganizationId: secondId },
+    });
+    expect(recreated.slug).toBe(slug);
+    expect(recreated.status).toBe("ACTIVE");
+
+    // The archived workspace keeps its row, its evidence and its history; only
+    // the name moved aside, in a form that says why.
+    const archived = await prisma.organization.findUniqueOrThrow({
+      where: { clerkOrganizationId: firstId },
+    });
+    expect(archived.status).toBe("ARCHIVED");
+    expect(archived.slug).toContain("--archived-");
+    expect(archived.slug).not.toBe(slug);
+  });
+
+  it("still refuses a slug held by another live organization", async () => {
+    // Two active organizations with one slug is a real conflict, not something
+    // to resolve by renaming whichever arrived first.
+    const slug = uniqueValue("taken");
+    await synchronize(
+      "organization.created",
+      clerkOrganizationData({ id: uniqueValue("org"), slug }),
+    );
+
+    await expect(
+      synchronize(
+        "organization.created",
+        clerkOrganizationData({ id: uniqueValue("org"), slug }),
+      ),
+    ).rejects.toThrow();
+  });
+
   it("does not let an older organization.deleted archive newer state", async () => {
     const clerkOrganizationId = uniqueValue("org");
     await synchronize(
