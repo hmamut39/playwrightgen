@@ -297,7 +297,7 @@ export default async function AutomationArtifactPage({
                   two-word lines. Assumptions used to live in this column too,
                   and they are long prose that had no business in the narrower
                   half; they now sit full width below, where they are readable. */}
-              <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+              <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
                 <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                   <h2 className="text-lg font-semibold">Automation plan</h2>
                   <p className="mt-1 text-sm text-slate-500">

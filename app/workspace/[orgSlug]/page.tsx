@@ -5,6 +5,7 @@ import { getOrganizationProjectRisk } from "@/lib/services/project-risk";
 import { listProjects } from "@/lib/services/projects";
 import { getOrganizationReviewCounts } from "@/lib/services/review-queue";
 import { LocalTime } from "@/components/workspace/local-time";
+import { humanLabel } from "@/lib/format/label";
 
 export default async function OrganizationWorkspacePage({
   params,
@@ -68,7 +69,7 @@ export default async function OrganizationWorkspacePage({
                   <p className="mt-1 text-xs text-slate-400">{project.slug}</p>
                 </div>
                 <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${project.status === "ACTIVE" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
-                  {project.status}
+                  {humanLabel(project.status)}
                 </span>
               </div>
               <p className="mt-4 line-clamp-2 text-sm leading-6 text-slate-600">
