@@ -22,6 +22,7 @@ export function ProjectNavigation({
     ["Test Runs", `${base}/test-runs`],
     ["Release", `${base}/release`],
     ["Activity", `${base}/activity`],
+    ["Team", `${base}/team`],
   ] as const;
 
   return (

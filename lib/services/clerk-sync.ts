@@ -3,6 +3,10 @@ import "server-only";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { getPrismaClient } from "@/lib/db/prisma";
 import {
+  applyInvitedProjectRoles,
+  readInvitedProjectRoles,
+} from "@/lib/services/invited-project-roles";
+import {
   createClerkSyncActivity,
 } from "@/lib/services/activity";
 import {
@@ -717,6 +721,15 @@ async function syncMembershipEvent(
         changedFields: fields,
         previousStatus: existing?.status ?? null,
         newStatus: membership.status,
+      });
+    }
+
+    if (event.type === "organizationMembership.created") {
+      await applyInvitedProjectRoles(transaction, {
+        organizationId: organization.id,
+        userId: user.id,
+        roles: readInvitedProjectRoles(event.publicMetadata),
+        eventId: event.eventId,
       });
     }
 

@@ -43,6 +43,9 @@ const membershipDataSchema = z.object({
     last_name: nullableText,
     image_url: z.string().trim().url().optional(),
   }),
+  // Read leniently by the consumer; a malformed value must not reject the
+  // membership itself.
+  public_metadata: z.unknown().optional(),
 });
 
 const deletedObjectSchema = z.object({
@@ -137,6 +140,8 @@ export type NormalizedMembershipEvent = {
     displayName: string | null;
     avatarUrl: string | null;
   };
+  /** Copied by Clerk from the invitation that created this membership. */
+  publicMetadata: unknown;
 };
 
 export type NormalizedClerkWebhookEvent =
@@ -340,6 +345,7 @@ export function parseVerifiedClerkWebhook(input: {
         }),
         avatarUrl: data.public_user_data.image_url ?? null,
       },
+      publicMetadata: data.public_metadata ?? null,
     },
   };
 }
