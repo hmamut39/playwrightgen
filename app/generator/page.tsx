@@ -24,6 +24,33 @@ type QuickGenerationResult = {
     status: "PASSED" | "WARNINGS" | "BLOCKED";
     findings: { severity: "BLOCKING" | "WARNING"; code: string; message: string }[];
   };
+  unverifiedLocators?: string[];
+  locatorCheck?: { checked: number; found: number; notFound: string[] } | null;
+};
+
+type LivePage =
+  | {
+      status: "read";
+      url: string;
+      title: string;
+      counts: { buttons: number; links: number; fields: number; headings: number };
+      truncated: boolean;
+      excerpt: string;
+    }
+  | { status: "not_read"; reason: string };
+
+const LIVE_PAGE_REASONS: Record<string, string> = {
+  blocked_address: "Only public web addresses can be opened (not localhost or private networks).",
+  timeout: "The page took too long to load.",
+  unreachable: "The page could not be opened.",
+  not_configured: "Page reading is not available right now.",
+};
+
+/** A public practice app, so a first try shows real locators, not guesses. */
+const DEMO = {
+  url: "https://demo.playwright.dev/todomvc/",
+  request:
+    "A visitor adds two todos, marks the first one as completed, and filters to show only active todos.\n\nExpected: the counter shows the number of items left, a completed todo appears crossed out, and the Active filter hides completed todos.",
 };
 
 const modes: Array<{
@@ -100,6 +127,7 @@ export default function QuickGeneratePage() {
   const [files, setFiles] = useState<File[]>([]);
   const [result, setResult] = useState<QuickGenerationResult | null>(null);
   const [inputSignals, setInputSignals] = useState<string[]>([]);
+  const [livePage, setLivePage] = useState<LivePage | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -144,6 +172,7 @@ export default function QuickGeneratePage() {
 
       setResult(data.result);
       setInputSignals(Array.isArray(data.inputSignals) ? data.inputSignals : []);
+      setLivePage(data.livePage ?? null);
       if (typeof data.remaining === "number") setRemaining(data.remaining);
       window.requestAnimationFrame(() => document.getElementById("quick-generate-result")?.scrollIntoView({ behavior: "smooth", block: "start" }));
     } catch {
@@ -240,13 +269,24 @@ export default function QuickGeneratePage() {
               {/* A blank textarea is the single biggest reason someone leaves
                   without trying the product. One click should show them what
                   good input looks like and what comes back. */}
-              <button
-                type="button"
-                onClick={() => { setRequest(activeMode.example); resetResult(); }}
-                className="rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-800 transition hover:border-cyan-300 hover:bg-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
-              >
-                Use an example
-              </button>
+              <div className="flex flex-wrap gap-2">
+                {mode !== "API" ? (
+                  <button
+                    type="button"
+                    onClick={() => { setMode("FLOW"); setRequest(DEMO.request); setPageUrl(DEMO.url); resetResult(); }}
+                    className="rounded-xl border border-slate-900 bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
+                  >
+                    Try it on a live demo page
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => { setRequest(activeMode.example); resetResult(); }}
+                  className="rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-800 transition hover:border-cyan-300 hover:bg-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
+                >
+                  Use an example
+                </button>
+              </div>
             </div>
             <label className="block text-sm font-semibold text-slate-800">
               <span className="sr-only">Behavior, requirement, or contract</span>
@@ -262,7 +302,10 @@ export default function QuickGeneratePage() {
 
             <div className="mt-5 grid gap-5 sm:grid-cols-2">
               <label className="text-sm font-semibold text-slate-800">
-                Page or API URL <span className="font-normal text-slate-400">(context only)</span>
+                {mode === "API" ? "API base URL" : "Page URL"}{" "}
+                <span className="font-normal text-slate-400">
+                  {mode === "API" ? "(optional)" : "(optional \u2014 we open it and use the real buttons and fields)"}
+                </span>
                 <input value={pageUrl} onChange={(event) => { setPageUrl(event.target.value); resetResult(); }} maxLength={2_000} placeholder="https://app.example.com/login" className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-cyan-600" />
               </label>
               <div>
@@ -304,7 +347,9 @@ export default function QuickGeneratePage() {
             steps={[
               "Reading the behaviour, evidence, and any files you attached",
               "Planning scenarios before writing any code",
-              "Generating TypeScript with role and label based locators",
+              pageUrl && mode !== "API"
+              ? "Opening your page and reading its real buttons, fields and labels"
+              : "Generating TypeScript with role and label based locators",
               "Running deterministic checks for unsafe patterns and weak assertions",
             ]}
           />
@@ -337,6 +382,8 @@ export default function QuickGeneratePage() {
                 once you run it.
               </p>
 
+              {livePage ? <LivePagePanel livePage={livePage} result={result} /> : null}
+
               <div className="mt-7 grid gap-4 lg:grid-cols-2">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
                   <h3 className="font-semibold text-slate-950">Test plan</h3>
@@ -363,6 +410,7 @@ export default function QuickGeneratePage() {
                 <ResultActions content={result.code} filename="playwright-draft.spec.ts" tone="dark" />
               </div>
               <SyntaxHighlighter language="typescript" style={vscDarkPlus} customStyle={{ margin: 0, padding: "1.5rem", background: "#020617", fontSize: "0.82rem", minHeight: "18rem" }} wrapLongLines>{result.code}</SyntaxHighlighter>
+              <RunSteps baseUrl={originOf(livePage?.status === "read" ? livePage.url : pageUrl)} isApi={mode === "API"} />
             </div>
 
             <div className="rounded-[2rem] border border-cyan-200 bg-cyan-50 p-6 sm:p-8">
@@ -415,6 +463,113 @@ function EvidenceList({ title, items, empty, tone }: { title: string; items: str
     <div className={`rounded-2xl border p-4 ${tones[tone]}`}>
       <h3 className="text-sm font-semibold">{title}</h3>
       {items.length ? <ul className="mt-3 space-y-2 text-xs leading-5">{items.map((item, index) => <li key={`${item}-${index}`} className="flex gap-2"><span>•</span><span>{item}</span></li>)}</ul> : <p className="mt-2 text-xs leading-5 opacity-75">{empty}</p>}
+    </div>
+  );
+}
+
+/**
+ * What was read from the live page, and how well the code matches it.
+ *
+ * The match count is computed, not claimed: every literal locator name in the
+ * code is looked up in the page's accessibility tree on the server. Names that
+ * are not on the captured page -- usually elements on a later screen -- are
+ * listed so the reader confirms them before the first run.
+ */
+function LivePagePanel({ livePage, result }: { livePage: LivePage; result: QuickGenerationResult }) {
+  if (livePage.status === "not_read") {
+    return (
+      <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+        <span className="font-semibold">We could not open the page, so locators are best guesses.</span>{" "}
+        {LIVE_PAGE_REASONS[livePage.reason] ?? LIVE_PAGE_REASONS.unreachable}
+      </p>
+    );
+  }
+  const check = result.locatorCheck;
+  const allMatch = check && check.checked > 0 && check.notFound.length === 0;
+  const unverified = [...new Set([...(check?.notFound ?? []), ...(result.unverifiedLocators ?? [])])].slice(0, 12);
+  return (
+    <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-800">Read from the live page</p>
+          <p className="mt-1 truncate text-sm font-semibold text-slate-900">{livePage.title || livePage.url}</p>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {livePage.counts.buttons} buttons · {livePage.counts.fields} fields · {livePage.counts.links} links ·{" "}
+            {livePage.counts.headings} headings, seen signed out
+          </p>
+        </div>
+        {check && check.checked > 0 ? (
+          <span
+            className={`w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${
+              allMatch ? "border-emerald-300 bg-white text-emerald-800" : "border-amber-300 bg-white text-amber-800"
+            }`}
+          >
+            {check.found} of {check.checked} locators match the page
+          </span>
+        ) : null}
+      </div>
+      {unverified.length ? (
+        <div className="mt-4 rounded-xl border border-amber-200 bg-white px-4 py-3 text-sm">
+          <p className="font-semibold text-amber-900">Confirm these before the first run</p>
+          <p className="mt-0.5 text-xs text-slate-500">Not on the page we opened &mdash; usually elements on a later screen or behind sign-in.</p>
+          <ul className="mt-2 flex flex-wrap gap-1.5">
+            {unverified.map((name) => (
+              <li key={name} className="rounded-md bg-amber-50 px-2 py-0.5 font-mono text-xs text-amber-900">{name}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      <details className="mt-4">
+        <summary className="cursor-pointer text-xs font-semibold text-emerald-900">What we saw on the page</summary>
+        <pre className="mt-2 max-h-72 overflow-auto rounded-xl bg-white p-3 text-[11px] leading-5 text-slate-700">{livePage.excerpt}{livePage.truncated ? "\n\u2026" : ""}</pre>
+      </details>
+    </div>
+  );
+}
+
+function originOf(value: string): string | null {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.origin : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * From a draft on screen to a test that runs, in three steps.
+ *
+ * The code navigates with relative paths so it works against any environment,
+ * which only helps if the reader knows to set baseURL -- otherwise the first
+ * run fails on page.goto and the draft looks broken. The origin of the URL
+ * they gave is filled in for them.
+ */
+function RunSteps({ baseUrl, isApi }: { baseUrl: string | null; isApi: boolean }) {
+  const config = `import { defineConfig } from "@playwright/test";
+
+export default defineConfig({
+  use: { baseURL: "${baseUrl ?? "https://your-app.example.com"}" },
+});`;
+  return (
+    <div className="border-t border-white/10 px-5 py-5 text-sm text-slate-300">
+      <p className="font-semibold text-white">Run it in 3 steps</p>
+      <ol className="mt-3 space-y-3">
+        <li>
+          <span className="text-slate-400">1.</span> Save the code as{" "}
+          <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs text-cyan-200">tests/draft.spec.ts</code>{" "}
+          in a project with Playwright (<code className="font-mono text-xs text-cyan-200">npm init playwright@latest</code> creates one).
+        </li>
+        <li>
+          <span className="text-slate-400">2.</span> Point it at your {isApi ? "API" : "app"} in{" "}
+          <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs text-cyan-200">playwright.config.ts</code>:
+          <pre className="mt-2 overflow-x-auto rounded-xl bg-black/40 p-3 font-mono text-xs leading-5 text-slate-200">{config}</pre>
+        </li>
+        <li>
+          <span className="text-slate-400">3.</span> Run{" "}
+          <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs text-cyan-200">npx playwright test --ui</code>{" "}
+          to watch each step and fix any locator marked for confirmation.
+        </li>
+      </ol>
     </div>
   );
 }

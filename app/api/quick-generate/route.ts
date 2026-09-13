@@ -8,6 +8,7 @@ import {
   type QuickGenerationInput,
 } from "@/lib/ai/quick-generation";
 import { EnvironmentValidationError } from "@/lib/env";
+import { capturePageSnapshot, type PageSnapshot } from "@/lib/free-tools/page-snapshot";
 import {
   PublicAiRateLimitError,
   reservePublicAiRequest,
@@ -68,6 +69,22 @@ export async function POST(req: Request) {
       textParts.push(`===FILE: ${file.name}===\n${await file.text()}`);
     }
 
+    // Browser modes get the real page, read after the quota is reserved so the
+    // page reader cannot be used for free. API mode tests requests, not pages.
+    let snapshot: PageSnapshot | null = null;
+    if (pageUrl && mode !== "API") {
+      const snapshotStartedAt = Date.now();
+      snapshot = await capturePageSnapshot(pageUrl);
+      logOperationalEvent(snapshot.ok ? "info" : "warn", {
+        event: "public_ai.page_snapshot",
+        requestId,
+        status: snapshot.ok ? "succeeded" : "failed",
+        code: snapshot.ok ? undefined : snapshot.reason,
+        durationMs: Date.now() - snapshotStartedAt,
+        surface: "quick-generate",
+      });
+    }
+
     const generated = await generateQuickDraft(
       {
         mode,
@@ -76,6 +93,7 @@ export async function POST(req: Request) {
         depth,
         fileContext: textParts.join("\n\n"),
         imageDataUrls,
+        pageSnapshot: snapshot?.ok ? snapshot : null,
       },
       { requestId },
     );
@@ -95,9 +113,21 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       result,
+      livePage: snapshot
+        ? snapshot.ok
+          ? {
+              status: "read",
+              url: snapshot.finalUrl,
+              title: snapshot.title,
+              counts: snapshot.counts,
+              truncated: snapshot.truncated,
+              excerpt: snapshot.aria.slice(0, 4_000),
+            }
+          : { status: "not_read", reason: snapshot.reason }
+        : null,
       inputSignals: [
         request ? "Requirement or prompt" : null,
-        pageUrl ? "Page URL supplied as context" : null,
+        snapshot?.ok ? "Live page read" : pageUrl ? "Page URL (not opened)" : null,
         textParts.length ? `${textParts.length} text file${textParts.length === 1 ? "" : "s"}` : null,
         imageDataUrls.length ? `${imageDataUrls.length} image${imageDataUrls.length === 1 ? "" : "s"}` : null,
       ].filter(Boolean),
