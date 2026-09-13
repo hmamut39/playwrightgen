@@ -292,7 +292,60 @@ describe("tenant-safe Requirement workflow", () => {
     });
   });
 
-  it("allows a Project Lead to draft and submit but not approve", async () => {
+  it("lets a Project Lead approve a Member's requirement", async () => {
+    const workspace = await createWorkspace();
+    const member = await addProjectMember(workspace, "MEMBER");
+    const lead = await addProjectMember(workspace, "PROJECT_LEAD");
+    const requirement = await createRequirement(
+      {
+        projectId: workspace.project.id,
+        title: "Member-written requirement",
+        description: "Complete description",
+        acceptanceCriteria: "A measurable outcome exists.",
+      },
+      dependencies(workspace, member),
+    );
+    await submitRequirementForReview(
+      { projectId: workspace.project.id, requirementId: requirement.id },
+      dependencies(workspace, member),
+    );
+    await expect(
+      approveRequirement(
+        { projectId: workspace.project.id, requirementId: requirement.id },
+        dependencies(workspace, member),
+      ),
+    ).rejects.toMatchObject({ status: 403, code: "permission_denied" });
+
+    const approved = await approveRequirement(
+      { projectId: workspace.project.id, requirementId: requirement.id },
+      dependencies(workspace, lead),
+    );
+    expect(approved.status).toBe("APPROVED");
+
+    const detail = await getRequirementDetail(
+      { projectId: workspace.project.id, requirementId: requirement.id },
+      dependencies(workspace),
+    );
+    expect(detail.reviewTrail.submitted?.by).toBe("MEMBER");
+    expect(detail.reviewTrail.decision).toMatchObject({ kind: "approved", by: "PROJECT_LEAD" });
+  });
+
+  it("lets a sole approver approve their own requirement", async () => {
+    // Refusing would leave a one-person workspace unable to approve anything.
+    const workspace = await createWorkspace();
+    const requirement = await createCompleteRequirement(workspace);
+    await submitRequirementForReview(
+      { projectId: workspace.project.id, requirementId: requirement.id },
+      dependencies(workspace),
+    );
+    const approved = await approveRequirement(
+      { projectId: workspace.project.id, requirementId: requirement.id },
+      dependencies(workspace),
+    );
+    expect(approved.status).toBe("APPROVED");
+  });
+
+  it("stops a Project Lead approving their own submission while someone else can", async () => {
     const workspace = await createWorkspace();
     const lead = await addProjectMember(workspace, "PROJECT_LEAD");
     const requirement = await createRequirement(
@@ -310,12 +363,17 @@ describe("tenant-safe Requirement workflow", () => {
     );
 
     expect(submitted.status).toBe("IN_REVIEW");
+    const leadView = await getRequirementDetail(
+      { projectId: workspace.project.id, requirementId: requirement.id },
+      dependencies(workspace, lead),
+    );
+    expect(leadView.reviewTrail.awaitingAnotherApprover).toBe(true);
     await expect(
       approveRequirement(
         { projectId: workspace.project.id, requirementId: requirement.id },
         dependencies(workspace, lead),
       ),
-    ).rejects.toMatchObject({ status: 403, code: "permission_denied" });
+    ).rejects.toMatchObject({ status: 409, code: "self_approval_not_allowed" });
 
     const approved = await approveRequirement(
       { projectId: workspace.project.id, requirementId: requirement.id },
@@ -377,20 +435,27 @@ describe("tenant-safe Requirement workflow", () => {
     ).toBe(1);
   });
 
-  it("does not let an ordinary assigned member create requirements", async () => {
+  it("lets an assigned member draft requirements but not a viewer", async () => {
+    // Members write most of a team's requirements; viewers only read them.
     const workspace = await createWorkspace();
     const member = await addProjectMember(workspace, "MEMBER");
+    const viewer = await addProjectMember(workspace, "VIEWER");
 
+    const drafted = await createRequirement(
+      { projectId: workspace.project.id, title: "Member draft" },
+      dependencies(workspace, member),
+    );
+    expect(drafted.status).toBe("DRAFT");
     expect(
       (await listRequirements(
         { projectId: workspace.project.id },
-        dependencies(workspace, member),
-      )).items,
-    ).toEqual([]);
+        dependencies(workspace, viewer),
+      )).items.map((item) => item.id),
+    ).toEqual([drafted.id]);
     await expect(
       createRequirement(
         { projectId: workspace.project.id, title: "Denied" },
-        dependencies(workspace, member),
+        dependencies(workspace, viewer),
       ),
     ).rejects.toMatchObject({ status: 403, code: "permission_denied" });
   });

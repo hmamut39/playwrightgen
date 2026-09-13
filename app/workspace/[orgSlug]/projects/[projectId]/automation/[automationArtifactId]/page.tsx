@@ -15,6 +15,8 @@ import {
 } from "@/lib/services/automation-artifacts";
 import { personName } from "@/lib/format/person-name";
 import { PendingButton, PendingNotice } from "@/components/workspace/pending-button";
+import { ReviewTrailPanel } from "@/components/workspace/review-trail";
+import { LocalTime } from "@/components/workspace/local-time";
 
 const statusStyle = {
   DRAFT: "bg-slate-100 text-slate-700",
@@ -158,16 +160,24 @@ export default async function AutomationArtifactPage({
                   Request changes
                 </button>
               </form>
-              <form action={transitionAction}>
-                <input type="hidden" name="intent" value="approve" />
-                <button className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white">
-                  Approve automation
-                </button>
-              </form>
+              {detail.reviewTrail.awaitingAnotherApprover ? null : (
+                <form action={transitionAction}>
+                  <input type="hidden" name="intent" value="approve" />
+                  <button className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white">
+                    Approve automation
+                  </button>
+                </form>
+              )}
             </>
           ) : null}
         </div>
       </header>
+
+      <ReviewTrailPanel
+        trail={detail.reviewTrail}
+        status={artifact.status}
+        canApprove={detail.canApprove}
+      />
 
       {currentVersion ? (
         <>
@@ -181,7 +191,7 @@ export default async function AutomationArtifactPage({
                 <p className="mt-2 text-xs text-slate-400">
                   {currentVersion.model} · {currentVersion.promptVersion} ·{" "}
                   {currentVersion.totalTokens ?? "—"} tokens ·{" "}
-                  {currentVersion.startedAt.toLocaleString()}
+                  <LocalTime value={currentVersion.startedAt} />
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 text-xs font-semibold">
@@ -459,7 +469,7 @@ export default async function AutomationArtifactPage({
                   {artifact.approvedVersionNumber === version.versionNumber ? " · APPROVED" : ""}
                 </span>
                 <span className="text-xs text-slate-400">
-                  {version.generationStatus} · {version.validationStatus} · {personName(version.createdBy.displayName)} · {version.startedAt.toLocaleString()}
+                  {version.generationStatus} · {version.validationStatus} · {personName(version.createdBy.displayName)} · <LocalTime value={version.startedAt} />
                 </span>
               </summary>
               <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-700">

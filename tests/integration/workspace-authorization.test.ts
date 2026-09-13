@@ -349,6 +349,28 @@ describe("tenant-safe workspace authorization", () => {
     expect(context.can("requirement:update")).toBe(false);
   });
 
+  it("lets a project Member author and submit, but leaves approval to leads", async () => {
+    // Members are the people who write most test cases; they need to send their
+    // work for review, and the decision stays with someone who can approve.
+    const workspace = await createWorkspace({ projectRole: "MEMBER" });
+    const context = await requireWorkspaceContext(
+      { projectId: workspace.project.id, permission: "testcase:create" },
+      dependencies({
+        userId: workspace.clerkUserId,
+        orgId: workspace.clerkOrganizationId,
+      }),
+    );
+
+    expect(context.can("requirement:create")).toBe(true);
+    expect(context.can("requirement:submit")).toBe(true);
+    expect(context.can("testcase:submit")).toBe(true);
+    expect(context.can("automation:submit")).toBe(true);
+    expect(context.can("requirement:approve")).toBe(false);
+    expect(context.can("testcase:approve")).toBe(false);
+    expect(context.can("automation:approve")).toBe(false);
+    expect(context.can("project:update")).toBe(false);
+  });
+
   it("allows a Project Lead to update but not archive a project", async () => {
     const workspace = await createWorkspace({ projectRole: "PROJECT_LEAD" });
     const context = await requireWorkspaceContext(
@@ -363,7 +385,11 @@ describe("tenant-safe workspace authorization", () => {
     expect(context.can("project:archive")).toBe(false);
     expect(context.can("requirement:create")).toBe(true);
     expect(context.can("requirement:submit")).toBe(true);
-    expect(context.can("requirement:approve")).toBe(false);
+    // Leads decide; whether they may approve their own submission is decided
+    // per record by the separation-of-duties rule, not by the role.
+    expect(context.can("requirement:approve")).toBe(true);
+    expect(context.can("testcase:approve")).toBe(true);
+    expect(context.can("automation:approve")).toBe(true);
   });
 
   it("returns 403 when a project Viewer requests update permission", async () => {

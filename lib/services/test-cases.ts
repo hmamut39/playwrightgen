@@ -21,6 +21,7 @@ import {
   parseListParams,
   type ListParams,
 } from "@/lib/services/list-query";
+import { checkSelfApproval, describeReviewTrail } from "@/lib/services/approval-policy";
 
 const uuidSchema = z.string().uuid();
 const titleSchema = z.string().trim().min(1).max(300);
@@ -197,8 +198,22 @@ export async function getTestCaseDetail(
   if (!testCase || (testCase.status === "ARCHIVED" && !input.allowArchived)) {
     throw new TestCaseDomainError("test_case_not_found", 404);
   }
+  const reviewTrail = await describeReviewTrail(client(dependencies), {
+    organizationId: context.organization.id,
+    projectId,
+    targetType: "TEST_CASE",
+    targetId: testCase.id,
+    actions: {
+      submitted: "TEST_CASE_SUBMITTED_FOR_REVIEW",
+      approved: "TEST_CASE_APPROVED",
+      changesRequested: "TEST_CASE_CHANGES_REQUESTED",
+    },
+    viewerUserId: context.user.id,
+    inReview: testCase.status === "IN_REVIEW",
+  });
   return {
     testCase,
+    reviewTrail,
     canUpdate: context.can("testcase:update"),
     canSubmit: context.can("testcase:submit"),
     canApprove: context.can("testcase:approve"),
@@ -489,6 +504,14 @@ async function transitionTestCase(
       !readTestCaseList(existing.expectedResults).length
     )) {
       throw new TestCaseDomainError("test_case_review_incomplete", 409);
+    }
+    if (transition.to === "APPROVED") {
+      const decision = await checkSelfApproval(transaction, {
+        organizationId: context.organization.id, projectId,
+        targetType: "TEST_CASE", targetId: testCaseId,
+        submittedAction: "TEST_CASE_SUBMITTED_FOR_REVIEW", approverUserId: context.user.id,
+      });
+      if (!decision.allowed) throw new TestCaseDomainError("self_approval_not_allowed", 409);
     }
     const now = new Date();
     const update = await transaction.testCase.updateMany({

@@ -333,11 +333,21 @@ export default defineConfig({ use: { baseURL: "http://localhost:3000" } });`,
       testCaseId: approvedTestCase.id,
       engine: "PLAYWRIGHT_API",
     }, deps(space, member));
-    await expect(submitAutomationArtifact({
+    // Members write and submit; approving is left to someone who can decide.
+    await submitAutomationArtifact({
+      projectId: space.project.id,
+      automationArtifactId: artifact.id,
+    }, deps(space, member));
+    await expect(approveAutomationArtifact({
       projectId: space.project.id,
       automationArtifactId: artifact.id,
     }, deps(space, member))).rejects.toMatchObject({ code: "permission_denied" });
+    await requestAutomationChanges({
+      projectId: space.project.id,
+      automationArtifactId: artifact.id,
+    }, deps(space));
 
+    // A lead may approve, but not their own submission while the owner can.
     const lead = await addMember(space, "PROJECT_LEAD");
     await submitAutomationArtifact({
       projectId: space.project.id,
@@ -346,7 +356,7 @@ export default defineConfig({ use: { baseURL: "http://localhost:3000" } });`,
     await expect(approveAutomationArtifact({
       projectId: space.project.id,
       automationArtifactId: artifact.id,
-    }, deps(space, lead))).rejects.toMatchObject({ code: "permission_denied" });
+    }, deps(space, lead))).rejects.toMatchObject({ code: "self_approval_not_allowed" });
     await requestAutomationChanges({
       projectId: space.project.id,
       automationArtifactId: artifact.id,

@@ -162,32 +162,52 @@ function hasPermission(input: {
     return true;
   }
 
-  if (
-    input.permission === "testrun:create" ||
-    input.permission === "testrun:record" ||
-    input.permission === "failure:analyze" ||
-    input.permission === "automation:generate"
-  ) {
+  // Contributors write and submit. This is the work a QA engineer does every
+  // day -- drafting requirements and test cases, linking them, generating and
+  // submitting automation, recording runs -- and it used to be reserved for
+  // project leads, so a team member could read a project and do nothing in it.
+  if (CONTRIBUTOR_PERMISSIONS.has(input.permission)) {
     return input.projectRole !== "VIEWER";
   }
 
+  // Leads decide. Approval, confirming a failure finding, cancelling a run and
+  // connecting a repository are judgements about what the team will stand
+  // behind, so they sit with the person accountable for the project. Leads
+  // could previously author but never approve, which left every approval in
+  // the organization waiting on an administrator who may not know the project.
+  // Approving one's own submission is prevented separately, in the approval
+  // services, so a lead gaining this does not mean a lead marks their own work.
   return (
-    (input.permission === "project:update" ||
-      input.permission === "requirement:create" ||
-      input.permission === "requirement:update" ||
-      input.permission === "requirement:submit" ||
-      input.permission === "testcase:create" ||
-      input.permission === "testcase:update" ||
-      input.permission === "testcase:submit" ||
-      input.permission === "testcase:traceability" ||
-      input.permission === "testrun:cancel" ||
-      input.permission === "failure:resolve" ||
-      input.permission === "automation:submit" ||
-      input.permission === "repository:connect" ||
-      input.permission === "repository:import") &&
+    LEAD_PERMISSIONS.has(input.permission) &&
     input.projectRole === "PROJECT_LEAD"
   );
 }
+
+const CONTRIBUTOR_PERMISSIONS = new Set<WorkspacePermission>([
+  "testrun:create",
+  "testrun:record",
+  "failure:analyze",
+  "automation:generate",
+  "automation:submit",
+  "requirement:create",
+  "requirement:update",
+  "requirement:submit",
+  "testcase:create",
+  "testcase:update",
+  "testcase:submit",
+  "testcase:traceability",
+]);
+
+const LEAD_PERMISSIONS = new Set<WorkspacePermission>([
+  "project:update",
+  "requirement:approve",
+  "testcase:approve",
+  "automation:approve",
+  "testrun:cancel",
+  "failure:resolve",
+  "repository:connect",
+  "repository:import",
+]);
 
 async function defaultAuthenticate(): Promise<WorkspaceAuthState> {
   const authState = await auth();

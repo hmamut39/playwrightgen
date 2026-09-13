@@ -18,6 +18,7 @@ import {
   parseListParams,
   type ListParams,
 } from "@/lib/services/list-query";
+import { checkSelfApproval, describeReviewTrail } from "@/lib/services/approval-policy";
 
 const uuidSchema = z.string().uuid();
 const titleSchema = z.string().trim().min(1).max(300);
@@ -204,9 +205,23 @@ export async function getRequirementDetail(
   if (!requirement || (requirement.status === "ARCHIVED" && !input.allowArchived)) {
     throw new RequirementDomainError("requirement_not_found", 404);
   }
+  const reviewTrail = await describeReviewTrail(client(dependencies), {
+    organizationId: context.organization.id,
+    projectId,
+    targetType: "REQUIREMENT",
+    targetId: requirement.id,
+    actions: {
+      submitted: "REQUIREMENT_SUBMITTED_FOR_REVIEW",
+      approved: "REQUIREMENT_APPROVED",
+      changesRequested: "REQUIREMENT_CHANGES_REQUESTED",
+    },
+    viewerUserId: context.user.id,
+    inReview: requirement.status === "IN_REVIEW",
+  });
 
   return {
     requirement,
+    reviewTrail,
     canUpdate: context.can("requirement:update"),
     // Proposing Test Cases creates Test Cases, so the effect decides the gate.
     canProposeTestCases: context.can("testcase:create"),
@@ -451,6 +466,19 @@ async function transitionRequirement(
       (!existing.description.trim() || !existing.acceptanceCriteria.trim())
     ) {
       throw new RequirementDomainError("requirement_review_incomplete", 409);
+    }
+    if (transition.to === "APPROVED") {
+      const decision = await checkSelfApproval(transaction, {
+        organizationId: context.organization.id,
+        projectId,
+        targetType: "REQUIREMENT",
+        targetId: requirementId,
+        submittedAction: "REQUIREMENT_SUBMITTED_FOR_REVIEW",
+        approverUserId: context.user.id,
+      });
+      if (!decision.allowed) {
+        throw new RequirementDomainError("self_approval_not_allowed", 409);
+      }
     }
 
     const now = new Date();

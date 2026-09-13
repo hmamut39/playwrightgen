@@ -27,6 +27,7 @@ import {
   type ListParams,
 } from "@/lib/services/list-query";
 import { readTestCaseList } from "@/lib/services/test-cases";
+import { checkSelfApproval, describeReviewTrail } from "@/lib/services/approval-policy";
 
 const uuidSchema = z.string().uuid();
 const engineSchema = z.enum(["PLAYWRIGHT_BROWSER", "PLAYWRIGHT_API"]);
@@ -223,8 +224,22 @@ export async function getAutomationArtifactDetail(
   if (!artifact || (artifact.status === "ARCHIVED" && !input.allowArchived)) {
     throw new AutomationArtifactDomainError("automation_artifact_not_found", 404);
   }
+  const reviewTrail = await describeReviewTrail(client(dependencies), {
+    organizationId: workspace.organization.id,
+    projectId,
+    targetType: "AUTOMATION_ARTIFACT",
+    targetId: artifact.id,
+    actions: {
+      submitted: "AUTOMATION_SUBMITTED_FOR_REVIEW",
+      approved: "AUTOMATION_APPROVED",
+      changesRequested: "AUTOMATION_CHANGES_REQUESTED",
+    },
+    viewerUserId: workspace.user.id,
+    inReview: artifact.status === "IN_REVIEW",
+  });
   return {
     artifact,
+    reviewTrail,
     canGenerate: workspace.can("automation:generate"),
     canSubmit: workspace.can("automation:submit"),
     canApprove: workspace.can("automation:approve"),
@@ -563,6 +578,17 @@ async function transition(
         currentVersion.validationStatus === "BLOCKED"
       ) {
         throw new AutomationArtifactDomainError("reviewable_automation_required", 409);
+      }
+      const decision = await checkSelfApproval(transaction, {
+        organizationId: workspace.organization.id,
+        projectId,
+        targetType: "AUTOMATION_ARTIFACT",
+        targetId: artifact.id,
+        submittedAction: "AUTOMATION_SUBMITTED_FOR_REVIEW",
+        approverUserId: workspace.user.id,
+      });
+      if (!decision.allowed) {
+        throw new AutomationArtifactDomainError("self_approval_not_allowed", 409);
       }
     }
 

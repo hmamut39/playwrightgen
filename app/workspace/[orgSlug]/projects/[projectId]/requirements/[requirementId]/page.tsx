@@ -18,6 +18,8 @@ import { personName } from "@/lib/format/person-name";
 import { proposeTestCasesForRequirement } from "@/lib/services/test-case-proposals";
 import { ProposeTestCases, type ProposalState } from "@/components/workspace/propose-test-cases";
 import { PendingButton, PendingNotice } from "@/components/workspace/pending-button";
+import { ReviewTrailPanel } from "@/components/workspace/review-trail";
+import { LocalTime } from "@/components/workspace/local-time";
 
 const statusStyle = {
   DRAFT: "bg-slate-100 text-slate-700",
@@ -197,12 +199,14 @@ export default async function RequirementDetailPage({
                   Request changes
                 </button>
               </form>
-              <form action={transitionAction}>
-                <input type="hidden" name="intent" value="approve" />
-                <button className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800">
-                  Approve
-                </button>
-              </form>
+              {detail.reviewTrail.awaitingAnotherApprover ? null : (
+                <form action={transitionAction}>
+                  <input type="hidden" name="intent" value="approve" />
+                  <button className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800">
+                    Approve
+                  </button>
+                </form>
+              )}
             </>
           ) : null}
           {/* Product intent changes, so approved intent has to be reopenable.
@@ -227,6 +231,12 @@ export default async function RequirementDetailPage({
           ) : null}
         </div>
       </header>
+
+      <ReviewTrailPanel
+        trail={detail.reviewTrail}
+        status={requirement.status}
+        canApprove={detail.canApprove}
+      />
 
       {requirement.status === "APPROVED" && detail.canProposeTestCases ? (
         <ProposeTestCases
@@ -431,7 +441,7 @@ export default async function RequirementDetailPage({
                     </p>
                     <p className="mt-1 text-xs text-slate-400">
                       {review.model} · {personName(review.createdBy.displayName)} ·{" "}
-                      {review.startedAt.toLocaleString()}
+                      <LocalTime value={review.startedAt} />
                     </p>
                   </div>
                   <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
@@ -493,7 +503,7 @@ export default async function RequirementDetailPage({
             </p>
           </div>
           <p className="text-xs text-slate-400">
-            Updated {requirement.updatedAt.toLocaleString()}
+            Updated <LocalTime value={requirement.updatedAt} />
           </p>
         </div>
         <div className="mt-6 divide-y divide-slate-200 border-y border-slate-200">
@@ -503,7 +513,7 @@ export default async function RequirementDetailPage({
                 <span className="text-sm font-semibold">Version {version.versionNumber}</span>
                 <span className="text-xs text-slate-400">
                   {personName(version.createdBy.displayName)} ·{" "}
-                  {version.createdAt.toLocaleString()}
+                  <LocalTime value={version.createdAt} />
                 </span>
               </summary>
               <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-700">

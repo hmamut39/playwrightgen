@@ -161,21 +161,23 @@ describe("advisory AI Requirement Review", () => {
     expect(await prisma.aiSuggestion.count()).toBe(0);
   });
 
-  it("allows a Project Lead to review but not an ordinary member", async () => {
+  it("lets the people who write requirements review them, but not a viewer", async () => {
+    // The review is an authoring aid: the member drafting a requirement is the
+    // person who most needs to hear it is ambiguous.
     const state = await workspace();
-    const lead = await member(state, "PROJECT_LEAD");
     const ordinary = await member(state, "MEMBER");
+    const viewer = await member(state, "VIEWER");
 
     await expect(
       runRequirementReview(
         { projectId: state.project.id, requirementId: state.requirement.id },
-        dependencies(state, ordinary),
+        dependencies(state, viewer),
       ),
     ).rejects.toMatchObject({ code: "permission_denied", status: 403 });
     expect(
       (await runRequirementReview(
         { projectId: state.project.id, requirementId: state.requirement.id },
-        dependencies(state, lead),
+        dependencies(state, ordinary),
       )).status,
     ).toBe("SUCCEEDED");
   });

@@ -141,7 +141,28 @@ describe("tenant-safe Test Case workflow", () => {
     }, dependencies(workspace))).rejects.toMatchObject({ code: "test_case_review_incomplete" });
   });
 
-  it("lets a Project Lead author and submit but not approve", async () => {
+  it("lets a Project Lead approve a Member's test case", async () => {
+    const workspace = await createWorkspace();
+    const member = await addMember(workspace, "MEMBER");
+    const lead = await addMember(workspace, "PROJECT_LEAD");
+    const testCase = await createCompleteTestCase(workspace, member);
+    await submitTestCaseForReview({
+      projectId: workspace.project.id, testCaseId: testCase.id,
+    }, dependencies(workspace, member));
+    await expect(approveTestCase({
+      projectId: workspace.project.id, testCaseId: testCase.id,
+    }, dependencies(workspace, member))).rejects.toMatchObject({ code: "permission_denied" });
+    await approveTestCase({
+      projectId: workspace.project.id, testCaseId: testCase.id,
+    }, dependencies(workspace, lead));
+    const detail = await getTestCaseDetail({
+      projectId: workspace.project.id, testCaseId: testCase.id,
+    }, dependencies(workspace));
+    expect(detail.testCase.status).toBe("APPROVED");
+    expect(detail.reviewTrail.decision?.kind).toBe("approved");
+  });
+
+  it("stops a Project Lead approving their own submission while someone else can", async () => {
     const workspace = await createWorkspace();
     const lead = await addMember(workspace, "PROJECT_LEAD");
     const testCase = await createCompleteTestCase(workspace, lead);
@@ -150,7 +171,7 @@ describe("tenant-safe Test Case workflow", () => {
     }, dependencies(workspace, lead));
     await expect(approveTestCase({
       projectId: workspace.project.id, testCaseId: testCase.id,
-    }, dependencies(workspace, lead))).rejects.toMatchObject({ code: "permission_denied" });
+    }, dependencies(workspace, lead))).rejects.toMatchObject({ code: "self_approval_not_allowed" });
     await approveTestCase({
       projectId: workspace.project.id, testCaseId: testCase.id,
     }, dependencies(workspace));
