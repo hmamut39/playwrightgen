@@ -301,17 +301,49 @@ async function findOrCreateArtifact(input: {
   });
 }
 
-export async function generateAutomationArtifact(
-  input: {
-    orgSlug?: string;
-    projectId: string;
-    testCaseId: string;
-    engine: "PLAYWRIGHT_BROWSER" | "PLAYWRIGHT_API";
-    guidance?: string;
-    requestId?: string;
-  },
+/** A generation still running after this long is treated as abandoned. */
+const GENERATION_STALE_MS = 10 * 60_000;
+
+type PendingGeneration = {
+  organizationId: string;
+  projectId: string;
+  userId: string;
+  artifactId: string;
+  versionId: string;
+  versionNumber: number;
+  testCaseId: string;
+  testCaseVersionId: string;
+  testCaseAutomationStatus: string;
+  engine: "PLAYWRIGHT_BROWSER" | "PLAYWRIGHT_API";
+  generationInput: AutomationGenerationInput;
+  configuredModel: string;
+  requestId?: string;
+};
+
+type GenerationInput = {
+  orgSlug?: string;
+  projectId: string;
+  testCaseId: string;
+  engine: "PLAYWRIGHT_BROWSER" | "PLAYWRIGHT_API";
+  guidance?: string;
+  requestId?: string;
+};
+
+/**
+ * Everything up to the model call: checks, the AI allowance, and a version
+ * row marked RUNNING, committed before the slow part starts.
+ *
+ * Generating used to happen inside the request that pressed the button, which
+ * took 30 to 90 seconds. That was long enough for the sign-in session token to
+ * lapse mid-request, so the page that should have shown the result sometimes
+ * showed an empty sign-in screen instead -- and the person could not leave the
+ * page without abandoning the wait. Recording the version first lets the page
+ * open at once and fill in when the code is ready.
+ */
+async function beginAutomationGeneration(
+  input: GenerationInput,
   dependencies?: Dependencies,
-) {
+): Promise<PendingGeneration> {
   const testCaseId = parseUuid(input.testCaseId);
   const engine = parseEngine(input.engine);
   const guidanceResult = guidanceSchema.safeParse(input.guidance ?? "");
@@ -352,20 +384,6 @@ export async function generateAutomationArtifact(
     throw new AutomationArtifactDomainError("test_case_version_not_found", 404);
   }
 
-  if (!dependencies?.generator) {
-    try {
-      await reserveOrganizationAiRequest({
-        organizationId: workspace.organization.id,
-        surface: "automation-generation",
-      });
-    } catch (error) {
-      if (error instanceof OrganizationAiRateLimitError) {
-        throw new AutomationArtifactDomainError(error.code, 429);
-      }
-      throw new AutomationArtifactDomainError("ai_guard_unavailable", 503);
-    }
-  }
-
   const engineLabel = engine === "PLAYWRIGHT_BROWSER" ? "Browser" : "API";
   const artifact = await findOrCreateArtifact({
     organizationId: workspace.organization.id,
@@ -379,6 +397,35 @@ export async function generateAutomationArtifact(
   }, dependencies);
   if (artifact.status === "IN_REVIEW" || artifact.status === "ARCHIVED") {
     throw new AutomationArtifactDomainError("automation_generation_not_allowed", 409);
+  }
+
+  // One generation at a time per artifact; a second press while the first is
+  // still writing would only race it. An abandoned run stops blocking after a
+  // while, so a crash can never lock the artifact.
+  const running = await client(dependencies).automationArtifactVersion.findFirst({
+    where: {
+      automationArtifactId: artifact.id,
+      generationStatus: "RUNNING",
+      startedAt: { gt: new Date(Date.now() - GENERATION_STALE_MS) },
+    },
+    select: { id: true },
+  });
+  if (running) {
+    throw new AutomationArtifactDomainError("automation_generation_in_progress", 409);
+  }
+
+  if (!dependencies?.generator) {
+    try {
+      await reserveOrganizationAiRequest({
+        organizationId: workspace.organization.id,
+        surface: "automation-generation",
+      });
+    } catch (error) {
+      if (error instanceof OrganizationAiRateLimitError) {
+        throw new AutomationArtifactDomainError(error.code, 429);
+      }
+      throw new AutomationArtifactDomainError("ai_guard_unavailable", 503);
+    }
   }
 
   const expectedVersionNumber = artifact.currentVersionNumber;
@@ -397,10 +444,78 @@ export async function generateAutomationArtifact(
     guidance: guidanceResult.data,
   };
 
+  const version = await client(dependencies).$transaction(async (transaction) => {
+    const update = await transaction.automationArtifact.updateMany({
+      where: {
+        id: artifact.id,
+        organizationId: workspace.organization.id,
+        projectId,
+        currentVersionNumber: expectedVersionNumber,
+        status: { in: ["DRAFT", "APPROVED"] },
+      },
+      data: {
+        currentVersionNumber: versionNumber,
+        status: "DRAFT",
+        submittedForReviewAt: null,
+      },
+    });
+    if (update.count !== 1) {
+      throw new AutomationArtifactDomainError("automation_version_conflict", 409);
+    }
+    return transaction.automationArtifactVersion.create({
+      data: {
+        organizationId: workspace.organization.id,
+        projectId,
+        automationArtifactId: artifact.id,
+        versionNumber,
+        generationStatus: "RUNNING",
+        validationStatus: "BLOCKED",
+        summary: "Writing the Playwright test…",
+        plan: [] as Prisma.InputJsonValue,
+        code: "",
+        configuration: "",
+        dependencies: [],
+        assumptions: [],
+        validationFindings: [] as Prisma.InputJsonValue,
+        model: configuredModel,
+        promptVersion: PROMPT_VERSION,
+        schemaVersion: SCHEMA_VERSION,
+        createdByUserId: workspace.user.id,
+      },
+    });
+  });
+
+  return {
+    organizationId: workspace.organization.id,
+    projectId,
+    userId: workspace.user.id,
+    artifactId: artifact.id,
+    versionId: version.id,
+    versionNumber,
+    testCaseId,
+    testCaseVersionId: testCaseVersion.id,
+    testCaseAutomationStatus: testCase.automationStatus,
+    engine,
+    generationInput,
+    configuredModel,
+    requestId: input.requestId,
+  };
+}
+
+/**
+ * The model call and its outcome, written onto the RUNNING version.
+ *
+ * A model failure does not throw: the version ends FAILED with a code, just as
+ * it did when generation ran inline.
+ */
+async function finishAutomationGeneration(
+  pending: PendingGeneration,
+  dependencies?: Dependencies,
+) {
   let result: AutomationGenerationResult | null = null;
   let failureCode: string | null = null;
   try {
-    result = await (dependencies?.generator ?? generateAutomation)(generationInput);
+    result = await (dependencies?.generator ?? generateAutomation)(pending.generationInput);
   } catch (error) {
     failureCode =
       error instanceof Error && /^[a-z_]+$/.test(error.message)
@@ -414,40 +529,17 @@ export async function generateAutomationArtifact(
   if (result) {
     result = {
       ...result,
-      code: applyTestCaseVersionMarker(result.code, testCaseVersion.id),
+      code: applyTestCaseVersionMarker(result.code, pending.testCaseVersionId),
     };
   }
-
   const validation = result
-    ? validateAutomationGeneration(engine, result)
+    ? validateAutomationGeneration(pending.engine, result)
     : { status: "BLOCKED" as const, findings: [] };
 
   return client(dependencies).$transaction(async (transaction) => {
-    const update = await transaction.automationArtifact.updateMany({
-      where: {
-        id: artifact.id,
-        organizationId: workspace.organization.id,
-        projectId,
-        currentVersionNumber: expectedVersionNumber,
-        status: { in: ["DRAFT", "APPROVED"] },
-      },
+    await transaction.automationArtifactVersion.update({
+      where: { id: pending.versionId },
       data: {
-        currentVersionNumber: versionNumber,
-        status: "DRAFT",
-        name: result?.name ?? artifact.name,
-        submittedForReviewAt: null,
-      },
-    });
-    if (update.count !== 1) {
-      throw new AutomationArtifactDomainError("automation_version_conflict", 409);
-    }
-
-    const version = await transaction.automationArtifactVersion.create({
-      data: {
-        organizationId: workspace.organization.id,
-        projectId,
-        automationArtifactId: artifact.id,
-        versionNumber,
         generationStatus: result ? "SUCCEEDED" : "FAILED",
         validationStatus: validation.status,
         summary: result?.summary ?? "Automation generation failed safely.",
@@ -457,23 +549,31 @@ export async function generateAutomationArtifact(
         dependencies: result?.dependencies ?? [],
         assumptions: result?.assumptions ?? [],
         validationFindings: validation.findings as Prisma.InputJsonValue,
-        model: result?.model ?? configuredModel,
-        promptVersion: PROMPT_VERSION,
-        schemaVersion: SCHEMA_VERSION,
+        model: result?.model ?? pending.configuredModel,
         inputTokens: result?.inputTokens ?? null,
         outputTokens: result?.outputTokens ?? null,
         totalTokens: result?.totalTokens ?? null,
         failureCode,
-        createdByUserId: workspace.user.id,
         completedAt: new Date(),
       },
     });
-    if (testCase.automationStatus !== "AUTOMATED") {
+    if (result?.name) {
+      await transaction.automationArtifact.updateMany({
+        where: {
+          id: pending.artifactId,
+          organizationId: pending.organizationId,
+          projectId: pending.projectId,
+          currentVersionNumber: pending.versionNumber,
+        },
+        data: { name: result.name },
+      });
+    }
+    if (pending.testCaseAutomationStatus !== "AUTOMATED") {
       const automationSummaryUpdate = await transaction.testCase.updateMany({
         where: {
-          id: testCase.id,
-          organizationId: workspace.organization.id,
-          projectId,
+          id: pending.testCaseId,
+          organizationId: pending.organizationId,
+          projectId: pending.projectId,
         },
         data: { automationStatus: "DRAFT" },
       });
@@ -483,20 +583,20 @@ export async function generateAutomationArtifact(
     }
     await transaction.activity.create({
       data: {
-        organizationId: workspace.organization.id,
-        projectId,
-        actorUserId: workspace.user.id,
+        organizationId: pending.organizationId,
+        projectId: pending.projectId,
+        actorUserId: pending.userId,
         source: "USER",
         action: "AUTOMATION_VERSION_GENERATED",
         targetType: "AUTOMATION_ARTIFACT_VERSION",
-        targetId: version.id,
-        requestId: input.requestId ?? null,
+        targetId: pending.versionId,
+        requestId: pending.requestId ?? null,
         metadata: {
-          automationArtifactId: artifact.id,
-          testCaseId,
-          testCaseVersionId: testCaseVersion.id,
-          engine,
-          versionNumber,
+          automationArtifactId: pending.artifactId,
+          testCaseId: pending.testCaseId,
+          testCaseVersionId: pending.testCaseVersionId,
+          engine: pending.engine,
+          versionNumber: pending.versionNumber,
           generationStatus: result ? "SUCCEEDED" : "FAILED",
           validationStatus: validation.status,
           promptVersion: PROMPT_VERSION,
@@ -505,10 +605,70 @@ export async function generateAutomationArtifact(
       },
     });
     return transaction.automationArtifact.findUniqueOrThrow({
-      where: { id: artifact.id },
+      where: { id: pending.artifactId },
       include: { versions: { orderBy: { versionNumber: "desc" } } },
     });
   });
+}
+
+/** Marks a version FAILED when finishing could not record its outcome. */
+async function abandonAutomationGeneration(
+  pending: PendingGeneration,
+  dependencies?: Dependencies,
+) {
+  await client(dependencies).automationArtifactVersion.updateMany({
+    where: { id: pending.versionId, generationStatus: "RUNNING" },
+    data: {
+      generationStatus: "FAILED",
+      failureCode: "generation_interrupted",
+      summary: "Automation generation did not finish.",
+      completedAt: new Date(),
+    },
+  });
+}
+
+/** Generates and waits for the result. */
+export async function generateAutomationArtifact(
+  input: GenerationInput,
+  dependencies?: Dependencies,
+) {
+  const pending = await beginAutomationGeneration(input, dependencies);
+  try {
+    return await finishAutomationGeneration(pending, dependencies);
+  } catch (error) {
+    await abandonAutomationGeneration(pending, dependencies).catch(() => {});
+    throw error;
+  }
+}
+
+/**
+ * Starts generating and returns at once, handing the model call to `schedule`
+ * (the page passes Next's `after`). The artifact page shows the version as
+ * running and refreshes itself until it completes.
+ */
+export async function startAutomationArtifactGeneration(
+  input: GenerationInput,
+  schedule: (task: () => Promise<void>) => void,
+  dependencies?: Dependencies,
+) {
+  const pending = await beginAutomationGeneration(input, dependencies);
+  schedule(async () => {
+    try {
+      await finishAutomationGeneration(pending, dependencies);
+    } catch (error) {
+      console.error("[automation] background generation failed", error);
+      await abandonAutomationGeneration(pending, dependencies).catch(() => {});
+    }
+  });
+  return { automationArtifactId: pending.artifactId, versionNumber: pending.versionNumber };
+}
+
+/** True when a version has been running so long it will never finish. */
+export function isGenerationStalled(version: { generationStatus: string; startedAt: Date }) {
+  return (
+    version.generationStatus === "RUNNING" &&
+    Date.now() - version.startedAt.getTime() > GENERATION_STALE_MS
+  );
 }
 
 async function transition(

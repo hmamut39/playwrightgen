@@ -100,7 +100,9 @@ export default async function AutomationPage({
                     <p className="mt-1 text-xs text-slate-400">
                       Approved v{artifact.approvedVersionNumber ?? "—"}
                     </p>
-                    {currentVersion ? (
+                    {currentVersion?.generationStatus === "RUNNING" ? (
+                      <p className="mt-2 text-xs font-semibold text-cyan-700">Writing the test…</p>
+                    ) : currentVersion ? (
                       <p className={`mt-2 text-xs font-semibold ${validationStyle[currentVersion.validationStatus]}`}>
                         {currentVersion.generationStatus === "FAILED"
                           ? "Generation failed safely"

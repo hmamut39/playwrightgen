@@ -13,6 +13,7 @@ import {
   getAutomationArtifactDetail,
   listAutomationArtifacts,
   requestAutomationChanges,
+  startAutomationArtifactGeneration,
   submitAutomationArtifact,
 } from "@/lib/services/automation-artifacts";
 import { readTestCaseVersionMarker } from "@/lib/integrations/runner/ingest-token";
@@ -419,5 +420,63 @@ export default defineConfig({ use: { baseURL: "http://localhost:3000" } });`,
       projectId: second.project.id,
       automationArtifactId: artifact.id,
     }, deps(second))).rejects.toMatchObject({ code: "automation_artifact_not_found" });
+  });
+
+  describe("background generation", () => {
+    it("opens as running, then completes when the scheduled work runs", async () => {
+      const space = await workspace();
+      const approvedTestCase = await testCase(space);
+      const scheduled: Array<() => Promise<void>> = [];
+
+      const started = await startAutomationArtifactGeneration(
+        { projectId: space.project.id, testCaseId: approvedTestCase.id, engine: "PLAYWRIGHT_BROWSER" },
+        (task) => scheduled.push(task),
+        deps(space),
+      );
+
+      const running = await getAutomationArtifactDetail(
+        { projectId: space.project.id, automationArtifactId: started.automationArtifactId },
+        deps(space),
+      );
+      expect(running.artifact.versions[0]).toMatchObject({ versionNumber: 1, generationStatus: "RUNNING" });
+      await expect(submitAutomationArtifact({
+        projectId: space.project.id,
+        automationArtifactId: started.automationArtifactId,
+      }, deps(space))).rejects.toMatchObject({ code: "reviewable_automation_required" });
+      // A second press while the first is still writing would only race it.
+      await expect(startAutomationArtifactGeneration(
+        { projectId: space.project.id, testCaseId: approvedTestCase.id, engine: "PLAYWRIGHT_BROWSER" },
+        () => {},
+        deps(space),
+      )).rejects.toMatchObject({ code: "automation_generation_in_progress" });
+
+      expect(scheduled).toHaveLength(1);
+      await scheduled[0]();
+
+      const done = await getAutomationArtifactDetail(
+        { projectId: space.project.id, automationArtifactId: started.automationArtifactId },
+        deps(space),
+      );
+      expect(done.artifact.versions[0]).toMatchObject({ generationStatus: "SUCCEEDED", validationStatus: "PASSED" });
+      expect(readTestCaseVersionMarker(done.artifact.versions[0].code)).toBe(done.artifact.testCaseVersionId);
+    });
+
+    it("never leaves a version running when the model fails", async () => {
+      const space = await workspace();
+      const approvedTestCase = await testCase(space);
+      const scheduled: Array<() => Promise<void>> = [];
+      const started = await startAutomationArtifactGeneration(
+        { projectId: space.project.id, testCaseId: approvedTestCase.id, engine: "PLAYWRIGHT_API" },
+        (task) => scheduled.push(task),
+        deps(space, space.owner, async () => {
+          throw new Error("model_timeout");
+        }),
+      );
+      await scheduled[0]();
+      const version = await prisma.automationArtifactVersion.findFirstOrThrow({
+        where: { automationArtifactId: started.automationArtifactId },
+      });
+      expect(version).toMatchObject({ generationStatus: "FAILED", failureCode: "model_timeout" });
+    });
   });
 });
