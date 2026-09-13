@@ -37,6 +37,8 @@ export default function RootLayout({
       signUpUrl="/sign-up"
       signInFallbackRedirectUrl="/workspace"
       signUpFallbackRedirectUrl="/workspace"
+      // Our own first step instead of Clerk's "Setup your organization" form.
+      taskUrls={{ "choose-organization": "/onboarding" }}
     >
       <html lang="en">
         <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>

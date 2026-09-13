@@ -118,7 +118,10 @@ export async function provisionWorkspaceFromClerk(input: {
     const snapshot = await (input.fetchSnapshot ?? fetchClerkSnapshot)(
       input.clerkOrganizationId,
     );
-    if (!snapshot || snapshot.memberships.length === 0) return false;
+    if (!snapshot || snapshot.memberships.length === 0) {
+      console.warn("[provisioning] Clerk listed no memberships yet", { clerkOrganizationId: input.clerkOrganizationId });
+      return false;
+    }
 
     await reconcileClerkOrganizationSnapshot({
       snapshot,
@@ -126,7 +129,13 @@ export async function provisionWorkspaceFromClerk(input: {
       prisma: input.prisma,
     });
     return true;
-  } catch {
+  } catch (error) {
+    // Quiet for the person, not for us: without this the reason a workspace
+    // could not be recovered was invisible in the logs.
+    console.warn("[provisioning] workspace recovery failed", {
+      clerkOrganizationId: input.clerkOrganizationId,
+      message: error instanceof Error ? error.message.slice(0, 300) : String(error),
+    });
     return false;
   }
 }

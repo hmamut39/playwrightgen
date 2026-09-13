@@ -25,10 +25,24 @@ export function WorkspaceFrame({
             </span>
           </Link>
           <div className="lg:mt-8">
+            {/* Styled for the dark sidebar: Clerk's default draws dark text,
+                which left the workspace name unreadable here. */}
             <OrganizationSwitcher
               afterCreateOrganizationUrl="/workspace"
               afterSelectOrganizationUrl="/workspace"
               hidePersonal
+              appearance={{
+                elements: {
+                  // Important modifiers: Clerk's own styles otherwise win over
+                  // Tailwind's layered utilities, which is why the name stayed dark.
+                  rootBox: "w-full",
+                  organizationSwitcherTrigger:
+                    "w-full! justify-between! rounded-xl! border! border-slate-700! bg-slate-800! px-3! py-2.5! text-white! shadow-none! hover:bg-slate-700! focus-visible:ring-2 focus-visible:ring-sky-400",
+                  organizationPreviewMainIdentifier: "text-sm! font-medium! text-white!",
+                  organizationPreviewSecondaryIdentifier: "text-xs! text-slate-400!",
+                  organizationSwitcherTriggerIcon: "text-slate-400!",
+                },
+              }}
             />
           </div>
         </div>
@@ -54,7 +68,6 @@ export function WorkspaceFrame({
       <section className="min-w-0 flex-1">
         <header className="border-b border-slate-200 bg-white px-5 py-4 sm:px-8">
           <p className="text-sm font-medium text-slate-700">{organizationName}</p>
-          <p className="text-xs text-slate-400">{organizationSlug}</p>
         </header>
         <div className="px-5 py-8 sm:px-8 lg:px-10">{children}</div>
       </section>

@@ -11,6 +11,10 @@ const freeTools = [
 
 export function SiteNavigation() {
   const pathname = usePathname();
+  // Inside the workspace the product has its own navigation; the marketing
+  // menu above it -- with an "Open Workspace" button to the page you are
+  // already on -- was a second header that pointed people away from their work.
+  if (pathname === "/workspace" || pathname.startsWith("/workspace/")) return null;
   const navigationItems = [
     { href: "/#product", label: "Product", match: "/" },
     ...freeTools.map((tool) => ({ ...tool, match: tool.href })),

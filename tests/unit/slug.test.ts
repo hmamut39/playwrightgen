@@ -23,6 +23,11 @@ describe("deriving a slug from a name", () => {
     expect(slugify("  --Release: v2.0!!  ")).toBe("release-v2-0");
   });
 
+  it("keeps possessives as one word", () => {
+    expect(slugify("Aylin's team")).toBe("aylins-team");
+    expect(slugify("O’Brien QA")).toBe("obrien-qa");
+  });
+
   it("falls back rather than producing an empty slug", () => {
     // A name with no Latin letters leaves nothing to keep, and an empty slug
     // would fail the rule the service enforces.

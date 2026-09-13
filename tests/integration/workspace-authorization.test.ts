@@ -194,11 +194,75 @@ describe("tenant-safe workspace authorization", () => {
           }),
           prisma,
           provisionWorkspace: async () => false,
+          provisionRetryDelaysMs: [0, 0, 0],
         },
       ),
       404,
       "workspace_not_found",
     );
+  });
+
+  it("finds a workspace another request recovered while this one failed", async () => {
+    // A page and its layout recover the same new workspace at once. The one
+    // that loses the race sees its insert fail, but the rows now exist, so it
+    // must look again instead of showing a brand-new customer an error.
+    const workspace = await createWorkspace();
+    const racedOrgId = uniqueValue("clerk-org");
+    let attempts = 0;
+    const context = await requireWorkspaceContext(
+      { permission: "organization:read" },
+      {
+        authenticate: async () => ({ userId: workspace.clerkUserId, orgId: racedOrgId }),
+        prisma,
+        provisionRetryDelaysMs: [0, 0, 0],
+        provisionWorkspace: async ({ clerkOrganizationId }) => {
+          attempts += 1;
+          // The competing request's work, then this request's own failure.
+          const organization = await prisma.organization.create({
+            data: { clerkOrganizationId, name: "Raced", slug: uniqueValue("raced") },
+          });
+          const user = await prisma.user.findUniqueOrThrow({
+            where: { clerkUserId: workspace.clerkUserId },
+          });
+          await prisma.membership.create({
+            data: { organizationId: organization.id, userId: user.id, role: "OWNER" },
+          });
+          return false;
+        },
+      },
+    );
+    expect(attempts).toBe(1);
+    expect(context.organization.clerkOrganizationId).toBe(racedOrgId);
+  });
+
+  it("keeps trying briefly while Clerk catches up", async () => {
+    const workspace = await createWorkspace();
+    const lateOrgId = uniqueValue("clerk-org");
+    let attempts = 0;
+    const context = await requireWorkspaceContext(
+      { permission: "organization:read" },
+      {
+        authenticate: async () => ({ userId: workspace.clerkUserId, orgId: lateOrgId }),
+        prisma,
+        provisionRetryDelaysMs: [0, 0, 0],
+        provisionWorkspace: async ({ clerkOrganizationId }) => {
+          attempts += 1;
+          if (attempts < 3) return false; // Clerk has not listed the membership yet.
+          const organization = await prisma.organization.create({
+            data: { clerkOrganizationId, name: "Late", slug: uniqueValue("late") },
+          });
+          const user = await prisma.user.findUniqueOrThrow({
+            where: { clerkUserId: workspace.clerkUserId },
+          });
+          await prisma.membership.create({
+            data: { organizationId: organization.id, userId: user.id, role: "OWNER" },
+          });
+          return true;
+        },
+      },
+    );
+    expect(attempts).toBe(3);
+    expect(context.organization.clerkOrganizationId).toBe(lateOrgId);
   });
 
   it("returns 401 when no Clerk user is authenticated", async () => {

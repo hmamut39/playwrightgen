@@ -84,6 +84,8 @@ export type WorkspaceContextDependencies = {
     clerkOrganizationId: string;
     prisma: PrismaClient;
   }) => Promise<boolean>;
+  /** Waits between recovery attempts; injectable so tests need not sleep. */
+  provisionRetryDelaysMs?: readonly number[];
 };
 
 export type RequireWorkspaceContextInput = {
@@ -247,16 +249,23 @@ export async function requireWorkspaceContext(
   let [user, organization] = await lookup();
 
   // Clerk says this person is a member of an organization the database has
-  // never heard of, which happens when a webhook delivery was missed. Rather
-  // than lock someone out of their own workspace with a bare error, the mirror
-  // is created from Clerk and the lookup retried once. If that does not
-  // succeed, the original not-found stands.
+  // never heard of. That happens when a webhook delivery was missed -- and, far
+  // more often, in the first seconds after someone creates a workspace, before
+  // the webhook has landed. Rather than show a brand-new customer an error on
+  // their very first page, the mirror is created from Clerk.
+  //
+  // The lookup is repeated after every attempt, successful or not: a page and
+  // its layout ask at the same moment, so the attempt that loses the race to
+  // create the rows fails while the rows it wanted now exist. And Clerk may
+  // not list a membership it created a moment ago, so a failed attempt is
+  // retried briefly before the original not-found stands.
   if (!organization) {
-    const provisioned = await (
-      dependencies?.provisionWorkspace ?? provisionWorkspaceFromClerk
-    )({ clerkOrganizationId: authState.orgId, prisma });
-    if (provisioned) {
+    const provision = dependencies?.provisionWorkspace ?? provisionWorkspaceFromClerk;
+    for (const delay of dependencies?.provisionRetryDelaysMs ?? [0, 700, 1500]) {
+      if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+      await provision({ clerkOrganizationId: authState.orgId, prisma });
       [user, organization] = await lookup();
+      if (organization) break;
     }
   }
 

@@ -17,11 +17,17 @@ const MAX_LENGTH = 100;
 /** Combining marks left behind once accented letters are decomposed. */
 const COMBINING_MARKS = /[\u0300-\u036f]/g;
 
+/** Straight and curly apostrophes. */
+const APOSTROPHES = /['\u2019]/g;
+
 export function slugify(name: string, fallback = "project"): string {
   const slug = name
     .normalize("NFKD")
     .replace(COMBINING_MARKS, "")
     .toLowerCase()
+    // An apostrophe joins a word rather than separating two: "Aylin's team"
+    // is "aylins-team", not "aylin-s-team".
+    .replace(APOSTROPHES, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, MAX_LENGTH)
