@@ -20,6 +20,7 @@ import {
   updateTestCaseDraft,
 } from "@/lib/services/test-cases";
 import { personName } from "@/lib/format/person-name";
+import { PendingButton, PendingNotice } from "@/components/workspace/pending-button";
 
 const statusStyle = {
   DRAFT: "bg-slate-100 text-slate-700", IN_REVIEW: "bg-amber-50 text-amber-800",
@@ -193,13 +194,18 @@ export default async function TestCaseDetailPage({
               />
             </label>
             <div className="mt-3 flex flex-wrap gap-2">
-              <button name="engine" value="PLAYWRIGHT_BROWSER" className="rounded-lg bg-cyan-700 px-4 py-2.5 text-sm font-semibold text-white">
+              <PendingButton name="engine" value="PLAYWRIGHT_BROWSER" pendingLabel="Generating Browser automation…" className="rounded-lg bg-cyan-700 px-4 py-2.5 text-sm font-semibold text-white">
                 Generate Browser automation
-              </button>
-              <button name="engine" value="PLAYWRIGHT_API" className="rounded-lg border border-cyan-300 bg-white px-4 py-2.5 text-sm font-semibold text-cyan-800">
+              </PendingButton>
+              <PendingButton name="engine" value="PLAYWRIGHT_API" pendingLabel="Generating API automation…" className="rounded-lg border border-cyan-300 bg-white px-4 py-2.5 text-sm font-semibold text-cyan-800">
                 Generate API automation
-              </button>
+              </PendingButton>
             </div>
+            <PendingNotice>
+              Writing a Playwright test from this approved Test Case, then checking
+              it for weak assertions and unsafe patterns. This usually takes
+              30&ndash;60 seconds &mdash; the page will open the result when it&rsquo;s ready.
+            </PendingNotice>
           </form>
         ) : testCase.status !== "APPROVED" ? (
           <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">

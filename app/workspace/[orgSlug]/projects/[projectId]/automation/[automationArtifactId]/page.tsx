@@ -14,6 +14,7 @@ import {
   submitAutomationArtifact,
 } from "@/lib/services/automation-artifacts";
 import { personName } from "@/lib/format/person-name";
+import { PendingButton, PendingNotice } from "@/components/workspace/pending-button";
 
 const statusStyle = {
   DRAFT: "bg-slate-100 text-slate-700",
@@ -431,9 +432,15 @@ export default async function AutomationArtifactPage({
               placeholder="Optional: clarify test data, route names, selectors, API contracts, or fixture conventions."
               className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm"
             />
-            <button className="mt-3 rounded-lg bg-cyan-700 px-4 py-2.5 text-sm font-semibold text-white">
-              Generate next version
-            </button>
+            <div className="mt-3">
+              <PendingButton pendingLabel="Generating the next version…" className="rounded-lg bg-cyan-700 px-4 py-2.5 text-sm font-semibold text-white">
+                Generate next version
+              </PendingButton>
+            </div>
+            <PendingNotice>
+              Creating a new immutable version with your guidance. Earlier versions
+              stay exactly as they are. This usually takes 30&ndash;60 seconds.
+            </PendingNotice>
           </form>
         </section>
       ) : null}

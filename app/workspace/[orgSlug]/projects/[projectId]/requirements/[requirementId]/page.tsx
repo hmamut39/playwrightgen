@@ -17,6 +17,7 @@ import {
 import { personName } from "@/lib/format/person-name";
 import { proposeTestCasesForRequirement } from "@/lib/services/test-case-proposals";
 import { ProposeTestCases, type ProposalState } from "@/components/workspace/propose-test-cases";
+import { PendingButton, PendingNotice } from "@/components/workspace/pending-button";
 
 const statusStyle = {
   DRAFT: "bg-slate-100 text-slate-700",
@@ -403,10 +404,14 @@ export default async function RequirementDetailPage({
             </p>
           </div>
           {detail.canUpdate && requirement.status !== "ARCHIVED" ? (
-            <form action={runReviewAction}>
-              <button className="rounded-lg bg-sky-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-900">
+            <form action={runReviewAction} className="max-w-xs">
+              <PendingButton pendingLabel="Reviewing…" className="rounded-lg bg-sky-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-900">
                 Run AI review
-              </button>
+              </PendingButton>
+              <PendingNotice>
+                Checking this version for ambiguity, missing criteria and untested
+                edge cases. Usually 20&ndash;40 seconds.
+              </PendingNotice>
             </form>
           ) : null}
         </div>
