@@ -7,6 +7,7 @@ import { ResultActions } from "@/components/free-tools/result-actions";
 import { WorkspaceHandoffButton } from "@/components/free-tools/workspace-handoff-button";
 import type { FreeToolHandoff } from "@/lib/free-tools/handoff";
 import { LimitReached, readFreeToolLimit, type FreeToolLimit } from "@/components/free-tools/limit-reached";
+import { PreviewRunPanel } from "@/components/free-tools/preview-run-panel";
 
 type ReviewLens = "COVERAGE" | "FLAKY" | "ARCHITECTURE" | "ASSERTIONS";
 type Severity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
@@ -120,6 +121,7 @@ export default function CoverageReviewPage() {
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [result, setResult] = useState<CoverageResult | null>(null);
   const [livePage, setLivePage] = useState<LiveCoveragePage | null>(null);
+  const [testsFixNote, setTestsFixNote] = useState<string | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -159,6 +161,7 @@ export default function CoverageReviewPage() {
       }
       setResult(data.result);
       setLivePage(data.livePage ?? null);
+      setTestsFixNote(null);
       if (typeof data.remaining === "number") setRemaining(data.remaining);
       window.requestAnimationFrame(() => document.getElementById("coverage-result")?.scrollIntoView({ behavior: "smooth", block: "start" }));
     } catch {
@@ -305,6 +308,33 @@ export default function CoverageReviewPage() {
         ) : result ? (
           <section id="coverage-result" className="scroll-mt-24 mt-8 space-y-6">
             {livePage ? <LiveCoveragePanel livePage={livePage} /> : null}
+            {/* The review says what might be wrong; a run shows what is. The
+                pasted tests are replayed on the page with the same safe runner
+                as Quick Generate, and a failing step can be fixed in place. */}
+            {livePage?.status === "read" && existingTests.trim() ? (
+              <div className="overflow-hidden rounded-[2rem] border border-slate-800 bg-slate-950 shadow-xl">
+                <div className="px-5 pt-5 sm:px-6">
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">Your tests, on the real page</p>
+                  <p className="mt-1 text-sm text-slate-300">
+                    Run the tests you pasted against {livePage.title || livePage.url} and see exactly which step breaks.
+                  </p>
+                  {testsFixNote ? (
+                    <p className="mt-3 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+                      <span className="font-semibold">Fixed by AI:</span> {testsFixNote} Your tests above were updated; run them again to check.
+                    </p>
+                  ) : null}
+                </div>
+                <PreviewRunPanel
+                  key={existingTests}
+                  code={existingTests}
+                  pageUrl={livePage.url}
+                  onFixed={(fixed) => {
+                    setExistingTests(fixed.code);
+                    setTestsFixNote(fixed.explanation);
+                  }}
+                />
+              </div>
+            ) : null}
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
               <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
                 <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-700">Preliminary review</p><h2 className="mt-2 text-3xl font-semibold tracking-[-0.035em]">What the supplied evidence suggests</h2><p className="mt-3 max-w-4xl leading-7 text-slate-600">{result.summary}</p></div>

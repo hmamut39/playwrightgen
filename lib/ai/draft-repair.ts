@@ -50,6 +50,7 @@ const INSTRUCTIONS = [
   "Use the accessibility tree captured at the moment of failure to find the element the failing line intended, and rewrite that locator (and any later locator that repeats the same mistake) with the exact roles and accessible names from the tree, getByTestId for listed test ids, or a role locator narrowed with .filter({ hasText: '...' }) when items have no accessible name.",
   "Change as little as possible: keep the test's structure, steps, names and assertions' intent. Never add try/catch, waitForTimeout, force: true, .count() checks to choose between locators, or helpers that try several locators. Keep '@playwright/test' as the only import.",
   "If the failure means the expected behaviour is genuinely absent from the page, keep the assertion and say so in the explanation rather than weakening it.",
+  "Never replace a process.env value with a literal credential or secret. Keep process.env.NAME; only when the page itself publicly shows a demo value for it may you add it as a fallback, written process.env.NAME ?? 'value', and say so in the explanation.",
   "Return the full corrected file in code, and in explanation one or two plain sentences on what was wrong and what changed.",
 ].join(" ");
 

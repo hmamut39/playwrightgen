@@ -59,7 +59,7 @@ type Value =
   | { type: "regex"; source: string; flags: string }
   | { type: "page" }
   | { type: "locator"; plan: LocatorPlan }
-  | { type: "expectation"; subject: "page" | "locator"; locator?: LocatorPlan; negated: boolean }
+  | { type: "expectation"; subject: "page" | "locator" | "pageUrl"; locator?: LocatorPlan; negated: boolean }
   | { type: "unknown"; reason: string };
 
 class Unsupported extends Error {}
@@ -199,7 +199,17 @@ export function planPreviewRun(code: string): RunPlan {
 
   function evaluateCall(node: ts.CallExpression, scope: Map<string, Value>): Value {
     if (ts.isIdentifier(node.expression) && node.expression.text === "expect") {
-      const subject = node.arguments[0] ? evaluate(node.arguments[0], scope) : unknown("empty expect");
+      const argument = node.arguments[0];
+      // expect(page.url()) is how many hand-written tests check the address.
+      if (
+        argument &&
+        ts.isCallExpression(argument) &&
+        argument.arguments.length === 0 &&
+        argument.expression.getText(source) === "page.url"
+      ) {
+        return { type: "expectation", subject: "pageUrl", negated: false };
+      }
+      const subject = argument ? evaluate(argument, scope) : unknown("empty expect");
       if (subject.type === "page") return { type: "expectation", subject: "page", negated: false };
       if (subject.type === "locator") return { type: "expectation", subject: "locator", locator: subject.plan, negated: false };
       return unknown(subject.type === "unknown" ? subject.reason : "expect on a value the preview cannot read");
@@ -251,6 +261,21 @@ export function planPreviewRun(code: string): RunPlan {
     }
     if (target.type === "expectation") {
       const expected = args[0];
+      if (target.subject === "pageUrl") {
+        const match = expected ? asTextMatch(expected) : null;
+        if (match && (method === "toBe" || method === "toEqual")) {
+          return { op: "expect", subject: "page", matcher: "toHaveURL", negated: target.negated, expected: match, source: text };
+        }
+        if (match && method === "toMatch" && match.kind === "regex") {
+          return { op: "expect", subject: "page", matcher: "toHaveURL", negated: target.negated, expected: match, source: text };
+        }
+        if (match && method === "toContain" && match.kind === "string") {
+          // "contains" as a pattern that matches the literal anywhere in the URL.
+          const escaped = match.value.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+          return { op: "expect", subject: "page", matcher: "toHaveURL", negated: target.negated, expected: { kind: "regex", source: escaped, flags: "" }, source: text };
+        }
+        return { op: "unsupported", reason: `expect(page.url()).${method} is not run in the preview`, source: text };
+      }
       if (target.subject === "page") {
         if ((method === "toHaveURL" || method === "toHaveTitle") && expected && asTextMatch(expected)) {
           return { op: "expect", subject: "page", matcher: method, negated: target.negated, expected: asTextMatch(expected)!, source: text };

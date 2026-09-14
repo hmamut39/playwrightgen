@@ -102,4 +102,18 @@ test('x', async ({ page, request }) => {
     });
     expect(operations[1]).toMatchObject({ op: "expect", matcher: "toBeVisible", negated: true });
   });
+
+  it("reads the hand-written expect(page.url()) checks", () => {
+    const plan = planPreviewRun(`test('x', async ({ page }) => {
+  expect(page.url()).toContain("inventory.html");
+  expect(page.url()).toBe("https://www.saucedemo.com/");
+  expect(page.url()).toMatch(/inventory/);
+});`);
+    const operations = plan.tests[0].steps[0].operations;
+    expect(operations).toEqual([
+      expect.objectContaining({ op: "expect", subject: "page", matcher: "toHaveURL", expected: { kind: "regex", source: String.raw`inventory\.html`, flags: "" } }),
+      expect.objectContaining({ op: "expect", subject: "page", matcher: "toHaveURL", expected: { kind: "string", value: "https://www.saucedemo.com/" } }),
+      expect.objectContaining({ op: "expect", subject: "page", matcher: "toHaveURL", expected: { kind: "regex", source: "inventory", flags: "" } }),
+    ]);
+  });
 });
