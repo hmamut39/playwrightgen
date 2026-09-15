@@ -10,6 +10,7 @@ import {
   freeToolLimitBody,
   reserveFreeToolRun,
 } from "@/lib/operations/free-tool-access";
+import { recordFreeToolDraftCode } from "@/lib/services/free-tool-drafts";
 import { logOperationalEvent } from "@/lib/operations/safe-telemetry";
 
 export const runtime = "nodejs";
@@ -25,6 +26,9 @@ const bodySchema = z.object({
   }),
   pageTreeAtFailure: z.string().min(1).max(20_000),
   pageTreeAtStart: z.string().max(20_000).optional(),
+  skippedEarlier: z.array(z.string().max(300)).max(20).optional(),
+  /** The signed-in person's saved draft, which keeps the fixed code. */
+  draftId: z.string().uuid().optional(),
 });
 
 /**
@@ -46,7 +50,8 @@ export async function POST(req: Request) {
 
   try {
     const quota = await reserveFreeToolRun({ request: req, surface: "quick-generate", requestId });
-    const repaired = await repairDraft(body, { requestId });
+    const { draftId, ...repairInput } = body;
+    const repaired = await repairDraft(repairInput, { requestId });
     const { provider, ...result } = repaired;
     logOperationalEvent("info", {
       event: "public_ai.completed",
@@ -59,6 +64,11 @@ export async function POST(req: Request) {
       totalTokens: provider.totalTokens,
       providerRequestId: provider.requestId,
     });
+    if (draftId && quota.userId) {
+      await recordFreeToolDraftCode({ clerkUserId: quota.userId, draftId, code: result.code }).catch((error: unknown) =>
+        console.error("[repair-draft] could not update the saved draft", error),
+      );
+    }
     return NextResponse.json({ result, remaining: quota.remaining }, { headers: { "x-request-id": requestId } });
   } catch (error) {
     if (error instanceof FreeToolLimitError) {

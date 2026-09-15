@@ -52,6 +52,8 @@ const LOCATOR_MATCHERS = new Set<MatcherName>([
 ]);
 const MAX_TESTS = 6;
 const MAX_OPERATIONS = 80;
+/** A for...of over test data is replayed once per item, up to this many. */
+const MAX_LOOP_ITEMS = 20;
 
 type Value =
   | { type: "string"; value: string }
@@ -60,6 +62,9 @@ type Value =
   | { type: "page" }
   | { type: "locator"; plan: LocatorPlan }
   | { type: "expectation"; subject: "page" | "locator" | "pageUrl"; locator?: LocatorPlan; negated: boolean }
+  // Test data written inline: const TODOS = ['a', 'b'] or const user = { name: 'x' }.
+  | { type: "array"; items: Value[] }
+  | { type: "object"; fields: Map<string, Value> }
   | { type: "unknown"; reason: string };
 
 class Unsupported extends Error {}
@@ -78,7 +83,13 @@ function snippet(node: ts.Node, source: ts.SourceFile) {
   return node.getText(source).replace(/\s+/g, " ").slice(0, 160);
 }
 
-export function planPreviewRun(code: string): RunPlan {
+/**
+ * env: values for process.env names, supplied by the person for one run (a
+ * test account's username and password). They become literal step values in
+ * the plan and are never written anywhere else.
+ */
+export function planPreviewRun(code: string, options: { env?: Record<string, string> } = {}): RunPlan {
+  const env = options.env ?? {};
   const source = ts.createSourceFile("draft.spec.ts", code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   const plan: RunPlan = { beforeEach: [], tests: [] };
   let operationCount = 0;
@@ -111,17 +122,50 @@ export function planPreviewRun(code: string): RunPlan {
       if (node.text === "page") return { type: "page" };
       return scope.get(node.text) ?? unknown(`uses "${node.text}", which the preview cannot evaluate`);
     }
+    if (ts.isArrayLiteralExpression(node)) {
+      if (node.elements.length > 50 || node.elements.some(ts.isSpreadElement)) return unknown(`uses ${snippet(node, source)}`);
+      return { type: "array", items: node.elements.map((element) => evaluate(element, scope)) };
+    }
+    if (ts.isObjectLiteralExpression(node)) {
+      const fields = new Map<string, Value>();
+      for (const property of node.properties) {
+        if (ts.isPropertyAssignment(property) && (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name))) {
+          fields.set(property.name.text, evaluate(property.initializer, scope));
+        } else if (ts.isShorthandPropertyAssignment(property)) {
+          fields.set(property.name.text, evaluate(property.name, scope));
+        } else {
+          return unknown(`uses ${snippet(node, source)}`);
+        }
+      }
+      return { type: "object", fields };
+    }
+    if (ts.isElementAccessExpression(node)) {
+      const target = evaluate(node.expression, scope);
+      const key = evaluate(node.argumentExpression, scope);
+      if (target.type === "array" && key.type === "number") return target.items[key.value] ?? unknown(`uses ${snippet(node, source)}`);
+      if (target.type === "object" && key.type === "string") return target.fields.get(key.value) ?? unknown(`uses ${snippet(node, source)}`);
+      return unknown(`uses ${snippet(node, source)}`);
+    }
     if (ts.isPropertyAccessExpression(node)) {
       const text = node.getText(source);
-      if (text.startsWith("process.env.")) return unknown(`needs ${text.slice("process.env.".length)} from your environment`);
+      if (text.startsWith("process.env.")) {
+        const name = text.slice("process.env.".length);
+        return Object.hasOwn(env, name) ? { type: "string", value: env[name] } : unknown(`needs ${name} from your environment`);
+      }
       if (node.name.text === "not") {
         const target = evaluate(node.expression, scope);
         if (target.type === "expectation") return { ...target, negated: !target.negated };
       }
+      if (ts.isIdentifier(node.expression) && node.expression.text !== "page") {
+        const target = scope.get(node.expression.text);
+        if (target?.type === "object") return target.fields.get(node.name.text) ?? unknown(`uses ${snippet(node, source)}`);
+      }
       return unknown(`uses ${snippet(node, source)}`);
     }
     if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken) {
-      // process.env.X ?? 'fallback' -- the preview uses the fallback.
+      // process.env.X ?? 'fallback' -- a supplied value, otherwise the fallback.
+      const supplied = evaluate(node.left, scope);
+      if (supplied.type === "string" || supplied.type === "number") return supplied;
       const fallback = evaluate(node.right, scope);
       if (fallback.type === "string" || fallback.type === "number") return fallback;
     }
@@ -302,8 +346,41 @@ export function planPreviewRun(code: string): RunPlan {
 
   /** Statements of one test (or beforeEach) body, grouped into steps. */
   function readBody(block: ts.Block, scope: Map<string, Value>, steps: PlannedStep[], current: PlannedStep) {
-    for (const statement of block.statements) {
+    readStatements(block.statements, scope, steps, current);
+  }
+
+  /** for (const item of TEST_DATA) { ... }: the body once per item, as the test would run it. */
+  function readLoop(statement: ts.ForOfStatement, scope: Map<string, Value>, steps: PlannedStep[], current: PlannedStep): boolean {
+    const list = statement.initializer;
+    if (statement.awaitModifier || !ts.isVariableDeclarationList(list) || list.declarations.length !== 1) return false;
+    const binding = list.declarations[0].name;
+    if (!ts.isIdentifier(binding)) return false;
+    const items = evaluate(statement.expression, scope);
+    if (items.type !== "array" || items.items.length > MAX_LOOP_ITEMS) return false;
+    const body = ts.isBlock(statement.statement) ? statement.statement.statements : [statement.statement];
+    for (const item of items.items) {
+      const iteration = new Map(scope);
+      iteration.set(binding.text, item);
+      readStatements(body, iteration, steps, current);
+    }
+    return true;
+  }
+
+  function readStatements(statements: readonly ts.Statement[], scope: Map<string, Value>, steps: PlannedStep[], current: PlannedStep) {
+    // Lines outside test.step go into a group listed where they appear: a new
+    // group after each step, so a check written after a step runs after it.
+    let group = current;
+    const add = (operation: Operation) => {
+      if (!steps.includes(group)) steps.push(group);
+      group.operations.push(operation);
+      operationCount += 1;
+    };
+    for (const statement of statements) {
       if (operationCount >= MAX_OPERATIONS) return;
+      if (ts.isForOfStatement(statement)) {
+        if (!steps.includes(group)) steps.push(group);
+        if (readLoop(statement, scope, steps, group)) continue;
+      }
       if (ts.isVariableStatement(statement)) {
         for (const declaration of statement.declarationList.declarations) {
           if (ts.isIdentifier(declaration.name) && declaration.initializer) {
@@ -313,8 +390,7 @@ export function planPreviewRun(code: string): RunPlan {
         continue;
       }
       if (!ts.isExpressionStatement(statement)) {
-        current.operations.push({ op: "unsupported", reason: "control flow is not run in the preview", source: snippet(statement, source) });
-        operationCount += 1;
+        add({ op: "unsupported", reason: "control flow is not run in the preview", source: snippet(statement, source) });
         continue;
       }
       const expression = ts.isAwaitExpression(statement.expression) ? statement.expression.expression : statement.expression;
@@ -334,15 +410,25 @@ export function planPreviewRun(code: string): RunPlan {
           readBody(body.body, new Map(scope), steps, step);
           // Variables declared inside a step are visible only there, as in JS.
         }
+        group = { name: current.name, operations: [] };
         continue;
       }
-      if (current.operations.length === 0 && !steps.includes(current)) steps.push(current);
-      current.operations.push(operationFor(statement.expression, scope));
-      operationCount += 1;
+      add(operationFor(statement.expression, scope));
     }
   }
 
   function readSuite(statements: ts.NodeArray<ts.Statement>, scope: Map<string, Value>) {
+    // Constants in the file or a describe block (test data, credentials from
+    // the environment) are all set before any test in it runs, wherever they
+    // appear, so they are read first.
+    for (const statement of statements) {
+      if (!ts.isVariableStatement(statement)) continue;
+      for (const declaration of statement.declarationList.declarations) {
+        if (ts.isIdentifier(declaration.name) && declaration.initializer) {
+          scope.set(declaration.name.text, evaluate(declaration.initializer, scope));
+        }
+      }
+    }
     for (const statement of statements) {
       if (!ts.isExpressionStatement(statement) || !ts.isCallExpression(statement.expression)) continue;
       const call = statement.expression;
@@ -368,17 +454,6 @@ export function planPreviewRun(code: string): RunPlan {
     }
   }
 
-  // Top-level constants (test data) are visible to every test.
-  const topScope = new Map<string, Value>();
-  for (const statement of source.statements) {
-    if (ts.isVariableStatement(statement)) {
-      for (const declaration of statement.declarationList.declarations) {
-        if (ts.isIdentifier(declaration.name) && declaration.initializer) {
-          topScope.set(declaration.name.text, evaluate(declaration.initializer, topScope));
-        }
-      }
-    }
-  }
-  readSuite(source.statements, topScope);
+  readSuite(source.statements, new Map<string, Value>());
   return plan;
 }

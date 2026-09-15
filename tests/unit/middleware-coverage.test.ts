@@ -59,9 +59,13 @@ describe("middleware covers every authenticated API route", () => {
   const authenticated = routeFiles(API_ROOT)
     .filter((file) => {
       const source = readFileSync(file, "utf8");
-      // Both read the Clerk session: one to authorize, one to decide whose
-      // allowance pays for a free-tool run.
-      return source.includes("requireWorkspaceContext") || source.includes("reserveFreeToolRun");
+      // All read the Clerk session: to authorize, to decide whose allowance
+      // pays for a free-tool run, or to find a person's own saved drafts.
+      return (
+        source.includes("requireWorkspaceContext") ||
+        source.includes("reserveFreeToolRun") ||
+        source.includes("readSignedInUserId")
+      );
     })
     .map(urlPathFor)
     .sort();

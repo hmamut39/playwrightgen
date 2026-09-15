@@ -28,6 +28,8 @@ import {
 } from "@/lib/services/list-query";
 import { readTestCaseList } from "@/lib/services/test-cases";
 import { checkSelfApproval, describeReviewTrail } from "@/lib/services/approval-policy";
+import { readRunEvidence } from "@/lib/services/imported-drafts";
+import { planPreviewRun } from "@/lib/free-tools/preview-run/plan";
 
 const uuidSchema = z.string().uuid();
 const engineSchema = z.enum(["PLAYWRIGHT_BROWSER", "PLAYWRIGHT_API"]);
@@ -317,6 +319,7 @@ type PendingGeneration = {
   engine: "PLAYWRIGHT_BROWSER" | "PLAYWRIGHT_API";
   generationInput: AutomationGenerationInput;
   configuredModel: string;
+  promptVersion: string;
   requestId?: string;
 };
 
@@ -343,6 +346,8 @@ type GenerationInput = {
 async function beginAutomationGeneration(
   input: GenerationInput,
   dependencies?: Dependencies,
+  /** Code that already exists (an imported draft): no model call, no AI allowance. */
+  seeded?: { model: string; promptVersion: string },
 ): Promise<PendingGeneration> {
   const testCaseId = parseUuid(input.testCaseId);
   const engine = parseEngine(input.engine);
@@ -414,7 +419,7 @@ async function beginAutomationGeneration(
     throw new AutomationArtifactDomainError("automation_generation_in_progress", 409);
   }
 
-  if (!dependencies?.generator) {
+  if (!dependencies?.generator && !seeded) {
     try {
       await reserveOrganizationAiRequest({
         organizationId: workspace.organization.id,
@@ -430,7 +435,9 @@ async function beginAutomationGeneration(
 
   const expectedVersionNumber = artifact.currentVersionNumber;
   const versionNumber = expectedVersionNumber + 1;
-  const configuredModel = process.env.OPENAI_AUTOMATION_MODEL?.trim() || "gpt-5-mini";
+  const configuredModel =
+    seeded?.model ?? (process.env.OPENAI_AUTOMATION_MODEL?.trim() || "gpt-5-mini");
+  const promptVersion = seeded?.promptVersion ?? PROMPT_VERSION;
   const generationInput: AutomationGenerationInput = {
     engine,
     title: testCaseVersion.title,
@@ -478,7 +485,7 @@ async function beginAutomationGeneration(
         assumptions: [],
         validationFindings: [] as Prisma.InputJsonValue,
         model: configuredModel,
-        promptVersion: PROMPT_VERSION,
+        promptVersion,
         schemaVersion: SCHEMA_VERSION,
         createdByUserId: workspace.user.id,
       },
@@ -498,6 +505,7 @@ async function beginAutomationGeneration(
     engine,
     generationInput,
     configuredModel,
+    promptVersion,
     requestId: input.requestId,
   };
 }
@@ -511,11 +519,13 @@ async function beginAutomationGeneration(
 async function finishAutomationGeneration(
   pending: PendingGeneration,
   dependencies?: Dependencies,
+  /** Supplies existing code instead of calling the model. */
+  seededResult?: AutomationGenerationResult,
 ) {
   let result: AutomationGenerationResult | null = null;
   let failureCode: string | null = null;
   try {
-    result = await (dependencies?.generator ?? generateAutomation)(pending.generationInput);
+    result = seededResult ?? (await (dependencies?.generator ?? generateAutomation)(pending.generationInput));
   } catch (error) {
     failureCode =
       error instanceof Error && /^[a-z_]+$/.test(error.message)
@@ -599,7 +609,7 @@ async function finishAutomationGeneration(
           versionNumber: pending.versionNumber,
           generationStatus: result ? "SUCCEEDED" : "FAILED",
           validationStatus: validation.status,
-          promptVersion: PROMPT_VERSION,
+          promptVersion: pending.promptVersion,
           schemaVersion: SCHEMA_VERSION,
         },
       },
@@ -661,6 +671,112 @@ export async function startAutomationArtifactGeneration(
     }
   });
   return { automationArtifactId: pending.artifactId, versionNumber: pending.versionNumber };
+}
+
+const IMPORT_PROMPT_VERSION = "free-tool-import-v1";
+
+function importedPlan(code: string) {
+  const plan = planPreviewRun(code).tests.slice(0, 50).map((test) => {
+    const checks = test.steps.flatMap((step) => step.operations).filter((operation) => operation.op === "expect").length;
+    const stepNames = test.steps.map((step) => step.name).filter(Boolean);
+    return {
+      title: test.name.slice(0, 300) || "Imported test",
+      intent: (stepNames.length > 1 ? stepNames.join(" → ") : "Replays the imported Playwright steps.").slice(0, 2_000),
+      expectedAssertion: checks ? `${checks} assertion${checks === 1 ? "" : "s"} in this test.` : "See the assertions in the code.",
+    };
+  });
+  return plan.length
+    ? plan
+    : [{ title: "Imported test", intent: "Replays the imported Playwright steps.", expectedAssertion: "See the assertions in the code." }];
+}
+
+function importedConfiguration(pageUrl: string | null) {
+  const baseUrl = pageUrl ? JSON.stringify(pageUrl) : "undefined";
+  return [
+    "import { defineConfig, devices } from '@playwright/test';",
+    "",
+    "export default defineConfig({",
+    "  testDir: './tests',",
+    "  retries: process.env.CI ? 1 : 0,",
+    "  use: {",
+    `    baseURL: process.env.BASE_URL ?? ${baseUrl},`,
+    "    trace: 'on-first-retry',",
+    "  },",
+    "  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],",
+    "});",
+    "",
+  ].join("\n");
+}
+
+/**
+ * The first automation version from code imported with the Test Case.
+ *
+ * Nothing is generated: the code a person already proved on the live page
+ * becomes a draft version and goes through the same checks and review as a
+ * generated one. It uses no AI allowance, and each imported draft seeds one
+ * version only.
+ */
+export async function createAutomationFromImportedDraft(
+  input: { orgSlug?: string; projectId: string; testCaseId: string; requestId?: string },
+  dependencies?: Dependencies,
+) {
+  const testCaseId = parseUuid(input.testCaseId);
+  const { workspace, projectId } = await context(input, "automation:generate", dependencies);
+  const draft = await client(dependencies).testCaseImportedDraft.findUnique({
+    where: {
+      organizationId_projectId_testCaseId: {
+        organizationId: workspace.organization.id,
+        projectId,
+        testCaseId,
+      },
+    },
+  });
+  if (!draft) throw new AutomationArtifactDomainError("imported_draft_not_found", 404);
+  if (draft.usedAt) throw new AutomationArtifactDomainError("imported_draft_already_used", 409);
+
+  const evidence = readRunEvidence(draft.runEvidence);
+  const engine = /\bpage\b/.test(draft.code) ? "PLAYWRIGHT_BROWSER" : "PLAYWRIGHT_API";
+  const pending = await beginAutomationGeneration(
+    { orgSlug: input.orgSlug, projectId, testCaseId, engine, requestId: input.requestId },
+    dependencies,
+    { model: "imported-draft", promptVersion: IMPORT_PROMPT_VERSION },
+  );
+  const proven =
+    evidence?.verdict === "passed"
+      ? `It passed on the live page before import: ${evidence.passed} checks at ${evidence.pageUrl}.`
+      : evidence?.verdict === "partial"
+        ? `Every step that could run passed on the live page before import (${evidence.passed} checks); ${evidence.skipped + evidence.notReached} did not run there.`
+        : evidence?.verdict === "failed"
+          ? "Its last run on the live page before import failed."
+          : "It was not run on the live page before import.";
+  const seeded: AutomationGenerationResult = {
+    name: `${pending.generationInput.title} — ${engine === "PLAYWRIGHT_BROWSER" ? "Browser" : "API"}`,
+    summary: `Imported from Quick Generate with this Test Case. ${proven}`,
+    plan: importedPlan(draft.code),
+    code: draft.code,
+    configuration: importedConfiguration(draft.pageUrl),
+    dependencies: ["@playwright/test"],
+    assumptions: [
+      proven,
+      "Written before this Test Case was approved; check that it covers the approved steps and expected results.",
+    ],
+    model: "imported-draft",
+    inputTokens: null,
+    outputTokens: null,
+    totalTokens: null,
+  };
+
+  try {
+    const artifact = await finishAutomationGeneration(pending, dependencies, seeded);
+    await client(dependencies).testCaseImportedDraft.updateMany({
+      where: { id: draft.id, usedAt: null },
+      data: { usedAt: new Date(), usedInAutomationVersionId: pending.versionId },
+    });
+    return artifact;
+  } catch (error) {
+    await abandonAutomationGeneration(pending, dependencies).catch(() => {});
+    throw error;
+  }
 }
 
 /** True when a version has been running so long it will never finish. */

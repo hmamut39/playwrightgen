@@ -4,17 +4,44 @@ The working plan, kept in the repository so any session can pick up where the
 last one stopped. Update the "Shipped" and "Next" sections at the end of every
 work session.
 
-Last updated: 2026-09-14.
+Last updated: 2026-09-14 (evening).
 
 ## Where the product is
 
 Live at https://playwrightgen.com (Vercel, Clerk production, Stripe live,
 Neon Postgres). Every item below was verified in a real browser, and the full
-test suite (447 tests) passes.
+test suite (460+ tests) passes.
 
 ## Shipped (most recent first)
 
 ### Free tools
+- **Pages behind a login (first version)** (`lib/free-tools/sign-in.ts`):
+  Quick Generate has "Page behind a login? Add a test account" and a "Try a
+  page behind a login" demo (saucedemo). The page reader signs in first, the
+  AI writes sign-in steps with `process.env.E2E_USERNAME` / `E2E_PASSWORD`,
+  and the live run asks for those values ("Values for this run"). Values are
+  used for one request, never stored or sent to the AI, and blanked out of run
+  results. Verified locally: signed-in read, then passed after two AI fixes
+  (14 checks). Also fixed three runner bugs found on the way: setup that began
+  with an `if` was dropped, constants inside `test.describe` were not read,
+  and lines after a `test.step` ran before it.
+- **Send a passing test to a project** (`lib/free-tools/preview-run/receipt.ts`,
+  `lib/services/imported-drafts.ts`): every live run returns a signed receipt
+  (HMAC over the outcome and a hash of the exact code). "Continue in Workspace"
+  now carries the code, its steps and the receipt; the Test Case keeps the code
+  with "Passed on the live page · N checks" only when the receipt matches the
+  code. After approval, "Use this code as the automation" makes it automation
+  version 1 with no AI call. Verified: pass, import, lead approves, version 1.
+- **Saved drafts for signed-in people** (`FreeToolDraft`, `/api/free-tool-drafts`):
+  Quick Generate keeps the last 20 drafts with the code as it last ran and the
+  run result; "Your saved drafts" reopens one with its evidence. Deleted with
+  the account.
+- **Fixed: the import page crashed** ("Continue in Workspace" looped until React
+  gave up) because the handoff was re-parsed on every render. Now cached.
+- **Loops in tests run in the preview**: `for (const item of LIST)` over inline
+  data, `LIST[0]` and `user.name` are replayed, so setup written in a loop is
+  no longer silently skipped. The AI fix is told which earlier lines did not run.
+- **Run your own tests in Coverage Review** with the same safe runner and AI fix.
 - **Fix the failing step with AI** (`/api/repair-draft`, `lib/ai/draft-repair.ts`):
   after a live run fails, the model repairs only the failing locator using the
   page's accessibility tree at the failure. Verified on the TodoMVC demo: fail,
@@ -63,14 +90,16 @@ test suite (447 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **"Run it" in Coverage Review.** Let a visitor run their pasted tests (or the
-   suggested next tests) on the live page with the same safe runner.
-2. **Save free-tool results.** Signed-in visitors keep a history of drafts,
-   runs and reviews, and can send a passing draft straight into a workspace
-   project as a test case plus automation.
-3. **Pages behind sign-in.** Let the live page reader and runner use a test
-   account (credentials entered for one run, never stored) so tools work past
-   a login page.
+1. **Finish pages behind a login** (started 2026-09-14, first version live):
+   verify on production with the saucedemo demo; add the same test-account
+   option to Coverage Review; show a clear message when the site rejects the
+   account; TodoMVC demo re-check (one run failed once at the Active filter).
+2. **MCP write tools, with human approval.** Let an editor's AI agent submit a
+   Test Case for review and report run results through `/api/mcp`; nothing it
+   sends counts until a person approves. Then offer the free tools over MCP and
+   list the server in MCP directories.
+3. **Saved Coverage Reviews.** The same saved history for Coverage Review
+   (Quick Generate has it now).
 4. **Evals for Coverage Review and Release Review.** Only Quick Generate has
    an eval today (`evals/quick-generation.eval.ts`).
 5. **Release Review structured output.** Move its route to zod structured
@@ -78,8 +107,8 @@ In priority order. Each item should end verified in a browser and shipped.
 6. **Open a pull request from approved automation.** Needs the owner's
    decision on giving the GitHub App write permission (currently read-only).
 7. **Verify the paid path end to end.** Stripe payment, then webhook, then
-   entitlement, then the Team allowance in the free tools. Not yet exercised
-   with a real card.
+   entitlement, then the Team allowance in the free tools. Needs the owner's
+   account and a real card.
 
 ## Things to know when resuming
 
@@ -95,3 +124,13 @@ In priority order. Each item should end verified in a browser and shipped.
   `x-forwarded-for` header to use a fresh allowance.
 - Browserless usage comes from the owner's Browserless plan; if it runs out,
   the tools say they could not open the page and keep working.
+- Live-run receipts are signed with `RUNNER_INGEST_SECRET` (set in Vercel).
+  Locally, `.env.local` has its own random value; without one, runs still work
+  but carry no evidence.
+- jsdelivr sometimes fails to resolve the unpinned `@clerk/ui@1` for the Clerk
+  dev instance, which breaks local sign-in; browser scripts route it to the
+  pinned version. Production loads Clerk from clerk.playwrightgen.com.
+- Production migrations: `scripts/migrate-verified.mjs` with
+  `EXPECTED_NEON_PROJECT_ID=restless-frost-04247280` and
+  `EXPECTED_NEON_BRANCH_ID=br-flat-boat-axjnmd13`, run before pushing code
+  that needs the new schema.

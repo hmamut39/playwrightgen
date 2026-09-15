@@ -12,6 +12,7 @@ import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { listProjects } from "@/lib/services/projects";
 import { createRequirement } from "@/lib/services/requirements";
 import { createTestCase } from "@/lib/services/test-cases";
+import { recordImportedDraft } from "@/lib/services/imported-drafts";
 
 function lines(value: string): string[] {
   return value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
@@ -49,6 +50,7 @@ export default async function WorkspaceImportPage() {
     const title = String(formData.get("title") ?? "");
     const summary = String(formData.get("summary") ?? "");
     const acceptanceCriteria = String(formData.get("acceptanceCriteria") ?? "");
+    const steps = lines(String(formData.get("steps") ?? ""));
 
     try {
       if (parsed.data.target === "TEST_CASE") {
@@ -57,12 +59,28 @@ export default async function WorkspaceImportPage() {
           projectId,
           title,
           objective: summary,
+          steps,
           expectedResults: lines(acceptanceCriteria),
           type: parsed.data.testType ?? "FUNCTIONAL",
           source: "AI_SUGGESTED",
           tags: [...parsed.data.tags, "free-tool-import"],
           automationStatus: "CANDIDATE",
         });
+        const draft = parsed.data.draft;
+        if (draft) {
+          // The Test Case is already created; losing the attached code should
+          // not undo it, so a failure here is logged rather than shown.
+          await recordImportedDraft({
+            organizationId: context.organization.id,
+            projectId: testCase.projectId,
+            testCaseId: testCase.id,
+            userId: context.user.id,
+            source: parsed.data.source,
+            code: draft.code,
+            pageUrl: draft.pageUrl,
+            receipt: draft.receipt,
+          }).catch((error: unknown) => console.error("[import] could not keep the imported code", error));
+        }
         redirect(`/workspace/${orgSlug}/projects/${projectId}/test-cases/${testCase.id}`);
       }
 

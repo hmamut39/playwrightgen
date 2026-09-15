@@ -232,6 +232,9 @@ async function syncUserDeletedEvent(
           },
         });
 
+    // Personal free-tool drafts belong to the account and go with it.
+    await transaction.freeToolDraft.deleteMany({ where: { clerkUserId: event.clerkUserId } });
+
     const activeMemberships = await transaction.membership.findMany({
       where: {
         userId: user.id,

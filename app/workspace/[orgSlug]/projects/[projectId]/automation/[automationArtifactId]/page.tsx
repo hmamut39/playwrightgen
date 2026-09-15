@@ -247,8 +247,10 @@ export default async function AutomationArtifactPage({
                 </p>
                 <h2 className="mt-2 text-xl font-semibold">{currentVersion.summary}</h2>
                 <p className="mt-2 text-xs text-slate-400">
-                  {currentVersion.model} · {currentVersion.promptVersion} ·{" "}
-                  {currentVersion.totalTokens ?? "—"} tokens ·{" "}
+                  {currentVersion.model === "imported-draft"
+                    ? "Imported code, no AI generation"
+                    : `${currentVersion.model} · ${currentVersion.promptVersion} · ${currentVersion.totalTokens ?? "—"} tokens`}{" "}
+                  ·{" "}
                   <LocalTime value={currentVersion.startedAt} />
                 </p>
               </div>
@@ -536,7 +538,7 @@ export default async function AutomationArtifactPage({
               <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
                 <p>{version.summary}</p>
                 <p className="mt-2 text-xs text-slate-400">
-                  {version.model} · {version.totalTokens ?? "—"} tokens
+                  {version.model === "imported-draft" ? "Imported code, no AI generation" : `${version.model} · ${version.totalTokens ?? "—"} tokens`}
                 </p>
               </div>
             </details>

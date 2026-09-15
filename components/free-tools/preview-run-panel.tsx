@@ -14,6 +14,14 @@ type TestResult = {
   failureSnapshot?: string;
 };
 
+/** A finished run: the code that ran and the server's signed receipt for it. */
+export type CompletedRun = {
+  code: string;
+  receipt: string | null;
+  verdict: "passed" | "partial" | "failed";
+  passed: number;
+};
+
 export type FixedDraft = {
   code: string;
   explanation: string;
@@ -47,16 +55,33 @@ export function PreviewRunPanel({
   pageUrl,
   pageTreeAtStart,
   onFixed,
+  onRun,
+  draftId,
+  initialEnv,
+  onEnvChange,
 }: {
   code: string;
   pageUrl: string;
+  /** Values the page already has for process.env names (the test account entered above). */
+  initialEnv?: Record<string, string>;
+  /** Lets the page keep typed values when a fix replaces the code (and this panel). */
+  onEnvChange?: (env: Record<string, string>) => void;
+  /** The signed-in person's saved draft; runs and fixes are kept on it. */
+  draftId?: string | null;
   pageTreeAtStart?: string;
   /** Receives a corrected draft; the page swaps it in so it can be run again. */
   onFixed?: (fixed: FixedDraft) => void;
+  /** Told about every finished run, so the page can carry the evidence forward. */
+  onRun?: (run: CompletedRun) => void;
 }) {
   const [fixing, setFixing] = useState<
     { status: "idle" | "working" } | { status: "error"; message: string } | { status: "limit"; limit: FreeToolLimit }
   >({ status: "idle" });
+  // process.env names the draft reads. Their values are asked for here, used
+  // for this run in the remote browser, and kept only in this component.
+  const envNames = [...new Set([...code.matchAll(/process\.env\.([A-Za-z_][A-Za-z0-9_]{0,63})/g)].map((match) => match[1]))].slice(0, 10);
+  const [env, setEnv] = useState<Record<string, string>>(() => ({ ...(initialEnv ?? {}) }));
+  const suppliedEnv = Object.fromEntries(envNames.filter((name) => env[name]).map((name) => [name, env[name]]));
   const [state, setState] = useState<
     { status: "idle" } | { status: "running" } | { status: "done"; result: RunResult } | { status: "error"; message: string }
   >({ status: "idle" });
@@ -67,7 +92,12 @@ export function PreviewRunPanel({
       const response = await fetch("/api/preview-run", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ code, pageUrl }),
+        body: JSON.stringify({
+          code,
+          pageUrl,
+          ...(draftId ? { draftId } : {}),
+          ...(Object.keys(suppliedEnv).length ? { env: suppliedEnv } : {}),
+        }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -75,6 +105,13 @@ export function PreviewRunPanel({
         return;
       }
       setState({ status: "done", result: data.result });
+      const counts: RunResult["counts"] = data.result.counts;
+      onRun?.({
+        code,
+        receipt: typeof data.receipt === "string" ? data.receipt : null,
+        verdict: counts.failed > 0 ? "failed" : counts.skipped > 0 || counts.notReached > 0 || data.result.timedOut ? "partial" : "passed",
+        passed: counts.passed,
+      });
     } catch {
       setState({ status: "error", message: "The live run could not reach the service." });
     }
@@ -87,6 +124,16 @@ export function PreviewRunPanel({
           .find(({ step }) => step.status === "failed")
       : undefined;
   const failedOperation = firstFailure?.step.operations.find((operation) => operation.status === "failed");
+  // Lines before the failure that the preview could not run: their effect (a
+  // login, items added in a helper) is missing from the page it failed on.
+  const skippedEarlier = firstFailure
+    ? firstFailure.test.steps
+        .flatMap((step) => step.operations)
+        .slice(0, Math.max(0, firstFailure.test.steps.flatMap((step) => step.operations).indexOf(failedOperation!)))
+        .filter((operation) => operation.status === "skipped")
+        .map((operation) => operation.source.slice(0, 300))
+        .slice(0, 20)
+    : [];
 
   async function fix() {
     if (!firstFailure || !failedOperation || !firstFailure.test.failureSnapshot) return;
@@ -100,7 +147,9 @@ export function PreviewRunPanel({
           pageUrl,
           failure: { step: firstFailure.step.name, line: failedOperation.source, reason: failedOperation.detail ?? "" },
           pageTreeAtFailure: firstFailure.test.failureSnapshot,
+          ...(skippedEarlier.length ? { skippedEarlier } : {}),
           ...(pageTreeAtStart ? { pageTreeAtStart } : {}),
+          ...(draftId ? { draftId } : {}),
         }),
       });
       const data = await response.json();
@@ -143,6 +192,37 @@ export function PreviewRunPanel({
           )}
         </button>
       </div>
+
+      {envNames.length ? (
+        <details open={envNames.some((name) => !env[name])} className="mt-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+          <summary className="cursor-pointer text-xs font-semibold text-slate-200">
+            Values for this run &middot; {envNames.filter((name) => env[name]).length} of {envNames.length} set
+          </summary>
+          <p className="mt-2 text-xs leading-5 text-slate-400">
+            The test reads these from the environment. Enter test-account values to run those steps; they are used for
+            this run only and never saved. Steps without a value are listed as not run.
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {envNames.map((name) => (
+              <label key={name} className="text-xs font-semibold text-slate-300">
+                <span className="font-mono">{name}</span>
+                <input
+                  type={/pass|secret|token|key/i.test(name) ? "password" : "text"}
+                  autoComplete="off"
+                  value={env[name] ?? ""}
+                  onChange={(event) => {
+                    const next = { ...env, [name]: event.target.value };
+                    setEnv(next);
+                    onEnvChange?.(next);
+                  }}
+                  maxLength={500}
+                  className="mt-1 w-full rounded-lg border border-white/15 bg-slate-900 px-3 py-2 font-mono text-xs text-white outline-none focus:border-cyan-400"
+                />
+              </label>
+            ))}
+          </div>
+        </details>
+      ) : null}
 
       {state.status === "error" ? (
         <p role="alert" className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-red-200">{state.message}</p>

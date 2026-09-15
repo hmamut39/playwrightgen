@@ -34,6 +34,8 @@ export type FreeToolRun = {
   plan: "TEAM" | "PUBLIC";
   /** Runs left today in whichever allowance paid for this one. */
   remaining: number;
+  /** The signed-in person (Clerk user id), so the tool can keep their result. */
+  userId: string | null;
 };
 
 export class FreeToolLimitError extends Error {
@@ -103,7 +105,11 @@ export async function reserveFreeToolRun(
     }
     if (teamOrganizationId) {
       try {
-        return { plan: "TEAM", remaining: await (dependencies.reserveTeam ?? reserveTeam)(teamOrganizationId) };
+        return {
+          plan: "TEAM",
+          remaining: await (dependencies.reserveTeam ?? reserveTeam)(teamOrganizationId),
+          userId: identity.userId,
+        };
       } catch (error) {
         if (error instanceof OrganizationAiRateLimitError) {
           throw new FreeToolLimitError(
@@ -121,6 +127,7 @@ export async function reserveFreeToolRun(
     return {
       plan: "PUBLIC",
       remaining: await (dependencies.reservePublic ?? reservePublic)(input.request, input.surface, input.requestId),
+      userId: identity.userId,
     };
   } catch (error) {
     if (error instanceof PublicAiRateLimitError) {

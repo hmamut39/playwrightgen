@@ -58,11 +58,14 @@ test('x', async ({ page, request }) => {
 });`;
     const plan = planPreviewRun(hostile);
     const operations = plan.tests[0].steps.flatMap((step) => step.operations);
+    // The loop over literal data is replayed; its goto to another site is
+    // refused by the runner, which opens only the draft's own origin.
     expect(operations.map((operation) => operation.op)).toEqual([
-      "unsupported", "unsupported", "unsupported", "unsupported", "unsupported", "unsupported", "action",
+      "unsupported", "unsupported", "unsupported", "unsupported", "unsupported", "goto", "goto", "action",
     ]);
     expect(operations[3]).toMatchObject({ op: "unsupported", reason: "needs SECRET from your environment" });
-    expect(operations[6]).toMatchObject({ action: "click", locator: [{ by: "role", role: "button", name: { kind: "string", value: "Save" } }] });
+    expect(operations[5]).toMatchObject({ op: "goto", url: "https://evil.example" });
+    expect(operations[7]).toMatchObject({ action: "click", locator: [{ by: "role", role: "button", name: { kind: "string", value: "Save" } }] });
   });
 
   it("uses a literal fallback for an environment value", () => {
@@ -101,6 +104,66 @@ test('x', async ({ page, request }) => {
       ],
     });
     expect(operations[1]).toMatchObject({ op: "expect", matcher: "toBeVisible", negated: true });
+  });
+
+  it("replays a for...of over inline test data once per item", () => {
+    const plan = planPreviewRun(`const TODO_ITEMS = ['Buy milk', 'Walk dog'];
+const user = { name: 'standard_user' };
+test('x', async ({ page }) => {
+  const input = page.getByRole('textbox', { name: 'What needs to be done?' });
+  for (const item of TODO_ITEMS) {
+    await input.fill(item);
+    await input.press('Enter');
+  }
+  await expect(page.getByTestId('todo-title').first()).toHaveText(TODO_ITEMS[0]);
+  await page.getByLabel('Username').fill(user.name);
+  for (let i = 0; i < 3; i++) { await input.press('Tab'); }
+});`);
+    const operations = plan.tests[0].steps.flatMap((step) => step.operations);
+    expect(operations.map((operation) => (operation.op === "action" ? `${operation.action}:${operation.value ?? ""}` : operation.op))).toEqual([
+      "fill:Buy milk", "press:Enter", "fill:Walk dog", "press:Enter", "expect", "fill:standard_user", "unsupported",
+    ]);
+    expect(operations[4]).toMatchObject({ matcher: "toHaveText", expected: { kind: "string", value: "Buy milk" } });
+  });
+
+  it("keeps setup that opens with a check the preview cannot run, and signs in with supplied values", () => {
+    const plan = planPreviewRun(`test.beforeEach(async ({ page }) => {
+  const username = process.env.E2E_USERNAME;
+  const password = process.env.E2E_PASSWORD ?? 'fallback';
+  if (!username) throw new Error('E2E_USERNAME must be set');
+  await page.goto('/');
+  await test.step('Sign in', async () => {
+    await page.getByRole('textbox', { name: 'Username' }).fill(username);
+    await page.getByRole('textbox', { name: 'Password' }).fill(password);
+  });
+  // Written after the step, so it must run after it.
+  await expect(page).toHaveURL(/inventory/);
+});
+test('x', async ({ page }) => {
+  await expect(page).toHaveURL(/inventory/);
+});`, { env: { E2E_USERNAME: "standard_user", E2E_PASSWORD: "secret_sauce" } });
+    expect(plan.beforeEach.map((operation) => (operation.op === "action" ? `${operation.action}:${operation.value}` : operation.op))).toEqual([
+      "unsupported", "goto", "fill:standard_user", "fill:secret_sauce", "expect",
+    ]);
+    const unsupplied = planPreviewRun(`test('x', async ({ page }) => {
+  await page.getByRole('textbox', { name: 'Username' }).fill(process.env.E2E_USERNAME);
+});`);
+    expect(unsupplied.tests[0].steps[0].operations[0]).toMatchObject({ op: "unsupported", reason: "needs E2E_USERNAME from your environment" });
+  });
+
+  it("reads constants declared inside a describe block", () => {
+    const plan = planPreviewRun(`test.describe('cart', () => {
+  const USERNAME = process.env.E2E_USERNAME!;
+  test.beforeEach(async ({ page }) => {
+    await page.getByRole('textbox', { name: 'Username' }).fill(USERNAME);
+  });
+  test('x', async ({ page }) => {
+    await page.getByRole('button', { name: ITEM }).click();
+  });
+  const ITEM = 'Add to cart';
+});`, { env: { E2E_USERNAME: "standard_user" } });
+    expect(plan.beforeEach[0]).toMatchObject({ op: "action", action: "fill", value: "standard_user" });
+    expect(plan.tests[0].steps[0].operations[0]).toMatchObject({ op: "action", locator: [{ by: "role", role: "button", name: { kind: "string", value: "Add to cart" } }] });
   });
 
   it("reads the hand-written expect(page.url()) checks", () => {

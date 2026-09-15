@@ -378,6 +378,7 @@ model User {
   githubInstallationsConnected GitHubInstallation[]        @relation("GitHubInstallationConnectedBy")
   repositoryConnectionsCreated RepositoryConnection[]      @relation("RepositoryConnectionCreatedBy")
   repositoryImportsRequested   RepositoryImport[]          @relation("RepositoryImportRequestedBy")
+  testCaseImportedDrafts       TestCaseImportedDraft[]     @relation("TestCaseImportedDraftImportedBy")
 
   @@index([primaryEmail])
   @@index([status])
@@ -410,6 +411,7 @@ model Organization {
   failureAnalyses         FailureAnalysis[]
   failureFindings         FailureFinding[]
   automationArtifacts     AutomationArtifact[]
+  testCaseImportedDrafts  TestCaseImportedDraft[]
   automationVersions      AutomationArtifactVersion[]
   githubInstallations     GitHubInstallation[]
   githubWebhookDeliveries GitHubWebhookDelivery[]
@@ -531,38 +533,39 @@ model Membership {
 }
 
 model Project {
-  id               String        @id @default(uuid()) @db.Uuid
-  organizationId   String        @db.Uuid
-  name             String        @db.VarChar(200)
-  slug             String        @db.VarChar(100)
-  description      String?       @db.Text
-  status           ProjectStatus @default(ACTIVE)
-  createdByUserId  String        @db.Uuid
-  archivedByUserId String?       @db.Uuid
-  archivedAt       DateTime?     @db.Timestamptz(3)
-  runnerTokenVersion Int         @default(1)
-  createdAt        DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt        DateTime      @updatedAt @db.Timestamptz(3)
+  id                 String        @id @default(uuid()) @db.Uuid
+  organizationId     String        @db.Uuid
+  name               String        @db.VarChar(200)
+  slug               String        @db.VarChar(100)
+  description        String?       @db.Text
+  status             ProjectStatus @default(ACTIVE)
+  createdByUserId    String        @db.Uuid
+  archivedByUserId   String?       @db.Uuid
+  archivedAt         DateTime?     @db.Timestamptz(3)
+  runnerTokenVersion Int           @default(1)
+  createdAt          DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime      @updatedAt @db.Timestamptz(3)
 
-  organization          Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  createdBy             User                        @relation("ProjectCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  archivedBy            User?                       @relation("ProjectArchivedBy", fields: [archivedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  projectMemberships    ProjectMembership[]
-  activities            Activity[]
-  requirements          Requirement[]
-  aiRuns                AiRun[]
-  aiSuggestions         AiSuggestion[]
-  testCases             TestCase[]
-  requirementTestCases  RequirementTestCase[]
-  testRuns              TestRun[]
-  testRunAttempts       TestRunAttempt[]
-  failureAnalyses       FailureAnalysis[]
-  failureFindings       FailureFinding[]
-  automationArtifacts   AutomationArtifact[]
-  automationVersions    AutomationArtifactVersion[]
-  repositoryConnections RepositoryConnection[]
-  repositoryImports     RepositoryImport[]
-  repositoryImportFiles RepositoryImportFile[]
+  organization           Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy              User                        @relation("ProjectCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  archivedBy             User?                       @relation("ProjectArchivedBy", fields: [archivedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  projectMemberships     ProjectMembership[]
+  activities             Activity[]
+  requirements           Requirement[]
+  aiRuns                 AiRun[]
+  aiSuggestions          AiSuggestion[]
+  testCases              TestCase[]
+  requirementTestCases   RequirementTestCase[]
+  testRuns               TestRun[]
+  testRunAttempts        TestRunAttempt[]
+  failureAnalyses        FailureAnalysis[]
+  failureFindings        FailureFinding[]
+  automationArtifacts    AutomationArtifact[]
+  testCaseImportedDrafts TestCaseImportedDraft[]
+  automationVersions     AutomationArtifactVersion[]
+  repositoryConnections  RepositoryConnection[]
+  repositoryImports      RepositoryImport[]
+  repositoryImportFiles  RepositoryImportFile[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, slug])
@@ -734,14 +737,15 @@ model TestCase {
   createdAt            DateTime         @default(now()) @db.Timestamptz(3)
   updatedAt            DateTime         @updatedAt @db.Timestamptz(3)
 
-  organization        Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  project             Project               @relation(fields: [organizationId, projectId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
-  owner               User                  @relation("TestCaseOwner", fields: [ownerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  createdBy           User                  @relation("TestCaseCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  organization        Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  project             Project                @relation(fields: [organizationId, projectId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  owner               User                   @relation("TestCaseOwner", fields: [ownerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy           User                   @relation("TestCaseCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   versions            TestCaseVersion[]
   requirementLinks    RequirementTestCase[]
   testRuns            TestRun[]
   automationArtifacts AutomationArtifact[]
+  importedDraft       TestCaseImportedDraft?
 
   @@unique([organizationId, projectId, id])
   @@index([organizationId, projectId, status, updatedAt])
@@ -1149,4 +1153,53 @@ model Activity {
   @@index([projectId, createdAt])
   @@index([targetType, targetId, createdAt])
   @@index([actorUserId, createdAt])
+}
+
+/// Playwright code a person brought in from a free tool with a Test Case.
+///
+/// It is kept apart from automation on purpose: an imported draft is not
+/// reviewed or trusted. After the Test Case is approved, it can seed the first
+/// automation version instead of a fresh AI generation, and that version then
+/// goes through review like any other. The run evidence is recorded only when
+/// a signed receipt from the live run matched this exact code.
+model TestCaseImportedDraft {
+  id                        String    @id @default(uuid()) @db.Uuid
+  organizationId            String    @db.Uuid
+  projectId                 String    @db.Uuid
+  testCaseId                String    @db.Uuid
+  source                    String    @db.VarChar(40)
+  code                      String    @db.Text
+  pageUrl                   String?   @db.Text
+  runEvidence               Json?     @db.JsonB
+  importedByUserId          String    @db.Uuid
+  usedInAutomationVersionId String?   @db.Uuid
+  usedAt                    DateTime? @db.Timestamptz(3)
+  createdAt                 DateTime  @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  project      Project      @relation(fields: [organizationId, projectId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  testCase     TestCase     @relation(fields: [organizationId, projectId, testCaseId], references: [organizationId, projectId, id], onDelete: Restrict, onUpdate: Restrict)
+  importedBy   User         @relation("TestCaseImportedDraftImportedBy", fields: [importedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, projectId, testCaseId])
+}
+
+/// A signed-in person's own free-tool results, newest first.
+///
+/// Personal, not workspace data: it is keyed by the Clerk user so it works
+/// before someone has a workspace, and it is deleted with the account. Only a
+/// short recent history is kept.
+model FreeToolDraft {
+  id          String   @id @default(uuid()) @db.Uuid
+  clerkUserId String   @db.VarChar(255)
+  source      String   @db.VarChar(40)
+  title       String   @db.VarChar(300)
+  pageUrl     String?  @db.Text
+  code        String   @db.Text
+  payload     Json     @db.JsonB
+  lastRun     Json?    @db.JsonB
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([clerkUserId, updatedAt])
 }

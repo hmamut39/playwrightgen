@@ -1,5 +1,7 @@
 "use client";
 
+import { useAuth } from "@clerk/nextjs";
+import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -9,7 +11,8 @@ import { ResultActions } from "@/components/free-tools/result-actions";
 import { WorkspaceHandoffButton } from "@/components/free-tools/workspace-handoff-button";
 import type { FreeToolHandoff } from "@/lib/free-tools/handoff";
 import { LimitReached, readFreeToolLimit, type FreeToolLimit } from "@/components/free-tools/limit-reached";
-import { PreviewRunPanel } from "@/components/free-tools/preview-run-panel";
+import { PreviewRunPanel, type CompletedRun } from "@/components/free-tools/preview-run-panel";
+import { SavedDrafts, type SavedDraft } from "@/components/free-tools/saved-drafts";
 
 type GenerationMode = "FLOW" | "MARKUP" | "COMPONENT" | "API";
 type GenerationDepth = "FOCUSED" | "EXPANDED";
@@ -38,6 +41,7 @@ type LivePage =
       counts: { buttons: number; links: number; fields: number; headings: number };
       truncated: boolean;
       excerpt: string;
+      signedIn?: boolean;
     }
   | { status: "not_read"; reason: string };
 
@@ -46,6 +50,16 @@ const LIVE_PAGE_REASONS: Record<string, string> = {
   timeout: "The page took too long to load.",
   unreachable: "The page could not be opened.",
   not_configured: "Page reading is not available right now.",
+  no_login_form: "We found no sign-in form on that page. Check the page URL, or add the login page's URL under the test account.",
+  sign_in_rejected: "The site did not accept the test account: its sign-in form was still there after submitting.",
+};
+
+/** A public practice shop whose login page shows its demo account. */
+const LOGIN_DEMO = {
+  request: "Sign in, add the Sauce Labs Backpack to the cart, open the cart and check it holds exactly that item.",
+  url: "https://www.saucedemo.com/",
+  username: "standard_user",
+  password: "secret_sauce",
 };
 
 /** A public practice app, so a first try shows real locators, not guesses. */
@@ -131,6 +145,14 @@ export default function QuickGeneratePage() {
   const [inputSignals, setInputSignals] = useState<string[]>([]);
   const [livePage, setLivePage] = useState<LivePage | null>(null);
   const [fixNote, setFixNote] = useState<string | null>(null);
+  const [lastRun, setLastRun] = useState<CompletedRun | null>(null);
+  const [draftId, setDraftId] = useState<string | null>(null);
+  // A test account for a page behind a login: sent with this request and its
+  // live runs, kept only in this tab's memory.
+  const [account, setAccount] = useState({ username: "", password: "", loginUrl: "" });
+  const [runEnv, setRunEnv] = useState<Record<string, string>>({});
+  const { isSignedIn } = useAuth();
+  const [savedVersion, setSavedVersion] = useState(0);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -146,6 +168,39 @@ export default function QuickGeneratePage() {
     setResult(null);
     setInputSignals([]);
     setError("");
+    setDraftId(null);
+  };
+
+  /** Reopens a saved draft as it was last run, evidence included. */
+  const openDraft = (draft: SavedDraft) => {
+    const saved = (draft.payload ?? {}) as {
+      mode?: GenerationMode;
+      depth?: GenerationDepth;
+      request?: string;
+      pageUrl?: string;
+      result?: QuickGenerationResult;
+      livePage?: LivePage | null;
+      inputSignals?: string[];
+    };
+    if (!saved.result) return;
+    setMode(saved.mode ?? "FLOW");
+    setDepth(saved.depth ?? "FOCUSED");
+    setRequest(saved.request ?? "");
+    setPageUrl(saved.pageUrl ?? "");
+    setFiles([]);
+    setLimit(null);
+    setError("");
+    setFixNote(null);
+    setResult({ ...saved.result, code: draft.code });
+    setLivePage(saved.livePage ?? null);
+    setInputSignals(saved.inputSignals ?? []);
+    setDraftId(draft.id);
+    setLastRun(
+      draft.lastRun
+        ? { code: draft.code, receipt: draft.lastRun.receipt, verdict: draft.lastRun.verdict, passed: draft.lastRun.passed }
+        : null,
+    );
+    window.requestAnimationFrame(() => document.getElementById("quick-generate-result")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   };
 
   const generate = async () => {
@@ -165,6 +220,11 @@ export default function QuickGeneratePage() {
       formData.set("depth", depth);
       formData.set("request", request);
       formData.set("pageUrl", pageUrl);
+      if (mode !== "API" && (account.username || account.password)) {
+        formData.set("accountUsername", account.username);
+        formData.set("accountPassword", account.password);
+        if (account.loginUrl.trim()) formData.set("accountLoginUrl", account.loginUrl.trim());
+      }
       files.forEach((file) => formData.append("files", file));
 
       const response = await fetch("/api/quick-generate", { method: "POST", body: formData });
@@ -178,6 +238,8 @@ export default function QuickGeneratePage() {
       }
 
       setResult(data.result);
+      setDraftId(typeof data.draftId === "string" ? data.draftId : null);
+      if (data.draftId) setSavedVersion((value) => value + 1);
       setFixNote(null);
       setInputSignals(Array.isArray(data.inputSignals) ? data.inputSignals : []);
       setLivePage(data.livePage ?? null);
@@ -197,19 +259,22 @@ export default function QuickGeneratePage() {
         target: "TEST_CASE",
         createdAt: new Date().toISOString(),
         title: result.title,
-        summary: [
-          request.trim(),
-          result.summary,
-          result.testPlan.map((item, index) => `${index + 1}. ${item.scenario}: ${item.intent}`).join("\n"),
-        ].filter(Boolean).join("\n\n"),
+        summary: [request.trim(), result.summary].filter(Boolean).join("\n\n"),
         acceptanceCriteria: result.testPlan.map((item) => item.expectedOutcome).join("\n"),
+        steps: result.testPlan.map((item) => `${item.scenario}: ${item.intent}`),
         externalReference: pageUrl.trim() || undefined,
         tags: ["quick-generate", mode.toLowerCase()],
         testType: mode === "API" ? "API" : "END_TO_END",
         notice:
-          "This creates an AI-suggested Test Case draft from the preliminary plan. The generated code is not imported as trusted automation; Workspace can generate a versioned artifact only after the Test Case is completed, reviewed, and approved.",
+          "This creates an AI-suggested Test Case draft from the plan, and keeps the Playwright code with it. Once the Test Case is reviewed and approved, that code can become its first automation version, which is reviewed like any other.",
+        draft: {
+          code: result.code,
+          pageUrl: livePage?.status === "read" ? livePage.url : pageUrl.trim() || undefined,
+          receipt: lastRun?.code === result.code && lastRun.receipt ? lastRun.receipt : undefined,
+        },
       }
     : null;
+  const provenRun = result && lastRun?.code === result.code ? lastRun : null;
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
@@ -233,6 +298,8 @@ export default function QuickGeneratePage() {
             </div>
           </div>
         </section>
+
+        <SavedDrafts refreshKey={savedVersion} activeId={draftId} onOpen={openDraft} />
 
         <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
           <div>
@@ -281,10 +348,25 @@ export default function QuickGeneratePage() {
                 {mode !== "API" ? (
                   <button
                     type="button"
-                    onClick={() => { setMode("FLOW"); setRequest(DEMO.request); setPageUrl(DEMO.url); resetResult(); }}
+                    onClick={() => { setMode("FLOW"); setRequest(DEMO.request); setPageUrl(DEMO.url); setAccount({ username: "", password: "", loginUrl: "" }); resetResult(); }}
                     className="rounded-xl border border-slate-900 bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
                   >
                     Try it on a live demo page
+                  </button>
+                ) : null}
+                {mode !== "API" ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("FLOW");
+                      setRequest(LOGIN_DEMO.request);
+                      setPageUrl(LOGIN_DEMO.url);
+                      setAccount({ username: LOGIN_DEMO.username, password: LOGIN_DEMO.password, loginUrl: "" });
+                      resetResult();
+                    }}
+                    className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 transition hover:border-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
+                  >
+                    Try a page behind a login
                   </button>
                 ) : null}
                 <button
@@ -309,13 +391,31 @@ export default function QuickGeneratePage() {
             </label>
 
             <div className="mt-5 grid gap-5 sm:grid-cols-2">
-              <label className="text-sm font-semibold text-slate-800">
-                {mode === "API" ? "API base URL" : "Page URL"}{" "}
-                <span className="font-normal text-slate-400">
-                  {mode === "API" ? "(optional)" : "(optional \u2014 we open it and use the real buttons and fields)"}
-                </span>
-                <input value={pageUrl} onChange={(event) => { setPageUrl(event.target.value); resetResult(); }} maxLength={2_000} placeholder="https://app.example.com/login" className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-cyan-600" />
-              </label>
+              <div>
+                <label className="text-sm font-semibold text-slate-800">
+                  {mode === "API" ? "API base URL" : "Page URL"}{" "}
+                  <span className="font-normal text-slate-400">
+                    {mode === "API" ? "(optional)" : "(optional \u2014 we open it and use the real buttons and fields)"}
+                  </span>
+                  <input value={pageUrl} onChange={(event) => { setPageUrl(event.target.value); resetResult(); }} maxLength={2_000} placeholder="https://app.example.com/login" className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-cyan-600" />
+                </label>
+                {mode !== "API" ? (
+                  <details open={Boolean(account.username || account.password)} className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <summary className="cursor-pointer text-sm font-semibold text-slate-800">
+                      Page behind a login? <span className="font-normal text-slate-500">Add a test account</span>
+                    </summary>
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                      We sign in on the site in a remote browser and read what a signed-in person sees. Used for this draft and its
+                      live runs only &mdash; never saved and never sent to the AI. Use a test account, not a personal one.
+                    </p>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <input aria-label="Test account username or email" autoComplete="off" value={account.username} onChange={(event) => setAccount((current) => ({ ...current, username: event.target.value }))} maxLength={200} placeholder="Username or email" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-cyan-600" />
+                      <input aria-label="Test account password" type="password" autoComplete="new-password" value={account.password} onChange={(event) => setAccount((current) => ({ ...current, password: event.target.value }))} maxLength={200} placeholder="Password" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-cyan-600" />
+                    </div>
+                    <input aria-label="Login page URL, if different" value={account.loginUrl} onChange={(event) => setAccount((current) => ({ ...current, loginUrl: event.target.value }))} maxLength={2_000} placeholder="Login page URL (only if it is a different page)" className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-cyan-600" />
+                  </details>
+                ) : null}
+              </div>
               <div>
                 <p className="text-sm font-semibold text-slate-800">Files or screenshots <span className="font-normal text-slate-400">(optional)</span></p>
                 <button type="button" onClick={() => fileInputRef.current?.click()} className="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-dashed border-cyan-300 bg-cyan-50 px-4 text-sm font-semibold text-cyan-800 hover:bg-cyan-100">
@@ -342,6 +442,12 @@ export default function QuickGeneratePage() {
             <div className="mt-6 flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs leading-5 text-slate-500">
                 {remaining === null ? "Up to 5 successful drafts per day." : `${remaining} successful draft${remaining === 1 ? "" : "s"} remaining today.`}
+                {isSignedIn === false ? (
+                  <>
+                    {" "}
+                    <Link href="/sign-in?redirect_url=%2Fgenerator" className="font-semibold text-cyan-800 hover:text-cyan-950">Sign in</Link> to keep your drafts and live runs.
+                  </>
+                ) : isSignedIn ? " Your drafts and live runs are saved to your account." : null}
               </p>
               <button type="button" onClick={generate} disabled={loading} className="inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-6 text-sm font-bold text-white hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50">
                 {loading ? "Building structured draft…" : "Generate Playwright draft"}
@@ -430,6 +536,17 @@ export default function QuickGeneratePage() {
                   code={result.code}
                   pageUrl={livePage.url}
                   pageTreeAtStart={livePage.excerpt}
+                  draftId={draftId}
+                  initialEnv={{
+                    ...(account.username ? { E2E_USERNAME: account.username } : {}),
+                    ...(account.password ? { E2E_PASSWORD: account.password } : {}),
+                    ...runEnv,
+                  }}
+                  onEnvChange={setRunEnv}
+                  onRun={(run) => {
+                    setLastRun(run);
+                    if (draftId) setSavedVersion((value) => value + 1);
+                  }}
                   onFixed={(fixed) => {
                     setResult({ ...result, code: fixed.code, validation: fixed.validation, locatorCheck: fixed.locatorCheck });
                     setFixNote(fixed.explanation);
@@ -441,7 +558,11 @@ export default function QuickGeneratePage() {
 
             <div className="rounded-[2rem] border border-cyan-200 bg-cyan-50 p-6 sm:p-8">
               <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
-                <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-800">Need a trusted artifact?</p><h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">Continue through Test Case review in Workspace</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">The preliminary plan becomes an AI-suggested draft—not approved code. Complete the test intent, review it, approve its immutable version, then generate a versioned Browser or API artifact.</p></div>
+                {provenRun?.verdict === "passed" ? (
+                  <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-800">Passed on the live page · {provenRun.passed} checks</p><h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">Send this passing test to a project</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">It becomes a Test Case with this code attached{provenRun.receipt ? ", and the passing run goes with it as signed evidence" : ""}. After review and approval, the code becomes its first automation version &mdash; no second generation.</p></div>
+                ) : (
+                  <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-800">Need a trusted artifact?</p><h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">Continue through Test Case review in Workspace</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">The plan becomes an AI-suggested Test Case draft and the code goes with it. Review and approve the Test Case, then turn the code into a versioned automation artifact.{livePage?.status === "read" && mode !== "API" ? " Run it on the live page first to bring the passing result with it." : ""}</p></div>
+                )}
                 {handoff ? <WorkspaceHandoffButton handoff={handoff} className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-slate-950 px-5 text-sm font-bold text-white hover:bg-cyan-700 lg:w-auto">Continue in Workspace →</WorkspaceHandoffButton> : null}
               </div>
             </div>
@@ -521,7 +642,7 @@ function LivePagePanel({ livePage, result }: { livePage: LivePage; result: Quick
           <p className="mt-1 truncate text-sm font-semibold text-slate-900">{livePage.title || livePage.url}</p>
           <p className="mt-0.5 text-xs text-slate-500">
             {livePage.counts.buttons} buttons · {livePage.counts.fields} fields · {livePage.counts.links} links ·{" "}
-            {livePage.counts.headings} headings, seen signed out
+            {livePage.counts.headings} headings, {livePage.signedIn ? "seen signed in with your test account" : "seen signed out"}
           </p>
         </div>
         {check && check.checked > 0 ? (

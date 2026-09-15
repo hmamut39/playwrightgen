@@ -10,7 +10,10 @@ export type ApiRouteSecurityPolicy = {
     | "signed-webhook"
     // A personal bearer token bound to one user and one project, re-checked
     // against that user's current access on every request.
-    | "personal-token";
+    | "personal-token"
+    // A signed-in person's own data outside any workspace, looked up only by
+    // the Clerk user id from the session.
+    | "authenticated-personal";
   requiredMarker: string;
 };
 
@@ -80,6 +83,14 @@ export const API_ROUTE_SECURITY_POLICY = {
   "mcp/route.ts": {
     boundary: "personal-token",
     requiredMarker: "authenticateEditorRequest",
+  },
+  "free-tool-drafts/route.ts": {
+    boundary: "authenticated-personal",
+    requiredMarker: "readSignedInUserId",
+  },
+  "free-tool-drafts/[id]/route.ts": {
+    boundary: "authenticated-personal",
+    requiredMarker: "readSignedInUserId",
   },
   "preview-run/route.ts": {
     boundary: "bounded-public",

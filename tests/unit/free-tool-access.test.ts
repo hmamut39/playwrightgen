@@ -43,13 +43,13 @@ function deps(overrides: {
 describe("who pays for a free-tool run", () => {
   it("counts a visitor against the five-a-day limit", async () => {
     const { calls, dependencies } = deps({});
-    await expect(reserveFreeToolRun(input, dependencies)).resolves.toEqual({ plan: "PUBLIC", remaining: 4 });
+    await expect(reserveFreeToolRun(input, dependencies)).resolves.toEqual({ plan: "PUBLIC", remaining: 4, userId: null });
     expect(calls).toEqual(["public"]);
   });
 
   it("counts a signed-in person on the free plan the same way", async () => {
     const { calls, dependencies } = deps({ identity: { userId: "user_1", orgId: "org_1" }, team: null });
-    await expect(reserveFreeToolRun(input, dependencies)).resolves.toMatchObject({ plan: "PUBLIC" });
+    await expect(reserveFreeToolRun(input, dependencies)).resolves.toMatchObject({ plan: "PUBLIC", userId: "user_1" });
     expect(calls).toEqual(["public"]);
   });
 
@@ -59,7 +59,7 @@ describe("who pays for a free-tool run", () => {
       team: "3b6c7a52-3b4e-4c65-8a35-1a2b3c4d5e6f",
       teamRemaining: 42,
     });
-    await expect(reserveFreeToolRun(input, dependencies)).resolves.toEqual({ plan: "TEAM", remaining: 42 });
+    await expect(reserveFreeToolRun(input, dependencies)).resolves.toEqual({ plan: "TEAM", remaining: 42, userId: "user_1" });
     expect(calls).toEqual(["team"]);
   });
 

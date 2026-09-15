@@ -4,9 +4,11 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 
 import {
+  createAutomationFromImportedDraft,
   startAutomationArtifactGeneration,
   listAutomationArtifacts,
 } from "@/lib/services/automation-artifacts";
+import { getImportedDraft } from "@/lib/services/imported-drafts";
 import { MAX_PAGE_SIZE } from "@/lib/services/list-query";
 import { listRequirements } from "@/lib/services/requirements";
 import {
@@ -26,6 +28,7 @@ import { PendingButton, PendingNotice } from "@/components/workspace/pending-but
 import { ReviewTrailPanel } from "@/components/workspace/review-trail";
 import { NextStep } from "@/components/workspace/next-step";
 import { LocalTime } from "@/components/workspace/local-time";
+import { ImportedDraftPanel } from "@/components/workspace/imported-draft-panel";
 
 const statusStyle = {
   DRAFT: "bg-slate-100 text-slate-700", IN_REVIEW: "bg-amber-50 text-amber-800",
@@ -42,10 +45,11 @@ export default async function TestCaseDetailPage({
   params: Promise<{ orgSlug: string; projectId: string; testCaseId: string }>;
 }) {
   const { orgSlug, projectId, testCaseId } = await params;
-  const [detail, requirements, automationArtifacts] = await Promise.all([
+  const [detail, requirements, automationArtifacts, importedDraft] = await Promise.all([
     getTestCaseDetail({ orgSlug, projectId, testCaseId, allowArchived: true }),
     listRequirements({ orgSlug, projectId, pageSize: MAX_PAGE_SIZE }),
     listAutomationArtifacts({ orgSlug, projectId, testCaseId }),
+    getImportedDraft({ orgSlug, projectId, testCaseId }),
   ]);
   const { testCase } = detail;
   const testPath = `/workspace/${orgSlug}/projects/${projectId}/test-cases/${testCaseId}`;
@@ -60,6 +64,12 @@ export default async function TestCaseDetailPage({
   const pendingAutomation = automationArtifacts.items.find(
     (artifact) => artifact.status === "DRAFT" || artifact.status === "IN_REVIEW",
   );
+  const canUseImportedDraft = Boolean(
+    importedDraft && !importedDraft.usedAt && testCase.status === "APPROVED" && detail.canGenerateAutomation,
+  );
+  const importedArtifact = importedDraft?.usedAt
+    ? automationArtifacts.items.find((artifact) => artifact.status !== "ARCHIVED")
+    : undefined;
   const next: { title: string; detail: string; action?: { label: string; href: string } } | null =
     testCase.status === "DRAFT" && detail.canSubmit
       ? isReviewComplete
@@ -67,6 +77,13 @@ export default async function TestCaseDetailPage({
         : { title: "Add the objective, steps and expected results", detail: "Save them below, then submit it for review." }
       : testCase.status === "IN_REVIEW" && detail.canApprove && !detail.reviewTrail.awaitingAnotherApprover
         ? { title: "Approve it, or request changes", detail: "Once approved, PlaywrightGen can write the Playwright code for it." }
+        : canUseImportedDraft && automationArtifacts.items.length === 0
+          ? {
+              title: "Use the code you brought from Quick Generate",
+              detail: importedDraft?.evidence?.verdict === "passed"
+                ? "It already passed on the live page. “Use this code as the automation” below makes it the first automation version, ready for review."
+                : "“Use this code as the automation” below makes it the first automation version, ready for review.",
+            }
         : testCase.status === "APPROVED" && testCase.requirementLinks.length === 0 && detail.canManageTraceability
           ? { title: "Link it to the requirement it verifies", detail: "The link is what makes it count as coverage. Use the Traceability section below." }
           : testCase.status === "APPROVED" && !approvedAutomation && pendingAutomation
@@ -121,6 +138,11 @@ export default async function TestCaseDetailPage({
     "use server";
     await unlinkRequirementFromTestCase({ orgSlug, projectId, testCaseId, requirementId: String(formData.get("requirementId")) });
     revalidatePath(testPath);
+  }
+  async function useImportedDraftAction() {
+    "use server";
+    const artifact = await createAutomationFromImportedDraft({ orgSlug, projectId, testCaseId });
+    redirect(`/workspace/${orgSlug}/projects/${projectId}/automation/${artifact.id}`);
   }
   async function automateAction(formData: FormData) {
     "use server";
@@ -223,6 +245,14 @@ export default async function TestCaseDetailPage({
               </Link>
             ))}
           </div>
+        ) : null}
+        {importedDraft ? (
+          <ImportedDraftPanel
+            draft={importedDraft}
+            canUse={canUseImportedDraft}
+            useAction={useImportedDraftAction}
+            automationHref={importedArtifact ? `${automationBase}/${importedArtifact.id}` : null}
+          />
         ) : null}
         {testCase.status === "APPROVED" && detail.canGenerateAutomation ? (
           <form action={automateAction} className="mt-5 rounded-xl border border-cyan-200 bg-white p-4">

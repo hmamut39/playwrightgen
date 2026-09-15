@@ -2,6 +2,8 @@ import "server-only";
 
 import { chromium, type Browser } from "playwright-core";
 
+import { signInWithTestAccount, type TestAccount } from "@/lib/free-tools/sign-in";
+
 /**
  * What a real page looks like to a test: its accessibility tree.
  *
@@ -17,7 +19,8 @@ import { chromium, type Browser } from "playwright-core";
  * so a URL cannot reach anything on our network. It is still restricted to
  * public http(s) addresses, bounded in time and size, and its content is
  * handed to the model as untrusted data, not instructions. The page is seen
- * signed out: behind a login, only the login page is visible.
+ * signed out unless the person supplies a test account for this one request
+ * (see sign-in.ts); then it is read as that account sees it.
  */
 
 export type PageSnapshot =
@@ -30,12 +33,19 @@ export type PageSnapshot =
       truncated: boolean;
       /** Roles counted from the tree, for a one-line summary to the reader. */
       counts: { buttons: number; links: number; fields: number; headings: number };
+      /** Present when a test account signed in first: the login form's tree. */
+      signedIn?: { loginForm: string };
     }
-  | { ok: false; reason: "not_configured" | "blocked_address" | "unreachable" | "timeout" };
+  | {
+      ok: false;
+      reason: "not_configured" | "blocked_address" | "unreachable" | "timeout" | "no_login_form" | "sign_in_rejected";
+    };
 
 const MAX_ARIA_CHARS = 14_000;
 const NAVIGATION_TIMEOUT_MS = 20_000;
 const TOTAL_TIMEOUT_MS = 30_000;
+/** Signing in adds a page load or two. */
+const SIGNED_IN_TIMEOUT_MS = 50_000;
 
 /**
  * Only public web addresses. The browser that opens them is remote, so this
@@ -93,7 +103,7 @@ export async function connectRemoteBrowser(options: { endpoint?: string } = {}):
 
 export async function capturePageSnapshot(
   url: string,
-  options: { endpoint?: string } = {},
+  options: { endpoint?: string; account?: TestAccount } = {},
 ): Promise<PageSnapshot> {
   const token = process.env.BROWSERLESS_API_KEY?.trim();
   if (!token && !options.endpoint) return { ok: false, reason: "not_configured" };
@@ -111,6 +121,14 @@ export async function capturePageSnapshot(
       // Client-rendered apps paint after DOMContentLoaded; give them a moment,
       // but never wait on a page that keeps the network busy forever.
       await page.waitForLoadState("networkidle", { timeout: 4_000 }).catch(() => {});
+      let signedIn: { loginForm: string } | undefined;
+      if (options.account) {
+        const outcome = await signInWithTestAccount(page, options.account, url);
+        if (!outcome.ok) {
+          return { ok: false, reason: outcome.reason === "rejected" ? "sign_in_rejected" : outcome.reason };
+        }
+        signedIn = { loginForm: outcome.loginForm };
+      }
       const finalUrl = page.url();
       if (!isPublicWebAddress(finalUrl)) return { ok: false, reason: "blocked_address" };
       const [title, fullAria, testIds] = await Promise.all([
@@ -133,6 +151,7 @@ export async function capturePageSnapshot(
         testIds: [...new Set(testIds)].map((id) => id.slice(0, 100)),
         truncated: aria.length > MAX_ARIA_CHARS,
         counts: countRoles(aria),
+        ...(signedIn ? { signedIn } : {}),
       };
     } finally {
       await browser.close().catch(() => {});
@@ -143,7 +162,7 @@ export async function capturePageSnapshot(
     return await Promise.race([
       work(),
       new Promise<PageSnapshot>((resolve) =>
-        setTimeout(() => resolve({ ok: false, reason: "timeout" }), TOTAL_TIMEOUT_MS),
+        setTimeout(() => resolve({ ok: false, reason: "timeout" }), options.account ? SIGNED_IN_TIMEOUT_MS : TOTAL_TIMEOUT_MS),
       ),
     ]);
   } catch {
