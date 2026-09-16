@@ -103,8 +103,9 @@ export function EditorSetupPanel({ mcpUrl, token }: { mcpUrl: string; token: str
         Connect your editor&rsquo;s AI assistant to this project. It can then read
         approved test cases and write tests against them, pull approved
         automation into your repository with the version marker intact, and see
-        what failed in the last run &mdash; without copy and paste. The connection
-        can only read.
+        what failed in the last run &mdash; without copy and paste. It can also
+        propose new test cases and send the code it wrote, which wait for a person
+        to review; it can never approve anything.
       </p>
 
       <div className="mt-6">
@@ -148,7 +149,7 @@ export function EditorSetupPanel({ mcpUrl, token }: { mcpUrl: string; token: str
       <p className="mt-3 text-sm leading-6 text-slate-600">{active.note}</p>
 
       <p className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-500">
-        This token is yours alone and reads only what you can already see here.
+        This token is yours alone and can do only what your role here allows.
         It stops working as soon as your access to this project ends, and
         rotating the project&rsquo;s CI token on the Repositories page also
         replaces it. Try asking your assistant: &ldquo;Using PlaywrightGen, write

@@ -70,6 +70,12 @@ test suite (460+ tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **Editor agents can propose, people approve** (`lib/mcp/playwrightgen-mcp.ts`, 2026-09-16):
+  two MCP write tools. `propose_test_case` creates a draft test case (tagged
+  from-editor, optionally with Playwright code and submitted for review);
+  `submit_playwright_code` sends code for an existing test case. The code waits
+  on the test case as "Code from an editor AI assistant" until a person uses it
+  as automation. Nothing can be approved over MCP; viewers cannot write.
 - Friendly `/onboarding` step replacing Clerk's "Setup your organization".
 - Workspace and membership recovery when Clerk's webhook is late (new
   workspaces and people who just accepted an invitation no longer see errors).
@@ -90,10 +96,8 @@ test suite (460+ tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **MCP write tools, with human approval.** Let an editor's AI agent submit a
-   Test Case for review and report run results through `/api/mcp`; nothing it
-   sends counts until a person approves. Then offer the free tools over MCP and
-   list the server in MCP directories.
+1. **Free tools over MCP, and MCP directory listings.** Offer Quick Generate
+   and the live run as MCP tools, then list the server in MCP directories.
 2. **Saved Coverage Reviews.** The same saved history for Coverage Review
    (Quick Generate has it now).
 3. **Evals for Coverage Review and Release Review.** Only Quick Generate has

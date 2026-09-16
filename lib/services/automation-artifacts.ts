@@ -28,7 +28,7 @@ import {
 } from "@/lib/services/list-query";
 import { readTestCaseList } from "@/lib/services/test-cases";
 import { checkSelfApproval, describeReviewTrail } from "@/lib/services/approval-policy";
-import { readRunEvidence } from "@/lib/services/imported-drafts";
+import { importedDraftSourceLabel, readRunEvidence } from "@/lib/services/imported-drafts";
 import { planPreviewRun } from "@/lib/free-tools/preview-run/plan";
 
 const uuidSchema = z.string().uuid();
@@ -748,10 +748,12 @@ export async function createAutomationFromImportedDraft(
         ? `Every step that could run passed on the live page before import (${evidence.passed} checks); ${evidence.skipped + evidence.notReached} did not run there.`
         : evidence?.verdict === "failed"
           ? "Its last run on the live page before import failed."
-          : "It was not run on the live page before import.";
+          : draft.source === "editor"
+            ? "PlaywrightGen has not run it; check its first CI result."
+            : "It was not run on the live page before import.";
   const seeded: AutomationGenerationResult = {
     name: `${pending.generationInput.title} — ${engine === "PLAYWRIGHT_BROWSER" ? "Browser" : "API"}`,
-    summary: `Imported from Quick Generate with this Test Case. ${proven}`,
+    summary: `Code from ${importedDraftSourceLabel(draft.source)}, used as written. ${proven}`,
     plan: importedPlan(draft.code),
     code: draft.code,
     configuration: importedConfiguration(draft.pageUrl),

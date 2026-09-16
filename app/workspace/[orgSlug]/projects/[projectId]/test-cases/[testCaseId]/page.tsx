@@ -79,7 +79,7 @@ export default async function TestCaseDetailPage({
         ? { title: "Approve it, or request changes", detail: "Once approved, PlaywrightGen can write the Playwright code for it." }
         : canUseImportedDraft && automationArtifacts.items.length === 0
           ? {
-              title: "Use the code you brought from Quick Generate",
+              title: importedDraft?.source === "editor" ? "Review the code your editor's AI assistant sent" : "Use the code you brought from Quick Generate",
               detail: importedDraft?.evidence?.verdict === "passed"
                 ? "It already passed on the live page. “Use this code as the automation” below makes it the first automation version, ready for review."
                 : "“Use this code as the automation” below makes it the first automation version, ready for review.",

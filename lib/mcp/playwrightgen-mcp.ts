@@ -11,7 +11,15 @@ import {
 } from "@/lib/services/automation-artifacts";
 import type { EditorSession } from "@/lib/services/editor-access";
 import { getReleaseReadiness } from "@/lib/services/release-readiness";
-import { getTestCaseDetail, listTestCases, readTestCaseList } from "@/lib/services/test-cases";
+import { attachEditorCode, ImportedDraftError } from "@/lib/services/imported-drafts";
+import {
+  createTestCase,
+  getTestCaseDetail,
+  listTestCases,
+  readTestCaseList,
+  submitTestCaseForReview,
+} from "@/lib/services/test-cases";
+import { siteUrl } from "@/lib/site";
 
 /**
  * PlaywrightGen as an MCP server: approved test intent, inside the editor.
@@ -27,7 +35,9 @@ import { getTestCaseDetail, listTestCases, readTestCaseList } from "@/lib/servic
  * One protocol reaches every editor, which is why this exists instead of an
  * extension per editor.
  *
- * The server is read-only and stateless. It speaks JSON-RPC over the
+ * It is stateless, and it can propose but never decide: agents may create a
+ * draft test case or send code for one, and a person approves in PlaywrightGen.
+ * It It speaks JSON-RPC over the
  * Streamable HTTP transport, answering each POST with a single JSON response;
  * it opens no streams because nothing here is long-running. Every tool goes
  * through the same services, and so the same authorization, as the web app.
@@ -42,7 +52,8 @@ When writing or changing a Playwright test for this project:
 2. Put the test case's version marker (for example [pwg:1f2e...]) at the start of the test title, exactly as given. It is how results from CI attach back to the approved version; without it the run is reported but proves nothing.
 3. Prefer reviewed code: if get_approved_automation has an approved version, use it as-is rather than regenerating.
 4. Use list_recent_failures to see what is currently failing and why before fixing a test.
-Nothing here can be changed through this connection; approvals happen in PlaywrightGen.`;
+5. When behaviour has no test case yet, use propose_test_case (with the Playwright code you wrote, if any). To send code for an existing test case, use submit_playwright_code.
+You can propose and send code, but not approve: a person reviews everything in PlaywrightGen before it counts.`;
 
 type JsonRpcId = string | number;
 type JsonRpcRequest = { jsonrpc: "2.0"; id?: JsonRpcId | null; method: string; params?: unknown };
@@ -61,6 +72,7 @@ type Tool = {
   title: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  annotations?: Record<string, boolean>;
   run: (session: EditorSession, args: unknown) => Promise<ToolResult>;
 };
 
@@ -73,6 +85,8 @@ function toolError(message: string): ToolResult {
 }
 
 const READ_ONLY = { readOnlyHint: true, idempotentHint: true, openWorldHint: false };
+/** Adds a draft or code for review; changes nothing approved, deletes nothing. */
+const WRITE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 
 const uuidArg = z.string().uuid();
 
@@ -393,7 +407,134 @@ const tools: Tool[] = [
       return text(body, { failures });
     },
   },
+  {
+    name: "propose_test_case",
+    title: "Propose a test case",
+    description:
+      "Create a draft test case in PlaywrightGen for behaviour that has none yet, optionally with the Playwright code you wrote for it and optionally submitted for review. A person on the team reviews and approves it; nothing proposed here counts as approved coverage until then.",
+    annotations: WRITE,
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "What the test proves, in one line." },
+        objective: { type: "string", description: "The behaviour and why it matters." },
+        preconditions: { type: "string" },
+        steps: { type: "array", items: { type: "string" }, description: "One action per item." },
+        expectedResults: { type: "array", items: { type: "string" }, description: "One observable outcome per item." },
+        type: { type: "string", enum: ["FUNCTIONAL", "END_TO_END", "API", "INTEGRATION", "REGRESSION"] },
+        priority: { type: "string", enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+        playwrightCode: { type: "string", description: "Optional: the full Playwright test file you wrote for it." },
+        submitForReview: { type: "boolean", description: "Send it to a reviewer now. Default false." },
+      },
+      required: ["title", "objective", "steps", "expectedResults"],
+      additionalProperties: false,
+    },
+    async run(session, args) {
+      const input = z
+        .object({
+          title: z.string().trim().min(1).max(300),
+          objective: z.string().trim().min(1).max(50_000),
+          preconditions: z.string().trim().max(50_000).optional(),
+          steps: z.array(z.string().trim().min(1).max(2_000)).min(1).max(200),
+          expectedResults: z.array(z.string().trim().min(1).max(2_000)).min(1).max(200),
+          type: z.enum(["FUNCTIONAL", "END_TO_END", "API", "INTEGRATION", "REGRESSION"]).optional(),
+          priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
+          playwrightCode: z.string().min(1).max(100_000).optional(),
+          submitForReview: z.boolean().optional(),
+        })
+        .parse(args);
+      const scope = { orgSlug: session.orgSlug, projectId: session.projectId };
+      const created = await createTestCase(
+        {
+          ...scope,
+          title: input.title,
+          objective: input.objective,
+          preconditions: input.preconditions,
+          steps: input.steps,
+          expectedResults: input.expectedResults,
+          type: input.type,
+          priority: input.priority,
+          source: "AI_SUGGESTED",
+          tags: ["from-editor"],
+          automationStatus: input.playwrightCode ? "CANDIDATE" : undefined,
+        },
+        session.dependencies,
+      );
+      const notes: string[] = [];
+      if (input.playwrightCode) {
+        try {
+          const attached = await attachEditorCode({ ...scope, testCaseId: created.id, code: input.playwrightCode }, session.dependencies);
+          notes.push(attached.warnings.length ? `Code attached, with warnings: ${attached.warnings.join(" ")}` : "Code attached.");
+        } catch (error) {
+          notes.push(`The test case was created, but the code was not attached: ${describeToolFailure(error)}`);
+        }
+      }
+      let status = "DRAFT";
+      if (input.submitForReview) {
+        try {
+          await submitTestCaseForReview({ ...scope, testCaseId: created.id }, session.dependencies);
+          status = "IN_REVIEW";
+        } catch (error) {
+          notes.push(`It stays a draft: ${describeToolFailure(error)}`);
+        }
+      }
+      const url = testCaseUrl(session, created.id);
+      return text(
+        [
+          `Created "${input.title}" as a ${status === "IN_REVIEW" ? "test case waiting for review" : "draft test case"}.`,
+          `id: ${created.id}`,
+          `Open: ${url}`,
+          ...notes,
+          "It is not approved: a person on the team reviews it in PlaywrightGen.",
+        ].join("\n"),
+        { id: created.id, status, url, codeAttached: Boolean(input.playwrightCode) && notes[0]?.startsWith("Code attached") },
+      );
+    },
+  },
+  {
+    name: "submit_playwright_code",
+    title: "Submit Playwright code for a test case",
+    description:
+      "Attach the Playwright test you wrote for an existing test case. It waits on the test case in PlaywrightGen until a person turns it into a reviewed automation version; it replaces code sent earlier that has not been used yet. Keep the test case's version marker in the test title.",
+    annotations: WRITE,
+    inputSchema: {
+      type: "object",
+      properties: {
+        testCaseId: { type: "string", description: "Id from list_test_cases." },
+        code: { type: "string", description: "The full Playwright test file." },
+      },
+      required: ["testCaseId", "code"],
+      additionalProperties: false,
+    },
+    async run(session, args) {
+      const input = z.object({ testCaseId: uuidArg, code: z.string().min(1).max(100_000) }).parse(args);
+      const attached = await attachEditorCode(
+        { orgSlug: session.orgSlug, projectId: session.projectId, testCaseId: input.testCaseId, code: input.code },
+        session.dependencies,
+      );
+      const url = testCaseUrl(session, input.testCaseId);
+      const next =
+        attached.testCaseStatus === "APPROVED"
+          ? "A person can now use it as the automation from the test case page, where it is reviewed like any other version."
+          : "The test case is not approved yet; once it is, a person can use this code as its automation.";
+      return text(
+        [
+          "Code received.",
+          next,
+          attached.warnings.length ? `Warnings: ${attached.warnings.join(" ")}` : null,
+          `Open: ${url}`,
+        ]
+          .filter((line) => line !== null)
+          .join("\n"),
+        { testCaseId: input.testCaseId, testCaseStatus: attached.testCaseStatus, warnings: attached.warnings, url },
+      );
+    },
+  },
 ];
+
+function testCaseUrl(session: EditorSession, testCaseId: string) {
+  return `${siteUrl()}/workspace/${session.orgSlug}/projects/${session.projectId}/test-cases/${testCaseId}`;
+}
 
 function suggestedPath(testCaseTitle: string) {
   return `tests/${slugify(testCaseTitle, "automation")}.spec.ts`;
@@ -407,7 +548,12 @@ function describeToolFailure(error: unknown): string {
     typeof error === "object" && error !== null && "code" in error
       ? String((error as { code: unknown }).code)
       : null;
+  if (error instanceof ImportedDraftError && error.code === "invalid_playwright_code") {
+    return `The code is not a usable Playwright test: ${error.detail ?? "check the import and the test body."}`;
+  }
+  if (code === "test_case_archived") return "That test case is archived.";
   if (code?.endsWith("_not_found")) return "Not found in this project.";
+  if (code?.startsWith("invalid_")) return "Some fields are missing or too long.";
   if (code === "permission_denied") return "Your role in this project does not allow that.";
   console.error("[mcp] tool failed", error);
   return "PlaywrightGen could not complete that request.";
@@ -463,12 +609,12 @@ export async function handleMcpMessage(
       return reply({});
     case "tools/list":
       return reply({
-        tools: tools.map(({ name, title, description, inputSchema }) => ({
+        tools: tools.map(({ name, title, description, inputSchema, annotations }) => ({
           name,
           title,
           description,
           inputSchema,
-          annotations: { title, ...READ_ONLY },
+          annotations: { title, ...(annotations ?? READ_ONLY) },
         })),
       });
     case "tools/call": {

@@ -217,7 +217,7 @@ export default defineConfig({ use: { baseURL: "http://localhost:3000" } });`,
         session,
       ) as Promise<{ result: { content: Array<{ text: string }>; structuredContent?: Record<string, unknown>; isError?: boolean } }>;
 
-    it("initializes, lists read-only tools, and ignores notifications", async () => {
+    it("initializes, lists read tools and the two proposal tools, and ignores notifications", async () => {
       const space = await workspace();
       const session = await sessionFor(space);
 
@@ -243,8 +243,13 @@ export default defineConfig({ use: { baseURL: "http://localhost:3000" } });`,
         "list_approved_automation",
         "get_approved_automation",
         "list_recent_failures",
+        "propose_test_case",
+        "submit_playwright_code",
       ]);
-      expect(list.result.tools.every((tool) => tool.annotations.readOnlyHint)).toBe(true);
+      expect(list.result.tools.filter((tool) => !tool.annotations.readOnlyHint).map((tool) => tool.name)).toEqual([
+        "propose_test_case",
+        "submit_playwright_code",
+      ]);
     });
 
     it("serves the approved test case with its version marker, and the approved code", async () => {
@@ -276,6 +281,68 @@ export default defineConfig({ use: { baseURL: "http://localhost:3000" } });`,
       const code = await call(session, "get_approved_automation", { automationArtifactId: artifact.id });
       expect(code.result.isError).toBeUndefined();
       expect(String(code.result.structuredContent?.code)).toContain(`[pwg:${version.id}]`);
+    });
+
+    const draftCode = `import { test, expect } from '@playwright/test';
+test('customer applies a discount code', async ({ page }) => {
+  await page.goto('/cart');
+  await page.getByRole('textbox', { name: 'Discount code' }).fill('SAVE10');
+  await expect(page.getByText('10% off')).toBeVisible();
+});`;
+
+    it("lets an agent propose a test case with code for review, but never approve it", async () => {
+      const space = await workspace();
+      const session = await sessionFor(space);
+
+      const proposed = await call(session, "propose_test_case", {
+        title: "Customer applies a discount code",
+        objective: "A valid code lowers the total.",
+        steps: ["Open the cart", "Enter SAVE10"],
+        expectedResults: ["The cart shows 10% off"],
+        playwrightCode: draftCode,
+        submitForReview: true,
+      });
+      expect(proposed.result.isError).toBeUndefined();
+      expect(proposed.result.structuredContent).toMatchObject({ status: "IN_REVIEW", codeAttached: true });
+      const id = String(proposed.result.structuredContent?.id);
+      expect(String(proposed.result.structuredContent?.url)).toContain(`/projects/${space.project.id}/test-cases/${id}`);
+
+      const testCase = await prisma.testCase.findUniqueOrThrow({ where: { id } });
+      expect(testCase).toMatchObject({ status: "IN_REVIEW", source: "AI_SUGGESTED", createdByUserId: space.engineer.id });
+      expect(testCase.tags).toContain("from-editor");
+      const draft = await prisma.testCaseImportedDraft.findFirstOrThrow({ where: { testCaseId: id } });
+      expect(draft).toMatchObject({ source: "editor", code: draftCode, runEvidence: null, importedByUserId: space.engineer.id });
+
+      // New code for the same test case replaces the code not yet used.
+      const resent = await call(session, "submit_playwright_code", { testCaseId: id, code: draftCode.replace("SAVE10", "SAVE20") });
+      expect(resent.result.isError).toBeUndefined();
+      expect(await prisma.testCaseImportedDraft.count({ where: { testCaseId: id } })).toBe(1);
+      expect((await prisma.testCaseImportedDraft.findFirstOrThrow({ where: { testCaseId: id } })).code).toContain("SAVE20");
+
+      const notPlaywright = await call(session, "submit_playwright_code", { testCaseId: id, code: "console.log('hello')" });
+      expect(notPlaywright.result.isError).toBe(true);
+      expect(notPlaywright.result.content[0].text).toContain("not a usable Playwright test");
+    });
+
+    it("does not let a viewer's agent write", async () => {
+      const space = await workspace();
+      const viewer = await prisma.user.create({ data: { clerkUserId: unique("viewer"), displayName: "Viewer" } });
+      await prisma.membership.create({ data: { organizationId: space.organization.id, userId: viewer.id, role: "MEMBER" } });
+      await prisma.projectMembership.create({
+        data: { organizationId: space.organization.id, projectId: space.project.id, userId: viewer.id, role: "VIEWER" },
+      });
+      const session = await authenticate(tokenFor(space, viewer.id));
+      if (!session) throw new Error("expected a session");
+
+      const refused = await call(session, "propose_test_case", {
+        title: "Anything",
+        objective: "Anything",
+        steps: ["Do it"],
+        expectedResults: ["It happens"],
+      });
+      expect(refused.result).toMatchObject({ isError: true });
+      expect(refused.result.content[0].text).toBe("Your role in this project does not allow that.");
+      expect(await prisma.testCase.count({ where: { projectId: space.project.id } })).toBe(0);
     });
 
     it("answers bad arguments and foreign ids as tool errors, not crashes", async () => {
@@ -330,7 +397,7 @@ export default defineConfig({ use: { baseURL: "http://localhost:3000" } });`,
 
       const listed = await post({ jsonrpc: "2.0", id: 1, method: "tools/list" });
       expect(listed.status).toBe(200);
-      expect((await listed.json()).result.tools).toHaveLength(6);
+      expect((await listed.json()).result.tools).toHaveLength(8);
 
       const notified = await post({ jsonrpc: "2.0", method: "notifications/initialized" });
       expect(notified.status).toBe(202);
