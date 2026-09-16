@@ -5,6 +5,7 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 
 import { extractLocatorNames, normalizeName } from "@/lib/free-tools/locator-names";
+import { alignContainerNames, alignTestIdLocators, siteTestIdAttribute } from "@/lib/free-tools/test-id-attribute";
 
 export const quickGenerationSchema = z.object({
   title: z.string().min(1).max(300),
@@ -34,6 +35,7 @@ export type QuickGenerationInput = {
     title: string;
     aria: string;
     testIds: string[];
+    elementHints?: string[];
     /** Read after signing in with a test account; the login form's tree. */
     signedIn?: { loginForm: string };
   } | null;
@@ -143,6 +145,7 @@ const QUICK_GENERATION_INSTRUCTIONS = [
   "When livePage is provided, it is the real accessibility tree of the page. Build locators from it: getByRole(role, { name: 'Exact name' }) using the exact role and accessible name shown, getByLabel for labelled fields, getByTestId for listed test ids. Copy names character for character. A field's name in the tree often comes from its placeholder or aria-label rather than a <label>, and getByLabel does not match those: locate fields with getByRole('textbox', { name: 'Exact name' }) (or their own role, such as combobox or checkbox), not getByLabel. For any element the flow needs that is not in the tree (for example on a later page), write your best role-based locator and list it in unverifiedLocators. When livePage is not provided, list every locator you wrote in unverifiedLocators.",
   "Write code a senior Playwright engineer would approve: import { test, expect } from '@playwright/test'; one test.describe for the feature; test.beforeEach for shared navigation using relative paths so baseURL from playwright.config applies; one test per scenario with test.step for each meaningful step; web-first assertions such as await expect(locator).toBeVisible(), toHaveText, toHaveURL, toHaveValue.",
   "Never write helpers that try several locators, loop over frames, check .count() to pick a locator, or wrap actions in try/catch that returns false or ignores errors: exactly one locator per element, and let a missing element fail the test with Playwright's own error. Never use test.only, waitForTimeout, force: true, eval, shell execution, filesystem mutation, embedded secrets or destructive production actions. Read secrets and test data from process.env with a clear name and a comment.",
+  "livePage.elementHints lists controls that carry a test attribute, as: role \"name\" [attribute=\"value\"]. When several elements share a role and name (six 'Add to cart' buttons), pick the right one by its attribute: getByTestId('value') for data-testid, otherwise page.locator('[data-test=\"value\"]') with the attribute shown. Never use .first() or .nth() to pick between same-named elements when a test attribute exists.",
   "When livePage.signedIn is present, the page was read after signing in with a test account the person supplied (its values are never shown to you). Start the flow by signing in on the login form described in livePage.signedIn.loginForm, using process.env.E2E_USERNAME and process.env.E2E_PASSWORD with no literal fallback, then continue on the signed-in page. Put the sign-in in test.beforeEach when every test needs it.",
   "FLOW means browser behavior from a requirement. MARKUP means derive browser behavior only from supplied markup. COMPONENT still returns a Playwright browser test, not implementation code. API means use the request fixture and verify status plus contract-relevant response data. FOCUSED returns the smallest high-value suite; EXPANDED may add distinct negative and edge scenarios without duplication. Return executable code without Markdown fences.",
 ].join(" ");
@@ -178,6 +181,7 @@ export async function generateQuickDraft(
               title: input.pageSnapshot.title,
               accessibilityTree: input.pageSnapshot.aria,
               testIds: input.pageSnapshot.testIds,
+              elementHints: input.pageSnapshot.elementHints ?? [],
               ...(input.pageSnapshot.signedIn ? { signedIn: { loginForm: input.pageSnapshot.signedIn.loginForm } } : {}),
             }
           : "[NOT CAPTURED]",
@@ -215,8 +219,19 @@ export async function generateQuickDraft(
   if (refused) throw new QuickGenerationProviderError("model_refusal");
   if (!response.output_parsed) throw new QuickGenerationProviderError("invalid_output");
 
-  return {
+  const attribute = siteTestIdAttribute(input.pageSnapshot?.elementHints ?? []);
+  const aligned = alignTestIdLocators(response.output_parsed.code, attribute);
+  aligned.code = alignContainerNames(aligned.code, input.pageSnapshot?.aria ?? "").code;
+  const output = {
     ...response.output_parsed,
+    code: aligned.code,
+    warnings: aligned.rewritten
+      ? [...response.output_parsed.warnings, `This site marks elements with ${attribute}, which getByTestId does not read, so ${aligned.rewritten} getByTestId locator${aligned.rewritten === 1 ? " was" : "s were"} written as ${attribute} attribute locators.`].slice(0, 20)
+      : response.output_parsed.warnings,
+  };
+
+  return {
+    ...output,
     model,
     provider: {
       requestId: response._request_id ?? null,
@@ -224,9 +239,9 @@ export async function generateQuickDraft(
       outputTokens: response.usage?.output_tokens ?? null,
       totalTokens: response.usage?.total_tokens ?? null,
     },
-    validation: validateQuickGeneration(response.output_parsed.code),
+    validation: validateQuickGeneration(output.code),
     locatorCheck: input.pageSnapshot
-      ? checkLocatorsAgainstPage(response.output_parsed.code, input.pageSnapshot.aria)
+      ? checkLocatorsAgainstPage(output.code, input.pageSnapshot.aria)
       : null,
   };
 }

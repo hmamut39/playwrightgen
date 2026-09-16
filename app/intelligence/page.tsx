@@ -8,6 +8,13 @@ import { WorkspaceHandoffButton } from "@/components/free-tools/workspace-handof
 import type { FreeToolHandoff } from "@/lib/free-tools/handoff";
 import { LimitReached, readFreeToolLimit, type FreeToolLimit } from "@/components/free-tools/limit-reached";
 import { PreviewRunPanel } from "@/components/free-tools/preview-run-panel";
+import {
+  appendTestAccount,
+  EMPTY_TEST_ACCOUNT,
+  TestAccountFields,
+  testAccountEnv,
+  type TestAccountValue,
+} from "@/components/free-tools/test-account-fields";
 
 type ReviewLens = "COVERAGE" | "FLAKY" | "ARCHITECTURE" | "ASSERTIONS";
 type Severity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
@@ -65,6 +72,7 @@ type LiveCoveragePage =
       title: string;
       counts: { buttons: number; links: number; fields: number; headings: number };
       controls: number;
+      signedIn?: boolean;
       surface: {
         total: number;
         mentioned: { role: string; name: string }[];
@@ -74,6 +82,8 @@ type LiveCoveragePage =
   | { status: "not_read"; reason: string };
 
 const LIVE_REASONS: Record<string, string> = {
+  no_login_form: "We found no sign-in form on that page. Check the page URL, or add the login page's URL under the test account.",
+  sign_in_rejected: "The site did not accept the test account: its sign-in form was still there after submitting.",
   blocked_address: "Only public web addresses can be opened (not localhost or private networks).",
   timeout: "The page took too long to load.",
   unreachable: "The page could not be opened.",
@@ -115,6 +125,8 @@ test("applies a promo code", async ({ page }) => {
 export default function CoverageReviewPage() {
   const [lens, setLens] = useState<ReviewLens>("COVERAGE");
   const [pageUrl, setPageUrl] = useState("");
+  // A test account for a page behind a login, kept in this tab's memory only.
+  const [account, setAccount] = useState<TestAccountValue>(EMPTY_TEST_ACCOUNT);
   const [requirement, setRequirement] = useState("");
   const [existingTests, setExistingTests] = useState("");
   const [testFile, setTestFile] = useState<File | null>(null);
@@ -146,6 +158,7 @@ export default function CoverageReviewPage() {
       const formData = new FormData();
       formData.set("lens", lens);
       formData.set("pageUrl", pageUrl);
+      appendTestAccount(formData, account);
       formData.set("requirement", requirement);
       formData.set("existingTests", existingTests);
       if (screenshot) formData.set("screenshot", screenshot);
@@ -275,10 +288,13 @@ export default function CoverageReviewPage() {
           </div>
 
           <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_0.9fr_0.9fr]">
-            <label className="text-sm font-semibold text-slate-800">
-              Page URL <span className="font-normal text-slate-400">(optional &mdash; we open it and compare its controls with your tests)</span>
-              <input value={pageUrl} onChange={(event) => { setPageUrl(event.target.value); invalidate(); }} maxLength={2_000} placeholder="https://app.example.com/checkout" className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-cyan-600" />
-            </label>
+            <div>
+              <label className="text-sm font-semibold text-slate-800">
+                Page URL <span className="font-normal text-slate-400">(optional &mdash; we open it and compare its controls with your tests)</span>
+                <input value={pageUrl} onChange={(event) => { setPageUrl(event.target.value); invalidate(); }} maxLength={2_000} placeholder="https://app.example.com/checkout" className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-cyan-600" />
+              </label>
+              <TestAccountFields value={account} onChange={setAccount} />
+            </div>
             <EvidenceUpload label="Test or framework file" detail={testFile?.name} onChoose={() => testFileRef.current?.click()}>
               <input ref={testFileRef} type="file" accept=".ts,.tsx,.js,.jsx,.json,.txt" className="hidden" onChange={async (event) => { const file = event.target.files?.[0] ?? null; if (file && file.size > 250_000) { setError("Keep the test file under 250KB."); return; } setTestFile(file); setExistingTests(file ? await file.text() : ""); invalidate(); }} />
             </EvidenceUpload>
@@ -328,6 +344,7 @@ export default function CoverageReviewPage() {
                   key={existingTests}
                   code={existingTests}
                   pageUrl={livePage.url}
+                  initialEnv={testAccountEnv(account)}
                   onFixed={(fixed) => {
                     setExistingTests(fixed.code);
                     setTestsFixNote(fixed.explanation);
@@ -434,7 +451,7 @@ function LiveCoveragePanel({ livePage }: { livePage: LiveCoveragePage }) {
           <h2 className="mt-1 truncate text-xl font-semibold text-slate-950">{livePage.title || livePage.url}</h2>
           <p className="mt-1 text-xs text-slate-500">
             {livePage.controls} named controls: {livePage.counts.buttons} buttons, {livePage.counts.fields} fields,{" "}
-            {livePage.counts.links} links &middot; seen signed out
+            {livePage.counts.links} links &middot; {livePage.signedIn ? "seen signed in with your test account" : "seen signed out"}
           </p>
         </div>
         {surface && surface.total > 0 ? (

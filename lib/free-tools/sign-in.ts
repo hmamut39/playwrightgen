@@ -126,3 +126,20 @@ export async function signInWithTestAccount(page: Page, account: TestAccount, ta
   }
   return { ok: true, loginForm };
 }
+
+/**
+ * The optional test account from a free-tool form: fields accountUsername,
+ * accountPassword and accountLoginUrl. Both empty means none.
+ */
+export function readTestAccount(formData: FormData): { ok: true; account: TestAccount | null } | { ok: false; error: string } {
+  const fields = {
+    username: String(formData.get("accountUsername") || ""),
+    password: String(formData.get("accountPassword") || ""),
+    loginUrl: String(formData.get("accountLoginUrl") || "").trim() || undefined,
+  };
+  if (!fields.username && !fields.password) return { ok: true, account: null };
+  const parsed = testAccountSchema.safeParse(fields);
+  return parsed.success
+    ? { ok: true, account: parsed.data }
+    : { ok: false, error: "Enter both the test account's username and password, or leave both empty." };
+}

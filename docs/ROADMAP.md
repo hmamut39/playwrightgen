@@ -4,7 +4,7 @@ The working plan, kept in the repository so any session can pick up where the
 last one stopped. Update the "Shipped" and "Next" sections at the end of every
 work session.
 
-Last updated: 2026-09-14 (evening).
+Last updated: 2026-09-16.
 
 ## Where the product is
 
@@ -90,23 +90,19 @@ test suite (460+ tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Finish pages behind a login** (started 2026-09-14, first version live):
-   verify on production with the saucedemo demo; add the same test-account
-   option to Coverage Review; show a clear message when the site rejects the
-   account; TodoMVC demo re-check (one run failed once at the Active filter).
-2. **MCP write tools, with human approval.** Let an editor's AI agent submit a
+1. **MCP write tools, with human approval.** Let an editor's AI agent submit a
    Test Case for review and report run results through `/api/mcp`; nothing it
    sends counts until a person approves. Then offer the free tools over MCP and
    list the server in MCP directories.
-3. **Saved Coverage Reviews.** The same saved history for Coverage Review
+2. **Saved Coverage Reviews.** The same saved history for Coverage Review
    (Quick Generate has it now).
-4. **Evals for Coverage Review and Release Review.** Only Quick Generate has
+3. **Evals for Coverage Review and Release Review.** Only Quick Generate has
    an eval today (`evals/quick-generation.eval.ts`).
-5. **Release Review structured output.** Move its route to zod structured
+4. **Release Review structured output.** Move its route to zod structured
    output like the other tools and split the 1,500-line page into components.
-6. **Open a pull request from approved automation.** Needs the owner's
+5. **Open a pull request from approved automation.** Needs the owner's
    decision on giving the GitHub App write permission (currently read-only).
-7. **Verify the paid path end to end.** Stripe payment, then webhook, then
+6. **Verify the paid path end to end.** Stripe payment, then webhook, then
    entitlement, then the Team allowance in the free tools. Needs the owner's
    account and a real card.
 

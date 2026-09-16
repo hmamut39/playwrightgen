@@ -366,6 +366,37 @@ export function planPreviewRun(code: string, options: { env?: Record<string, str
     return true;
   }
 
+  /**
+   * `if (!username || !password) throw new Error(...)`: the guard generated
+   * tests put before signing in. Built only from names, !, || and &&, it can be
+   * decided from known values: null when it cannot.
+   */
+  function guardCondition(node: ts.Expression, scope: Map<string, Value>): boolean | null {
+    if (ts.isParenthesizedExpression(node)) return guardCondition(node.expression, scope);
+    if (ts.isPrefixUnaryExpression(node) && node.operator === ts.SyntaxKind.ExclamationToken) {
+      const inner = guardCondition(node.operand, scope);
+      return inner === null ? null : !inner;
+    }
+    if (ts.isBinaryExpression(node) && (node.operatorToken.kind === ts.SyntaxKind.BarBarToken || node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken)) {
+      const left = guardCondition(node.left, scope);
+      const right = guardCondition(node.right, scope);
+      if (left === null || right === null) return null;
+      return node.operatorToken.kind === ts.SyntaxKind.BarBarToken ? left || right : left && right;
+    }
+    if (ts.isIdentifier(node) || ts.isPropertyAccessExpression(node)) {
+      const value = evaluate(node, scope);
+      if (value.type === "string") return value.value.length > 0;
+      if (value.type === "number") return value.value !== 0;
+      return null;
+    }
+    return null;
+  }
+
+  function onlyThrows(statement: ts.Statement): boolean {
+    if (ts.isThrowStatement(statement)) return true;
+    return ts.isBlock(statement) && statement.statements.length === 1 && ts.isThrowStatement(statement.statements[0]);
+  }
+
   function readStatements(statements: readonly ts.Statement[], scope: Map<string, Value>, steps: PlannedStep[], current: PlannedStep) {
     // Lines outside test.step go into a group listed where they appear: a new
     // group after each step, so a check written after a step runs after it.
@@ -388,6 +419,16 @@ export function planPreviewRun(code: string, options: { env?: Record<string, str
           }
         }
         continue;
+      }
+      if (ts.isIfStatement(statement) && !statement.elseStatement && onlyThrows(statement.thenStatement)) {
+        const stops = guardCondition(statement.expression, scope);
+        // A guard that passes does nothing; one that would stop the test is
+        // reported, since the steps after it would not run either.
+        if (stops === false) continue;
+        if (stops === true) {
+          add({ op: "unsupported", reason: "this check stops the test: a value it needs is empty", source: snippet(statement, source) });
+          continue;
+        }
       }
       if (!ts.isExpressionStatement(statement)) {
         add({ op: "unsupported", reason: "control flow is not run in the preview", source: snippet(statement, source) });

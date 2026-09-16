@@ -2,6 +2,7 @@ import "server-only";
 
 import type { Browser, Locator, Page } from "playwright-core";
 
+import { readElementHints } from "@/lib/free-tools/element-hints";
 import type { LocatorPlan, Operation, RunPlan, TextMatch } from "@/lib/free-tools/preview-run/plan";
 
 /**
@@ -294,7 +295,12 @@ export async function executePreviewRun(
             const shot = await page.screenshot({ type: "jpeg", quality: 55, timeout: 5_000 }).catch(() => null);
             if (shot) testResult.failureScreenshot = `data:image/jpeg;base64,${shot.toString("base64")}`;
             const tree = await page.locator("body").ariaSnapshot({ timeout: 3_000 }).catch(() => null);
-            if (tree) testResult.failureSnapshot = tree.replace(/^\s*- \/url: .*$/gm, "").slice(0, 6_000);
+            const hints = await readElementHints(page);
+            if (tree) {
+              testResult.failureSnapshot =
+                tree.replace(/^\s*- \/url: .*$/gm, "").slice(0, 6_000) +
+                (hints.length ? `\n\n# Controls with test attributes\n${hints.join("\n").slice(0, 4_000)}` : "");
+            }
           }
         }
         const operations = step.entries.map((entry) => entry.result);

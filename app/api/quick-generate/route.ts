@@ -14,7 +14,7 @@ import {
   freeToolLimitBody,
   reserveFreeToolRun,
 } from "@/lib/operations/free-tool-access";
-import { testAccountSchema } from "@/lib/free-tools/sign-in";
+import { readTestAccount } from "@/lib/free-tools/sign-in";
 import { saveFreeToolDraft } from "@/lib/services/free-tool-drafts";
 import { logOperationalEvent } from "@/lib/operations/safe-telemetry";
 
@@ -42,16 +42,8 @@ export async function POST(req: Request) {
     // A test account for a page behind a login: typed into the site's login
     // form in the remote browser for this request only. Never stored, logged,
     // sent to the model, or returned.
-    const accountFields = {
-      username: String(formData.get("accountUsername") || ""),
-      password: String(formData.get("accountPassword") || ""),
-      loginUrl: String(formData.get("accountLoginUrl") || "").trim() || undefined,
-    };
-    const wantsAccount = Boolean(accountFields.username || accountFields.password);
-    const account = wantsAccount ? testAccountSchema.safeParse(accountFields) : null;
-    if (account && !account.success) {
-      return NextResponse.json({ error: "Enter both the test account's username and password, or leave both empty." }, { status: 400 });
-    }
+    const account = readTestAccount(formData);
+    if (!account.ok) return NextResponse.json({ error: account.error }, { status: 400 });
 
     if (!allowedModes.has(mode)) return NextResponse.json({ error: "Choose a supported generation mode." }, { status: 400 });
     if (!request && files.length === 0) return NextResponse.json({ error: "Describe the behavior or attach relevant evidence first." }, { status: 400 });
@@ -86,7 +78,7 @@ export async function POST(req: Request) {
     let snapshot: PageSnapshot | null = null;
     if (pageUrl && mode !== "API") {
       const snapshotStartedAt = Date.now();
-      snapshot = await capturePageSnapshot(pageUrl, account?.success ? { account: account.data } : {});
+      snapshot = await capturePageSnapshot(pageUrl, account.account ? { account: account.account } : {});
       logOperationalEvent(snapshot.ok ? "info" : "warn", {
         event: "public_ai.page_snapshot",
         requestId,

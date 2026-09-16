@@ -15,6 +15,7 @@ import {
 } from "@/lib/operations/free-tool-access";
 import { logOperationalEvent } from "@/lib/operations/safe-telemetry";
 import { capturePageSnapshot, type PageSnapshot } from "@/lib/free-tools/page-snapshot";
+import { readTestAccount } from "@/lib/free-tools/sign-in";
 import { measureSurfaceCoverage, readControls } from "@/lib/free-tools/surface-coverage";
 
 const lenses = new Set<CoverageReviewInput["lens"]>(["COVERAGE", "FLAKY", "ARCHITECTURE", "ASSERTIONS"]);
@@ -35,6 +36,9 @@ export async function POST(req: Request) {
     const existingTests = String(formData.get("existingTests") || "").trim();
     const screenshotValue = formData.get("screenshot");
     const screenshot = screenshotValue instanceof File && screenshotValue.size > 0 ? screenshotValue : null;
+    // A test account for a page behind a login, for this request only.
+    const account = readTestAccount(formData);
+    if (!account.ok) return NextResponse.json({ error: account.error }, { status: 400 });
 
     if (!lenses.has(lens)) return NextResponse.json({ error: "Choose a supported review lens." }, { status: 400 });
     if (!pageUrl && !requirement && !existingTests && !screenshot) return NextResponse.json({ error: "Add a requirement, test, URL, or screenshot first." }, { status: 400 });
@@ -47,7 +51,7 @@ export async function POST(req: Request) {
     let snapshot: PageSnapshot | null = null;
     if (pageUrl) {
       const snapshotStartedAt = Date.now();
-      snapshot = await capturePageSnapshot(pageUrl);
+      snapshot = await capturePageSnapshot(pageUrl, account.account ? { account: account.account } : {});
       logOperationalEvent(snapshot.ok ? "info" : "warn", {
         event: "public_ai.page_snapshot",
         requestId,
@@ -94,6 +98,7 @@ export async function POST(req: Request) {
                 url: snapshot.finalUrl,
                 title: snapshot.title,
                 counts: snapshot.counts,
+                signedIn: Boolean(snapshot.signedIn),
                 controls: readControls(snapshot.aria).length,
                 // Computed from the page and the pasted tests, not by the model.
                 surface: existingTests ? measureSurfaceCoverage(snapshot.aria, existingTests) : null,

@@ -126,7 +126,7 @@ test('x', async ({ page }) => {
     expect(operations[4]).toMatchObject({ matcher: "toHaveText", expected: { kind: "string", value: "Buy milk" } });
   });
 
-  it("keeps setup that opens with a check the preview cannot run, and signs in with supplied values", () => {
+  it("signs in with supplied values past a guard check, keeping lines in order", () => {
     const plan = planPreviewRun(`test.beforeEach(async ({ page }) => {
   const username = process.env.E2E_USERNAME;
   const password = process.env.E2E_PASSWORD ?? 'fallback';
@@ -143,12 +143,21 @@ test('x', async ({ page }) => {
   await expect(page).toHaveURL(/inventory/);
 });`, { env: { E2E_USERNAME: "standard_user", E2E_PASSWORD: "secret_sauce" } });
     expect(plan.beforeEach.map((operation) => (operation.op === "action" ? `${operation.action}:${operation.value}` : operation.op))).toEqual([
-      "unsupported", "goto", "fill:standard_user", "fill:secret_sauce", "expect",
+      "goto", "fill:standard_user", "fill:secret_sauce", "expect",
     ]);
     const unsupplied = planPreviewRun(`test('x', async ({ page }) => {
   await page.getByRole('textbox', { name: 'Username' }).fill(process.env.E2E_USERNAME);
 });`);
     expect(unsupplied.tests[0].steps[0].operations[0]).toMatchObject({ op: "unsupported", reason: "needs E2E_USERNAME from your environment" });
+    const guarded = planPreviewRun(`test('x', async ({ page }) => {
+  const username = process.env.E2E_USERNAME;
+  if (!username) { throw new Error('missing'); }
+  if (username.length > 3) throw new Error('odd');
+});`, { env: { E2E_USERNAME: "" } });
+    expect(guarded.tests[0].steps[0].operations.map((operation) => operation.op === "unsupported" && operation.reason)).toEqual([
+      "this check stops the test: a value it needs is empty",
+      "control flow is not run in the preview",
+    ]);
   });
 
   it("reads constants declared inside a describe block", () => {

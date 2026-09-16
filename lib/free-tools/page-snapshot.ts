@@ -2,6 +2,7 @@ import "server-only";
 
 import { chromium, type Browser } from "playwright-core";
 
+import { readElementHints } from "@/lib/free-tools/element-hints";
 import { signInWithTestAccount, type TestAccount } from "@/lib/free-tools/sign-in";
 
 /**
@@ -30,6 +31,8 @@ export type PageSnapshot =
       title: string;
       aria: string;
       testIds: string[];
+      /** Controls with a test attribute, e.g. button "Add to cart" [data-test="add-to-cart-backpack"]. */
+      elementHints: string[];
       truncated: boolean;
       /** Roles counted from the tree, for a one-line summary to the reader. */
       counts: { buttons: number; links: number; fields: number; headings: number };
@@ -131,7 +134,7 @@ export async function capturePageSnapshot(
       }
       const finalUrl = page.url();
       if (!isPublicWebAddress(finalUrl)) return { ok: false, reason: "blocked_address" };
-      const [title, fullAria, testIds] = await Promise.all([
+      const [title, fullAria, testIds, elementHints] = await Promise.all([
         page.title(),
         page.locator("body").ariaSnapshot({ timeout: 8_000 }),
         page.evaluate(() =>
@@ -140,6 +143,7 @@ export async function capturePageSnapshot(
             .filter(Boolean)
             .slice(0, 60),
         ),
+        readElementHints(page),
       ]);
       // Link targets are noise for writing locators and cost the most space.
       const aria = fullAria.replace(/^\s*- \/url: .*$/gm, "").replace(/\n{2,}/g, "\n");
@@ -149,6 +153,7 @@ export async function capturePageSnapshot(
         title: title.slice(0, 300),
         aria: aria.slice(0, MAX_ARIA_CHARS),
         testIds: [...new Set(testIds)].map((id) => id.slice(0, 100)),
+        elementHints,
         truncated: aria.length > MAX_ARIA_CHARS,
         counts: countRoles(aria),
         ...(signedIn ? { signedIn } : {}),

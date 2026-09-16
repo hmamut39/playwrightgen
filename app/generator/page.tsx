@@ -13,6 +13,13 @@ import type { FreeToolHandoff } from "@/lib/free-tools/handoff";
 import { LimitReached, readFreeToolLimit, type FreeToolLimit } from "@/components/free-tools/limit-reached";
 import { PreviewRunPanel, type CompletedRun } from "@/components/free-tools/preview-run-panel";
 import { SavedDrafts, type SavedDraft } from "@/components/free-tools/saved-drafts";
+import {
+  appendTestAccount,
+  EMPTY_TEST_ACCOUNT,
+  TestAccountFields,
+  testAccountEnv,
+  type TestAccountValue,
+} from "@/components/free-tools/test-account-fields";
 
 type GenerationMode = "FLOW" | "MARKUP" | "COMPONENT" | "API";
 type GenerationDepth = "FOCUSED" | "EXPANDED";
@@ -149,7 +156,7 @@ export default function QuickGeneratePage() {
   const [draftId, setDraftId] = useState<string | null>(null);
   // A test account for a page behind a login: sent with this request and its
   // live runs, kept only in this tab's memory.
-  const [account, setAccount] = useState({ username: "", password: "", loginUrl: "" });
+  const [account, setAccount] = useState<TestAccountValue>(EMPTY_TEST_ACCOUNT);
   const [runEnv, setRunEnv] = useState<Record<string, string>>({});
   const { isSignedIn } = useAuth();
   const [savedVersion, setSavedVersion] = useState(0);
@@ -220,11 +227,7 @@ export default function QuickGeneratePage() {
       formData.set("depth", depth);
       formData.set("request", request);
       formData.set("pageUrl", pageUrl);
-      if (mode !== "API" && (account.username || account.password)) {
-        formData.set("accountUsername", account.username);
-        formData.set("accountPassword", account.password);
-        if (account.loginUrl.trim()) formData.set("accountLoginUrl", account.loginUrl.trim());
-      }
+      if (mode !== "API") appendTestAccount(formData, account);
       files.forEach((file) => formData.append("files", file));
 
       const response = await fetch("/api/quick-generate", { method: "POST", body: formData });
@@ -348,7 +351,7 @@ export default function QuickGeneratePage() {
                 {mode !== "API" ? (
                   <button
                     type="button"
-                    onClick={() => { setMode("FLOW"); setRequest(DEMO.request); setPageUrl(DEMO.url); setAccount({ username: "", password: "", loginUrl: "" }); resetResult(); }}
+                    onClick={() => { setMode("FLOW"); setRequest(DEMO.request); setPageUrl(DEMO.url); setAccount(EMPTY_TEST_ACCOUNT); resetResult(); }}
                     className="rounded-xl border border-slate-900 bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
                   >
                     Try it on a live demo page
@@ -399,22 +402,7 @@ export default function QuickGeneratePage() {
                   </span>
                   <input value={pageUrl} onChange={(event) => { setPageUrl(event.target.value); resetResult(); }} maxLength={2_000} placeholder="https://app.example.com/login" className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-cyan-600" />
                 </label>
-                {mode !== "API" ? (
-                  <details open={Boolean(account.username || account.password)} className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                    <summary className="cursor-pointer text-sm font-semibold text-slate-800">
-                      Page behind a login? <span className="font-normal text-slate-500">Add a test account</span>
-                    </summary>
-                    <p className="mt-2 text-xs leading-5 text-slate-500">
-                      We sign in on the site in a remote browser and read what a signed-in person sees. Used for this draft and its
-                      live runs only &mdash; never saved and never sent to the AI. Use a test account, not a personal one.
-                    </p>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                      <input aria-label="Test account username or email" autoComplete="off" value={account.username} onChange={(event) => setAccount((current) => ({ ...current, username: event.target.value }))} maxLength={200} placeholder="Username or email" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-cyan-600" />
-                      <input aria-label="Test account password" type="password" autoComplete="new-password" value={account.password} onChange={(event) => setAccount((current) => ({ ...current, password: event.target.value }))} maxLength={200} placeholder="Password" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-cyan-600" />
-                    </div>
-                    <input aria-label="Login page URL, if different" value={account.loginUrl} onChange={(event) => setAccount((current) => ({ ...current, loginUrl: event.target.value }))} maxLength={2_000} placeholder="Login page URL (only if it is a different page)" className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-cyan-600" />
-                  </details>
-                ) : null}
+                {mode !== "API" ? <TestAccountFields value={account} onChange={setAccount} /> : null}
               </div>
               <div>
                 <p className="text-sm font-semibold text-slate-800">Files or screenshots <span className="font-normal text-slate-400">(optional)</span></p>
@@ -537,11 +525,7 @@ export default function QuickGeneratePage() {
                   pageUrl={livePage.url}
                   pageTreeAtStart={livePage.excerpt}
                   draftId={draftId}
-                  initialEnv={{
-                    ...(account.username ? { E2E_USERNAME: account.username } : {}),
-                    ...(account.password ? { E2E_PASSWORD: account.password } : {}),
-                    ...runEnv,
-                  }}
+                  initialEnv={{ ...testAccountEnv(account), ...runEnv }}
                   onEnvChange={setRunEnv}
                   onRun={(run) => {
                     setLastRun(run);
