@@ -15,6 +15,14 @@ test suite (460+ tests) passes.
 ## Shipped (most recent first)
 
 ### Free tools
+- **One button that makes a test pass** (`lib/free-tools/prove-loop.ts`,
+  2026-09-17): "Generate & prove on the live page" generates the draft, runs it
+  in the remote browser, fixes the failing step from the page as it was, and
+  runs again, up to two fixes, showing every round including the failures. The
+  verifier is the real run, not a model, and the passing run's signed receipt
+  travels with the code. Verified: the login demo passes in about 90 seconds
+  (sign-in, draft, one fix, 14 checks). The loop itself is unit-tested with
+  fake steps, so its budget and stop conditions are proven without a browser.
 - **Quality checks for Coverage Review and Release Review** (2026-09-17):
   `evals/coverage-review.eval.ts` and `evals/release-review.eval.ts`, graded
   deterministically rather than by a judge model: evidence rated honestly with
@@ -121,14 +129,22 @@ test suite (460+ tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **MCP directory listings (needs the owner).** The official MCP registry
+1. **Prove it everywhere the loop belongs.** The same loop for Coverage
+   Review's "next tests", for the workspace (generate automation for an
+   approved test case, then run and fix it before a person reviews it), and as
+   one MCP tool so an agent gets a proven test in a single call.
+2. **Cover a whole page (planner-executor).** From one URL: plan the test cases
+   a page needs, then prove each one in parallel, ending with a suite and a
+   coverage summary. Bounded by the workspace allowance, with a plan a person
+   approves before it spends anything.
+3. **MCP directory listings (needs the owner).** The official MCP registry
    verifies the publisher through GitHub or DNS, so publishing is the owner's
    step; everything else (the /mcp page, tools, docs) is ready.
-2. **Split the Release Review page.** It is 1,500 lines in one file. The
+4. **Split the Release Review page.** It is 1,500 lines in one file. The
    analysis now lives in lib/ai/release-review.ts; the page does not.
-3. **Open a pull request from approved automation.** Needs the owner's
+5. **Open a pull request from approved automation.** Needs the owner's
    decision on giving the GitHub App write permission (currently read-only).
-4. **Verify the paid path end to end.** Stripe payment, then webhook, then
+6. **Verify the paid path end to end.** Stripe payment, then webhook, then
    entitlement, then the Team allowance in the free tools. Needs the owner's
    account and a real card.
 

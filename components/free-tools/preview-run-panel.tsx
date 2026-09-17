@@ -4,9 +4,9 @@ import { useState } from "react";
 
 import { LimitReached, readFreeToolLimit, type FreeToolLimit } from "@/components/free-tools/limit-reached";
 
-type OperationResult = { source: string; status: "passed" | "failed" | "skipped" | "not_reached"; detail?: string };
-type StepResult = { name: string; status: "passed" | "failed" | "partial" | "not_reached"; operations: OperationResult[] };
-type TestResult = {
+export type OperationResult = { source: string; status: "passed" | "failed" | "skipped" | "not_reached"; detail?: string };
+export type StepResult = { name: string; status: "passed" | "failed" | "partial" | "not_reached"; operations: OperationResult[] };
+export type TestResult = {
   name: string;
   status: "passed" | "failed" | "incomplete";
   steps: StepResult[];
@@ -28,7 +28,7 @@ export type FixedDraft = {
   validation: { status: "PASSED" | "WARNINGS" | "BLOCKED"; findings: { severity: "BLOCKING" | "WARNING"; code: string; message: string }[] };
   locatorCheck: { checked: number; found: number; notFound: string[] };
 };
-type RunResult = {
+export type RunResult = {
   tests: TestResult[];
   counts: { passed: number; failed: number; skipped: number; notReached: number };
   durationMs: number;
@@ -57,11 +57,14 @@ export function PreviewRunPanel({
   onFixed,
   onRun,
   draftId,
+  initialRun,
   initialEnv,
   onEnvChange,
 }: {
   code: string;
   pageUrl: string;
+  /** A run that already happened for this code, so its result is shown without running again. */
+  initialRun?: RunResult | null;
   /** Values the page already has for process.env names (the test account entered above). */
   initialEnv?: Record<string, string>;
   /** Lets the page keep typed values when a fix replaces the code (and this panel). */
@@ -85,6 +88,12 @@ export function PreviewRunPanel({
   const [state, setState] = useState<
     { status: "idle" } | { status: "running" } | { status: "done"; result: RunResult } | { status: "error"; message: string }
   >({ status: "idle" });
+
+  // The page's own loop may have run this code already, in which case its
+  // result belongs here. Derived rather than copied into state, so a run
+  // arriving after this panel is on screen still shows, and a run started here
+  // takes over from it.
+  const shown = state.status === "idle" && initialRun ? ({ status: "done", result: initialRun } as const) : state;
 
   async function run() {
     setState({ status: "running" });
@@ -118,8 +127,8 @@ export function PreviewRunPanel({
   }
 
   const firstFailure =
-    state.status === "done"
-      ? state.result.tests
+    shown.status === "done"
+      ? shown.result.tests
           .flatMap((test) => test.steps.map((step) => ({ test, step })))
           .find(({ step }) => step.status === "failed")
       : undefined;
@@ -177,15 +186,15 @@ export function PreviewRunPanel({
         <button
           type="button"
           onClick={run}
-          disabled={state.status === "running"}
+          disabled={shown.status === "running"}
           className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 text-sm font-bold text-slate-950 hover:bg-cyan-300 disabled:opacity-60"
         >
-          {state.status === "running" ? (
+          {shown.status === "running" ? (
             <>
               <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-900 border-t-transparent" />
               Running in a real browser&hellip;
             </>
-          ) : state.status === "done" ? (
+          ) : shown.status === "done" ? (
             "Run again"
           ) : (
             "Run on the live page"
@@ -224,11 +233,11 @@ export function PreviewRunPanel({
         </details>
       ) : null}
 
-      {state.status === "error" ? (
-        <p role="alert" className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-red-200">{state.message}</p>
+      {shown.status === "error" ? (
+        <p role="alert" className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-red-200">{shown.message}</p>
       ) : null}
 
-      {state.status === "done" ? (
+      {shown.status === "done" ? (
         <div className="mt-4 space-y-4" aria-live="polite">
           {firstFailure ? (
             <div className="rounded-xl border border-red-400/30 bg-red-500/10 p-4">
@@ -275,21 +284,21 @@ export function PreviewRunPanel({
             </div>
           ) : (
             <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-4 font-semibold text-emerald-200">
-              {state.result.counts.skipped > 0
-                ? `Every step that could run passed on the live page (${state.result.counts.passed} checks).`
-                : `Passed on the live page: ${state.result.counts.passed} checks in ${Math.round(state.result.durationMs / 1000)}s.`}
+              {shown.result.counts.skipped > 0
+                ? `Every step that could run passed on the live page (${shown.result.counts.passed} checks).`
+                : `Passed on the live page: ${shown.result.counts.passed} checks in ${Math.round(shown.result.durationMs / 1000)}s.`}
             </div>
           )}
 
           <p className="text-xs text-slate-400">
-            {state.result.counts.passed} passed &middot; {state.result.counts.failed} failed
-            {state.result.counts.skipped ? ` · ${state.result.counts.skipped} not run in the preview` : ""}
-            {state.result.counts.notReached ? ` · ${state.result.counts.notReached} not reached` : ""}
-            {" "}&middot; {Math.round(state.result.durationMs / 1000)}s
-            {state.result.timedOut ? " · stopped at the time limit" : ""}
+            {shown.result.counts.passed} passed &middot; {shown.result.counts.failed} failed
+            {shown.result.counts.skipped ? ` · ${shown.result.counts.skipped} not run in the preview` : ""}
+            {shown.result.counts.notReached ? ` · ${shown.result.counts.notReached} not reached` : ""}
+            {" "}&middot; {Math.round(shown.result.durationMs / 1000)}s
+            {shown.result.timedOut ? " · stopped at the time limit" : ""}
           </p>
 
-          {state.result.tests.map((test) => (
+          {shown.result.tests.map((test) => (
             <details key={test.name} open={test.status !== "passed"} className="rounded-xl border border-white/10 bg-black/20 p-3">
               <summary className="cursor-pointer text-sm font-semibold text-white">
                 {test.status === "passed" ? "✓" : test.status === "failed" ? "✗" : "–"} {test.name}

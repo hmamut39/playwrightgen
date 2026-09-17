@@ -11,8 +11,15 @@ import { ResultActions } from "@/components/free-tools/result-actions";
 import { WorkspaceHandoffButton } from "@/components/free-tools/workspace-handoff-button";
 import type { FreeToolHandoff } from "@/lib/free-tools/handoff";
 import { LimitReached, readFreeToolLimit, type FreeToolLimit } from "@/components/free-tools/limit-reached";
-import { PreviewRunPanel, type CompletedRun } from "@/components/free-tools/preview-run-panel";
+import { PreviewRunPanel, type CompletedRun, type RunResult } from "@/components/free-tools/preview-run-panel";
+import { ProveRounds } from "@/components/free-tools/prove-rounds";
 import { SavedDrafts, type SavedDraft } from "@/components/free-tools/saved-drafts";
+import {
+  proveDraftOnLivePage,
+  verdictFromCounts,
+  type ProveFailure,
+  type ProveRound,
+} from "@/lib/free-tools/prove-loop";
 import {
   appendTestAccount,
   EMPTY_TEST_ACCOUNT,
@@ -39,6 +46,31 @@ type QuickGenerationResult = {
   unverifiedLocators?: string[];
   locatorCheck?: { checked: number; found: number; notFound: string[] } | null;
 };
+
+type RunResultPayload = RunResult;
+
+/** The first failing step of a run, with the page as it was, for the fixer. */
+function firstFailure(result: RunResultPayload): ProveFailure | null {
+  for (const test of result.tests) {
+    const operations = test.steps.flatMap((step) => step.operations);
+    for (const step of test.steps) {
+      const failed = step.operations.find((operation) => operation.status === "failed");
+      if (!failed || !test.failureSnapshot) continue;
+      return {
+        step: step.name,
+        line: failed.source,
+        reason: failed.detail ?? "",
+        pageTree: test.failureSnapshot,
+        skippedEarlier: operations
+          .slice(0, Math.max(0, operations.indexOf(failed)))
+          .filter((operation) => operation.status === "skipped")
+          .map((operation) => operation.source.slice(0, 300))
+          .slice(0, 20),
+      };
+    }
+  }
+  return null;
+}
 
 type LivePage =
   | {
@@ -158,6 +190,9 @@ export default function QuickGeneratePage() {
   // live runs, kept only in this tab's memory.
   const [account, setAccount] = useState<TestAccountValue>(EMPTY_TEST_ACCOUNT);
   const [runEnv, setRunEnv] = useState<Record<string, string>>({});
+  const [rounds, setRounds] = useState<ProveRound[]>([]);
+  const [proving, setProving] = useState(false);
+  const [provenRunResult, setProvenRunResult] = useState<RunResultPayload | null>(null);
   const { isSignedIn } = useAuth();
   const [savedVersion, setSavedVersion] = useState(0);
   const [remaining, setRemaining] = useState<number | null>(null);
@@ -171,11 +206,144 @@ export default function QuickGeneratePage() {
     [mode],
   );
 
+  // Proving needs a page to run against; API drafts have no page.
+  const canProve = Boolean(pageUrl.trim()) && mode !== "API";
+  const busy = loading || proving;
+
   const resetResult = () => {
     setResult(null);
     setInputSignals([]);
     setError("");
     setDraftId(null);
+    setRounds([]);
+    setProvenRunResult(null);
+  };
+
+  /** The request Quick Generate is given, shared by both actions. */
+  const generationBody = () => {
+    const formData = new FormData();
+    formData.set("mode", mode);
+    formData.set("depth", depth);
+    formData.set("request", request);
+    formData.set("pageUrl", pageUrl);
+    if (mode !== "API") appendTestAccount(formData, account);
+    files.forEach((file) => formData.append("files", file));
+    return formData;
+  };
+
+  /**
+   * Generate, run it on the live page, fix the failing step, run again: the
+   * loop people were doing by hand. Each round is shown as it happens, and the
+   * budget is small because every fix costs one of the day's free runs.
+   */
+  const proveIt = async () => {
+    if (!request.trim() && files.length === 0) {
+      setError("Describe the intended behavior or attach relevant evidence first.");
+      return;
+    }
+    setProving(true);
+    setRounds([]);
+    setLimit(null);
+    setError("");
+    setResult(null);
+    setProvenRunResult(null);
+    setFixNote(null);
+
+    let generatedDraftId: string | null = null;
+    let runPageUrl = pageUrl.trim();
+    const env = { ...testAccountEnv(account), ...runEnv };
+    const asLimit = (status: number, data: { error?: string; upgrade?: boolean; remaining?: number }) => {
+      const reached = readFreeToolLimit(status, data);
+      if (reached) setLimit(reached);
+      if (typeof data.remaining === "number") setRemaining(data.remaining);
+      return { ok: false as const, limit: Boolean(reached), message: data.error ?? "" };
+    };
+
+    try {
+      const outcome = await proveDraftOnLivePage({
+        report: (round) => setRounds((current) => [...current, round]),
+        generate: async () => {
+          const response = await fetch("/api/quick-generate", { method: "POST", body: generationBody() });
+          const data = await response.json();
+          if (!response.ok) return asLimit(response.status, data);
+          setResult(data.result);
+          setInputSignals(Array.isArray(data.inputSignals) ? data.inputSignals : []);
+          setLivePage(data.livePage ?? null);
+          generatedDraftId = typeof data.draftId === "string" ? data.draftId : null;
+          setDraftId(generatedDraftId);
+          if (generatedDraftId) setSavedVersion((value) => value + 1);
+          if (typeof data.remaining === "number") setRemaining(data.remaining);
+          if (data.livePage?.status === "read") runPageUrl = data.livePage.url;
+          return { ok: true as const, code: data.result.code, title: data.result.title, payload: data };
+        },
+        run: async (code) => {
+          const response = await fetch("/api/preview-run", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              code,
+              pageUrl: runPageUrl,
+              ...(generatedDraftId ? { draftId: generatedDraftId } : {}),
+              ...(Object.keys(env).length ? { env } : {}),
+            }),
+          });
+          const data = await response.json();
+          if (!response.ok) return asLimit(response.status, data);
+          const failure = firstFailure(data.result);
+          return {
+            ok: true as const,
+            verdict: verdictFromCounts(data.result.counts, data.result.timedOut),
+            passed: data.result.counts.passed,
+            failed: data.result.counts.failed,
+            skipped: data.result.counts.skipped + data.result.counts.notReached,
+            receipt: typeof data.receipt === "string" ? data.receipt : null,
+            failure,
+            payload: data,
+          };
+        },
+        fix: async (code, failure) => {
+          const response = await fetch("/api/repair-draft", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              code,
+              pageUrl: runPageUrl,
+              failure: { step: failure.step, line: failure.line, reason: failure.reason },
+              pageTreeAtFailure: failure.pageTree,
+              ...(livePage?.status === "read" ? { pageTreeAtStart: livePage.excerpt } : {}),
+              ...(failure.skippedEarlier.length ? { skippedEarlier: failure.skippedEarlier } : {}),
+              ...(generatedDraftId ? { draftId: generatedDraftId } : {}),
+            }),
+          });
+          const data = await response.json();
+          if (!response.ok) return asLimit(response.status, data);
+          setResult((current) =>
+            current
+              ? { ...current, code: data.result.code, validation: data.result.validation, locatorCheck: data.result.locatorCheck }
+              : current,
+          );
+          setFixNote(data.result.explanation);
+          if (typeof data.remaining === "number") setRemaining(data.remaining);
+          return { ok: true as const, code: data.result.code, explanation: data.result.explanation, payload: data };
+        },
+      });
+
+      if (outcome.code) {
+        setResult((current) => (current ? { ...current, code: outcome.code as string } : current));
+        const lastRun = outcome.lastRun as { result?: RunResultPayload } | null;
+        setProvenRunResult(lastRun?.result ?? null);
+        setLastRun({ code: outcome.code, receipt: outcome.receipt, verdict: outcome.verdict ?? "failed", passed: 0 });
+      }
+      if (outcome.verdict) {
+        const passedChecks = (outcome.lastRun as { result?: RunResultPayload } | null)?.result?.counts.passed ?? 0;
+        setLastRun({ code: outcome.code as string, receipt: outcome.receipt, verdict: outcome.verdict, passed: passedChecks });
+      }
+      window.requestAnimationFrame(() => document.getElementById("quick-generate-result")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    } catch {
+      setError("PlaywrightGen could not reach the service. Please try again.");
+    } finally {
+      setProving(false);
+    }
   };
 
   /** Reopens a saved draft as it was last run, evidence included. */
@@ -222,15 +390,7 @@ export default function QuickGeneratePage() {
       setError("");
       setResult(null);
 
-      const formData = new FormData();
-      formData.set("mode", mode);
-      formData.set("depth", depth);
-      formData.set("request", request);
-      formData.set("pageUrl", pageUrl);
-      if (mode !== "API") appendTestAccount(formData, account);
-      files.forEach((file) => formData.append("files", file));
-
-      const response = await fetch("/api/quick-generate", { method: "POST", body: formData });
+      const response = await fetch("/api/quick-generate", { method: "POST", body: generationBody() });
       const data = await response.json();
       if (!response.ok) {
         const reached = readFreeToolLimit(response.status, data);
@@ -436,13 +596,38 @@ export default function QuickGeneratePage() {
                     <Link href="/sign-in?redirect_url=%2Fgenerator" className="font-semibold text-cyan-800 hover:text-cyan-950">Sign in</Link> to keep your drafts and live runs.
                   </>
                 ) : isSignedIn ? " Your drafts and live runs are saved to your account." : null}
+                {canProve ? " Proving a test uses up to three of them: the draft and up to two AI fixes." : null}
               </p>
-              <button type="button" onClick={generate} disabled={loading} className="inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-6 text-sm font-bold text-white hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50">
-                {loading ? "Building structured draft…" : "Generate Playwright draft"}
-              </button>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                {canProve ? (
+                  <button
+                    type="button"
+                    onClick={proveIt}
+                    disabled={busy}
+                    title="Generates the test, runs it on your page, fixes the failing step and runs again"
+                    className="inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-6 text-sm font-bold text-white hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {proving ? "Making it pass…" : "Generate & prove on the live page"}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={generate}
+                  disabled={busy}
+                  className={
+                    canProve
+                      ? "inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-800 hover:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
+                      : "inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-6 text-sm font-bold text-white hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  }
+                >
+                  {loading ? "Building structured draft…" : canProve ? "Just write the draft" : "Generate Playwright draft"}
+                </button>
+              </div>
             </div>
           </div>
         </section>
+
+        <ProveRounds rounds={rounds} working={proving} />
 
         {loading ? (
           <GenerationProgress
@@ -525,6 +710,7 @@ export default function QuickGeneratePage() {
                   pageUrl={livePage.url}
                   pageTreeAtStart={livePage.excerpt}
                   draftId={draftId}
+                  initialRun={provenRunResult}
                   initialEnv={{ ...testAccountEnv(account), ...runEnv }}
                   onEnvChange={setRunEnv}
                   onRun={(run) => {
