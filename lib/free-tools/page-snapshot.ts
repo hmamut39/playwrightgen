@@ -163,14 +163,32 @@ export async function capturePageSnapshot(
     }
   };
 
+  // The remote browser now and then refuses a connection or drops one mid-load.
+  // One quick retry turns that blip into a read page instead of a draft built
+  // on guesses; a slow failure is not retried, to stay inside the time budget.
+  const startedAt = Date.now();
+  const attempt = async (): Promise<PageSnapshot> => {
+    try {
+      return await work();
+    } catch (error) {
+      if (Date.now() - startedAt > 12_000) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      return work();
+    }
+  };
+
   try {
     return await Promise.race([
-      work(),
+      attempt(),
       new Promise<PageSnapshot>((resolve) =>
         setTimeout(() => resolve({ ok: false, reason: "timeout" }), options.account ? SIGNED_IN_TIMEOUT_MS : TOTAL_TIMEOUT_MS),
       ),
     ]);
-  } catch {
+  } catch (error) {
+    // The reason matters when every page fails; the endpoint carries the API
+    // key, so it is blanked out of the message.
+    const message = (error instanceof Error ? error.message : String(error)).replace(/token=[^&\s"']+/g, "token=***");
+    console.warn("[page-snapshot] could not read the page:", message.split("\n")[0].slice(0, 300));
     return { ok: false, reason: "unreachable" };
   }
 }

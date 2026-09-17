@@ -104,8 +104,10 @@ export function EditorSetupPanel({ mcpUrl, token }: { mcpUrl: string; token: str
         approved test cases and write tests against them, pull approved
         automation into your repository with the version marker intact, and see
         what failed in the last run &mdash; without copy and paste. It can also
-        propose new test cases and send the code it wrote, which wait for a person
-        to review; it can never approve anything.
+        write a test from the real page, run it on the live page until it passes,
+        and propose it with that passing run as evidence. Proposals wait for a
+        person to review; it can never approve anything. Generating and running
+        use this workspace&rsquo;s daily AI allowance.
       </p>
 
       <div className="mt-6">
@@ -153,7 +155,8 @@ export function EditorSetupPanel({ mcpUrl, token }: { mcpUrl: string; token: str
         It stops working as soon as your access to this project ends, and
         rotating the project&rsquo;s CI token on the Repositories page also
         replaces it. Try asking your assistant: &ldquo;Using PlaywrightGen, write
-        the Playwright test for our checkout test case.&rdquo;
+        a test for signing up on https://our-app.example.com, run it until it
+        passes, and propose it for review.&rdquo;
       </p>
     </section>
   );

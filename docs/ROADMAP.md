@@ -70,6 +70,14 @@ test suite (460+ tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **Free tools over MCP** (2026-09-16): `generate_playwright_test` (reads the
+  real page, writes a draft) and `run_playwright_test` (replays it in the
+  remote browser, returns the failing step with the page tree, and a signed
+  runReceipt when it passes). Both use the workspace's daily AI allowance.
+  `propose_test_case` and `submit_playwright_code` accept the runReceipt, so
+  an agent's passing run is kept as evidence. Verified over HTTP locally:
+  generate, run (passed, 14 checks), propose with evidence. The page reader
+  now retries once when the remote browser drops a connection.
 - **Editor agents can propose, people approve** (`lib/mcp/playwrightgen-mcp.ts`, 2026-09-16):
   two MCP write tools. `propose_test_case` creates a draft test case (tagged
   from-editor, optionally with Playwright code and submitted for review);
@@ -96,8 +104,10 @@ test suite (460+ tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Free tools over MCP, and MCP directory listings.** Offer Quick Generate
-   and the live run as MCP tools, then list the server in MCP directories.
+1. **A public MCP page, then directory listings.** A public /mcp page that
+   explains the connection and its tools; then list the server in MCP
+   directories (the official registry needs the owner's GitHub or DNS
+   verification, so that step is theirs).
 2. **Saved Coverage Reviews.** The same saved history for Coverage Review
    (Quick Generate has it now).
 3. **Evals for Coverage Review and Release Review.** Only Quick Generate has

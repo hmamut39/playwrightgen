@@ -50,11 +50,13 @@ export class ImportedDraftError extends Error {
  * It takes the same place as code brought from Quick Generate: kept with the
  * Test Case, unreviewed, until a person turns it into an automation version.
  * Sending new code replaces code not yet used; after it was used, it starts the
- * next version. It never carries run evidence -- nothing here ran it.
+ * next version. It carries run evidence only with a signed receipt from a live
+ * run of this exact code.
  */
 export async function attachEditorCode(
-  input: { orgSlug?: string; projectId: string; testCaseId: string; code: string },
+  input: { orgSlug?: string; projectId: string; testCaseId: string; code: string; runReceipt?: string | null },
   dependencies?: WorkspaceContextDependencies,
+  secret: string | null = readRunReceiptSecret(),
 ) {
   const projectId = z.string().uuid().parse(input.projectId);
   const testCaseId = z.string().uuid().parse(input.testCaseId);
@@ -79,11 +81,13 @@ export async function attachEditorCode(
   if (testCase.status === "ARCHIVED") throw new ImportedDraftError("test_case_archived");
 
   const key = { organizationId_projectId_testCaseId: { organizationId: workspace.organization.id, projectId, testCaseId } };
+  // A receipt from run_playwright_test counts only for this exact code.
+  const evidence = input.runReceipt && secret ? verifyRunReceipt(input.runReceipt, code, secret) : null;
   const fields = {
     source: "editor",
     code,
-    pageUrl: null,
-    runEvidence: Prisma.DbNull,
+    pageUrl: evidence?.pageUrl ?? null,
+    runEvidence: evidence ? (evidence as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
     importedByUserId: workspace.user.id,
     usedAt: null,
     usedInAutomationVersionId: null,
@@ -93,7 +97,11 @@ export async function attachEditorCode(
     create: { organizationId: workspace.organization.id, projectId, testCaseId, ...fields },
     update: fields,
   });
-  return { testCaseStatus: testCase.status, warnings: validation.findings.map((finding) => finding.message) };
+  return {
+    testCaseStatus: testCase.status,
+    warnings: validation.findings.map((finding) => finding.message),
+    evidence,
+  };
 }
 
 export function readRunEvidence(value: Prisma.JsonValue | null): ImportedRunEvidence | null {

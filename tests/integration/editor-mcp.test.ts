@@ -7,6 +7,7 @@ import { handleMcpRequest } from "@/app/api/mcp/route";
 import type { PrismaClient } from "@/generated/prisma/client";
 import type { AutomationGenerationInput } from "@/lib/ai/automation-generation";
 import { deriveEditorToken, parseEditorToken } from "@/lib/integrations/editor/editor-token";
+import { readRunReceiptSecret, signRunReceipt } from "@/lib/free-tools/preview-run/receipt";
 import { handleMcpMessage } from "@/lib/mcp/playwrightgen-mcp";
 import {
   approveAutomationArtifact,
@@ -243,6 +244,8 @@ export default defineConfig({ use: { baseURL: "http://localhost:3000" } });`,
         "list_approved_automation",
         "get_approved_automation",
         "list_recent_failures",
+        "generate_playwright_test",
+        "run_playwright_test",
         "propose_test_case",
         "submit_playwright_code",
       ]);
@@ -318,6 +321,23 @@ test('customer applies a discount code', async ({ page }) => {
       expect(resent.result.isError).toBeUndefined();
       expect(await prisma.testCaseImportedDraft.count({ where: { testCaseId: id } })).toBe(1);
       expect((await prisma.testCaseImportedDraft.findFirstOrThrow({ where: { testCaseId: id } })).code).toContain("SAVE20");
+
+      // A live run's receipt is kept as evidence only for the exact code it ran.
+      const secret = readRunReceiptSecret();
+      if (!secret) throw new Error("RUNNER_INGEST_SECRET is needed for this test");
+      const passing = {
+        tests: [{ name: "customer applies a discount code", status: "passed" as const, steps: [] }],
+        counts: { passed: 3, failed: 0, skipped: 0, notReached: 0 },
+        durationMs: 2_000,
+        timedOut: false,
+      };
+      const receipt = signRunReceipt({ code: draftCode, pageUrl: "https://shop.example.com/", result: passing }, secret);
+      const proven = await call(session, "submit_playwright_code", { testCaseId: id, code: draftCode, runReceipt: receipt });
+      expect(proven.result.structuredContent?.evidence).toEqual({ verdict: "passed", passed: 3 });
+      expect((await prisma.testCaseImportedDraft.findFirstOrThrow({ where: { testCaseId: id } })).runEvidence).toMatchObject({ verdict: "passed" });
+      const mismatched = await call(session, "submit_playwright_code", { testCaseId: id, code: draftCode.replace("SAVE10", "SAVE30"), runReceipt: receipt });
+      expect(mismatched.result.structuredContent?.evidence).toBeNull();
+      expect(mismatched.result.content[0].text).toContain("not for this exact code");
 
       const notPlaywright = await call(session, "submit_playwright_code", { testCaseId: id, code: "console.log('hello')" });
       expect(notPlaywright.result.isError).toBe(true);
@@ -397,7 +417,7 @@ test('customer applies a discount code', async ({ page }) => {
 
       const listed = await post({ jsonrpc: "2.0", id: 1, method: "tools/list" });
       expect(listed.status).toBe(200);
-      expect((await listed.json()).result.tools).toHaveLength(8);
+      expect((await listed.json()).result.tools).toHaveLength(10);
 
       const notified = await post({ jsonrpc: "2.0", method: "notifications/initialized" });
       expect(notified.status).toBe(202);

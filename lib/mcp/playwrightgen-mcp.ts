@@ -2,7 +2,20 @@ import "server-only";
 
 import { z } from "zod";
 
+import { generateQuickDraft } from "@/lib/ai/quick-generation";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
+import { capturePageSnapshot, isPublicWebAddress } from "@/lib/free-tools/page-snapshot";
+import { runVerdict } from "@/lib/free-tools/preview-run/receipt";
+import {
+  executeLiveRun,
+  LiveRunUnavailableError,
+  prepareLiveRun,
+  runEnvSchema,
+} from "@/lib/free-tools/preview-run/run-draft";
+import {
+  OrganizationAiRateLimitError,
+  reserveOrganizationAiRequest,
+} from "@/lib/operations/organization-ai-guard";
 import { slugify } from "@/lib/format/slug";
 import { buildTestCaseVersionMarker } from "@/lib/integrations/runner/ingest-token";
 import {
@@ -52,7 +65,8 @@ When writing or changing a Playwright test for this project:
 2. Put the test case's version marker (for example [pwg:1f2e...]) at the start of the test title, exactly as given. It is how results from CI attach back to the approved version; without it the run is reported but proves nothing.
 3. Prefer reviewed code: if get_approved_automation has an approved version, use it as-is rather than regenerating.
 4. Use list_recent_failures to see what is currently failing and why before fixing a test.
-5. When behaviour has no test case yet, use propose_test_case (with the Playwright code you wrote, if any). To send code for an existing test case, use submit_playwright_code.
+5. To write a new test, generate_playwright_test drafts one from the real page; run_playwright_test checks any test on the live page and shows the failing step with the page tree, so fix and run again until it passes.
+6. When behaviour has no test case yet, use propose_test_case (with the Playwright code you wrote, if any). To send code for an existing test case, use submit_playwright_code.
 You can propose and send code, but not approve: a person reviews everything in PlaywrightGen before it counts.`;
 
 type JsonRpcId = string | number;
@@ -87,6 +101,21 @@ function toolError(message: string): ToolResult {
 const READ_ONLY = { readOnlyHint: true, idempotentHint: true, openWorldHint: false };
 /** Adds a draft or code for review; changes nothing approved, deletes nothing. */
 const WRITE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
+/** Changes nothing in PlaywrightGen, but opens a public page and uses the daily allowance. */
+const USES_ALLOWANCE = { readOnlyHint: true, idempotentHint: false, openWorldHint: true };
+
+/**
+ * The free tools over MCP draw on the connected workspace's daily AI allowance
+ * -- the same one its members use in the web app -- rather than a per-address
+ * limit, since the caller is a known person in a known workspace.
+ */
+async function reserveWorkspaceAllowance(session: EditorSession) {
+  const context = await requireWorkspaceContext(
+    { orgSlug: session.orgSlug, projectId: session.projectId, permission: "testcase:create" },
+    session.dependencies,
+  );
+  return reserveOrganizationAiRequest({ organizationId: context.organization.id, surface: "free-tools" });
+}
 
 const uuidArg = z.string().uuid();
 
@@ -408,6 +437,148 @@ const tools: Tool[] = [
     },
   },
   {
+    name: "generate_playwright_test",
+    title: "Generate a Playwright test",
+    description:
+      "Write a Playwright test draft for described behaviour. When pageUrl is a public page, PlaywrightGen opens it and builds locators from its real accessibility tree. Returns the code, the plan, and which locators could not be confirmed on the page. Uses one request from the workspace's daily AI allowance. Next, check it with run_playwright_test.",
+    annotations: USES_ALLOWANCE,
+    inputSchema: {
+      type: "object",
+      properties: {
+        request: { type: "string", description: "The behaviour to test and what should happen." },
+        pageUrl: { type: "string", description: "Public URL of the page the test starts on (recommended)." },
+        api: { type: "boolean", description: "Write an API test with the request fixture instead of a browser test." },
+        depth: { type: "string", enum: ["FOCUSED", "EXPANDED"], description: "EXPANDED adds negative and edge cases." },
+      },
+      required: ["request"],
+      additionalProperties: false,
+    },
+    async run(session, args) {
+      const input = z
+        .object({
+          request: z.string().trim().min(1).max(30_000),
+          pageUrl: z.string().trim().max(2_000).optional(),
+          api: z.boolean().optional(),
+          depth: z.enum(["FOCUSED", "EXPANDED"]).optional(),
+        })
+        .parse(args);
+      if (input.pageUrl && !isPublicWebAddress(input.pageUrl)) {
+        return toolError("pageUrl must be a public web address (not localhost or a private network).");
+      }
+      const allowance = await reserveWorkspaceAllowance(session);
+      const mode = input.api ? "API" : "FLOW";
+      const snapshot = input.pageUrl && mode !== "API" ? await capturePageSnapshot(input.pageUrl) : null;
+      const draft = await generateQuickDraft({
+        mode,
+        request: input.request,
+        pageUrl: input.pageUrl ?? "",
+        depth: input.depth ?? "FOCUSED",
+        fileContext: "",
+        imageDataUrls: [],
+        pageSnapshot: snapshot?.ok ? snapshot : null,
+      });
+      const pageLine = !input.pageUrl
+        ? "No page was given, so every locator is a best guess."
+        : snapshot?.ok
+          ? `Read the live page "${snapshot.title}" (${snapshot.counts.buttons} buttons, ${snapshot.counts.fields} fields, ${snapshot.counts.links} links).${draft.locatorCheck ? ` ${draft.locatorCheck.found} of ${draft.locatorCheck.checked} named locators match it.` : ""}`
+          : `The page could not be opened (${snapshot?.ok === false ? snapshot.reason : "not read"}), so locators are best guesses.`;
+      const unverified = [...new Set([...(draft.locatorCheck?.notFound ?? []), ...draft.unverifiedLocators])].slice(0, 20);
+      const body = [
+        `# ${draft.title}`,
+        draft.summary,
+        pageLine,
+        "",
+        "Plan:",
+        ...draft.testPlan.map((item, index) => `${index + 1}. ${item.scenario}: ${item.intent} (expect: ${item.expectedOutcome})`),
+        unverified.length ? `\nConfirm these locators, which were not on the page read: ${unverified.join(", ")}` : null,
+        draft.warnings.length ? `\nWarnings: ${draft.warnings.join(" ")}` : null,
+        "",
+        "```ts",
+        draft.code,
+        "```",
+        "",
+        input.pageUrl && mode !== "API"
+          ? `Not run yet. Check it with run_playwright_test (pageUrl: ${snapshot?.ok ? snapshot.finalUrl : input.pageUrl}).`
+          : "Not run yet.",
+        `Workspace AI requests left today: ${allowance.dailyRemaining}.`,
+      ]
+        .filter((line) => line !== null)
+        .join("\n");
+      return text(body, {
+        title: draft.title,
+        code: draft.code,
+        plan: draft.testPlan,
+        pageRead: Boolean(snapshot?.ok),
+        pageUrl: snapshot?.ok ? snapshot.finalUrl : input.pageUrl ?? null,
+        locatorCheck: draft.locatorCheck,
+        unverifiedLocators: unverified,
+        warnings: draft.warnings,
+        remainingToday: allowance.dailyRemaining,
+      });
+    },
+  },
+  {
+    name: "run_playwright_test",
+    title: "Run a Playwright test on the live page",
+    description:
+      "Replay a Playwright test step by step in a real remote browser against a public page, and report which step failed, why, and the page's accessibility tree at that moment so the locator can be fixed. The code is read into safe Playwright steps, never executed as code. Pass env for process.env values the test reads, such as a test account; they are used for this run only. A passing run returns a runReceipt to give submit_playwright_code. Uses one request from the workspace's daily AI allowance.",
+    annotations: USES_ALLOWANCE,
+    inputSchema: {
+      type: "object",
+      properties: {
+        code: { type: "string", description: "The full Playwright test file." },
+        pageUrl: { type: "string", description: "Public base URL relative page.goto paths resolve against." },
+        env: { type: "object", additionalProperties: { type: "string" }, description: "Values for process.env names the test reads." },
+      },
+      required: ["code", "pageUrl"],
+      additionalProperties: false,
+    },
+    async run(session, args) {
+      const input = z
+        .object({ code: z.string().min(1).max(100_000), pageUrl: z.string().trim().min(1).max(2_000), env: runEnvSchema.optional() })
+        .parse(args);
+      const prepared = prepareLiveRun(input);
+      if (!prepared.ok) return toolError(prepared.error);
+      const allowance = await reserveWorkspaceAllowance(session);
+      const { result, receipt } = await executeLiveRun(prepared.run);
+      const verdict = runVerdict(result);
+      const icon = { passed: "✓", failed: "✗", skipped: "–", not_reached: "·" } as const;
+      const lines: string[] = [
+        verdict === "passed"
+          ? `Passed on the live page: ${result.counts.passed} checks in ${Math.round(result.durationMs / 1000)}s.`
+          : verdict === "partial"
+            ? `Nothing failed, but not every step ran: ${result.counts.passed} passed, ${result.counts.skipped} not run in the preview, ${result.counts.notReached} not reached${result.timedOut ? " (time limit)" : ""}.`
+            : `Failed: ${result.counts.passed} passed, ${result.counts.failed} failed, ${result.counts.notReached} not reached.`,
+      ];
+      for (const test of result.tests) {
+        lines.push("", `## ${test.name} — ${test.status}`);
+        for (const step of test.steps) {
+          lines.push(`${step.name}:`);
+          for (const operation of step.operations) {
+            lines.push(`  ${icon[operation.status]} ${operation.source}${operation.detail && operation.status !== "passed" ? ` — ${operation.detail}` : ""}`);
+          }
+        }
+        if (test.failureSnapshot) {
+          lines.push("", "Page at the failure (accessibility tree; fix the locator from it, then run again):", test.failureSnapshot.slice(0, 6_000));
+        }
+      }
+      if (receipt && verdict !== "failed") {
+        lines.push("", `runReceipt (give it to submit_playwright_code with this exact code): ${receipt}`);
+      }
+      lines.push("", `Workspace AI requests left today: ${allowance.dailyRemaining}.`);
+      return text(lines.join("\n"), {
+        verdict,
+        counts: result.counts,
+        durationMs: result.durationMs,
+        timedOut: result.timedOut,
+        // Screenshots are large images an agent cannot use; the page tree is enough.
+        tests: result.tests.map((test) => ({ ...test, failureScreenshot: undefined })),
+        runReceipt: verdict === "failed" ? null : receipt,
+        remainingToday: allowance.dailyRemaining,
+      });
+    },
+  },
+  {
     name: "propose_test_case",
     title: "Propose a test case",
     description:
@@ -424,6 +595,7 @@ const tools: Tool[] = [
         type: { type: "string", enum: ["FUNCTIONAL", "END_TO_END", "API", "INTEGRATION", "REGRESSION"] },
         priority: { type: "string", enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
         playwrightCode: { type: "string", description: "Optional: the full Playwright test file you wrote for it." },
+        runReceipt: { type: "string", description: "Optional: runReceipt from run_playwright_test for exactly this code." },
         submitForReview: { type: "boolean", description: "Send it to a reviewer now. Default false." },
       },
       required: ["title", "objective", "steps", "expectedResults"],
@@ -440,6 +612,7 @@ const tools: Tool[] = [
           type: z.enum(["FUNCTIONAL", "END_TO_END", "API", "INTEGRATION", "REGRESSION"]).optional(),
           priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
           playwrightCode: z.string().min(1).max(100_000).optional(),
+          runReceipt: z.string().max(4_000).optional(),
           submitForReview: z.boolean().optional(),
         })
         .parse(args);
@@ -463,8 +636,16 @@ const tools: Tool[] = [
       const notes: string[] = [];
       if (input.playwrightCode) {
         try {
-          const attached = await attachEditorCode({ ...scope, testCaseId: created.id, code: input.playwrightCode }, session.dependencies);
-          notes.push(attached.warnings.length ? `Code attached, with warnings: ${attached.warnings.join(" ")}` : "Code attached.");
+          const attached = await attachEditorCode(
+            { ...scope, testCaseId: created.id, code: input.playwrightCode, runReceipt: input.runReceipt },
+            session.dependencies,
+          );
+          notes.push(
+            [
+              attached.warnings.length ? `Code attached, with warnings: ${attached.warnings.join(" ")}` : "Code attached.",
+              evidenceNote(attached.evidence, input.runReceipt),
+            ].filter(Boolean).join(" "),
+          );
         } catch (error) {
           notes.push(`The test case was created, but the code was not attached: ${describeToolFailure(error)}`);
         }
@@ -502,14 +683,23 @@ const tools: Tool[] = [
       properties: {
         testCaseId: { type: "string", description: "Id from list_test_cases." },
         code: { type: "string", description: "The full Playwright test file." },
+        runReceipt: { type: "string", description: "Optional: runReceipt from run_playwright_test for exactly this code." },
       },
       required: ["testCaseId", "code"],
       additionalProperties: false,
     },
     async run(session, args) {
-      const input = z.object({ testCaseId: uuidArg, code: z.string().min(1).max(100_000) }).parse(args);
+      const input = z
+        .object({ testCaseId: uuidArg, code: z.string().min(1).max(100_000), runReceipt: z.string().max(4_000).optional() })
+        .parse(args);
       const attached = await attachEditorCode(
-        { orgSlug: session.orgSlug, projectId: session.projectId, testCaseId: input.testCaseId, code: input.code },
+        {
+          orgSlug: session.orgSlug,
+          projectId: session.projectId,
+          testCaseId: input.testCaseId,
+          code: input.code,
+          runReceipt: input.runReceipt,
+        },
         session.dependencies,
       );
       const url = testCaseUrl(session, input.testCaseId);
@@ -520,17 +710,33 @@ const tools: Tool[] = [
       return text(
         [
           "Code received.",
+          evidenceNote(attached.evidence, input.runReceipt),
           next,
           attached.warnings.length ? `Warnings: ${attached.warnings.join(" ")}` : null,
           `Open: ${url}`,
         ]
           .filter((line) => line !== null)
           .join("\n"),
-        { testCaseId: input.testCaseId, testCaseStatus: attached.testCaseStatus, warnings: attached.warnings, url },
+        {
+          testCaseId: input.testCaseId,
+          testCaseStatus: attached.testCaseStatus,
+          warnings: attached.warnings,
+          evidence: attached.evidence ? { verdict: attached.evidence.verdict, passed: attached.evidence.passed } : null,
+          url,
+        },
       );
     },
   },
 ];
+
+function evidenceNote(evidence: { verdict: string; passed: number } | null, receipt: string | undefined) {
+  if (evidence) {
+    return evidence.verdict === "passed"
+      ? `Its live run is kept as evidence: passed, ${evidence.passed} checks.`
+      : `Its live run is kept as evidence: ${evidence.passed} checks passed, some steps did not run.`;
+  }
+  return receipt ? "The runReceipt was not for this exact code (or has expired), so no run evidence was kept." : null;
+}
 
 function testCaseUrl(session: EditorSession, testCaseId: string) {
   return `${siteUrl()}/workspace/${session.orgSlug}/projects/${session.projectId}/test-cases/${testCaseId}`;
@@ -552,6 +758,12 @@ function describeToolFailure(error: unknown): string {
     return `The code is not a usable Playwright test: ${error.detail ?? "check the import and the test body."}`;
   }
   if (code === "test_case_archived") return "That test case is archived.";
+  if (error instanceof OrganizationAiRateLimitError) {
+    return error.code === "organization_burst_limit"
+      ? "Too many requests in a minute; wait a minute and try again."
+      : "This workspace has used today's AI allowance. It resets at midnight UTC; the Team plan raises it.";
+  }
+  if (error instanceof LiveRunUnavailableError) return "Live runs are not available right now; try again shortly.";
   if (code?.endsWith("_not_found")) return "Not found in this project.";
   if (code?.startsWith("invalid_")) return "Some fields are missing or too long.";
   if (code === "permission_denied") return "Your role in this project does not allow that.";

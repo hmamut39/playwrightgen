@@ -3,18 +3,21 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { executePreviewRun, type PreviewRunResult } from "@/lib/free-tools/preview-run/execute";
-import { planPreviewRun } from "@/lib/free-tools/preview-run/plan";
-import { readRunReceiptSecret, runVerdict, signRunReceipt } from "@/lib/free-tools/preview-run/receipt";
 import { readSignedInUserId } from "@/lib/auth/signed-in-user";
-import { recordFreeToolDraftRun } from "@/lib/services/free-tool-drafts";
-import { connectRemoteBrowser, isPublicWebAddress } from "@/lib/free-tools/page-snapshot";
 import { EnvironmentValidationError } from "@/lib/env";
+import { runVerdict } from "@/lib/free-tools/preview-run/receipt";
+import {
+  executeLiveRun,
+  LiveRunUnavailableError,
+  prepareLiveRun,
+  runEnvSchema,
+} from "@/lib/free-tools/preview-run/run-draft";
 import {
   PublicAiRateLimitError,
   reservePublicAiRequest,
 } from "@/lib/operations/public-ai-guard";
 import { logOperationalEvent } from "@/lib/operations/safe-telemetry";
+import { recordFreeToolDraftRun } from "@/lib/services/free-tool-drafts";
 
 export const runtime = "nodejs";
 // A run opens a real browser and replays every step; give it room to finish.
@@ -25,35 +28,8 @@ const bodySchema = z.object({
   pageUrl: z.string().trim().min(1).max(2_000),
   /** The signed-in person's saved draft, which keeps this run. */
   draftId: z.string().uuid().optional(),
-  /**
-   * Values for process.env names the draft reads, such as a test account, for
-   * this run only. Used as step values in the remote browser; never stored,
-   * logged, or returned.
-   */
-  env: z
-    .record(z.string().regex(/^[A-Za-z_][A-Za-z0-9_]{0,63}$/), z.string().max(500))
-    .refine((value) => Object.keys(value).length <= 10)
-    .optional(),
+  env: runEnvSchema.optional(),
 });
-
-/** Blanks supplied values (a test account) out of everything the run reports back. */
-function redactSupplied(result: PreviewRunResult, values: string[]): PreviewRunResult {
-  const secrets = values.filter((value) => value.length >= 3);
-  if (!secrets.length) return result;
-  const clean = (text: string | undefined) =>
-    text === undefined ? text : secrets.reduce((current, secret) => current.split(secret).join("•••"), text);
-  return {
-    ...result,
-    tests: result.tests.map((test) => ({
-      ...test,
-      failureSnapshot: clean(test.failureSnapshot),
-      steps: test.steps.map((step) => ({
-        ...step,
-        operations: step.operations.map((operation) => ({ ...operation, detail: clean(operation.detail) })),
-      })),
-    })),
-  };
-}
 
 /**
  * Runs a Quick Generate draft against the live page, step by step.
@@ -72,13 +48,8 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "Send the draft code and the page URL." }, { status: 400 });
   }
-  if (!isPublicWebAddress(body.pageUrl)) {
-    return NextResponse.json({ error: "Only public web addresses can be opened." }, { status: 400 });
-  }
-  const plan = planPreviewRun(body.code, { env: body.env });
-  if (plan.tests.length === 0) {
-    return NextResponse.json({ error: "No Playwright test was found in the draft." }, { status: 400 });
-  }
+  const prepared = prepareLiveRun(body);
+  if (!prepared.ok) return NextResponse.json({ error: prepared.error }, { status: 400 });
 
   try {
     const quota = await reservePublicAiRequest({
@@ -89,53 +60,38 @@ export async function POST(req: Request) {
       minuteLimit: 3,
     });
 
-    const browser = await connectRemoteBrowser().catch(() => null);
-    if (!browser) {
-      return NextResponse.json({ error: "Live runs are not available right now." }, { status: 503 });
-    }
-    try {
-      const result = redactSupplied(
-        await executePreviewRun(plan, { browser, baseUrl: body.pageUrl, budgetMs: 80_000 }),
-        Object.values(body.env ?? {}),
-      );
-      logOperationalEvent("info", {
-        event: "public_ai.completed",
-        requestId,
-        status: "succeeded",
-        durationMs: Date.now() - startedAt,
-        surface: "preview-run",
-      });
-      // Signed proof of this outcome for this exact code, so a test that passed
-      // here keeps its evidence when it is imported into a project.
-      const secret = readRunReceiptSecret();
-      const receipt = secret ? signRunReceipt({ code: body.code, pageUrl: body.pageUrl, result, inputs: Object.keys(body.env ?? {}) }, secret) : null;
-      if (body.draftId) {
-        const clerkUserId = await readSignedInUserId();
-        if (clerkUserId) {
-          await recordFreeToolDraftRun({
-            clerkUserId,
-            draftId: body.draftId,
-            code: body.code,
-            run: {
-              verdict: runVerdict(result),
-              passed: result.counts.passed,
-              failed: result.counts.failed,
-              skipped: result.counts.skipped,
-              notReached: result.counts.notReached,
-              ranAt: new Date().toISOString(),
-              pageUrl: body.pageUrl,
-              receipt,
-            },
-          }).catch((error: unknown) => console.error("[preview-run] could not update the saved draft", error));
-        }
+    const { result, receipt } = await executeLiveRun(prepared.run);
+    logOperationalEvent("info", {
+      event: "public_ai.completed",
+      requestId,
+      status: "succeeded",
+      durationMs: Date.now() - startedAt,
+      surface: "preview-run",
+    });
+    if (body.draftId) {
+      const clerkUserId = await readSignedInUserId();
+      if (clerkUserId) {
+        await recordFreeToolDraftRun({
+          clerkUserId,
+          draftId: body.draftId,
+          code: body.code,
+          run: {
+            verdict: runVerdict(result),
+            passed: result.counts.passed,
+            failed: result.counts.failed,
+            skipped: result.counts.skipped,
+            notReached: result.counts.notReached,
+            ranAt: new Date().toISOString(),
+            pageUrl: body.pageUrl,
+            receipt,
+          },
+        }).catch((error: unknown) => console.error("[preview-run] could not update the saved draft", error));
       }
-      return NextResponse.json(
-        { result, receipt, remaining: quota.remaining },
-        { headers: { "x-request-id": requestId } },
-      );
-    } finally {
-      await browser.close().catch(() => {});
     }
+    return NextResponse.json(
+      { result, receipt, remaining: quota.remaining },
+      { headers: { "x-request-id": requestId } },
+    );
   } catch (error) {
     if (error instanceof PublicAiRateLimitError) {
       return NextResponse.json(
@@ -148,6 +104,9 @@ export async function POST(req: Request) {
         },
         { status: 429, headers: { "retry-after": String(error.retryAfterSeconds), "x-request-id": requestId } },
       );
+    }
+    if (error instanceof LiveRunUnavailableError) {
+      return NextResponse.json({ error: "Live runs are not available right now." }, { status: 503 });
     }
     logOperationalEvent("error", {
       event: "public_ai.failed",

@@ -4,6 +4,9 @@ import { handleMcpMessage } from "@/lib/mcp/playwrightgen-mcp";
 import { authenticateEditorRequest, type EditorSession } from "@/lib/services/editor-access";
 
 export const runtime = "nodejs";
+// generate_playwright_test reads a page and calls the model; run_playwright_test
+// replays a test in a remote browser. Both take well over the default.
+export const maxDuration = 300;
 
 const MAX_BODY_BYTES = 100_000;
 
