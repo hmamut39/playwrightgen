@@ -18,6 +18,7 @@ export function SiteNavigation() {
   const navigationItems = [
     { href: "/#product", label: "Product", match: "/" },
     ...freeTools.map((tool) => ({ ...tool, match: tool.href })),
+    { href: "/mcp", label: "MCP", match: "/mcp" },
     { href: "/pricing", label: "Pricing", match: "/pricing" },
   ];
 

@@ -7,6 +7,7 @@ const PUBLIC_PAGES: Array<{ path: string; priority: number }> = [
   { path: "/generator", priority: 0.9 },
   { path: "/intelligence", priority: 0.8 },
   { path: "/engineering-review", priority: 0.8 },
+  { path: "/mcp", priority: 0.8 },
   { path: "/pricing", priority: 0.7 },
   { path: "/sign-up", priority: 0.5 },
   { path: "/privacy", priority: 0.2 },

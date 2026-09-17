@@ -64,6 +64,9 @@ test suite (460+ tests) passes.
   tests and named failure modes.
 
 ### Public site
+- **/mcp page** (2026-09-16): what editor assistants can do over MCP, the ten
+  tools, how to connect from VS Code, Cursor and Claude Code, and what the
+  connection can never do. Linked from the menu and the sitemap.
 - Per-page titles and descriptions, a generated share card (`app/opengraph-image.tsx`),
   `robots.txt` and `sitemap.xml`; the old `/login` placeholder redirects to `/sign-in`.
 - Measured: server ~20ms, largest paint under 0.6s, no layout shift, no console
@@ -104,10 +107,9 @@ test suite (460+ tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **A public MCP page, then directory listings.** A public /mcp page that
-   explains the connection and its tools; then list the server in MCP
-   directories (the official registry needs the owner's GitHub or DNS
-   verification, so that step is theirs).
+1. **MCP directory listings (needs the owner).** The official MCP registry
+   verifies the publisher through GitHub or DNS, so publishing is the owner's
+   step; everything else (the /mcp page, tools, docs) is ready.
 2. **Saved Coverage Reviews.** The same saved history for Coverage Review
    (Quick Generate has it now).
 3. **Evals for Coverage Review and Release Review.** Only Quick Generate has
