@@ -8,6 +8,7 @@ import { WorkspaceHandoffButton } from "@/components/free-tools/workspace-handof
 import type { FreeToolHandoff } from "@/lib/free-tools/handoff";
 import { LimitReached, readFreeToolLimit, type FreeToolLimit } from "@/components/free-tools/limit-reached";
 import { PreviewRunPanel } from "@/components/free-tools/preview-run-panel";
+import { SavedDrafts, type SavedDraft } from "@/components/free-tools/saved-drafts";
 import {
   appendTestAccount,
   EMPTY_TEST_ACCOUNT,
@@ -134,6 +135,8 @@ export default function CoverageReviewPage() {
   const [result, setResult] = useState<CoverageResult | null>(null);
   const [livePage, setLivePage] = useState<LiveCoveragePage | null>(null);
   const [testsFixNote, setTestsFixNote] = useState<string | null>(null);
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [savedVersion, setSavedVersion] = useState(0);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -142,7 +145,32 @@ export default function CoverageReviewPage() {
   const screenshotRef = useRef<HTMLInputElement>(null);
 
   const activeLens = useMemo(() => lenses.find((item) => item.id === lens) ?? lenses[0], [lens]);
-  const invalidate = () => { setResult(null); setError(""); };
+  const invalidate = () => { setResult(null); setError(""); setDraftId(null); };
+
+  /** Reopens a saved review with its inputs, result and the tests as they last ran. */
+  const openReview = (draft: SavedDraft) => {
+    const saved = (draft.payload ?? {}) as {
+      lens?: ReviewLens;
+      pageUrl?: string;
+      requirement?: string;
+      result?: CoverageResult;
+      livePage?: LiveCoveragePage | null;
+    };
+    if (!saved.result) return;
+    setLens(saved.lens ?? "COVERAGE");
+    setPageUrl(saved.pageUrl ?? "");
+    setRequirement(saved.requirement ?? "");
+    setExistingTests(draft.code);
+    setTestFile(null);
+    setScreenshot(null);
+    setLimit(null);
+    setError("");
+    setTestsFixNote(null);
+    setResult(saved.result);
+    setLivePage(saved.livePage ?? null);
+    setDraftId(draft.id);
+    window.requestAnimationFrame(() => document.getElementById("coverage-result")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
 
   const analyze = async () => {
     if (!pageUrl.trim() && !requirement.trim() && !existingTests.trim() && !screenshot) {
@@ -175,6 +203,8 @@ export default function CoverageReviewPage() {
       setResult(data.result);
       setLivePage(data.livePage ?? null);
       setTestsFixNote(null);
+      setDraftId(typeof data.draftId === "string" ? data.draftId : null);
+      if (data.draftId) setSavedVersion((value) => value + 1);
       if (typeof data.remaining === "number") setRemaining(data.remaining);
       window.requestAnimationFrame(() => document.getElementById("coverage-result")?.scrollIntoView({ behavior: "smooth", block: "start" }));
     } catch {
@@ -217,6 +247,8 @@ export default function CoverageReviewPage() {
             </p>
           </div>
         </section>
+
+        <SavedDrafts source="coverage-review" heading="Your saved reviews" refreshKey={savedVersion} activeId={draftId} onOpen={openReview} />
 
         <section className="mt-8 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
           <div className="flex min-w-max gap-1">
@@ -345,6 +377,10 @@ export default function CoverageReviewPage() {
                   code={existingTests}
                   pageUrl={livePage.url}
                   initialEnv={testAccountEnv(account)}
+                  draftId={draftId}
+                  onRun={() => {
+                    if (draftId) setSavedVersion((value) => value + 1);
+                  }}
                   onFixed={(fixed) => {
                     setExistingTests(fixed.code);
                     setTestsFixNote(fixed.explanation);

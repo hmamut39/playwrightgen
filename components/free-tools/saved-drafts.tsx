@@ -62,7 +62,12 @@ export function SavedDrafts({
   refreshKey,
   activeId,
   onOpen,
+  source = "quick-generate",
+  heading = "Your saved drafts",
 }: {
+  /** Which tool's saved results to list. */
+  source?: "quick-generate" | "coverage-review";
+  heading?: string;
   /** Changes whenever the page saved something, so the list reloads. */
   refreshKey: number;
   activeId: string | null;
@@ -80,7 +85,7 @@ export function SavedDrafts({
     fetch("/api/free-tool-drafts", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : { drafts: [] }))
       .then((data: { drafts?: DraftSummary[] }) => {
-        if (!cancelled) setDrafts((data.drafts ?? []).filter((draft) => draft.source === "quick-generate"));
+        if (!cancelled) setDrafts((data.drafts ?? []).filter((draft) => draft.source === source));
       })
       .catch(() => {
         if (!cancelled) setDrafts([]);
@@ -88,7 +93,7 @@ export function SavedDrafts({
     return () => {
       cancelled = true;
     };
-  }, [isSignedIn, refreshKey]);
+  }, [isSignedIn, refreshKey, source]);
 
   if (!isSignedIn || !drafts || drafts.length === 0) return null;
 
@@ -120,7 +125,7 @@ export function SavedDrafts({
     <section aria-labelledby="saved-drafts-heading" className="mt-6 rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <div className="flex items-baseline justify-between gap-3">
         <h2 id="saved-drafts-heading" className="text-sm font-bold text-slate-950">
-          Your saved drafts <span className="font-medium text-slate-400">&middot; {drafts.length}</span>
+          {heading} <span className="font-medium text-slate-400">&middot; {drafts.length}</span>
         </h2>
         <p className="text-xs text-slate-500">Kept with your account, with the last live run.</p>
       </div>

@@ -16,6 +16,7 @@ import {
 import { logOperationalEvent } from "@/lib/operations/safe-telemetry";
 import { capturePageSnapshot, type PageSnapshot } from "@/lib/free-tools/page-snapshot";
 import { readTestAccount } from "@/lib/free-tools/sign-in";
+import { saveFreeToolDraft } from "@/lib/services/free-tool-drafts";
 import { measureSurfaceCoverage, readControls } from "@/lib/free-tools/surface-coverage";
 
 const lenses = new Set<CoverageReviewInput["lens"]>(["COVERAGE", "FLAKY", "ARCHITECTURE", "ASSERTIONS"]);
@@ -87,11 +88,9 @@ export async function POST(req: Request) {
       providerRequestId: provider.requestId,
     });
 
-    return NextResponse.json(
-      {
-        result,
-        remaining: quota.remaining,
-        livePage: snapshot
+    const body = {
+      result,
+      livePage: snapshot
           ? snapshot.ok
             ? {
                 status: "read",
@@ -105,7 +104,28 @@ export async function POST(req: Request) {
               }
             : { status: "not_read", reason: snapshot.reason }
           : null,
-      },
+    };
+
+    // Signed in: keep the review, with the pasted tests and their runs, so it
+    // can be reopened later.
+    let draftId: string | null = null;
+    if (quota.userId) {
+      const firstLine = requirement.split("\n").map((line) => line.trim()).find(Boolean);
+      draftId = await saveFreeToolDraft({
+        clerkUserId: quota.userId,
+        source: "coverage-review",
+        title: firstLine ? firstLine.slice(0, 300) : pageUrl ? `Review of ${pageUrl}` : "Coverage review",
+        pageUrl: pageUrl || null,
+        code: existingTests,
+        payload: JSON.parse(JSON.stringify({ lens, pageUrl, requirement, existingTests, ...body })),
+      }).catch((error: unknown) => {
+        console.error("[coverage-review] could not save the review", error);
+        return null;
+      });
+    }
+
+    return NextResponse.json(
+      { ...body, draftId, remaining: quota.remaining },
       { headers: { "x-request-id": requestId } },
     );
   } catch (error) {

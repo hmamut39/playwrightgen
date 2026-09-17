@@ -15,6 +15,10 @@ test suite (460+ tests) passes.
 ## Shipped (most recent first)
 
 ### Free tools
+- **Saved Coverage Reviews** (2026-09-16): signed-in people keep their reviews
+  (inputs, result, pasted tests as they last ran, and the run result) under
+  "Your saved reviews", and can reopen them. Verified: review, run passed
+  (5 checks), reload, reopen.
 - **Pages behind a login (first version)** (`lib/free-tools/sign-in.ts`):
   Quick Generate has "Page behind a login? Add a test account" and a "Try a
   page behind a login" demo (saucedemo). The page reader signs in first, the
@@ -110,15 +114,13 @@ In priority order. Each item should end verified in a browser and shipped.
 1. **MCP directory listings (needs the owner).** The official MCP registry
    verifies the publisher through GitHub or DNS, so publishing is the owner's
    step; everything else (the /mcp page, tools, docs) is ready.
-2. **Saved Coverage Reviews.** The same saved history for Coverage Review
-   (Quick Generate has it now).
-3. **Evals for Coverage Review and Release Review.** Only Quick Generate has
+2. **Evals for Coverage Review and Release Review.** Only Quick Generate has
    an eval today (`evals/quick-generation.eval.ts`).
-4. **Release Review structured output.** Move its route to zod structured
+3. **Release Review structured output.** Move its route to zod structured
    output like the other tools and split the 1,500-line page into components.
-5. **Open a pull request from approved automation.** Needs the owner's
+4. **Open a pull request from approved automation.** Needs the owner's
    decision on giving the GitHub App write permission (currently read-only).
-6. **Verify the paid path end to end.** Stripe payment, then webhook, then
+5. **Verify the paid path end to end.** Stripe payment, then webhook, then
    entitlement, then the Team allowance in the free tools. Needs the owner's
    account and a real card.
 

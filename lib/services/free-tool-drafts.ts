@@ -7,7 +7,8 @@ import { getPrismaClient } from "@/lib/db/prisma";
 import type { RunReceipt } from "@/lib/free-tools/preview-run/receipt";
 
 /**
- * A signed-in person's own recent free-tool results.
+ * A signed-in person's own recent free-tool results: Quick Generate drafts and
+ * Coverage Reviews, each with the code as it last ran.
  *
  * A draft that took a minute to generate and two runs to get passing used to
  * vanish with the browser tab. Keeping the latest few, with the code as it
