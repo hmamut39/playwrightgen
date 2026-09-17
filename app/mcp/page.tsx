@@ -31,7 +31,7 @@ const loop = [
   {
     step: "2",
     title: "Run it until it passes",
-    body: "run_playwright_test replays the test step by step on the live page and returns the failing step with the page as it was, so your assistant fixes the locator and runs again.",
+    body: "run_playwright_test replays the test step by step on the live page and returns the failing step with the page as it was, so your assistant fixes the locator and runs again. prove_playwright_test does that whole loop in one call.",
   },
   {
     step: "3",
@@ -41,6 +41,7 @@ const loop = [
 ];
 
 const tools: Array<{ name: string; kind: "Reads" | "Runs" | "Proposes"; does: string }> = [
+  { name: "prove_playwright_test", kind: "Runs", does: "The whole loop in one call: write it, run it, fix the failing step, run again until it passes." },
   { name: "generate_playwright_test", kind: "Runs", does: "Writes a draft from a described flow and the real page." },
   { name: "run_playwright_test", kind: "Runs", does: "Replays a test on the live page; reports each step and the page at a failure." },
   { name: "propose_test_case", kind: "Proposes", does: "Creates a draft test case, optionally with code and a passing run, for review." },
@@ -124,8 +125,8 @@ export default function McpPage() {
         <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <h2 className="text-2xl font-semibold tracking-[-0.03em] text-slate-950">Tools</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Ten tools over the Model Context Protocol (Streamable HTTP). Running and generating use your workspace&rsquo;s
-            daily AI allowance.
+            Eleven tools over the Model Context Protocol (Streamable HTTP). Running and generating use your
+            workspace&rsquo;s daily AI allowance.
           </p>
           <div className="mt-5 overflow-x-auto">
             <table className="w-full min-w-[36rem] text-left text-sm">

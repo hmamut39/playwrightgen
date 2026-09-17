@@ -2,10 +2,16 @@ import "server-only";
 
 import { z } from "zod";
 
+import { repairDraft } from "@/lib/ai/draft-repair";
 import { generateQuickDraft } from "@/lib/ai/quick-generation";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { capturePageSnapshot, isPublicWebAddress } from "@/lib/free-tools/page-snapshot";
 import { runVerdict } from "@/lib/free-tools/preview-run/receipt";
+import {
+  firstFailureOf,
+  proveDraftOnLivePage,
+  type ProveRound,
+} from "@/lib/free-tools/prove-loop";
 import {
   executeLiveRun,
   LiveRunUnavailableError,
@@ -575,6 +581,163 @@ const tools: Tool[] = [
         tests: result.tests.map((test) => ({ ...test, failureScreenshot: undefined })),
         runReceipt: verdict === "failed" ? null : receipt,
         remainingToday: allowance.dailyRemaining,
+      });
+    },
+  },
+  {
+    name: "prove_playwright_test",
+    title: "Write a Playwright test and make it pass",
+    description:
+      "The whole loop in one call: write a test for described behaviour from the real page, run it in a remote browser, fix the failing step from the page as it was, and run again until it passes or the fix budget runs out. Returns the code, what happened in each round, and a runReceipt when it passed, which propose_test_case accepts as evidence. Uses one request from the workspace's daily AI allowance, plus one per fix.",
+    annotations: USES_ALLOWANCE,
+    inputSchema: {
+      type: "object",
+      properties: {
+        request: { type: "string", description: "The behaviour to test and what should happen." },
+        pageUrl: { type: "string", description: "Public URL of the page the test starts on." },
+        env: { type: "object", additionalProperties: { type: "string" }, description: "Values for process.env names the test needs, such as a test account. Used for these runs only." },
+        maxFixes: { type: "integer", minimum: 0, maximum: 3, description: "AI fixes to allow. Default 2." },
+      },
+      required: ["request", "pageUrl"],
+      additionalProperties: false,
+    },
+    async run(session, args) {
+      const input = z
+        .object({
+          request: z.string().trim().min(1).max(30_000),
+          pageUrl: z.string().trim().min(1).max(2_000),
+          env: runEnvSchema.optional(),
+          maxFixes: z.number().int().min(0).max(3).optional(),
+        })
+        .parse(args);
+      if (!isPublicWebAddress(input.pageUrl)) {
+        return toolError("pageUrl must be a public web address (not localhost or a private network).");
+      }
+
+      // One request for the draft; each fix costs another. Runs are bounded by
+      // the loop itself, so they are not charged separately here.
+      const allowance = await reserveWorkspaceAllowance(session);
+      const rounds: ProveRound[] = [];
+      let pageRead = false;
+      let pageTreeAtStart: string | undefined;
+      let runPageUrl = input.pageUrl;
+      let title = "";
+
+      const outcome = await proveDraftOnLivePage(
+        {
+          report: (round) => rounds.push(round),
+          generate: async () => {
+            const snapshot = await capturePageSnapshot(input.pageUrl);
+            pageRead = snapshot.ok;
+            if (snapshot.ok) {
+              pageTreeAtStart = snapshot.aria.slice(0, 4_000);
+              runPageUrl = snapshot.finalUrl;
+            }
+            const draft = await generateQuickDraft({
+              mode: "FLOW",
+              request: input.request,
+              pageUrl: input.pageUrl,
+              depth: "FOCUSED",
+              fileContext: "",
+              imageDataUrls: [],
+              pageSnapshot: snapshot.ok ? snapshot : null,
+            });
+            title = draft.title;
+            return { ok: true as const, code: draft.code, title: draft.title, payload: draft };
+          },
+          run: async (code) => {
+            const prepared = prepareLiveRun({ code, pageUrl: runPageUrl, env: input.env });
+            if (!prepared.ok) return { ok: false as const, limit: false, message: prepared.error };
+            const { result, receipt } = await executeLiveRun(prepared.run);
+            return {
+              ok: true as const,
+              verdict: runVerdict(result),
+              passed: result.counts.passed,
+              failed: result.counts.failed,
+              skipped: result.counts.skipped + result.counts.notReached,
+              receipt,
+              failure: firstFailureOf(result),
+              payload: result,
+            };
+          },
+          fix: async (code, failure) => {
+            try {
+              await reserveWorkspaceAllowance(session);
+            } catch (error) {
+              if (error instanceof OrganizationAiRateLimitError) {
+                return { ok: false as const, limit: true, message: describeToolFailure(error) };
+              }
+              throw error;
+            }
+            const repaired = await repairDraft({
+              code,
+              pageUrl: runPageUrl,
+              failure: { step: failure.step, line: failure.line, reason: failure.reason },
+              pageTreeAtFailure: failure.pageTree,
+              ...(pageTreeAtStart ? { pageTreeAtStart } : {}),
+              ...(failure.skippedEarlier.length ? { skippedEarlier: failure.skippedEarlier } : {}),
+            });
+            return { ok: true as const, code: repaired.code, explanation: repaired.explanation, payload: repaired };
+          },
+        },
+        { maxFixes: input.maxFixes ?? 2 },
+      );
+
+      const history = rounds.flatMap((round) => {
+        if (round.kind === "generated") return [`Wrote "${round.title}"${pageRead ? " from the live page" : " (the page could not be read, so locators are guesses)"}.`];
+        if (round.kind === "ran") {
+          return [
+            round.verdict === "passed"
+              ? `Run ${round.attempt}: passed, ${round.passed} checks.`
+              : round.verdict === "partial"
+                ? `Run ${round.attempt}: nothing failed, ${round.skipped} steps could not run here.`
+                : `Run ${round.attempt}: failed at "${round.failingStep ?? "a step"}" after ${round.passed} checks.`,
+          ];
+        }
+        if (round.kind === "fixed") return [`Fixed: ${round.explanation}`];
+        return [];
+      });
+      const lastRun = outcome.lastRun as { counts?: { passed: number } } | null;
+      const verdictLine =
+        outcome.verdict === "passed"
+          ? `Passed on the live page: ${lastRun?.counts?.passed ?? 0} checks.`
+          : outcome.verdict === "partial"
+            ? "Nothing failed, but some steps could not run in the preview; the rest is unproven."
+            : outcome.stopped === "out_of_fixes"
+              ? "Still failing after the fixes allowed. The code and the last failure are below; fix it yourself and call run_playwright_test again."
+              : `Stopped: ${outcome.message ?? outcome.stopped}.`;
+
+      const failureDetail =
+        outcome.verdict === "failed" && lastRun ? firstFailureOf(lastRun as never) : null;
+      const body = [
+        verdictLine,
+        "",
+        ...history,
+        "",
+        "```ts",
+        outcome.code ?? "",
+        "```",
+        failureDetail
+          ? `\nStill failing at "${failureDetail.step}": ${failureDetail.line} — ${failureDetail.reason}\n\nPage at the failure:\n${failureDetail.pageTree.slice(0, 4_000)}`
+          : null,
+        outcome.receipt && outcome.verdict !== "failed"
+          ? `\nrunReceipt (give it to propose_test_case with this exact code): ${outcome.receipt}`
+          : null,
+        `\nWorkspace AI requests left today: ${allowance.dailyRemaining - outcome.fixesUsed}.`,
+      ]
+        .filter((line) => line !== null)
+        .join("\n");
+
+      return text(body, {
+        title,
+        code: outcome.code,
+        verdict: outcome.verdict,
+        runs: outcome.runs,
+        fixesUsed: outcome.fixesUsed,
+        stopped: outcome.stopped,
+        pageRead,
+        pageUrl: runPageUrl,
+        runReceipt: outcome.verdict === "failed" ? null : outcome.receipt,
       });
     },
   },

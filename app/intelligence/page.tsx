@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { GenerationProgress } from "@/components/free-tools/generation-progress";
 import { useMemo, useRef, useState } from "react";
 
@@ -58,6 +59,12 @@ const severityStyles: Record<Severity, string> = {
   HIGH: "border-orange-200 bg-orange-50 text-orange-800",
   CRITICAL: "border-red-200 bg-red-50 text-red-800",
 };
+
+/** Opens Quick Generate with this suggested test ready to write and prove. */
+function proveHref(test: { title: string; objective: string; expectedOutcome: string }, pageUrl: string) {
+  const request = [test.title, test.objective, `Expected: ${test.expectedOutcome}`].filter(Boolean).join("\n\n");
+  return `/generator?prove=1&pageUrl=${encodeURIComponent(pageUrl)}&request=${encodeURIComponent(request)}`;
+}
 
 function titleFromInput(requirement: string, pageUrl: string) {
   const firstLine = requirement.split(/\r?\n/).map((line) => line.trim()).find(Boolean);
@@ -414,7 +421,7 @@ export default function CoverageReviewPage() {
 
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-violet-700">Highest-value next tests</p>
-              <div className="mt-5 grid gap-4 lg:grid-cols-2">{result.nextTests.map((test, index) => <div key={`${test.title}-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-5"><div className="flex justify-between gap-3"><h3 className="font-semibold text-slate-950">{test.title}</h3><span className={`h-fit rounded-full border px-2.5 py-1 text-xs font-bold ${severityStyles[test.priority]}`}>{test.priority}</span></div><p className="mt-3 text-sm leading-6 text-slate-600">{test.rationale}</p><p className="mt-3 text-sm"><span className="font-semibold">Objective:</span> {test.objective}</p><p className="mt-2 text-sm"><span className="font-semibold">Expected:</span> {test.expectedOutcome}</p></div>)}</div>
+              <div className="mt-5 grid gap-4 lg:grid-cols-2">{result.nextTests.map((test, index) => <div key={`${test.title}-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-5"><div className="flex justify-between gap-3"><h3 className="font-semibold text-slate-950">{test.title}</h3><span className={`h-fit rounded-full border px-2.5 py-1 text-xs font-bold ${severityStyles[test.priority]}`}>{test.priority}</span></div><p className="mt-3 text-sm leading-6 text-slate-600">{test.rationale}</p><p className="mt-3 text-sm"><span className="font-semibold">Objective:</span> {test.objective}</p><p className="mt-2 text-sm"><span className="font-semibold">Expected:</span> {test.expectedOutcome}</p>{livePage?.status === "read" ? <Link href={proveHref(test, livePage.url)} className="mt-4 inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-800 hover:border-cyan-400 hover:bg-cyan-50">Write &amp; prove this test &rarr;</Link> : null}</div>)}</div>
             </div>
 
             <div className="rounded-[2rem] border border-cyan-200 bg-cyan-50 p-6 sm:p-8"><div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-800">Turn a finding into team-owned intent</p><h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Continue as a draft Requirement</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Choose a project, edit the proposed content, and create an AI-suggested draft. A person still decides whether it is correct and worthy of approval.</p></div>{handoff ? <WorkspaceHandoffButton handoff={handoff} className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-slate-950 px-5 text-sm font-bold text-white hover:bg-cyan-700 lg:w-auto">Continue in Workspace →</WorkspaceHandoffButton> : null}</div></div>

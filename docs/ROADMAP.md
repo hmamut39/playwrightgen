@@ -15,6 +15,13 @@ test suite (460+ tests) passes.
 ## Shipped (most recent first)
 
 ### Free tools
+- **Proving, wherever the work starts** (2026-09-17): `prove_playwright_test`
+  gives an editor agent the whole loop in one MCP call (write, run, fix, run)
+  with a runReceipt when it passes, which `propose_test_case` keeps as
+  evidence. Coverage Review's suggested tests each have "Write & prove this
+  test", which opens Quick Generate ready and starts the loop. Verified: one
+  MCP call returned a passing test (2 runs, 1 fix, 11 checks) and proposed it
+  with its evidence; the suggested-test handoff passed with 17 checks.
 - **One button that makes a test pass** (`lib/free-tools/prove-loop.ts`,
   2026-09-17): "Generate & prove on the live page" generates the draft, runs it
   in the remote browser, fixes the failing step from the page as it was, and
@@ -129,10 +136,9 @@ test suite (460+ tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Prove it everywhere the loop belongs.** The same loop for Coverage
-   Review's "next tests", for the workspace (generate automation for an
-   approved test case, then run and fix it before a person reviews it), and as
-   one MCP tool so an agent gets a proven test in a single call.
+1. **Prove it in the workspace too.** Generating automation for an approved
+   test case should run and fix it before a person reviews it. Needs a page to
+   run against, so the project needs an optional live URL first.
 2. **Cover a whole page (planner-executor).** From one URL: plan the test cases
    a page needs, then prove each one in parallel, ending with a suite and a
    coverage summary. Bounded by the workspace allowance, with a plan a person

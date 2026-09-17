@@ -2,7 +2,7 @@
 
 import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 
@@ -15,9 +15,9 @@ import { PreviewRunPanel, type CompletedRun, type RunResult } from "@/components
 import { ProveRounds } from "@/components/free-tools/prove-rounds";
 import { SavedDrafts, type SavedDraft } from "@/components/free-tools/saved-drafts";
 import {
+  firstFailureOf,
   proveDraftOnLivePage,
   verdictFromCounts,
-  type ProveFailure,
   type ProveRound,
 } from "@/lib/free-tools/prove-loop";
 import {
@@ -48,29 +48,6 @@ type QuickGenerationResult = {
 };
 
 type RunResultPayload = RunResult;
-
-/** The first failing step of a run, with the page as it was, for the fixer. */
-function firstFailure(result: RunResultPayload): ProveFailure | null {
-  for (const test of result.tests) {
-    const operations = test.steps.flatMap((step) => step.operations);
-    for (const step of test.steps) {
-      const failed = step.operations.find((operation) => operation.status === "failed");
-      if (!failed || !test.failureSnapshot) continue;
-      return {
-        step: step.name,
-        line: failed.source,
-        reason: failed.detail ?? "",
-        pageTree: test.failureSnapshot,
-        skippedEarlier: operations
-          .slice(0, Math.max(0, operations.indexOf(failed)))
-          .filter((operation) => operation.status === "skipped")
-          .map((operation) => operation.source.slice(0, 300))
-          .slice(0, 20),
-      };
-    }
-  }
-  return null;
-}
 
 type LivePage =
   | {
@@ -206,6 +183,28 @@ export default function QuickGeneratePage() {
     [mode],
   );
 
+  // Opened from another tool ("prove this test"): fill the form in and start.
+  // Read from the address rather than useSearchParams, which would need a
+  // Suspense boundary around this whole page for one optional handoff.
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    const parameters = new URLSearchParams(window.location.search);
+    const handedRequest = parameters.get("request")?.slice(0, 30_000);
+    const handedUrl = parameters.get("pageUrl")?.slice(0, 2_000);
+    if (!handedRequest || !handedUrl) return;
+    setRequest(handedRequest);
+    setPageUrl(handedUrl);
+    if (parameters.get("prove") === "1") {
+      // The state set above is not visible to proveIt yet, so it is told.
+      void proveIt({ request: handedRequest, pageUrl: handedUrl });
+    }
+    window.history.replaceState(null, "", window.location.pathname);
+    // Runs once on mount; proveIt is stable enough for this one handoff.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Proving needs a page to run against; API drafts have no page.
   const canProve = Boolean(pageUrl.trim()) && mode !== "API";
   const busy = loading || proving;
@@ -220,12 +219,12 @@ export default function QuickGeneratePage() {
   };
 
   /** The request Quick Generate is given, shared by both actions. */
-  const generationBody = () => {
+  const generationBody = (override?: { request: string; pageUrl: string }) => {
     const formData = new FormData();
     formData.set("mode", mode);
     formData.set("depth", depth);
-    formData.set("request", request);
-    formData.set("pageUrl", pageUrl);
+    formData.set("request", override?.request ?? request);
+    formData.set("pageUrl", override?.pageUrl ?? pageUrl);
     if (mode !== "API") appendTestAccount(formData, account);
     files.forEach((file) => formData.append("files", file));
     return formData;
@@ -236,8 +235,8 @@ export default function QuickGeneratePage() {
    * loop people were doing by hand. Each round is shown as it happens, and the
    * budget is small because every fix costs one of the day's free runs.
    */
-  const proveIt = async () => {
-    if (!request.trim() && files.length === 0) {
+  const proveIt = async (override?: { request: string; pageUrl: string }) => {
+    if (!override && !request.trim() && files.length === 0) {
       setError("Describe the intended behavior or attach relevant evidence first.");
       return;
     }
@@ -250,7 +249,7 @@ export default function QuickGeneratePage() {
     setFixNote(null);
 
     let generatedDraftId: string | null = null;
-    let runPageUrl = pageUrl.trim();
+    let runPageUrl = (override?.pageUrl ?? pageUrl).trim();
     const env = { ...testAccountEnv(account), ...runEnv };
     const asLimit = (status: number, data: { error?: string; upgrade?: boolean; remaining?: number }) => {
       const reached = readFreeToolLimit(status, data);
@@ -263,7 +262,7 @@ export default function QuickGeneratePage() {
       const outcome = await proveDraftOnLivePage({
         report: (round) => setRounds((current) => [...current, round]),
         generate: async () => {
-          const response = await fetch("/api/quick-generate", { method: "POST", body: generationBody() });
+          const response = await fetch("/api/quick-generate", { method: "POST", body: generationBody(override) });
           const data = await response.json();
           if (!response.ok) return asLimit(response.status, data);
           setResult(data.result);
@@ -289,7 +288,7 @@ export default function QuickGeneratePage() {
           });
           const data = await response.json();
           if (!response.ok) return asLimit(response.status, data);
-          const failure = firstFailure(data.result);
+          const failure = firstFailureOf(data.result);
           return {
             ok: true as const,
             verdict: verdictFromCounts(data.result.counts, data.result.timedOut),
@@ -602,7 +601,7 @@ export default function QuickGeneratePage() {
                 {canProve ? (
                   <button
                     type="button"
-                    onClick={proveIt}
+                    onClick={() => proveIt()}
                     disabled={busy}
                     title="Generates the test, runs it on your page, fixes the failing step and runs again"
                     className="inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-6 text-sm font-bold text-white hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"

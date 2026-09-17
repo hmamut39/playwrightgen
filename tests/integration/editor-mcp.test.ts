@@ -246,6 +246,7 @@ export default defineConfig({ use: { baseURL: "http://localhost:3000" } });`,
         "list_recent_failures",
         "generate_playwright_test",
         "run_playwright_test",
+        "prove_playwright_test",
         "propose_test_case",
         "submit_playwright_code",
       ]);
@@ -417,7 +418,7 @@ test('customer applies a discount code', async ({ page }) => {
 
       const listed = await post({ jsonrpc: "2.0", id: 1, method: "tools/list" });
       expect(listed.status).toBe(200);
-      expect((await listed.json()).result.tools).toHaveLength(10);
+      expect((await listed.json()).result.tools).toHaveLength(11);
 
       const notified = await post({ jsonrpc: "2.0", method: "notifications/initialized" });
       expect(notified.status).toBe(202);

@@ -62,6 +62,41 @@ export type ProveOutcome = {
   lastRun: unknown;
 };
 
+/** The shape of a run this module needs: what each step did, and the page at a failure. */
+export type RunLike = {
+  tests: Array<{
+    steps: Array<{ name: string; operations: Array<{ source: string; status: string; detail?: string }> }>;
+    failureSnapshot?: string;
+  }>;
+};
+
+/**
+ * The first failing step, with the page as it was and the earlier lines that
+ * could not run, which is everything a fix needs.
+ */
+export function firstFailureOf(result: RunLike): ProveFailure | null {
+  for (const test of result.tests) {
+    if (!test.failureSnapshot) continue;
+    const operations = test.steps.flatMap((step) => step.operations);
+    for (const step of test.steps) {
+      const failed = step.operations.find((operation) => operation.status === "failed");
+      if (!failed) continue;
+      return {
+        step: step.name,
+        line: failed.source,
+        reason: failed.detail ?? "",
+        pageTree: test.failureSnapshot,
+        skippedEarlier: operations
+          .slice(0, Math.max(0, operations.indexOf(failed)))
+          .filter((operation) => operation.status === "skipped")
+          .map((operation) => operation.source.slice(0, 300))
+          .slice(0, 20),
+      };
+    }
+  }
+  return null;
+}
+
 /** How a run came out, from its counts: the page and the loop agree on this. */
 export function verdictFromCounts(
   counts: { passed: number; failed: number; skipped: number; notReached: number },

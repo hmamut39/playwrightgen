@@ -104,7 +104,7 @@ export function EditorSetupPanel({ mcpUrl, token }: { mcpUrl: string; token: str
         approved test cases and write tests against them, pull approved
         automation into your repository with the version marker intact, and see
         what failed in the last run &mdash; without copy and paste. It can also
-        write a test from the real page, run it on the live page until it passes,
+        write a test from the real page and make it pass on the live page in one step,
         and propose it with that passing run as evidence. Proposals wait for a
         person to review; it can never approve anything. Generating and running
         use this workspace&rsquo;s daily AI allowance.
