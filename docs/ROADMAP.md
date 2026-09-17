@@ -15,6 +15,16 @@ test suite (460+ tests) passes.
 ## Shipped (most recent first)
 
 ### Free tools
+- **Quality checks for Coverage Review and Release Review** (2026-09-17):
+  `evals/coverage-review.eval.ts` and `evals/release-review.eval.ts`, graded
+  deterministically rather than by a judge model: evidence rated honestly with
+  missing signals named, no findings about systems nobody submitted, the
+  brittle patterns each lens exists to catch, findings that differ from each
+  other, and whether a Release Review report needed its repair attempt. Run
+  with `npm run evals`; they call the real model, so they cost money. The
+  Release Review engine moved out of its API route into
+  `lib/ai/release-review.ts` so it can be measured without HTTP or spending a
+  visitor allowance.
 - **Saved Coverage Reviews** (2026-09-16): signed-in people keep their reviews
   (inputs, result, pasted tests as they last ran, and the run result) under
   "Your saved reviews", and can reopen them. Verified: review, run passed
@@ -114,13 +124,11 @@ In priority order. Each item should end verified in a browser and shipped.
 1. **MCP directory listings (needs the owner).** The official MCP registry
    verifies the publisher through GitHub or DNS, so publishing is the owner's
    step; everything else (the /mcp page, tools, docs) is ready.
-2. **Evals for Coverage Review and Release Review.** Only Quick Generate has
-   an eval today (`evals/quick-generation.eval.ts`).
-3. **Release Review structured output.** Move its route to zod structured
-   output like the other tools and split the 1,500-line page into components.
-4. **Open a pull request from approved automation.** Needs the owner's
+2. **Split the Release Review page.** It is 1,500 lines in one file. The
+   analysis now lives in lib/ai/release-review.ts; the page does not.
+3. **Open a pull request from approved automation.** Needs the owner's
    decision on giving the GitHub App write permission (currently read-only).
-5. **Verify the paid path end to end.** Stripe payment, then webhook, then
+4. **Verify the paid path end to end.** Stripe payment, then webhook, then
    entitlement, then the Team allowance in the free tools. Needs the owner's
    account and a real card.
 
