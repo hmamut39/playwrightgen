@@ -10,6 +10,7 @@ import {
   getAutomationArtifactDetail,
   isGenerationStalled,
   readAutomationPlan,
+  readAutomationLiveRun,
   readAutomationValidationFindings,
   requestAutomationChanges,
   startAutomationArtifactGeneration,
@@ -52,6 +53,7 @@ export default async function AutomationArtifactPage({
   const currentVersion = artifact.versions.find(
     (version) => version.versionNumber === artifact.currentVersionNumber,
   );
+  const liveRun = currentVersion ? readAutomationLiveRun(currentVersion.liveRun) : null;
   const plan = currentVersion ? readAutomationPlan(currentVersion.plan) : [];
   const findings = currentVersion
     ? readAutomationValidationFindings(currentVersion.validationFindings)
@@ -253,8 +255,34 @@ export default async function AutomationArtifactPage({
                   ·{" "}
                   <LocalTime value={currentVersion.startedAt} />
                 </p>
+                {liveRun ? (
+                  <p className="mt-2 text-xs leading-5 text-slate-600">
+                    Run on <span className="font-medium">{liveRun.pageUrl}</span> on{" "}
+                    <LocalTime value={new Date(liveRun.ranAt)} />
+                    {liveRun.fixes ? ` · ${liveRun.fixes} automatic fix${liveRun.fixes === 1 ? "" : "es"} before this result` : ""}
+                    {liveRun.notRun ? ` · ${liveRun.notRun} steps could not run there` : ""}
+                    . A person still reviews and approves it.
+                  </p>
+                ) : null}
               </div>
               <div className="flex flex-wrap gap-2 text-xs font-semibold">
+                {liveRun ? (
+                  <span
+                    className={`rounded-full px-2.5 py-1 ${
+                      liveRun.verdict === "passed"
+                        ? "bg-emerald-600 text-white"
+                        : liveRun.verdict === "partial"
+                          ? "bg-amber-50 text-amber-800"
+                          : "bg-red-50 text-red-700"
+                    }`}
+                  >
+                    {liveRun.verdict === "passed"
+                      ? `Passed on the live page · ${liveRun.passed} checks`
+                      : liveRun.verdict === "partial"
+                        ? `Partly run on the live page · ${liveRun.passed} passed`
+                        : "Did not pass on the live page"}
+                  </span>
+                ) : null}
                 <span className={`rounded-full px-2.5 py-1 ${currentVersion.generationStatus === "SUCCEEDED" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
                   Generation {currentVersion.generationStatus.toLowerCase()}
                 </span>

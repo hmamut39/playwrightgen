@@ -543,6 +543,8 @@ model Project {
   archivedByUserId   String?       @db.Uuid
   archivedAt         DateTime?     @db.Timestamptz(3)
   runnerTokenVersion Int           @default(1)
+  /// Where this project runs, so generated automation can be proven on it.
+  liveUrl            String?       @db.Text
   createdAt          DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt          DateTime      @updatedAt @db.Timestamptz(3)
 
@@ -838,6 +840,8 @@ model AutomationArtifactVersion {
   outputTokens         Int?
   totalTokens          Int?
   failureCode          String?                    @db.VarChar(100)
+  /// The live run that proved this version, when the project has a live URL.
+  liveRun              Json?                      @db.JsonB
   createdByUserId      String                     @db.Uuid
   startedAt            DateTime                   @default(now()) @db.Timestamptz(3)
   completedAt          DateTime?                  @db.Timestamptz(3)

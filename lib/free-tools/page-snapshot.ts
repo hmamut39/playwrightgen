@@ -3,6 +3,7 @@ import "server-only";
 import { chromium, type Browser } from "playwright-core";
 
 import { readElementHints } from "@/lib/free-tools/element-hints";
+import { isPublicWebAddress } from "@/lib/free-tools/public-address";
 import { signInWithTestAccount, type TestAccount } from "@/lib/free-tools/sign-in";
 
 /**
@@ -23,6 +24,8 @@ import { signInWithTestAccount, type TestAccount } from "@/lib/free-tools/sign-i
  * signed out unless the person supplies a test account for this one request
  * (see sign-in.ts); then it is read as that account sees it.
  */
+
+export { isPublicWebAddress } from "@/lib/free-tools/public-address";
 
 export type PageSnapshot =
   | {
@@ -49,38 +52,6 @@ const NAVIGATION_TIMEOUT_MS = 20_000;
 const TOTAL_TIMEOUT_MS = 30_000;
 /** Signing in adds a page load or two. */
 const SIGNED_IN_TIMEOUT_MS = 50_000;
-
-/**
- * Only public web addresses. The browser that opens them is remote, so this
- * is not the only line of defence, but there is no reason to spend a render on
- * an address that cannot be a public page.
- */
-export function isPublicWebAddress(value: string): boolean {
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    return false;
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
-  if (url.username || url.password) return false;
-  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (!host.includes(".") && !host.includes(":")) return false;
-  if (host === "localhost" || /\.(localhost|local|internal|lan|home|corp)$/.test(host)) return false;
-  // Literal private, loopback, link-local and reserved IPv4 ranges.
-  const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (ipv4) {
-    const [a, b] = [Number(ipv4[1]), Number(ipv4[2])];
-    if (a === 10 || a === 127 || a === 0 || a >= 224) return false;
-    if (a === 169 && b === 254) return false;
-    if (a === 172 && b >= 16 && b <= 31) return false;
-    if (a === 192 && b === 168) return false;
-    if (a === 100 && b >= 64 && b <= 127) return false;
-  }
-  // Any literal IPv6 address: loopback, link-local and unique-local included.
-  if (host.includes(":")) return false;
-  return true;
-}
 
 function countRoles(aria: string) {
   const count = (pattern: RegExp) => (aria.match(pattern) ?? []).length;

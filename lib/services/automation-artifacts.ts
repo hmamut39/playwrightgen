@@ -30,6 +30,12 @@ import { readTestCaseList } from "@/lib/services/test-cases";
 import { checkSelfApproval, describeReviewTrail } from "@/lib/services/approval-policy";
 import { importedDraftSourceLabel, readRunEvidence } from "@/lib/services/imported-drafts";
 import { planPreviewRun } from "@/lib/free-tools/preview-run/plan";
+import { repairDraft } from "@/lib/ai/draft-repair";
+import { executeLiveRun, prepareLiveRun } from "@/lib/free-tools/preview-run/run-draft";
+import { runVerdict } from "@/lib/free-tools/preview-run/receipt";
+import { firstFailureOf, proveDraftOnLivePage } from "@/lib/free-tools/prove-loop";
+import { capturePageSnapshot } from "@/lib/free-tools/page-snapshot";
+import { alignContainerNames, alignTestIdLocators, siteTestIdAttribute } from "@/lib/free-tools/test-id-attribute";
 
 const uuidSchema = z.string().uuid();
 const engineSchema = z.enum(["PLAYWRIGHT_BROWSER", "PLAYWRIGHT_API"]);
@@ -318,6 +324,8 @@ type PendingGeneration = {
   testCaseAutomationStatus: string;
   engine: "PLAYWRIGHT_BROWSER" | "PLAYWRIGHT_API";
   generationInput: AutomationGenerationInput;
+  /** Where this project runs, when someone set it: generated code is proven there. */
+  liveUrl: string | null;
   configuredModel: string;
   promptVersion: string;
   requestId?: string;
@@ -375,6 +383,10 @@ async function beginAutomationGeneration(
   if (testCase.status !== "APPROVED") {
     throw new AutomationArtifactDomainError("approved_test_case_required", 409);
   }
+  const project = await client(dependencies).project.findUnique({
+    where: { organizationId_id: { organizationId: workspace.organization.id, id: projectId } },
+    select: { liveUrl: true },
+  });
   const testCaseVersion = await client(dependencies).testCaseVersion.findUnique({
     where: {
       organizationId_projectId_testCaseId_versionNumber: {
@@ -504,10 +516,114 @@ async function beginAutomationGeneration(
     testCaseAutomationStatus: testCase.automationStatus,
     engine,
     generationInput,
+    liveUrl: project?.liveUrl ?? null,
     configuredModel,
     promptVersion,
     requestId: input.requestId,
   };
+}
+
+export type AutomationLiveRun = {
+  verdict: "passed" | "partial" | "failed";
+  passed: number;
+  failed: number;
+  notRun: number;
+  fixes: number;
+  pageUrl: string;
+  ranAt: string;
+  receipt: string | null;
+};
+
+export function readAutomationLiveRun(value: Prisma.JsonValue | null): AutomationLiveRun | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const run = value as Record<string, unknown>;
+  if (run.verdict !== "passed" && run.verdict !== "partial" && run.verdict !== "failed") return null;
+  if (typeof run.passed !== "number" || typeof run.ranAt !== "string") return null;
+  return {
+    verdict: run.verdict,
+    passed: run.passed,
+    failed: typeof run.failed === "number" ? run.failed : 0,
+    notRun: typeof run.notRun === "number" ? run.notRun : 0,
+    fixes: typeof run.fixes === "number" ? run.fixes : 0,
+    pageUrl: typeof run.pageUrl === "string" ? run.pageUrl : "",
+    ranAt: run.ranAt,
+    receipt: typeof run.receipt === "string" ? run.receipt : null,
+  };
+}
+
+/**
+ * Runs freshly generated code where the project runs, and fixes it once if a
+ * step fails, so a reviewer sees code that was tried rather than only written.
+ *
+ * Failing to prove is never fatal: the generated code still becomes a version,
+ * with no live run recorded. A fix costs one AI request from the organization's
+ * allowance, and is skipped when that allowance is gone.
+ */
+async function proveGeneratedCode(
+  pending: PendingGeneration,
+  code: string,
+): Promise<{ code: string; liveRun: AutomationLiveRun } | null> {
+  if (!pending.liveUrl) return null;
+  try {
+    const outcome = await proveDraftOnLivePage(
+      {
+        report: () => {},
+        generate: async () => ({ ok: true as const, code, title: pending.generationInput.title, payload: null }),
+        run: async (current) => {
+          const prepared = prepareLiveRun({ code: current, pageUrl: pending.liveUrl! });
+          if (!prepared.ok) return { ok: false as const, limit: false, message: prepared.error };
+          const { result, receipt } = await executeLiveRun(prepared.run);
+          return {
+            ok: true as const,
+            verdict: runVerdict(result),
+            passed: result.counts.passed,
+            failed: result.counts.failed,
+            skipped: result.counts.skipped + result.counts.notReached,
+            receipt,
+            failure: firstFailureOf(result),
+            payload: result,
+          };
+        },
+        fix: async (current, failure) => {
+          try {
+            await reserveOrganizationAiRequest({ organizationId: pending.organizationId, surface: "automation-generation" });
+          } catch {
+            return { ok: false as const, limit: true, message: "The workspace's AI allowance is used up." };
+          }
+          const repaired = await repairDraft({
+            code: current,
+            pageUrl: pending.liveUrl!,
+            failure: { step: failure.step, line: failure.line, reason: failure.reason },
+            pageTreeAtFailure: failure.pageTree,
+            ...(failure.skippedEarlier.length ? { skippedEarlier: failure.skippedEarlier } : {}),
+          });
+          return { ok: true as const, code: repaired.code, explanation: repaired.explanation, payload: repaired };
+        },
+      },
+      { maxFixes: 1 },
+    );
+    if (!outcome.verdict || !outcome.code) return null;
+    const lastRun = outcome.lastRun as { counts?: { passed: number; failed: number; skipped: number; notReached: number } } | null;
+    const counts = lastRun?.counts ?? { passed: 0, failed: 0, skipped: 0, notReached: 0 };
+    return {
+      // The pinned version marker survives a fix, but is re-applied in case the
+      // model rewrote the test title.
+      code: applyTestCaseVersionMarker(outcome.code, pending.testCaseVersionId),
+      liveRun: {
+        verdict: outcome.verdict,
+        passed: counts.passed,
+        failed: counts.failed,
+        notRun: counts.skipped + counts.notReached,
+        fixes: outcome.fixesUsed,
+        pageUrl: pending.liveUrl,
+        ranAt: new Date().toISOString(),
+        receipt: outcome.verdict === "failed" ? null : outcome.receipt,
+      },
+    };
+  } catch (error) {
+    console.error("[automation] could not prove the generated code", error);
+    return null;
+  }
 }
 
 /**
@@ -524,13 +640,31 @@ async function finishAutomationGeneration(
 ) {
   let result: AutomationGenerationResult | null = null;
   let failureCode: string | null = null;
+  // The page the project runs on, read here rather than in the request that
+  // pressed the button, so the page opens at once.
+  let snapshot: Awaited<ReturnType<typeof capturePageSnapshot>> | null = null;
+  if (!seededResult && !dependencies?.generator && pending.liveUrl && pending.engine === "PLAYWRIGHT_BROWSER") {
+    snapshot = await capturePageSnapshot(pending.liveUrl);
+  }
   try {
-    result = seededResult ?? (await (dependencies?.generator ?? generateAutomation)(pending.generationInput));
+    result =
+      seededResult ??
+      (await (dependencies?.generator ?? generateAutomation)({
+        ...pending.generationInput,
+        pageSnapshot: snapshot?.ok ? snapshot : null,
+      }));
   } catch (error) {
     failureCode =
       error instanceof Error && /^[a-z_]+$/.test(error.message)
         ? error.message
         : "provider_failure";
+  }
+
+  // The same corrections the free tools make: getByTestId written for the
+  // attribute this site actually uses, and container roles located by text.
+  if (result && snapshot?.ok) {
+    const aligned = alignTestIdLocators(result.code, siteTestIdAttribute(snapshot.elementHints));
+    result = { ...result, code: alignContainerNames(aligned.code, snapshot.aria).code };
   }
 
   // Stamp the pinned version into the generated code before validation so the
@@ -542,6 +676,17 @@ async function finishAutomationGeneration(
       code: applyTestCaseVersionMarker(result.code, pending.testCaseVersionId),
     };
   }
+  // Proving happens before the version is stored, so a reviewer never sees
+  // code that was about to change under them.
+  let liveRun: AutomationLiveRun | null = null;
+  if (result && !seededResult && pending.engine === "PLAYWRIGHT_BROWSER" && !dependencies?.generator) {
+    const proven = await proveGeneratedCode(pending, result.code);
+    if (proven) {
+      result = { ...result, code: proven.code };
+      liveRun = proven.liveRun;
+    }
+  }
+
   const validation = result
     ? validateAutomationGeneration(pending.engine, result)
     : { status: "BLOCKED" as const, findings: [] };
@@ -552,13 +697,16 @@ async function finishAutomationGeneration(
       data: {
         generationStatus: result ? "SUCCEEDED" : "FAILED",
         validationStatus: validation.status,
-        summary: result?.summary ?? "Automation generation failed safely.",
+        summary: liveRun
+    ? `${result?.summary ?? ""} ${describeLiveRun(liveRun)}`.trim().slice(0, 2_000)
+    : result?.summary ?? "Automation generation failed safely.",
         plan: (result?.plan ?? []) as Prisma.InputJsonValue,
         code: result?.code ?? "",
         configuration: result?.configuration ?? "",
         dependencies: result?.dependencies ?? [],
         assumptions: result?.assumptions ?? [],
         validationFindings: validation.findings as Prisma.InputJsonValue,
+        liveRun: (liveRun ?? undefined) as Prisma.InputJsonValue | undefined,
         model: result?.model ?? pending.configuredModel,
         inputTokens: result?.inputTokens ?? null,
         outputTokens: result?.outputTokens ?? null,
@@ -779,6 +927,16 @@ export async function createAutomationFromImportedDraft(
     await abandonAutomationGeneration(pending, dependencies).catch(() => {});
     throw error;
   }
+}
+
+/** One sentence for the version summary: what the live run proved. */
+export function describeLiveRun(run: AutomationLiveRun) {
+  const fixed = run.fixes ? ` after ${run.fixes} automatic fix${run.fixes === 1 ? "" : "es"}` : "";
+  if (run.verdict === "passed") return `Passed on ${run.pageUrl}: ${run.passed} checks${fixed}.`;
+  if (run.verdict === "partial") {
+    return `Ran on ${run.pageUrl}: ${run.passed} checks passed${fixed}, ${run.notRun} steps could not run there.`;
+  }
+  return `Did not pass on ${run.pageUrl}${fixed}: ${run.failed} failed after ${run.passed} checks. Review the code before approving.`;
 }
 
 /** True when a version has been running so long it will never finish. */

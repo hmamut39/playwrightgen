@@ -4,7 +4,7 @@ The working plan, kept in the repository so any session can pick up where the
 last one stopped. Update the "Shipped" and "Next" sections at the end of every
 work session.
 
-Last updated: 2026-09-16.
+Last updated: 2026-09-17.
 
 ## Where the product is
 
@@ -102,6 +102,16 @@ test suite (460+ tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **Automation proves itself before review** (2026-09-17): a project can hold a
+  live URL ("Where this project runs", on the project page). With one set,
+  generating automation for an approved Test Case reads that page first, so
+  locators come from its real roles, names and test attributes instead of
+  process.env placeholders nobody could run; then the code is run there, a
+  failing step is fixed once from the page as it was, and the version records
+  "Passed on the live page · N checks". A person still reviews and approves.
+  Verified: approved Test Case to passing automation in 64 seconds with one
+  automatic fix. Before this, generated automation read every selector from
+  environment variables, which is why it could never be run.
 - **Free tools over MCP** (2026-09-16): `generate_playwright_test` (reads the
   real page, writes a draft) and `run_playwright_test` (replays it in the
   remote browser, returns the failing step with the page tree, and a signed
@@ -136,21 +146,18 @@ test suite (460+ tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Prove it in the workspace too.** Generating automation for an approved
-   test case should run and fix it before a person reviews it. Needs a page to
-   run against, so the project needs an optional live URL first.
-2. **Cover a whole page (planner-executor).** From one URL: plan the test cases
+1. **Cover a whole page (planner-executor).** From one URL: plan the test cases
    a page needs, then prove each one in parallel, ending with a suite and a
    coverage summary. Bounded by the workspace allowance, with a plan a person
    approves before it spends anything.
-3. **MCP directory listings (needs the owner).** The official MCP registry
+2. **MCP directory listings (needs the owner).** The official MCP registry
    verifies the publisher through GitHub or DNS, so publishing is the owner's
    step; everything else (the /mcp page, tools, docs) is ready.
-4. **Split the Release Review page.** It is 1,500 lines in one file. The
+3. **Split the Release Review page.** It is 1,500 lines in one file. The
    analysis now lives in lib/ai/release-review.ts; the page does not.
-5. **Open a pull request from approved automation.** Needs the owner's
+4. **Open a pull request from approved automation.** Needs the owner's
    decision on giving the GitHub App write permission (currently read-only).
-6. **Verify the paid path end to end.** Stripe payment, then webhook, then
+5. **Verify the paid path end to end.** Stripe payment, then webhook, then
    entitlement, then the Team allowance in the free tools. Needs the owner's
    account and a real card.
 

@@ -7,10 +7,12 @@ import {
   archiveProject,
   getProjectOverview,
   restoreProject,
+  updateProject,
 } from "@/lib/services/projects";
 import { getProjectSetup } from "@/lib/services/project-setup";
 import { personName } from "@/lib/format/person-name";
 import { LocalTime } from "@/components/workspace/local-time";
+import { PendingButton } from "@/components/workspace/pending-button";
 import { humanLabel } from "@/lib/format/label";
 
 export default async function ProjectOverviewPage({
@@ -25,6 +27,12 @@ export default async function ProjectOverviewPage({
     requireWorkspaceContext({ orgSlug, projectId }),
   ]);
   const { project } = overview;
+
+  async function liveUrlAction(formData: FormData) {
+    "use server";
+    await updateProject({ orgSlug, projectId, liveUrl: String(formData.get("liveUrl") ?? "").trim() });
+    revalidatePath(`/workspace/${orgSlug}/projects/${projectId}/overview`);
+  }
 
   async function transitionAction(formData: FormData) {
     "use server";
@@ -68,6 +76,36 @@ export default async function ProjectOverviewPage({
           Quality, which a new user has no reason to open. It hides itself once
           every step is done, so an established project pays nothing for it. */}
       <SetupChecklist setup={setup} canAct={context.can("requirement:create")} />
+
+      {/* Where this project runs. With it, automation generated for an approved
+          Test Case is run and fixed before a person reviews it, so a reviewer
+          reads code that was tried rather than only written. */}
+      <section className="mt-8 rounded-2xl border border-cyan-200 bg-cyan-50/40 p-6 shadow-sm sm:p-8">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">Proving</p>
+        <h2 className="mt-2 text-lg font-semibold">Where this project runs</h2>
+        <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
+          Give a public address of this product and PlaywrightGen will run each newly generated test there, fix a failing
+          step from what the page really showed, and record the result on the version &mdash; before anyone reviews it.
+          Leave it empty and nothing is run.
+        </p>
+        {overview.canUpdate ? (
+          <form action={liveUrlAction} className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <input
+              name="liveUrl"
+              type="url"
+              defaultValue={project.liveUrl ?? ""}
+              maxLength={2_000}
+              placeholder="https://staging.our-app.example.com/"
+              className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-cyan-600 focus-visible:ring-2 focus-visible:ring-cyan-500/60"
+            />
+            <PendingButton pendingLabel="Saving…" className="rounded-lg bg-cyan-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-800">
+              {project.liveUrl ? "Update" : "Save"}
+            </PendingButton>
+          </form>
+        ) : (
+          <p className="mt-4 text-sm font-medium text-slate-700">{project.liveUrl || "Not set. A project lead can add it."}</p>
+        )}
+      </section>
 
       <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <dl className="grid gap-6 sm:grid-cols-2">

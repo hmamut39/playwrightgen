@@ -11,6 +11,7 @@ import {
   type WorkspaceContextDependencies,
 } from "@/lib/auth/workspace-context";
 import { getPrismaClient } from "@/lib/db/prisma";
+import { isPublicWebAddress } from "@/lib/free-tools/public-address";
 
 const nameSchema = z.string().trim().min(1).max(200);
 const slugSchema = z
@@ -206,6 +207,8 @@ export async function updateProject(
     projectId: string;
     name?: string;
     description?: string | null;
+    /** Where this project runs, so generated automation can be proven on it. "" clears it. */
+    liveUrl?: string | null;
     orgSlug?: string;
     requestId?: string;
   },
@@ -217,10 +220,21 @@ export async function updateProject(
       .object({
         name: nameSchema.optional(),
         description: descriptionSchema.optional(),
+        liveUrl: z
+          .string()
+          .trim()
+          .max(2_000)
+          .nullable()
+          .optional()
+          .transform((value) => (value ? value : value === undefined ? undefined : null))
+          .refine(
+            (value) => value === undefined || value === null || isPublicWebAddress(value),
+            "liveUrl must be a public web address",
+          ),
       })
       .refine(
         (value) =>
-          value.name !== undefined || value.description !== undefined,
+          value.name !== undefined || value.description !== undefined || value.liveUrl !== undefined,
       ),
     input,
   );
@@ -235,6 +249,7 @@ export async function updateProject(
   const changedFields = [
     ...(data.name !== undefined ? ["name"] : []),
     ...(data.description !== undefined ? ["description"] : []),
+    ...(data.liveUrl !== undefined ? ["liveUrl"] : []),
   ];
 
   return client(dependencies).$transaction(async (transaction) => {
