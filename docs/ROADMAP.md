@@ -10,7 +10,7 @@ Last updated: 2026-09-19.
 
 Live at https://playwrightgen.com (Vercel, Clerk production, Stripe live,
 Neon Postgres). Every item below was verified in a real browser, and the full
-test suite (460+ tests) passes.
+test suite (489 tests) passes.
 
 ## Shipped (most recent first)
 
@@ -93,6 +93,14 @@ test suite (460+ tests) passes.
   tests and named failure modes.
 
 ### Public site
+- **Release Review page split** (2026-09-19): app/engineering-review/page.tsx
+  went from 1,503 lines to 920 (the form and its flow). Types and option
+  lists are in review-model.ts, the inputs in form-controls.tsx, and the whole
+  result (sections, report download, workspace handoff) in review-result.tsx.
+  Moved, not rewritten. Verified in a browser: example, analysis, all nine
+  result sections, report download, "Analyze Another Change", phone width.
+  The form's remaining fields share one set of state; splitting them further
+  would mean restructuring that state, which is not worth the risk now.
 - **/mcp page** (2026-09-16): what editor assistants can do over MCP, the ten
   tools, how to connect from VS Code, Cursor and Claude Code, and what the
   connection can never do. Linked from the menu and the sitemap.
@@ -224,8 +232,9 @@ test suite (460+ tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Split the Release Review page.** It is 1,500 lines in one file; the
-   analysis already lives in lib/ai/release-review.ts, the page does not.
+1. **A project health page for the phone.** One screen per project: live
+   check status, what started failing, what waits for review, last evidence
+   -- readable at 390px, since the owner checks progress from a phone.
 2. **MCP directory listings (needs the owner).** The official MCP registry
    verifies the publisher through GitHub or DNS, so publishing is the owner's
    step; everything else (the /mcp page, tools, docs) is ready.
