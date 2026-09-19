@@ -12,7 +12,7 @@ export function siteUrl(): string {
 export const SITE_NAME = "PlaywrightGen";
 export const SITE_TAGLINE = "Evidence-backed quality for Playwright teams";
 export const SITE_DESCRIPTION =
-  "Turn requirements into reviewed Playwright tests, run them in your own CI, and see whether a release is safe to ship — with every approval and result on record.";
+  "Playwright tests written from your real page, run in a real browser and fixed until they pass — then reviewed by your team, with every approval and result on record.";
 
 /**
  * The generated share card. A page that sets its own openGraph replaces the

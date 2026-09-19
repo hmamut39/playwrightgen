@@ -48,15 +48,15 @@ const freeTools = [
     number: "01",
     title: "Quick Generate",
     description:
-      "Turn a requirement, component, API description, HTML snippet, or URL into a disposable Playwright starting point.",
+      "Describe the behaviour and give a URL. It reads the real page, writes the Playwright test, runs it in a real browser and fixes it until it passes.",
     href: "/generator",
-    action: "Generate a first draft",
+    action: "Write and prove a test",
   },
   {
     number: "02",
     title: "Coverage Review",
     description:
-      "Review pasted requirements and tests for likely gaps, brittle patterns, weak assertions, and missing scenarios.",
+      "Find the gaps, brittle patterns and weak assertions in your tests, run them on the live page, and prove the tests you are missing.",
     href: "/intelligence",
     action: "Review test coverage",
   },
@@ -78,6 +78,8 @@ const workspaceCapabilities = [
   "Append-only run attempts and failure evidence",
   "Members write, leads approve, nobody approves their own work",
   "Results from your own CI, pinned to approved versions",
+  "Cover a whole page: plan its tests, approve, prove each one",
+  "Automation run on your live site before anyone reviews it",
   "Connects to VS Code, Cursor and Claude Code over MCP",
 ] as const;
 
@@ -86,8 +88,8 @@ const integrations = [
     label: "Your editor",
     title: "Approved tests, inside VS Code, Cursor and Claude Code",
     description:
-      "Connect your editor's AI assistant to a project over MCP. It writes tests against the approved test case instead of a guess, keeps the version marker that links results back, and pulls reviewed automation into your repository.",
-    detail: "Read-only · personal token · revoked when access ends",
+      "Connect your editor's AI assistant over MCP. In one call it writes a test from the real page and makes it pass, then proposes it with that evidence; it also pulls approved automation into your repository.",
+    detail: "Proposes, never approves · personal token · revoked when access ends",
   },
   {
     label: "Your CI",
@@ -187,39 +189,63 @@ export default function Home() {
             </div>
 
             <h1 className="mt-7 max-w-4xl text-5xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-6xl lg:text-7xl">
-              Know what to test.
-              <span className="block text-cyan-300">Know whether to ship.</span>
+              Playwright tests
+              <span className="block text-cyan-300">proven on your real page.</span>
             </h1>
 
             <p className="mt-7 max-w-2xl text-lg leading-8 text-slate-300 sm:text-xl">
-              PlaywrightGen connects requirements, test intent, reviewable
-              automation, execution evidence, and failure intelligence so your
-              team can act on quality risk instead of guessing from disconnected
-              AI output.
+              Say what to test and paste a URL. PlaywrightGen reads the page,
+              writes the test, runs it in a real browser and fixes it until it
+              passes &mdash; then your team reviews it, with the passing run as
+              evidence, before it counts.
             </p>
 
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <Link
-                href="/workspace"
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-cyan-300 px-5 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
-              >
-                Open your Workspace
-                <ArrowIcon />
-              </Link>
-              <Link
-                href="/intelligence"
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-5 text-sm font-semibold text-white transition hover:border-white/30 hover:bg-white/10"
-              >
-                Try Coverage Review
-                <ArrowIcon />
-              </Link>
-            </div>
+            {/* A plain GET form: it works before any script loads, and lands in
+                Quick Generate with the loop already running. */}
+            <form action="/generator" method="get" className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-3 sm:p-4">
+              <input type="hidden" name="prove" value="1" />
+              <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                What should it test?
+                <input
+                  name="request"
+                  required
+                  maxLength={2_000}
+                  placeholder="A visitor adds two todos, completes one, and filters to Active"
+                  className="mt-2 w-full rounded-xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm font-normal normal-case tracking-normal text-white outline-none placeholder:text-slate-500 focus:border-cyan-300"
+                />
+              </label>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <label className="sr-only" htmlFor="hero-page-url">Page URL</label>
+                <input
+                  id="hero-page-url"
+                  name="pageUrl"
+                  type="url"
+                  required
+                  maxLength={2_000}
+                  placeholder="https://demo.playwright.dev/todomvc/"
+                  className="min-w-0 flex-1 rounded-xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-300"
+                />
+                <button
+                  type="submit"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-cyan-300 px-5 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
+                >
+                  Write &amp; prove it
+                  <ArrowIcon />
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-slate-400">
+                Free, no account. Takes about a minute. Or{" "}
+                <Link href="/generator" className="font-semibold text-cyan-200 hover:text-cyan-100">try a ready-made demo</Link>
+                {" "}&middot;{" "}
+                <Link href="/workspace" className="font-semibold text-cyan-200 hover:text-cyan-100">open your Workspace</Link>
+              </p>
+            </form>
 
             <div className="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-400">
               {[
-                "Versioned intent",
-                "Reviewable automation",
-                "Immutable run evidence",
+                "Run in a real browser",
+                "Fixed until it passes",
+                "Reviewed before it counts",
               ].map((item) => (
                 <span key={item} className="inline-flex items-center gap-2">
                   <span className="text-cyan-300"><CheckIcon /></span>
