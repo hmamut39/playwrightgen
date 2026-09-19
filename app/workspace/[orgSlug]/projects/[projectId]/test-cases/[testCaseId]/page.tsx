@@ -1,4 +1,5 @@
 import { AiAllowanceNotice, aiAllowanceNotice } from "@/components/workspace/ai-allowance-notice";
+import { StickyReviewBar } from "@/components/workspace/sticky-review-bar";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -190,7 +191,7 @@ export default async function TestCaseDetailPage({
           <h1 className="mt-3 text-3xl font-semibold tracking-tight">{testCase.title}</h1>
           <p className="mt-3 text-sm text-slate-500">{humanLabel(testCase.priority)} priority · {testCase.automationStatus === "AUTOMATED" ? "Automated" : testCase.automationStatus === "DRAFT" ? "Automation in progress" : "Not automated yet"} · Owner: {personName(testCase.owner.displayName)}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div id="review-actions" className="flex flex-wrap gap-2">
           {testCase.status === "APPROVED" && detail.canCreateRun ? <Link href={`/workspace/${orgSlug}/projects/${projectId}/test-runs/new?testCaseId=${testCase.id}`} className="rounded-lg bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white">Create Test Run</Link> : null}
           {testCase.status === "DRAFT" && detail.canSubmit && isReviewComplete ? <form action={transitionAction}><input type="hidden" name="intent" value="submit" /><button className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white">Submit for review</button></form> : null}
           {testCase.status === "IN_REVIEW" && detail.canApprove ? <><form action={transitionAction}><input type="hidden" name="intent" value="request-changes" /><button className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold">Request changes</button></form>{detail.reviewTrail.awaitingAnotherApprover ? null : <form action={transitionAction}><input type="hidden" name="intent" value="approve" /><button className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white">Approve</button></form>}</> : null}
@@ -308,6 +309,23 @@ export default async function TestCaseDetailPage({
         <h2 className="text-lg font-semibold">Version history</h2><p className="mt-1 text-sm text-slate-500">Historical snapshots are read-only.</p>
         <div className="mt-6 divide-y divide-slate-200 border-y border-slate-200">{testCase.versions.map((version) => <details key={version.id} className="py-4"><summary className="flex cursor-pointer list-none items-center justify-between gap-4"><span className="text-sm font-semibold">Version {version.versionNumber}</span><span className="text-xs text-slate-400">{personName(version.createdBy.displayName)} · <LocalTime value={version.createdAt} /></span></summary><div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-700"><p className="font-semibold text-slate-950">{version.title}</p><p className="mt-2">{version.objective || "No objective."}</p><p className="mt-3 text-xs font-semibold uppercase text-slate-400">{version.type.replaceAll("_", " ")} · {version.priority} · {version.automationStatus}</p></div></details>)}</div>
       </section>
+
+      {testCase.status === "IN_REVIEW" && detail.canApprove && !detail.reviewTrail.awaitingAnotherApprover ? (
+        <>
+          {/* Room for the bar, so it never covers the version history. */}
+          <div aria-hidden className="h-20 lg:hidden" />
+          <StickyReviewBar watchId="review-actions" label={testCase.title}>
+            <form action={transitionAction}>
+              <input type="hidden" name="intent" value="request-changes" />
+              <button className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold">Request changes</button>
+            </form>
+            <form action={transitionAction}>
+              <input type="hidden" name="intent" value="approve" />
+              <button className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white">Approve</button>
+            </form>
+          </StickyReviewBar>
+        </>
+      ) : null}
     </div>
   );
 }

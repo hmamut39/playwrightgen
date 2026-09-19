@@ -24,7 +24,7 @@ export function CopyField({ label, value, secret = false }: CopyFieldProps) {
   }
 
   return (
-    <div className="grid gap-1.5">
+    <div className="grid min-w-0 grid-cols-1 gap-1.5">
       <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
         {label}
       </span>

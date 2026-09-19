@@ -68,7 +68,7 @@ export default async function AutomationPage({
         <ListSearch basePath={basePath} meta={artifacts} placeholder="Search artifacts or test cases" />
       </div>
 
-      <section className="mt-8 grid gap-4">
+      <section className="mt-8 grid grid-cols-1 gap-4">
         {artifacts.items.length ? (
           artifacts.items.map((artifact) => {
             const currentVersion = artifact.versions[0];

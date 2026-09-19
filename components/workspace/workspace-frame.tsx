@@ -67,7 +67,8 @@ export function WorkspaceFrame({
           <UserButton />
         </div>
       </aside>
-      <section className="min-w-0 flex-1">
+      {/* Long addresses and code-like words wrap instead of widening the page on a phone. */}
+      <section className="min-w-0 flex-1 wrap-anywhere">
         <header className="hidden border-b border-slate-200 bg-white px-5 py-4 sm:px-8 lg:block">
           <p className="text-sm font-medium text-slate-700">{organizationName}</p>
         </header>

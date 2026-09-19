@@ -4,6 +4,7 @@ import { after } from "next/server";
 import Link from "next/link";
 
 import { AiAllowanceNotice, aiAllowanceNotice } from "@/components/workspace/ai-allowance-notice";
+import { StickyReviewBar } from "@/components/workspace/sticky-review-bar";
 import { ResultActions } from "@/components/free-tools/result-actions";
 import { CodeBlock } from "@/components/workspace/code-block";
 
@@ -191,7 +192,7 @@ export default async function AutomationArtifactPage({
             </p>
           ) : null}
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div id="review-actions" className="flex flex-wrap gap-2">
           {artifact.status === "DRAFT" && detail.canSubmit && canSubmitCurrent ? (
             <form action={transitionAction}>
               <input type="hidden" name="intent" value="submit" />
@@ -585,6 +586,23 @@ export default async function AutomationArtifactPage({
           ))}
         </div>
       </section>
+
+      {artifact.status === "IN_REVIEW" && detail.canApprove && !detail.reviewTrail.awaitingAnotherApprover ? (
+        <>
+          {/* Room for the bar, so it never covers the last lines of code. */}
+          <div aria-hidden className="h-20 lg:hidden" />
+          <StickyReviewBar watchId="review-actions" label={artifact.name}>
+            <form action={transitionAction}>
+              <input type="hidden" name="intent" value="request-changes" />
+              <button className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold">Request changes</button>
+            </form>
+            <form action={transitionAction}>
+              <input type="hidden" name="intent" value="approve" />
+              <button className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white">Approve</button>
+            </form>
+          </StickyReviewBar>
+        </>
+      ) : null}
     </div>
   );
 }

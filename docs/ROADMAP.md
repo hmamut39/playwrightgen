@@ -110,6 +110,21 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **Review from a phone** (2026-09-19): measured the review pages at 390px.
+  The automation page was 408px wide -- a version summary containing a long
+  URL could not wrap -- so the whole workspace content area now wraps long
+  words (`wrap-anywhere` in workspace-frame.tsx); code blocks still scroll
+  sideways inside their box. On test case and automation pages waiting for
+  this reviewer, a bottom bar with Request changes / Approve appears on small
+  screens once the header buttons scroll away (StickyReviewBar), with room
+  left so it covers nothing. Verified as the lead: bar hidden at the top,
+  shown after scrolling, Approve in the bar approved the test case
+  (TEST_CASE_APPROVED recorded), bar gone afterwards, page 390px wide.
+  Then all 21 workspace pages were measured at 390px: only the Automation
+  list was wider (620px). A CSS grid with no column rule sizes its column to
+  the widest single-line child, so a long artifact name (and the editor token
+  field) stretched the page; both grids now declare `grid-cols-1`, which
+  allows the column to shrink and the text to truncate as intended.
 - **First evidence from the Health page** (2026-09-19): while a project reads
   "No evidence yet", people who can create tests see "Get your first
   evidence" -- one address field (or none, when the project has a live URL)
@@ -260,10 +275,10 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Review from the phone.** The Health page says what waits for review;
-   approving a test case or automation still means the desktop-sized review
-   pages. Make the review pages read well at 390px (code blocks scroll inside
-   their box, the approve button stays in reach).
+1. **Keep the phone measurement from rotting.** The 390px audit is a script
+   in the scratchpad; make it a checked-in script (`npm run audit:phone`)
+   that signs in, walks every workspace page and fails when a page is wider
+   than the screen, so this cannot regress unnoticed.
 2. **MCP directory listings (needs the owner).** The official MCP registry
    verifies the publisher through GitHub or DNS, so publishing is the owner's
    step; everything else (the /mcp page, tools, docs) is ready.
