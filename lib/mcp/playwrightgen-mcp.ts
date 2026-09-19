@@ -30,6 +30,13 @@ import {
 } from "@/lib/services/automation-artifacts";
 import type { EditorSession } from "@/lib/services/editor-access";
 import { getReleaseReadiness } from "@/lib/services/release-readiness";
+import {
+  getPageCoverage,
+  PageCoverageError,
+  proveNextPageCoverageItem,
+  resumePageCoverage,
+  startPageCoveragePlan,
+} from "@/lib/services/page-coverage";
 import { attachEditorCode, ImportedDraftError } from "@/lib/services/imported-drafts";
 import {
   createTestCase,
@@ -56,9 +63,9 @@ import { siteUrl } from "@/lib/site";
  *
  * It is stateless, and it can propose but never decide: agents may create a
  * draft test case or send code for one, and a person approves in PlaywrightGen.
- * It It speaks JSON-RPC over the
- * Streamable HTTP transport, answering each POST with a single JSON response;
- * it opens no streams because nothing here is long-running. Every tool goes
+ * It speaks JSON-RPC over the Streamable HTTP transport, answering each POST
+ * with a single JSON response and opening no streams; the slowest tools (a
+ * page-coverage plan or proving round) finish within the route's time limit. Every tool goes
  * through the same services, and so the same authorization, as the web app.
  */
 
@@ -72,7 +79,8 @@ When writing or changing a Playwright test for this project:
 3. Prefer reviewed code: if get_approved_automation has an approved version, use it as-is rather than regenerating.
 4. Use list_recent_failures to see what is currently failing and why before fixing a test.
 5. To write a new test, generate_playwright_test drafts one from the real page; run_playwright_test checks any test on the live page and shows the failing step with the page tree, so fix and run again until it passes.
-6. When behaviour has no test case yet, use propose_test_case (with the Playwright code you wrote, if any). To send code for an existing test case, use submit_playwright_code.
+6. To cover a whole page, plan_page_coverage proposes the tests it needs; a person approves the plan in PlaywrightGen, then prove_page_coverage writes, runs and fixes each one and returns the proven suite.
+7. When behaviour has no test case yet, use propose_test_case (with the Playwright code you wrote, if any). To send code for an existing test case, use submit_playwright_code.
 You can propose and send code, but not approve: a person reviews everything in PlaywrightGen before it counts.`;
 
 type JsonRpcId = string | number;
@@ -109,6 +117,82 @@ const READ_ONLY = { readOnlyHint: true, idempotentHint: true, openWorldHint: fal
 const WRITE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 /** Changes nothing in PlaywrightGen, but opens a public page and uses the daily allowance. */
 const USES_ALLOWANCE = { readOnlyHint: true, idempotentHint: false, openWorldHint: true };
+/** Opens a public page, uses the allowance, and adds drafts for review; approves nothing. */
+const PROPOSES_FROM_PAGE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true };
+
+/** Proving stops starting new items this long into a call, leaving room to answer. */
+const COVERAGE_CALL_BUDGET_MS = 120_000;
+
+/** A test account passed as the E2E_* values a signed-in test reads. Used for this call only. */
+function accountFromEnv(env: Record<string, string> | undefined) {
+  if (!env?.E2E_USERNAME || !env.E2E_PASSWORD) return null;
+  return { username: env.E2E_USERNAME, password: env.E2E_PASSWORD, ...(env.E2E_LOGIN_URL ? { loginUrl: env.E2E_LOGIN_URL } : {}) };
+}
+
+function coverageLink(session: EditorSession, coverageId: string) {
+  return `${siteUrl()}/workspace/${session.orgSlug}/projects/${session.projectId}/cover/${coverageId}`;
+}
+
+/** Where a page-coverage run stands, in words an agent can act on, and as data. */
+async function describeCoverage(session: EditorSession, coverageId: string, lead?: string): Promise<ToolResult> {
+  const { run, coverage, suite } = await getPageCoverage(
+    { orgSlug: session.orgSlug, projectId: session.projectId, coverageId },
+    session.dependencies,
+  );
+  const link = coverageLink(session, run.id);
+  const next: Record<string, string> = {
+    PLANNING: "The plan is still being made. Call prove_page_coverage again in a minute.",
+    PLAN_FAILED: run.message ?? "No plan could be made. Call plan_page_coverage again with a focus.",
+    PLANNED: `Waiting for a person to approve the plan: ${link} -- agents cannot approve it. When they have, call prove_page_coverage.`,
+    PROVING: "Approved tests are still being proven. Call prove_page_coverage again to continue.",
+    PAUSED: run.message ?? "Paused. Call prove_page_coverage to continue.",
+    DONE: "Done. The proven tests are below; each one is a draft Test Case waiting for review in PlaywrightGen.",
+  };
+  const mark: Record<string, string> = {
+    PROPOSED: "proposed",
+    SKIPPED: "left out",
+    QUEUED: "approved, waiting",
+    PROVING: "being proven",
+    PASSED: "passed",
+    PARTIAL: "partly run",
+    FAILED: "still failing",
+    ERROR: "could not be proven",
+  };
+  const items = run.items.map((item) => ({
+    title: item.title,
+    status: item.status,
+    priority: item.priority,
+    checks: item.checks,
+    detail: item.detail,
+    testCaseId: item.testCaseId,
+  }));
+  const body = [
+    lead ?? null,
+    `Covering ${run.pageUrl}${run.needsSignIn ? " (signed in)" : ""}.`,
+    next[run.status] ?? run.status,
+    "",
+    ...run.items.map((item) => {
+      const checks = item.checks ? `, ${item.checks} checks` : "";
+      const why = item.status === "PROPOSED" ? ` -- ${item.rationale}` : item.detail && item.status !== "PASSED" ? ` -- ${item.detail}` : "";
+      return `- [${mark[item.status] ?? item.status}] ${item.title} (${item.priority.toLowerCase()}${checks})${why}`;
+    }),
+    coverage.total && suite ? `\nThe proven tests reach ${coverage.reached.length} of the page's ${coverage.total} named controls.` : null,
+    suite ? `\nProven suite (page-coverage.spec.ts):\n\`\`\`ts\n${suite}\`\`\`` : null,
+    `\nIn PlaywrightGen: ${link}`,
+  ]
+    .filter((line) => line !== null)
+    .join("\n");
+  return text(body, {
+    coverageId: run.id,
+    status: run.status,
+    pageUrl: run.pageUrl,
+    needsSignIn: run.needsSignIn,
+    items,
+    coverage: { reached: coverage.reached.length, total: coverage.total },
+    suite,
+    link,
+  });
+}
 
 /**
  * The free tools over MCP draw on the connected workspace's daily AI allowance
@@ -742,6 +826,85 @@ const tools: Tool[] = [
     },
   },
   {
+    name: "plan_page_coverage",
+    title: "Plan the tests a page needs",
+    description:
+      "Reads a public page (signed in, when env carries E2E_USERNAME and E2E_PASSWORD) and proposes up to six tests covering what a user can do there, leaving out risky actions such as payments. Returns the plan and a link: a person approves which tests to prove in PlaywrightGen, then prove_page_coverage proves them. Takes about a minute. Uses one request from the workspace's daily AI allowance.",
+    annotations: PROPOSES_FROM_PAGE,
+    inputSchema: {
+      type: "object",
+      properties: {
+        pageUrl: { type: "string", description: "Public URL of the page to cover." },
+        focus: { type: "string", description: "Optional: what matters most on this page." },
+        env: { type: "object", additionalProperties: { type: "string" }, description: "For a page behind a login: E2E_USERNAME, E2E_PASSWORD and optionally E2E_LOGIN_URL of a test account. Used for this call only, never stored." },
+      },
+      required: ["pageUrl"],
+      additionalProperties: false,
+    },
+    async run(session, args) {
+      const input = z
+        .object({ pageUrl: z.string().trim().min(1).max(2_000), focus: z.string().max(2_000).optional(), env: runEnvSchema.optional() })
+        .parse(args);
+      if (!isPublicWebAddress(input.pageUrl)) {
+        return toolError("pageUrl must be a public web address (not localhost or a private network).");
+      }
+      // Planning runs within this call: an editor agent has no page to refresh.
+      let planning: Promise<void> = Promise.resolve();
+      const run = await startPageCoveragePlan(
+        {
+          orgSlug: session.orgSlug,
+          projectId: session.projectId,
+          pageUrl: input.pageUrl,
+          focus: input.focus,
+          account: accountFromEnv(input.env),
+        },
+        (task) => {
+          planning = task();
+        },
+        session.dependencies,
+      );
+      await planning;
+      return describeCoverage(session, run.id);
+    },
+  },
+  {
+    name: "prove_page_coverage",
+    title: "Prove a page's approved tests",
+    description:
+      "For a plan a person has approved in PlaywrightGen: writes each approved test from the live page, runs it in a remote browser, fixes a failing step and runs again, and keeps each result on a draft Test Case for review. Proves as many as fit in about two to four minutes; call again until the status is DONE, which returns the proven suite. Before approval it only reports the status. Uses up to three requests from the daily AI allowance per test.",
+    annotations: PROPOSES_FROM_PAGE,
+    inputSchema: {
+      type: "object",
+      properties: {
+        coverageId: { type: "string", description: "The coverageId plan_page_coverage returned." },
+        env: { type: "object", additionalProperties: { type: "string" }, description: "For a page behind a login: E2E_USERNAME and E2E_PASSWORD again, since accounts are never stored." },
+      },
+      required: ["coverageId"],
+      additionalProperties: false,
+    },
+    async run(session, args) {
+      const input = z.object({ coverageId: uuidArg, env: runEnvSchema.optional() }).parse(args);
+      const scope = { orgSlug: session.orgSlug, projectId: session.projectId, coverageId: input.coverageId };
+      const account = accountFromEnv(input.env);
+      const { run } = await getPageCoverage(scope, session.dependencies);
+      if (run.needsSignIn && !account && (run.status === "PROVING" || run.status === "PAUSED")) {
+        return toolError("This page is behind a login. Pass the test account again as env E2E_USERNAME and E2E_PASSWORD; it is never stored.");
+      }
+      // Work the person approved and the allowance paused picks up where it stopped.
+      if (run.status === "PAUSED") await resumePageCoverage(scope, session.dependencies);
+
+      const started = Date.now();
+      let proved = 0;
+      while (Date.now() - started < COVERAGE_CALL_BUDGET_MS) {
+        const step = await proveNextPageCoverageItem({ ...scope, account }, session.dependencies);
+        if (!step.provedItemId) break;
+        proved += 1;
+        if (step.status !== "PROVING") break;
+      }
+      return describeCoverage(session, input.coverageId, proved ? `Proved ${proved} test${proved === 1 ? "" : "s"} in this call.` : undefined);
+    },
+  },
+  {
     name: "propose_test_case",
     title: "Propose a test case",
     description:
@@ -925,6 +1088,12 @@ function describeToolFailure(error: unknown): string {
     return error.code === "organization_burst_limit"
       ? "Too many requests in a minute; wait a minute and try again."
       : "This workspace has used today's AI allowance. It resets at midnight UTC; the Team plan raises it.";
+  }
+  if (error instanceof PageCoverageError) {
+    if (error.code === "not_found") return "Not found in this project.";
+    if (error.code === "allowance_used") return error.detail ?? "This workspace has used today's AI allowance.";
+    if (error.code === "sign_in_needed") return "This page is behind a login. Pass the test account as env E2E_USERNAME and E2E_PASSWORD; it is never stored.";
+    return error.detail ?? "That page could not be covered. Check the address, or add a focus.";
   }
   if (error instanceof LiveRunUnavailableError) return "Live runs are not available right now; try again shortly.";
   if (code?.endsWith("_not_found")) return "Not found in this project.";

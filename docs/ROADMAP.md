@@ -102,6 +102,15 @@ test suite (460+ tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **Cover a page over MCP** (2026-09-19): two MCP tools, now 13 in all.
+  `plan_page_coverage` reads a page (signed in when env carries E2E_USERNAME
+  and E2E_PASSWORD, used for that call only) and returns the plan with a link;
+  an agent cannot approve it. After a person ticks the tests in PlaywrightGen,
+  `prove_page_coverage` proves them (about two minutes of new work per call,
+  under the 300 s route limit) and, when done, returns the proven suite.
+  Verified against the dev server: TodoMVC plan of 5 in 46 s, person approved
+  2, one passed with 12 checks and one was reported still failing with its
+  code kept for review. Listed on /mcp.
 - **Daily live checks** (2026-09-19): on a project with a live URL, "Turn on
   and run now" replays every approved browser automation (for the test case's
   current approved version) on that URL once a day, and records each result as
@@ -180,9 +189,10 @@ test suite (460+ tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Cover a page over MCP.** The same plan-approve-prove flow as one pair of
-   MCP tools, so an editor agent can cover a page and a person approves the
-   plan in PlaywrightGen.
+1. **Tell the team when a live check starts failing.** Daily live checks
+   record the regression, but nobody hears about it until they open
+   PlaywrightGen. Surface it (workspace home banner first, then a message to
+   the project's people) the day a pass turns into a failure.
 2. **MCP directory listings (needs the owner).** The official MCP registry
    verifies the publisher through GitHub or DNS, so publishing is the owner's
    step; everything else (the /mcp page, tools, docs) is ready.

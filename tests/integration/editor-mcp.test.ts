@@ -247,10 +247,14 @@ export default defineConfig({ use: { baseURL: "http://localhost:3000" } });`,
         "generate_playwright_test",
         "run_playwright_test",
         "prove_playwright_test",
+        "plan_page_coverage",
+        "prove_page_coverage",
         "propose_test_case",
         "submit_playwright_code",
       ]);
       expect(list.result.tools.filter((tool) => !tool.annotations.readOnlyHint).map((tool) => tool.name)).toEqual([
+        "plan_page_coverage",
+        "prove_page_coverage",
         "propose_test_case",
         "submit_playwright_code",
       ]);
@@ -366,6 +370,86 @@ test('customer applies a discount code', async ({ page }) => {
       expect(await prisma.testCase.count({ where: { projectId: space.project.id } })).toBe(0);
     });
 
+    async function coverageRun(space: Space, status: "PLANNED" | "DONE") {
+      return prisma.pageCoverage.create({
+        data: {
+          organizationId: space.organization.id,
+          projectId: space.project.id,
+          pageUrl: "https://demo.playwright.dev/todomvc/",
+          pageTitle: "TodoMVC",
+          focus: "",
+          status,
+          controls: [{ role: "textbox", name: "What needs to be done?" }, { role: "link", name: "Completed" }],
+          createdByUserId: space.owner.id,
+          items: {
+            create: [
+              {
+                position: 0,
+                title: "A visitor adds a todo",
+                objective: "Adding works.",
+                steps: ["Type a todo", "Press Enter"],
+                expectedResults: ["It is listed"],
+                rationale: "The main thing the page is for.",
+                status: status === "DONE" ? "PASSED" : "PROPOSED",
+                checks: status === "DONE" ? 3 : null,
+                code: status === "DONE"
+                  ? `import { test, expect } from "@playwright/test";
+test("adds", async ({ page }) => {
+  await page.goto("/todomvc/");
+  await page.getByRole("textbox", { name: "What needs to be done?" }).fill("Milk");
+});`
+                  : null,
+              },
+            ],
+          },
+        },
+      });
+    }
+
+    it("covers a page only once a person approved the plan, then hands back the proven suite", async () => {
+      const space = await workspace();
+      const session = await sessionFor(space);
+
+      const planned = await coverageRun(space, "PLANNED");
+      const waiting = await call(session, "prove_page_coverage", { coverageId: planned.id });
+      expect(waiting.result.isError).toBeUndefined();
+      expect(waiting.result.content[0].text).toContain("Waiting for a person to approve the plan");
+      expect(waiting.result.content[0].text).toContain(`/cover/${planned.id}`);
+      expect(waiting.result.structuredContent).toMatchObject({ status: "PLANNED", suite: null });
+      // Nothing was approved or proven on the agent's say-so.
+      expect(await prisma.pageCoverageItem.count({ where: { pageCoverageId: planned.id, status: "PROPOSED" } })).toBe(1);
+      expect(await prisma.testCase.count({ where: { projectId: space.project.id } })).toBe(0);
+
+      const done = await coverageRun(space, "DONE");
+      const suite = await call(session, "prove_page_coverage", { coverageId: done.id });
+      expect(suite.result.content[0].text).toContain("- [passed] A visitor adds a todo (medium, 3 checks)");
+      expect(suite.result.content[0].text).toContain("reach 1 of the page's 2 named controls");
+      expect(suite.result.structuredContent?.suite).toContain('test.describe("A visitor adds a todo"');
+    });
+
+    it("refuses a private address, a foreign plan, and a viewer's agent", async () => {
+      const space = await workspace();
+      const other = await workspace();
+      const session = await sessionFor(space);
+
+      const local = await call(session, "plan_page_coverage", { pageUrl: "http://localhost:3000/" });
+      expect(local.result).toMatchObject({ isError: true });
+      const foreign = await coverageRun(other, "PLANNED");
+      const notHere = await call(session, "prove_page_coverage", { coverageId: foreign.id });
+      expect(notHere.result.content[0].text).toBe("Not found in this project.");
+
+      const viewer = await prisma.user.create({ data: { clerkUserId: unique("viewer"), displayName: "Viewer" } });
+      await prisma.membership.create({ data: { organizationId: space.organization.id, userId: viewer.id, role: "MEMBER" } });
+      await prisma.projectMembership.create({
+        data: { organizationId: space.organization.id, projectId: space.project.id, userId: viewer.id, role: "VIEWER" },
+      });
+      const viewerSession = await authenticate(tokenFor(space, viewer.id));
+      if (!viewerSession) throw new Error("expected a session");
+      const refused = await call(viewerSession, "plan_page_coverage", { pageUrl: "https://demo.playwright.dev/todomvc/" });
+      expect(refused.result.content[0].text).toBe("Your role in this project does not allow that.");
+      expect(await prisma.pageCoverage.count({ where: { projectId: space.project.id } })).toBe(0);
+    });
+
     it("answers bad arguments and foreign ids as tool errors, not crashes", async () => {
       const space = await workspace();
       const other = await workspace();
@@ -418,7 +502,7 @@ test('customer applies a discount code', async ({ page }) => {
 
       const listed = await post({ jsonrpc: "2.0", id: 1, method: "tools/list" });
       expect(listed.status).toBe(200);
-      expect((await listed.json()).result.tools).toHaveLength(11);
+      expect((await listed.json()).result.tools).toHaveLength(13);
 
       const notified = await post({ jsonrpc: "2.0", method: "notifications/initialized" });
       expect(notified.status).toBe(202);

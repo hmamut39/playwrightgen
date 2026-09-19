@@ -42,6 +42,8 @@ const loop = [
 
 const tools: Array<{ name: string; kind: "Reads" | "Runs" | "Proposes"; does: string }> = [
   { name: "prove_playwright_test", kind: "Runs", does: "The whole loop in one call: write it, run it, fix the failing step, run again until it passes." },
+  { name: "plan_page_coverage", kind: "Proposes", does: "Plans the tests a whole page needs; a person approves the plan in PlaywrightGen." },
+  { name: "prove_page_coverage", kind: "Runs", does: "Proves each approved test on the live page and returns the passing suite." },
   { name: "generate_playwright_test", kind: "Runs", does: "Writes a draft from a described flow and the real page." },
   { name: "run_playwright_test", kind: "Runs", does: "Replays a test on the live page; reports each step and the page at a failure." },
   { name: "propose_test_case", kind: "Proposes", does: "Creates a draft test case, optionally with code and a passing run, for review." },
