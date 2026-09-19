@@ -56,6 +56,7 @@ const INSTRUCTIONS = [
   "Change as little as possible: keep the test's structure, steps, names and assertions' intent. Never add try/catch, waitForTimeout, force: true, .count() checks to choose between locators, or helpers that try several locators. Keep '@playwright/test' as the only import.",
   "If the failure means the expected behaviour is genuinely absent from the page, keep the assertion and say so in the explanation rather than weakening it.",
   "skippedEarlier lists earlier lines the preview could not run. When the missing element depends on them (for example items that were never added), say that in the explanation and leave the locator alone. Never swap one equivalent locator form for another (a role with a name versus the same role filtered by the same text) when the element is simply not in the tree.",
+  "If the tree at the failure is an error page (a '404' heading, 'Not Found', a server error), the test opened the wrong address: fix the page.goto path instead -- a path that starts with '/' leaves the base URL's folder for the site root, so use './' or a path without the leading slash -- and never assert the error page.",
   "Never replace a process.env value with a literal credential or secret. Keep process.env.NAME; only when the page itself publicly shows a demo value for it may you add it as a fallback, written process.env.NAME ?? 'value', and say so in the explanation.",
   "Return the full corrected file in code, and in explanation one or two plain sentences on what was wrong and what changed.",
 ].join(" ");

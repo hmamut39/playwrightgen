@@ -1,7 +1,9 @@
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { after } from "next/server";
 import Link from "next/link";
 
+import { AiAllowanceNotice, aiAllowanceNotice } from "@/components/workspace/ai-allowance-notice";
 import { ResultActions } from "@/components/free-tools/result-actions";
 import { CodeBlock } from "@/components/workspace/code-block";
 
@@ -33,14 +35,17 @@ const statusStyle = {
 
 export default async function AutomationArtifactPage({
   params,
+  searchParams,
 }: {
   params: Promise<{
     orgSlug: string;
     projectId: string;
     automationArtifactId: string;
   }>;
+  searchParams: Promise<{ notice?: string }>;
 }) {
   const { orgSlug, projectId, automationArtifactId } = await params;
+  const { notice } = await searchParams;
   const detail = await getAutomationArtifactDetail({
     orgSlug,
     projectId,
@@ -98,16 +103,22 @@ export default async function AutomationArtifactPage({
 
   async function regenerateAction(formData: FormData) {
     "use server";
-    await startAutomationArtifactGeneration(
-      {
-        orgSlug,
-        projectId,
-        testCaseId: artifact.testCaseId,
-        engine: artifact.engine,
-        guidance: String(formData.get("guidance") ?? ""),
-      },
-      after,
-    );
+    try {
+      await startAutomationArtifactGeneration(
+        {
+          orgSlug,
+          projectId,
+          testCaseId: artifact.testCaseId,
+          engine: artifact.engine,
+          guidance: String(formData.get("guidance") ?? ""),
+        },
+        after,
+      );
+    } catch (error) {
+      const refused = aiAllowanceNotice(error);
+      if (refused) redirect(`${artifactPath}?notice=${refused}`);
+      throw error;
+    }
     revalidatePath(artifactPath);
     revalidatePath(`${base}/automation`);
     revalidatePath(`${base}/test-cases/${artifact.testCaseId}`);
@@ -134,6 +145,7 @@ export default async function AutomationArtifactPage({
       >
         ← Automation
       </Link>
+      <AiAllowanceNotice notice={notice} orgSlug={orgSlug} />
 
       <header className="mt-8 flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
         <div className="min-w-0">

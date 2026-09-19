@@ -11,6 +11,7 @@ import {
   submitAutomationArtifact,
 } from "@/lib/services/automation-artifacts";
 import {
+  checkability,
   recentlyStartedFailing,
   runDueLiveChecks,
   runLiveChecksForProject,
@@ -213,7 +214,9 @@ describe("daily live checks of approved automation", () => {
 
     expect(ran).toHaveLength(1);
     expect(summary).toMatchObject({ checked: 1, passed: 1 });
-    expect(summary?.notChecked).toEqual([{ title: "Behaviour 1", reason: "It needs E2E_USERNAME, and test accounts are never stored." }]);
+    expect(summary?.notChecked).toEqual([
+      { title: "Behaviour 1", reason: "It needs E2E_USERNAME, and test accounts are never stored.", testCaseId: space.testCaseIds[1], automationArtifactId: expect.any(String) },
+    ]);
   });
 
   it("runs a project at most once a day, and not at all when turned off", async () => {
@@ -240,5 +243,10 @@ describe("daily live checks of approved automation", () => {
     expect(whyNotCheckable(publicCode)).toBeNull();
     expect(whyNotCheckable(signInCode)).toBe("It needs E2E_USERNAME, and test accounts are never stored.");
     expect(whyNotCheckable("const x = 1;")).toBe("No test could be read from the code.");
+    // A selector read from the environment is a guess the live page can replace; an account is not.
+    const selectorCode = publicCode.replace('"What needs to be done?"', "process.env.NEW_TODO_LABEL!");
+    expect(checkability(selectorCode)).toMatchObject({ regenerate: true });
+    expect(checkability(selectorCode)?.reason).toContain("NEW_TODO_LABEL");
+    expect(checkability(signInCode)).toMatchObject({ regenerate: false });
   });
 });

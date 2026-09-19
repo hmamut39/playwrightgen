@@ -1,3 +1,4 @@
+import { AiAllowanceNotice, aiAllowanceNotice } from "@/components/workspace/ai-allowance-notice";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
@@ -16,6 +17,7 @@ import { personName } from "@/lib/format/person-name";
 import { LocalTime } from "@/components/workspace/local-time";
 import { PendingButton } from "@/components/workspace/pending-button";
 import { humanLabel } from "@/lib/format/label";
+import { startAutomationArtifactGeneration } from "@/lib/services/automation-artifacts";
 import {
   describeWebhook,
   LiveChecksError,
@@ -33,10 +35,10 @@ export default async function ProjectOverviewPage({
   searchParams,
 }: {
   params: Promise<{ orgSlug: string; projectId: string }>;
-  searchParams: Promise<{ webhook?: string }>;
+  searchParams: Promise<{ webhook?: string; notice?: string }>;
 }) {
   const { orgSlug, projectId } = await params;
-  const { webhook: webhookNotice } = await searchParams;
+  const { webhook: webhookNotice, notice } = await searchParams;
   const [overview, setup, context] = await Promise.all([
     getProjectOverview({ orgSlug, projectId, allowArchived: true }),
     getProjectSetup({ orgSlug, projectId }),
@@ -46,6 +48,7 @@ export default async function ProjectOverviewPage({
   const liveSummary = readLiveChecksSummary(project.liveChecksLastSummary);
   const webhookLabel = describeWebhook(project.liveChecksWebhookUrl);
   const overviewPath = `/workspace/${orgSlug}/projects/${projectId}/overview`;
+  const canGenerate = context.can("automation:generate");
 
   async function liveUrlAction(formData: FormData) {
     "use server";
@@ -70,6 +73,30 @@ export default async function ProjectOverviewPage({
       });
     }
     revalidatePath(`/workspace/${orgSlug}/projects/${projectId}/overview`);
+  }
+
+  async function regenerateAction(formData: FormData) {
+    "use server";
+    const testCaseId = String(formData.get("testCaseId") ?? "");
+    const automationArtifactId = String(formData.get("automationArtifactId") ?? "");
+    try {
+      await startAutomationArtifactGeneration(
+        {
+          orgSlug,
+          projectId,
+          testCaseId,
+          engine: "PLAYWRIGHT_BROWSER",
+          guidance: "Daily live checks could not run the approved version. Build every locator and URL from the live page; read only credentials and test data from process.env.",
+        },
+        after,
+      );
+    } catch (error) {
+      const refused = aiAllowanceNotice(error);
+      if (refused) redirect(`${overviewPath}?notice=${refused}#live-checks`);
+      throw error;
+    }
+    revalidatePath(overviewPath);
+    redirect(`/workspace/${orgSlug}/projects/${projectId}/automation/${automationArtifactId}`);
   }
 
   async function webhookAction(formData: FormData) {
@@ -159,6 +186,7 @@ export default async function ProjectOverviewPage({
 
         {project.liveUrl ? (
           <div id="live-checks" className="mt-6 scroll-mt-6 border-t border-cyan-200 pt-5">
+            <AiAllowanceNotice notice={notice} orgSlug={orgSlug} />
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
               <div>
                 <p className="text-sm font-semibold text-slate-900">
@@ -226,7 +254,18 @@ export default async function ProjectOverviewPage({
                 {liveSummary.notChecked.length ? (
                   <ul className="mt-2 space-y-1 text-xs text-slate-500">
                     {liveSummary.notChecked.slice(0, 8).map((entry) => (
-                      <li key={entry.title + entry.reason}>Not checked: {entry.title} &mdash; {entry.reason}</li>
+                      <li key={entry.title + entry.reason} className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                        <span>Not checked: {entry.title} &mdash; {entry.reason}</span>
+                        {entry.regenerate && entry.testCaseId && entry.automationArtifactId && canGenerate ? (
+                          <form action={regenerateAction} className="shrink-0">
+                            <input type="hidden" name="testCaseId" value={entry.testCaseId} />
+                            <input type="hidden" name="automationArtifactId" value={entry.automationArtifactId} />
+                            <PendingButton pendingLabel="Starting…" className="rounded-md border border-cyan-300 bg-white px-2 py-1 text-xs font-semibold text-cyan-800 hover:bg-cyan-50">
+                              Generate again from the live page
+                            </PendingButton>
+                          </form>
+                        ) : null}
+                      </li>
                     ))}
                   </ul>
                 ) : null}

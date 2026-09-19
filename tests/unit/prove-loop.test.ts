@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  assertsErrorPage,
   proveDraftOnLivePage,
   type ProveFailure,
   type ProveRound,
@@ -122,5 +123,33 @@ describe("proving a draft on the live page", () => {
 
     expect(calls).toEqual([]);
     expect(outcome).toMatchObject({ stopped: "error", message: "Quick Generate failed.", code: null, runs: 0 });
+  });
+});
+
+describe("a fix that expects an error page", () => {
+  it("is not kept: the test opened the wrong address", async () => {
+    const test = harness([failed(1), passedRun]);
+    const outcome = await proveDraftOnLivePage(
+      {
+        ...test.dependencies,
+        fix: async () => ({
+          ok: true as const,
+          code: "await expect(page.getByRole('heading', { name: '404' })).toBeVisible();",
+          explanation: "The page shows a 404 heading.",
+          payload: null,
+        }),
+      },
+      { maxFixes: 2 },
+    );
+    expect(outcome).toMatchObject({ code: "draft-0", verdict: "failed", stopped: "not_fixable", runs: 1 });
+    expect(outcome.message).toContain("opened the wrong address");
+  });
+
+  it("recognises error-page assertions and nothing else", () => {
+    expect(assertsErrorPage("await expect(page.getByText('Page not found')).toBeVisible();")).toBe(true);
+    expect(assertsErrorPage('await expect(page).toHaveTitle("500 Internal Server Error");')).toBe(true);
+    expect(assertsErrorPage("await page.goto('/404-help');")).toBe(false);
+    expect(assertsErrorPage("await expect(page.getByText('Epic sadface: Username is required')).toBeVisible();")).toBe(false);
+    expect(assertsErrorPage("await expect(page.getByText('1 item left')).toBeVisible();")).toBe(false);
   });
 });

@@ -1,3 +1,4 @@
+import { AiAllowanceNotice, aiAllowanceNotice } from "@/components/workspace/ai-allowance-notice";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -41,10 +42,13 @@ function lines(value: FormDataEntryValue | null): string[] {
 
 export default async function TestCaseDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ orgSlug: string; projectId: string; testCaseId: string }>;
+  searchParams: Promise<{ notice?: string }>;
 }) {
   const { orgSlug, projectId, testCaseId } = await params;
+  const { notice } = await searchParams;
   const [detail, requirements, automationArtifacts, importedDraft] = await Promise.all([
     getTestCaseDetail({ orgSlug, projectId, testCaseId, allowArchived: true }),
     listRequirements({ orgSlug, projectId, pageSize: MAX_PAGE_SIZE }),
@@ -152,22 +156,30 @@ export default async function TestCaseDetailPage({
     }
     // Starts the generation and opens the artifact at once; the page there
     // shows progress and fills in when the code is ready.
-    const started = await startAutomationArtifactGeneration(
-      {
-        orgSlug,
-        projectId,
-        testCaseId,
-        engine,
-        guidance: String(formData.get("guidance") ?? ""),
-      },
-      after,
-    );
+    let started;
+    try {
+      started = await startAutomationArtifactGeneration(
+        {
+          orgSlug,
+          projectId,
+          testCaseId,
+          engine,
+          guidance: String(formData.get("guidance") ?? ""),
+        },
+        after,
+      );
+    } catch (error) {
+      const refused = aiAllowanceNotice(error);
+      if (refused) redirect(`/workspace/${orgSlug}/projects/${projectId}/test-cases/${testCaseId}?notice=${refused}`);
+      throw error;
+    }
     redirect(`/workspace/${orgSlug}/projects/${projectId}/automation/${started.automationArtifactId}`);
   }
 
   return (
     <div className="mx-auto max-w-5xl">
       <Link href={listPath} className="text-sm font-medium text-violet-700 hover:text-violet-900">← Test Cases</Link>
+      <AiAllowanceNotice notice={notice} orgSlug={orgSlug} />
       <header className="mt-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">

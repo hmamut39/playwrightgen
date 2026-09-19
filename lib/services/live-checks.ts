@@ -43,8 +43,11 @@ export type LiveChecksSummary = {
   passed: number;
   failed: number;
   partial: number;
-  /** Approved tests left out, and why, so the page can say so. */
-  notChecked: Array<{ title: string; reason: string }>;
+  /**
+   * Approved tests left out, and why, so the page can say so. `regenerate`
+   * marks the ones a new version generated from the live page would fix.
+   */
+  notChecked: Array<{ title: string; reason: string; testCaseId?: string; automationArtifactId?: string; regenerate?: boolean }>;
   /** Every test failing in this round; `newToday` when it passed last time. */
   failing: Array<{ title: string; testCaseId: string; detail: string; newToday: boolean }>;
   /** Tests that failed last time and passed in this round. */
@@ -190,7 +193,15 @@ export function readLiveChecksSummary(value: Prisma.JsonValue | null): LiveCheck
     notChecked: Array.isArray(summary.notChecked)
       ? summary.notChecked.flatMap((entry) =>
           entry && typeof entry === "object" && !Array.isArray(entry) && typeof entry.title === "string" && typeof entry.reason === "string"
-            ? [{ title: entry.title, reason: entry.reason }]
+            ? [
+                {
+                  title: entry.title,
+                  reason: entry.reason,
+                  ...(typeof entry.testCaseId === "string" ? { testCaseId: entry.testCaseId } : {}),
+                  ...(typeof entry.automationArtifactId === "string" ? { automationArtifactId: entry.automationArtifactId } : {}),
+                  ...(entry.regenerate === true ? { regenerate: true } : {}),
+                },
+              ]
             : [],
         )
       : [],
@@ -219,19 +230,32 @@ export function recentlyStartedFailing(summary: LiveChecksSummary | null, now = 
   return summary.failing.filter((entry) => entry.newToday);
 }
 
-/** Why an approved test cannot run unattended, or null when it can. */
-export function whyNotCheckable(code: string): string | null {
+/**
+ * Why an approved test cannot run unattended, and whether generating it again
+ * from the live page would fix that; null when it can run.
+ */
+export function checkability(code: string): { reason: string; regenerate: boolean } | null {
   const plan = planPreviewRun(code);
-  if (plan.tests.length === 0) return "No test could be read from the code.";
+  if (plan.tests.length === 0) return { reason: "No test could be read from the code.", regenerate: true };
   const operations = [...plan.beforeEach, ...plan.tests.flatMap((test) => test.steps.flatMap((step) => step.operations))];
   const needs = operations.find((operation) => operation.op === "unsupported" && /from your environment$/.test(operation.reason));
   if (needs && needs.op === "unsupported") {
     const name = needs.reason.replace(/^needs /, "").replace(/ from your environment$/, "");
+    // An account is a real input the team holds; a selector or URL in the
+    // environment is a guess the live page can replace.
     return /USER|PASS|EMAIL|LOGIN|TOKEN|SECRET|KEY/i.test(name)
-      ? `It needs ${name}, and test accounts are never stored.`
-      : `It reads ${name} from your environment, which a scheduled check does not have. Generate it again from the live page so it names the page's own controls.`;
+      ? { reason: `It needs ${name}, and test accounts are never stored.`, regenerate: false }
+      : {
+          reason: `It reads ${name} from your environment, which a scheduled check does not have. Generate it again from the live page so it names the page's own controls.`,
+          regenerate: true,
+        };
   }
   return null;
+}
+
+/** Why an approved test cannot run unattended, or null when it can. */
+export function whyNotCheckable(code: string): string | null {
+  return checkability(code)?.reason ?? null;
 }
 
 function failureOf(result: PreviewRunResult) {
@@ -313,16 +337,22 @@ export async function runLiveChecksForProject(
   };
   for (const artifact of artifacts) {
     const title = artifact.testCase.title;
+    const ids = { testCaseId: artifact.testCase.id, automationArtifactId: artifact.id };
     // Only automation for what is approved now: an artifact pinned to an older
     // version describes behaviour the team has since changed.
     if (artifact.testCase.status !== "APPROVED" || artifact.testCaseVersion.versionNumber !== artifact.testCase.currentVersionNumber) {
-      summary.notChecked.push({ title, reason: "Its automation covers an older version of the test case." });
+      summary.notChecked.push({
+        title,
+        reason: "Its automation covers an older version of the test case.",
+        ...ids,
+        regenerate: artifact.testCase.status === "APPROVED",
+      });
       continue;
     }
     const code = artifact.versions.find((version) => version.versionNumber === artifact.approvedVersionNumber)?.code ?? "";
-    const blocked = whyNotCheckable(code);
+    const blocked = checkability(code);
     if (blocked) {
-      summary.notChecked.push({ title, reason: blocked });
+      summary.notChecked.push({ title, reason: blocked.reason, ...ids, ...(blocked.regenerate ? { regenerate: true } : {}) });
       continue;
     }
     if (options.deadline && Date.now() > options.deadline) {

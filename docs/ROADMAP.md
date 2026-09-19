@@ -102,6 +102,20 @@ test suite (460+ tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **Fix what live checks cannot run, and three bugs found doing it**
+  (2026-09-19): a "Not checked" test that read a made-up environment value, or
+  whose automation covers an older test-case version, has "Generate again from
+  the live page"; the new version goes through normal review. Verifying it
+  found: (1) generated tests opened `page.goto('/')`, which leaves a project
+  URL's folder for the site root (a 404 on demo.playwright.dev) -- generators
+  now write `page.goto('./')`; (2) the automatic fix then asserted the 404
+  heading, turning a broken test into a "passing" one -- the repair prompt now
+  forbids it and the prove loop discards any fix that newly expects an error
+  page (`assertsErrorPage`); (3) a generation refused by the daily AI
+  allowance showed "This page didn't load" -- it now returns to the page with
+  "Nothing was generated: this workspace has used today's AI allowance".
+  Verified: regenerated TodoMVC test passed 8 checks with no fixes, the lead
+  approved it, and the live check went from 1 to 2 passed ("Passing again").
 - **Live check alerts** (2026-09-19): each round compares every result with
   the test's last recorded one. A pass that turns into a failure is marked
   "Started failing" on the project (with the failing step), a red banner on
@@ -201,10 +215,10 @@ test suite (460+ tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Regenerate automation that live checks cannot run.** Approved tests that
-   read made-up environment values (NEW_TODO_SELECTOR and the like) are
-   skipped every day. Offer "Generate again from the live page" right in that
-   list, so the new version names the page's own controls and can be checked.
+1. **Measure the generators on addresses with a folder.** The '/' bug went
+   unnoticed because the demos were mostly site roots. Add eval cases whose
+   page URL has a path (demo.playwright.dev/todomvc/) for Quick Generate and
+   workspace automation, and check the first run passes without a fix.
 2. **MCP directory listings (needs the owner).** The official MCP registry
    verifies the publisher through GitHub or DNS, so publishing is the owner's
    step; everything else (the /mcp page, tools, docs) is ready.

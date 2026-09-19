@@ -98,6 +98,17 @@ export function firstFailureOf(result: RunLike): ProveFailure | null {
 }
 
 /** How a run came out, from its counts: the page and the loop agree on this. */
+const ERROR_PAGE_TEXT = /(['"`])[^'"`]*\b(404|not found|page not found|500|internal server error|bad gateway|service unavailable)\b[^'"`]*\1/i;
+
+/**
+ * Whether code expects an error page -- a "404" heading, "Not Found" text.
+ * A test that reaches one opened the wrong address; a fix that makes it
+ * expect the error page would turn a broken test into a passing one.
+ */
+export function assertsErrorPage(code: string) {
+  return code.split("\n").some((line) => /\bexpect\s*\(/.test(line) && ERROR_PAGE_TEXT.test(line));
+}
+
 export function verdictFromCounts(
   counts: { passed: number; failed: number; skipped: number; notReached: number },
   timedOut: boolean,
@@ -178,6 +189,12 @@ export async function proveDraftOnLivePage(
       return { code, verdict, receipt, fixesUsed, runs, stopped: reason, message: fixed.message, generated: generated.payload, lastRun };
     }
     fixesUsed += 1;
+    if (assertsErrorPage(fixed.code) && !assertsErrorPage(code)) {
+      const message =
+        "The page at the failure was an error page, so the test opened the wrong address. The fix tried to expect that error page instead, so it was not kept; check where the test navigates.";
+      report({ kind: "done", reason: "not_fixable", message });
+      return { code, verdict, receipt, fixesUsed, runs, stopped: "not_fixable", message, generated: generated.payload, lastRun };
+    }
     code = fixed.code;
     report({ kind: "fixed", attempt, explanation: fixed.explanation });
   }
