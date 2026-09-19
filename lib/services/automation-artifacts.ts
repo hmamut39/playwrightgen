@@ -36,6 +36,7 @@ import { runVerdict } from "@/lib/free-tools/preview-run/receipt";
 import { firstFailureOf, proveDraftOnLivePage } from "@/lib/free-tools/prove-loop";
 import { capturePageSnapshot } from "@/lib/free-tools/page-snapshot";
 import { alignContainerNames, alignTestIdLocators, siteTestIdAttribute } from "@/lib/free-tools/test-id-attribute";
+import { alignRootNavigation } from "@/lib/free-tools/navigation";
 
 const uuidSchema = z.string().uuid();
 const engineSchema = z.enum(["PLAYWRIGHT_BROWSER", "PLAYWRIGHT_API"]);
@@ -664,7 +665,10 @@ async function finishAutomationGeneration(
   // attribute this site actually uses, and container roles located by text.
   if (result && snapshot?.ok) {
     const aligned = alignTestIdLocators(result.code, siteTestIdAttribute(snapshot.elementHints));
-    result = { ...result, code: alignContainerNames(aligned.code, snapshot.aria).code };
+    result = {
+      ...result,
+      code: alignRootNavigation(alignContainerNames(aligned.code, snapshot.aria).code, pending.liveUrl ?? snapshot.finalUrl).code,
+    };
   }
 
   // Stamp the pinned version into the generated code before validation so the

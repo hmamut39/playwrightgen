@@ -102,6 +102,15 @@ test suite (460+ tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **Tests open the page, not the site root** (2026-09-19): `alignRootNavigation`
+  (lib/free-tools/navigation.ts) rewrites `page.goto('/')` to the page relative
+  to its folder (`./` or `./page.html`) whenever the page lives below the
+  site root, in Quick Generate, workspace automation and the automatic fix --
+  a safety net that works even when the model ignores the prompt. New eval
+  `evals/live-page.eval.ts` generates with both generators for
+  demo.playwright.dev/todomvc/, runs the result in the remote browser, and
+  grades the first run (both passed); it also reports whether the model itself
+  wrote '/', so a prompt regression stays visible.
 - **Fix what live checks cannot run, and three bugs found doing it**
   (2026-09-19): a "Not checked" test that read a made-up environment value, or
   whose automation covers an older test-case version, has "Generate again from
@@ -215,18 +224,14 @@ test suite (460+ tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Measure the generators on addresses with a folder.** The '/' bug went
-   unnoticed because the demos were mostly site roots. Add eval cases whose
-   page URL has a path (demo.playwright.dev/todomvc/) for Quick Generate and
-   workspace automation, and check the first run passes without a fix.
+1. **Split the Release Review page.** It is 1,500 lines in one file; the
+   analysis already lives in lib/ai/release-review.ts, the page does not.
 2. **MCP directory listings (needs the owner).** The official MCP registry
    verifies the publisher through GitHub or DNS, so publishing is the owner's
    step; everything else (the /mcp page, tools, docs) is ready.
-3. **Split the Release Review page.** It is 1,500 lines in one file. The
-   analysis now lives in lib/ai/release-review.ts; the page does not.
-4. **Open a pull request from approved automation.** Needs the owner's
+3. **Open a pull request from approved automation.** Needs the owner's
    decision on giving the GitHub App write permission (currently read-only).
-5. **Verify the paid path end to end — on hold at the owner's request.** Stripe
+4. **Verify the paid path end to end — on hold at the owner's request.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to
    do it now, so do not raise it until they bring it up.

@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { checkLocatorsAgainstPage, validateQuickGeneration, type LocatorCheck } from "@/lib/ai/quick-generation";
 import { alignContainerNames, alignTestIdLocators, hintsFromFailureTree, siteTestIdAttribute } from "@/lib/free-tools/test-id-attribute";
+import { alignRootNavigation } from "@/lib/free-tools/navigation";
 
 /**
  * Fixes a draft at the step that failed on the live page.
@@ -99,10 +100,10 @@ export async function repairDraft(input: DraftRepairInput, options: { requestId?
   if (!response.output_parsed) throw new DraftRepairProviderError("invalid_output");
 
   const trees = [input.pageTreeAtStart ?? "", input.pageTreeAtFailure].join("\n");
-  const code = alignContainerNames(
+  const code = alignRootNavigation(alignContainerNames(
     alignTestIdLocators(response.output_parsed.code, siteTestIdAttribute(hintsFromFailureTree(input.pageTreeAtFailure))).code,
     trees,
-  ).code;
+  ).code, input.pageUrl).code;
   return {
     ...response.output_parsed,
     code,

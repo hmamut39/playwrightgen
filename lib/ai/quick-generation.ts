@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { extractLocatorNames, normalizeName } from "@/lib/free-tools/locator-names";
 import { alignContainerNames, alignTestIdLocators, siteTestIdAttribute } from "@/lib/free-tools/test-id-attribute";
+import { alignRootNavigation } from "@/lib/free-tools/navigation";
 
 export const quickGenerationSchema = z.object({
   title: z.string().min(1).max(300),
@@ -222,6 +223,7 @@ export async function generateQuickDraft(
   const attribute = siteTestIdAttribute(input.pageSnapshot?.elementHints ?? []);
   const aligned = alignTestIdLocators(response.output_parsed.code, attribute);
   aligned.code = alignContainerNames(aligned.code, input.pageSnapshot?.aria ?? "").code;
+  aligned.code = alignRootNavigation(aligned.code, input.pageSnapshot?.finalUrl || input.pageUrl).code;
   const output = {
     ...response.output_parsed,
     code: aligned.code,
