@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireWorkspaceContext, WorkspaceAuthorizationError } from "@/lib/auth/workspace-context";
+import { testAccountSchema } from "@/lib/free-tools/sign-in";
 import { PageCoverageError, proveNextPageCoverageItem } from "@/lib/services/page-coverage";
 
 export const runtime = "nodejs";
@@ -12,6 +13,8 @@ const bodySchema = z.object({
   orgSlug: z.string().min(1).max(200),
   projectId: z.string().uuid(),
   coverageId: z.string().uuid(),
+  /** For a page behind a login: used for this call only, never stored or logged. */
+  account: testAccountSchema.optional(),
 });
 
 /**
@@ -35,6 +38,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Your role in this project does not allow that." }, { status: error.status });
     }
     if (error instanceof PageCoverageError) {
+      if (error.code === "sign_in_needed") {
+        return NextResponse.json({ error: "This page needs the test account to prove its tests.", signInNeeded: true }, { status: 409 });
+      }
       return NextResponse.json({ error: error.detail ?? error.code }, { status: error.code === "not_found" ? 404 : 409 });
     }
     console.error("[page-coverage] advance failed", error);

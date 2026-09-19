@@ -17,6 +17,7 @@ import { runVerdict } from "@/lib/free-tools/preview-run/receipt";
 import { executeLiveRun, prepareLiveRun } from "@/lib/free-tools/preview-run/run-draft";
 import { firstFailureOf, proveDraftOnLivePage } from "@/lib/free-tools/prove-loop";
 import { isPublicWebAddress } from "@/lib/free-tools/public-address";
+import { testAccountSchema, type TestAccount } from "@/lib/free-tools/sign-in";
 import { readControls, type SurfaceControl } from "@/lib/free-tools/surface-coverage";
 import {
   OrganizationAiRateLimitError,
@@ -56,7 +57,8 @@ export class PageCoverageError extends Error {
       | "not_plannable"
       | "nothing_selected"
       | "allowance_used"
-      | "plan_failed",
+      | "plan_failed"
+      | "sign_in_needed",
     readonly detail?: string,
   ) {
     super(code);
@@ -95,9 +97,29 @@ async function reserve(organizationId: string) {
   }
 }
 
-/** Plans the test cases a page needs. Costs one AI request; creates nothing but the plan. */
-export async function planPageCoverageRun(
-  input: { orgSlug?: string; projectId: string; pageUrl: string; focus?: string },
+/**
+ * Starts planning the test cases a page needs, and returns at once.
+ *
+ * Reading a page and planning take about a minute -- long enough for the
+ * sign-in session to lapse inside a single request, which showed the person a
+ * sign-in screen instead of their plan. So the plan is recorded straight away
+ * as PLANNING, the reading and planning run in `schedule` (the page passes
+ * Next's `after`), and the plan page refreshes until it is ready.
+ *
+ * The one AI request is reserved before anything else, so running out of the
+ * daily allowance is said at once rather than after a minute's wait. A test
+ * account, when given, lives only in this call and the scheduled task.
+ */
+export async function startPageCoveragePlan(
+  input: {
+    orgSlug?: string;
+    projectId: string;
+    pageUrl: string;
+    focus?: string;
+    /** A test account for a page behind a login. Used to read the page; never stored. */
+    account?: TestAccount | null;
+  },
+  schedule: (task: () => Promise<void>) => void = (task) => void task(),
   dependencies?: Dependencies,
   plan: typeof planPageCoverage = planPageCoverage,
 ) {
@@ -105,63 +127,120 @@ export async function planPageCoverageRun(
   const pageUrl = input.pageUrl.trim();
   if (!isPublicWebAddress(pageUrl)) throw new PageCoverageError("invalid_input", "Use a public web address.");
   const focus = (input.focus ?? "").trim().slice(0, 2_000);
+  const account = input.account ? testAccountSchema.parse(input.account) : null;
 
   await reserve(workspace.organization.id);
-  const snapshot = await capturePageSnapshot(pageUrl);
-  if (!snapshot.ok) throw new PageCoverageError("page_unreadable", snapshot.reason);
-
-  const existing = await client(dependencies).testCase.findMany({
-    where: { organizationId: workspace.organization.id, projectId, status: { not: "ARCHIVED" } },
-    select: { title: true },
-    orderBy: { updatedAt: "desc" },
-    take: 200,
-  });
-
-  let proposed: PageCoveragePlan;
-  try {
-    proposed = await plan({
-      pageUrl: snapshot.finalUrl,
-      title: snapshot.title,
-      aria: snapshot.aria,
-      elementHints: snapshot.elementHints,
-      focus,
-      existingTitles: existing.map((row) => row.title),
-      maxItems: PAGE_COVERAGE_MAX_ITEMS,
-    });
-  } catch (error) {
-    console.error("[page-coverage] planning failed", error);
-    throw new PageCoverageError("plan_failed");
-  }
-  if (proposed.items.length === 0) {
-    throw new PageCoverageError("plan_failed", "Every test this page needs is already in the project.");
-  }
-
-  const controls: SurfaceControl[] = readControls(snapshot.aria);
   const run = await client(dependencies).pageCoverage.create({
     data: {
       organizationId: workspace.organization.id,
       projectId,
-      pageUrl: snapshot.finalUrl,
-      pageTitle: snapshot.title.slice(0, 300) || snapshot.finalUrl.slice(0, 300),
+      pageUrl,
+      pageTitle: pageUrl.slice(0, 300),
       focus,
-      message: [proposed.summary, ...proposed.outOfScope.map((item) => `Left out: ${item}`)].join("\n").slice(0, 5_000),
-      controls: controls as unknown as Prisma.InputJsonValue,
+      needsSignIn: Boolean(account),
+      status: "PLANNING",
+      controls: [] as unknown as Prisma.InputJsonValue,
       createdByUserId: workspace.user.id,
-      items: {
-        create: proposed.items.map((item, position) => ({
-          position,
-          title: item.title,
-          objective: item.objective,
-          steps: item.steps,
-          expectedResults: item.expectedResults,
-          priority: item.priority,
-          rationale: item.rationale,
-        })),
-      },
     },
     select: { id: true },
   });
+
+  schedule(async () => {
+    try {
+      await completePageCoveragePlan(
+        { runId: run.id, organizationId: workspace.organization.id, projectId, pageUrl, focus, account },
+        dependencies,
+        plan,
+      );
+    } catch (error) {
+      console.error("[page-coverage] planning failed", error);
+      await client(dependencies)
+        .pageCoverage.update({
+          where: { id: run.id },
+          data: { status: "PLAN_FAILED", message: "A plan could not be made for this page. Try again, or say what you want covered." },
+        })
+        .catch(() => {});
+    }
+  });
   return run;
+}
+
+/** The slow half of planning: read the page, ask for the plan, store it. */
+async function completePageCoveragePlan(
+  input: {
+    runId: string;
+    organizationId: string;
+    projectId: string;
+    pageUrl: string;
+    focus: string;
+    account: TestAccount | null;
+  },
+  dependencies: Dependencies | undefined,
+  plan: typeof planPageCoverage,
+) {
+  const prisma = client(dependencies);
+  const failed = (message: string) =>
+    prisma.pageCoverage.update({ where: { id: input.runId }, data: { status: "PLAN_FAILED", message } });
+
+  const snapshot = await capturePageSnapshot(input.pageUrl, input.account ? { account: input.account } : {});
+  if (!snapshot.ok) {
+    await failed(
+      snapshot.reason === "sign_in_rejected"
+        ? "The site did not accept the test account."
+        : snapshot.reason === "no_login_form"
+          ? "No sign-in form was found on that page. Check the address, or add the login page's address."
+          : "The page could not be opened. Check the address, or try again in a moment.",
+    );
+    return;
+  }
+
+  const existing = await prisma.testCase.findMany({
+    where: { organizationId: input.organizationId, projectId: input.projectId, status: { not: "ARCHIVED" } },
+    select: { title: true },
+    orderBy: { updatedAt: "desc" },
+    take: 200,
+  });
+  const proposed: PageCoveragePlan = await plan({
+    pageUrl: snapshot.finalUrl,
+    title: snapshot.title,
+    aria: snapshot.aria,
+    elementHints: snapshot.elementHints,
+    focus: input.focus,
+    existingTitles: existing.map((row) => row.title),
+    maxItems: PAGE_COVERAGE_MAX_ITEMS,
+  });
+  if (proposed.items.length === 0) {
+    await failed("Every test this page needs is already in the project.");
+    return;
+  }
+
+  const controls = withTestIds(readControls(snapshot.aria), snapshot.elementHints);
+  await prisma.$transaction([
+    prisma.pageCoverageItem.createMany({
+      data: proposed.items.map((item, position) => ({
+        pageCoverageId: input.runId,
+        position,
+        title: item.title,
+        objective: item.objective,
+        steps: item.steps,
+        expectedResults: item.expectedResults,
+        priority: item.priority,
+        rationale: item.rationale,
+      })),
+    }),
+    prisma.pageCoverage.update({
+      where: { id: input.runId },
+      data: {
+        status: "PLANNED",
+        // Behind a login, proving starts where the person started, so it signs
+        // in on the way; otherwise the page as it finally loaded.
+        pageUrl: input.account ? input.pageUrl : snapshot.finalUrl,
+        pageTitle: snapshot.title.slice(0, 300) || snapshot.finalUrl.slice(0, 300),
+        message: [proposed.summary, ...proposed.outOfScope.map((item) => `Left out: ${item}`)].join("\n").slice(0, 5_000),
+        controls: controls as unknown as Prisma.InputJsonValue,
+      },
+    }),
+  ]);
 }
 
 /** Keeps the chosen items and starts proving them. Spends nothing itself. */
@@ -229,7 +308,7 @@ type ProveOutcomeSummary = { status: "PASSED" | "PARTIAL" | "FAILED" | "ERROR"; 
  * with its run evidence on the Test Case. Returns what is left to do.
  */
 export async function proveNextPageCoverageItem(
-  input: { orgSlug?: string; projectId: string; coverageId: string },
+  input: { orgSlug?: string; projectId: string; coverageId: string; account?: TestAccount | null },
   dependencies?: Dependencies,
 ): Promise<{ provedItemId: string | null; remaining: number; status: string }> {
   const { workspace, projectId } = await workspaceFor(input, dependencies);
@@ -244,6 +323,10 @@ export async function proveNextPageCoverageItem(
   const counts = async () =>
     prisma.pageCoverageItem.count({ where: { pageCoverageId: run.id, status: { in: ["QUEUED", "PROVING"] } } });
   if (run.status !== "PROVING") return { provedItemId: null, remaining: await counts(), status: run.status };
+  const account = input.account ? testAccountSchema.parse(input.account) : null;
+  if (run.needsSignIn && !account) throw new PageCoverageError("sign_in_needed");
+  // The account's values for the process.env names generated sign-in steps use.
+  const env = account ? { E2E_USERNAME: account.username, E2E_PASSWORD: account.password } : undefined;
 
   // A request that died mid-item leaves it "proving" forever; hand it back.
   await prisma.pageCoverageItem.updateMany({
@@ -312,9 +395,11 @@ export async function proveNextPageCoverageItem(
       {
         report: () => {},
         generate: async () => {
-          const snapshot = await capturePageSnapshot(run.pageUrl);
+          const snapshot = await capturePageSnapshot(run.pageUrl, account ? { account } : {});
           if (snapshot.ok) {
-            runPageUrl = snapshot.finalUrl;
+            // A signed-in page is reached through the login, so the run starts
+            // where the login does and signs in with the account's values.
+            runPageUrl = account ? run.pageUrl : snapshot.finalUrl;
             pageTreeAtStart = snapshot.aria.slice(0, 4_000);
           }
           const draft = await generateQuickDraft({
@@ -329,7 +414,7 @@ export async function proveNextPageCoverageItem(
           return { ok: true as const, code: draft.code, title: draft.title, payload: null };
         },
         run: async (current) => {
-          const prepared = prepareLiveRun({ code: current, pageUrl: runPageUrl });
+          const prepared = prepareLiveRun({ code: current, pageUrl: runPageUrl, env });
           if (!prepared.ok) return { ok: false as const, limit: false, message: prepared.error };
           const { result, receipt: signed } = await executeLiveRun(prepared.run);
           return {
@@ -414,24 +499,80 @@ export async function proveNextPageCoverageItem(
   return { provedItemId: next.id, remaining, status: remaining === 0 ? "DONE" : "PROVING" };
 }
 
-/** Which of the page's named controls the proven tests reach, by name. */
-export function measureControls(controls: SurfaceControl[], code: string) {
+/**
+ * Every proven test in one runnable spec file. Each test file's body is wrapped
+ * in its own describe block, so helper constants two files both declared (a
+ * BASE_URL, a TODO_TEXT) stay separate instead of colliding.
+ */
+export function buildSuite(
+  pageUrl: string,
+  items: Array<{ title: string; status: string; code: string | null }>,
+) {
+  const proven = items.filter((item) => (item.status === "PASSED" || item.status === "PARTIAL") && item.code);
+  if (proven.length === 0) return null;
+  const importLine = /^\s*import\s+\{[^}]*\}\s+from\s+["']@playwright\/test["'];?\s*$/gm;
+  const blocks = proven.map((item) => {
+    const body = (item.code ?? "").replace(importLine, "").trim();
+    const indented = body.split("\n").map((line) => (line ? `  ${line}` : line)).join("\n");
+    return `// ${item.status === "PASSED" ? "Passed" : "Partly run"} on the live page.\ntest.describe(${JSON.stringify(item.title)}, () => {\n${indented}\n});`;
+  });
+  return [
+    `// Generated and proven by PlaywrightGen against ${pageUrl}`,
+    "// Set baseURL in playwright.config.ts to the site these tests should run against.",
+    "import { test, expect } from '@playwright/test';",
+    "",
+    blocks.join("\n\n"),
+    "",
+  ].join("\n");
+}
+
+export type CoverageControl = SurfaceControl & { testIds?: string[] };
+
+const HINT_LINE = /^([a-z]+) "((?:[^"\\]|\\.)*)" \[(data-[a-z-]+)="([^"]*)"\]$/;
+
+/**
+ * Attaches each control's test attribute values (from the page's element
+ * hints), so a test that clicks "Add to cart" through
+ * [data-test="add-to-cart-backpack"] still counts as reaching it.
+ */
+export function withTestIds(controls: SurfaceControl[], hints: string[]): CoverageControl[] {
+  const byControl = new Map<string, string[]>();
+  for (const line of hints) {
+    const match = line.match(HINT_LINE);
+    if (!match) continue;
+    const key = `${match[1]}|${normalizeName(match[2])}`;
+    byControl.set(key, [...(byControl.get(key) ?? []), match[4]]);
+  }
+  return controls.map((control) => {
+    const testIds = byControl.get(`${control.role}|${normalizeName(control.name)}`);
+    return testIds?.length ? { ...control, testIds } : control;
+  });
+}
+
+/**
+ * Which of the page's named controls the proven tests reach: by accessible
+ * name, or by one of the control's test attribute values.
+ */
+export function measureControls(controls: CoverageControl[], code: string) {
   const targeted = new Set(extractLocatorNames(code).map(normalizeName));
-  const reached = controls.filter((control) => targeted.has(normalizeName(control.name)));
+  const isReached = (control: CoverageControl) =>
+    targeted.has(normalizeName(control.name)) ||
+    (control.testIds ?? []).some((id) => code.includes(`"${id}"`) || code.includes(`'${id}'`));
   return {
     total: controls.length,
-    reached,
-    missed: controls.filter((control) => !targeted.has(normalizeName(control.name))),
+    reached: controls.filter(isReached).map(({ role, name }) => ({ role, name })),
+    missed: controls.filter((control) => !isReached(control)).map(({ role, name }) => ({ role, name })),
   };
 }
 
-function readControlsJson(value: Prisma.JsonValue): SurfaceControl[] {
+function readControlsJson(value: Prisma.JsonValue): CoverageControl[] {
   if (!Array.isArray(value)) return [];
-  return value.flatMap((entry) =>
-    entry && typeof entry === "object" && !Array.isArray(entry) && typeof entry.role === "string" && typeof entry.name === "string"
-      ? [{ role: entry.role, name: entry.name }]
-      : [],
-  );
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+    if (typeof entry.role !== "string" || typeof entry.name !== "string") return [];
+    const testIds = Array.isArray(entry.testIds) ? entry.testIds.filter((id): id is string => typeof id === "string") : [];
+    return [{ role: entry.role, name: entry.name, ...(testIds.length ? { testIds } : {}) }];
+  });
 }
 
 export async function getPageCoverage(
@@ -457,6 +598,7 @@ export async function getPageCoverage(
   return {
     run,
     coverage: measureControls(controls, provenCode),
+    suite: buildSuite(run.pageUrl, run.items),
     canAct: workspace.can("testcase:create"),
     /** Most the proving can cost: one request per item, plus its fixes. */
     costPerItem: 1 + FIXES_PER_ITEM,

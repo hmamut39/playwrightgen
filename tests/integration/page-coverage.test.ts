@@ -5,10 +5,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { PrismaClient } from "@/generated/prisma/client";
 import {
   approvePageCoverage,
+  buildSuite,
   getPageCoverage,
   measureControls,
   PageCoverageError,
   resumePageCoverage,
+  withTestIds,
 } from "@/lib/services/page-coverage";
 import {
   cleanPhase1ATables,
@@ -132,6 +134,36 @@ describe("cover a page: approving, pausing and counting what was reached", () =>
     await prisma.pageCoverage.update({ where: { id: s.run.id }, data: { status: "PAUSED", message: "Allowance used." } });
     await resumePageCoverage(input, s.owned);
     expect(await prisma.pageCoverage.findUniqueOrThrow({ where: { id: s.run.id } })).toMatchObject({ status: "PROVING", message: null });
+  });
+
+  it("combines proven tests into one file where their helpers cannot collide", () => {
+    const suite = buildSuite("https://shop.example.com/", [
+      { title: "Adds an item", status: "PASSED", code: "import { test, expect } from '@playwright/test';\nconst ITEM = 'Backpack';\ntest('adds', async ({ page }) => {\n  await expect(page).toHaveTitle(/Shop/);\n});" },
+      { title: "Removes an item", status: "PARTIAL", code: "import { test, expect } from \"@playwright/test\";\nconst ITEM = 'Bike light';\ntest('removes', async ({ page }) => {});" },
+      { title: "Still failing", status: "FAILED", code: "import { test } from '@playwright/test';\ntest('x', async () => {});" },
+      { title: "Never proven", status: "QUEUED", code: null },
+    ]);
+
+    expect(suite).not.toBeNull();
+    expect(suite!.match(/from '@playwright\/test'|from "@playwright\/test"/g)).toHaveLength(1);
+    expect(suite).toContain('test.describe("Adds an item", () => {');
+    expect(suite).toContain('test.describe("Removes an item", () => {');
+    expect(suite).not.toContain("Still failing");
+    // Each file's own const sits inside its own describe block.
+    expect(suite).toContain("  const ITEM = 'Backpack';");
+    expect(suite).toContain("  const ITEM = 'Bike light';");
+    expect(buildSuite("https://shop.example.com/", [{ title: "t", status: "FAILED", code: "x" }])).toBeNull();
+  });
+
+  it("counts a control reached through its test attribute, not only its name", () => {
+    const controls = withTestIds(
+      [{ role: "button", name: "Add to cart" }, { role: "link", name: "About" }],
+      ['button "Add to cart" [data-test="add-to-cart-sauce-labs-backpack"]', 'button "Add to cart" [data-test="add-to-cart-bike-light"]'],
+    );
+    expect(controls[0].testIds).toEqual(["add-to-cart-sauce-labs-backpack", "add-to-cart-bike-light"]);
+    const result = measureControls(controls, `await page.locator('[data-test="add-to-cart-bike-light"]').click();`);
+    expect(result.reached).toEqual([{ role: "button", name: "Add to cart" }]);
+    expect(result.missed).toEqual([{ role: "link", name: "About" }]);
   });
 
   it("matches control names regardless of case and spacing", () => {

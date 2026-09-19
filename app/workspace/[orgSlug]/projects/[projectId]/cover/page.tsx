@@ -1,15 +1,17 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 
 import { LocalTime } from "@/components/workspace/local-time";
-import { PendingButton, PendingNotice } from "@/components/workspace/pending-button";
+import { PendingButton } from "@/components/workspace/pending-button";
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
+import { readTestAccount } from "@/lib/free-tools/sign-in";
 import { getProjectOverview } from "@/lib/services/projects";
 import {
   listPageCoverages,
   PAGE_COVERAGE_MAX_ITEMS,
   PageCoverageError,
-  planPageCoverageRun,
+  startPageCoveragePlan,
 } from "@/lib/services/page-coverage";
 
 const PLAN_ERRORS: Record<string, string> = {
@@ -17,6 +19,7 @@ const PLAN_ERRORS: Record<string, string> = {
   page_unreadable: "The page could not be opened. Check the address, or try again in a moment.",
   allowance_used: "This workspace has used today's AI allowance. It resets at midnight UTC.",
   plan_failed: "A plan could not be made for this page. Try again, or add what you want covered.",
+  account_incomplete: "Enter both the test account's username and password, or leave both empty.",
 };
 
 /**
@@ -41,15 +44,23 @@ export default async function CoverPage({
   async function planAction(formData: FormData) {
     "use server";
     let coverageId: string;
+    const account = readTestAccount(formData);
+    if (!account.ok) redirect(`${base}/cover?error=account_incomplete`);
     try {
-      const run = await planPageCoverageRun({
-        orgSlug,
-        projectId,
-        pageUrl: String(formData.get("pageUrl") ?? ""),
-        focus: String(formData.get("focus") ?? ""),
-      });
+      // Returns at once; the page is read and planned in the background.
+      const run = await startPageCoveragePlan(
+        {
+          orgSlug,
+          projectId,
+          pageUrl: String(formData.get("pageUrl") ?? ""),
+          focus: String(formData.get("focus") ?? ""),
+          account: account.account,
+        },
+        after,
+      );
       coverageId = run.id;
     } catch (caught) {
+      if (!(caught instanceof PageCoverageError)) console.error("[page-coverage] planning failed unexpectedly", caught);
       const code = caught instanceof PageCoverageError ? caught.code : "plan_failed";
       redirect(`${base}/cover?error=${code}`);
     }
@@ -97,13 +108,26 @@ export default async function CoverPage({
             className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none transition focus:border-cyan-600 focus-visible:ring-2 focus-visible:ring-cyan-500/60"
           />
         </label>
+        <details className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <summary className="cursor-pointer text-sm font-semibold text-slate-800">
+            Page behind a login? <span className="font-normal text-slate-500">Add a test account</span>
+          </summary>
+          <p className="mt-2 text-xs leading-5 text-slate-500">
+            Used to sign in and read the page, and asked for again while the tests are proven. It is never saved and never
+            sent to the AI. Use a test account, not a personal one.
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <input name="accountUsername" aria-label="Test account username or email" autoComplete="off" maxLength={200} placeholder="Username or email" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-cyan-600" />
+            <input name="accountPassword" type="password" aria-label="Test account password" autoComplete="new-password" maxLength={200} placeholder="Password" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-cyan-600" />
+          </div>
+          <input name="accountLoginUrl" aria-label="Login page URL, if different" maxLength={2_000} placeholder="Login page URL (only if it is a different page)" className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-cyan-600" />
+        </details>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <PendingButton pendingLabel="Reading the page and planning…" className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-700">
+          <PendingButton pendingLabel="Starting…" className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-700">
             Plan the tests for this page
           </PendingButton>
           <span className="text-xs text-slate-500">Planning uses one AI request. Nothing else is spent until you approve.</span>
         </div>
-        <PendingNotice>Opening the page and planning. This usually takes 30&ndash;60 seconds.</PendingNotice>
       </form>
 
       {runs.length ? (

@@ -1212,6 +1212,8 @@ model FreeToolDraft {
 }
 
 enum PageCoverageStatus {
+  PLANNING
+  PLAN_FAILED
   PLANNED
   PROVING
   PAUSED
@@ -1238,6 +1240,9 @@ model PageCoverage {
   pageUrl         String             @db.Text
   pageTitle       String             @db.VarChar(300)
   focus           String             @db.Text
+  /// The page sits behind a login: proving asks for the test account again,
+  /// because it is never stored.
+  needsSignIn     Boolean            @default(false)
   status          PageCoverageStatus @default(PLANNED)
   /// Why it stopped early, when it did (the daily allowance, for one).
   message         String?            @db.Text

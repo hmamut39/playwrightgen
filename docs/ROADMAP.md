@@ -102,6 +102,17 @@ test suite (460+ tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **Cover a page, behind a login, in the background** (2026-09-19): a test
+  account on the plan form signs in to read the page; proving asks for it again
+  and keeps it only in the open page, never stored. Planning now starts at once
+  and finishes in the background (the plan page refreshes itself) -- a minute
+  of reading and planning inside one request was long enough for the sign-in
+  session to lapse, which showed a sign-in screen instead of the plan. The
+  proven tests download as one spec file, each wrapped in its own describe
+  block so their helper constants cannot collide, and the coverage count also
+  recognises controls reached through their test attribute. Verified on
+  saucedemo behind its login: plan page open in 3s, plan in 67s, both kept
+  tests passed with 13 checks each.
 - **Cover a page** (`lib/services/page-coverage.ts`, `/projects/:id/cover`,
   2026-09-19): one URL in; an AI plan of up to six test cases for what a person
   can do there, skipping ones the project already has and listing what it left
@@ -159,9 +170,9 @@ test suite (460+ tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Cover a page: signed-in pages and a suite download.** Let "Cover a page"
-   use a test account like the free tools, and offer the proven tests as one
-   downloadable spec file.
+1. **Cover a page over MCP.** The same plan-approve-prove flow as one pair of
+   MCP tools, so an editor agent can cover a page and a person approves the
+   plan in PlaywrightGen.
 2. **MCP directory listings (needs the owner).** The official MCP registry
    verifies the publisher through GitHub or DNS, so publishing is the owner's
    step; everything else (the /mcp page, tools, docs) is ready.
@@ -169,9 +180,10 @@ In priority order. Each item should end verified in a browser and shipped.
    analysis now lives in lib/ai/release-review.ts; the page does not.
 4. **Open a pull request from approved automation.** Needs the owner's
    decision on giving the GitHub App write permission (currently read-only).
-5. **Verify the paid path end to end.** Stripe payment, then webhook, then
-   entitlement, then the Team allowance in the free tools. Needs the owner's
-   account and a real card.
+5. **Verify the paid path end to end — on hold at the owner's request.** Stripe
+   payment, then webhook, then entitlement, then the Team allowance. Needs the
+   owner's account and a real card; they said on 2026-09-19 they do not want to
+   do it now, so do not raise it until they bring it up.
 
 ## Things to know when resuming
 

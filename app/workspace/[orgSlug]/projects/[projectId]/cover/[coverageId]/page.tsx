@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { ResultActions } from "@/components/free-tools/result-actions";
+import { AutoRefresh } from "@/components/workspace/auto-refresh";
 import { PageCoverageDriver } from "@/components/workspace/page-coverage-driver";
 import { PendingButton } from "@/components/workspace/pending-button";
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
@@ -37,7 +39,7 @@ export default async function PageCoverageDetail({
   params: Promise<{ orgSlug: string; projectId: string; coverageId: string }>;
 }) {
   const { orgSlug, projectId, coverageId } = await params;
-  const { run, coverage, canAct, costPerItem } = await getPageCoverage({ orgSlug, projectId, coverageId });
+  const { run, coverage, suite, canAct, costPerItem } = await getPageCoverage({ orgSlug, projectId, coverageId });
   const base = `/workspace/${orgSlug}/projects/${projectId}`;
   const here = `${base}/cover/${coverageId}`;
 
@@ -70,12 +72,28 @@ export default async function PageCoverageDetail({
       <ProjectNavigation organizationSlug={orgSlug} projectId={projectId} />
       <Link href={`${base}/cover`} className="text-sm font-medium text-cyan-700 hover:text-cyan-900">&larr; Cover a page</Link>
       <p className="mt-6 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
-        {run.status === "PLANNED" ? "Plan" : run.status === "DONE" ? "Covered" : run.status === "PAUSED" ? "Paused" : "Proving"}
+        {run.status === "PLANNING" ? "Planning" : run.status === "PLAN_FAILED" ? "No plan" : run.status === "PLANNED" ? "Plan" : run.status === "DONE" ? "Covered" : run.status === "PAUSED" ? "Paused" : "Proving"}
       </p>
       <h1 className="mt-2 text-3xl font-semibold tracking-tight">{run.pageTitle}</h1>
       <p className="mt-1 break-all text-sm text-slate-500">{run.pageUrl}</p>
 
-      {run.status === "PLANNED" ? (
+      {run.status === "PLANNING" ? (
+        <div role="status" aria-live="polite" className="mt-6 rounded-2xl border border-cyan-200 bg-white p-6 shadow-sm">
+          <AutoRefresh />
+          <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-cyan-100">
+            <div className="h-full w-2/3 animate-pulse rounded-full bg-cyan-600 motion-reduce:animate-none" />
+          </div>
+          <p className="text-sm font-semibold text-slate-900">Reading the page and planning its tests&hellip;</p>
+          <p className="mt-1 text-sm text-slate-600">
+            This usually takes about a minute. You can leave this page; the plan will be here when you come back.
+          </p>
+        </div>
+      ) : run.status === "PLAN_FAILED" ? (
+        <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-800">
+          <p>{run.message ?? "A plan could not be made for this page."}</p>
+          <Link href={`${base}/cover`} className="mt-3 inline-block font-semibold text-red-900 underline">Try again</Link>
+        </div>
+      ) : run.status === "PLANNED" ? (
         <>
           {summary ? <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-600">{summary}</p> : null}
           {canAct ? (
@@ -115,7 +133,7 @@ export default async function PageCoverageDetail({
         </>
       ) : (
         <>
-          {run.status === "PROVING" && canAct ? <PageCoverageDriver orgSlug={orgSlug} projectId={projectId} coverageId={coverageId} /> : null}
+          {run.status === "PROVING" && canAct ? <PageCoverageDriver orgSlug={orgSlug} projectId={projectId} coverageId={coverageId} needsSignIn={run.needsSignIn} /> : null}
           {run.status === "PAUSED" ? (
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               <p>{run.message ?? "Paused."}</p>
@@ -173,6 +191,21 @@ export default async function PageCoverageDetail({
               );
             })}
           </ul>
+          {suite ? (
+            <section className="mt-6 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
+              <div className="flex flex-col justify-between gap-3 border-b border-white/10 px-5 py-4 sm:flex-row sm:items-center">
+                <div>
+                  <p className="text-sm font-semibold text-white">The proven suite, as one file</p>
+                  <p className="mt-1 text-xs text-slate-400">Every test that ran on the page, each in its own describe block.</p>
+                </div>
+                <ResultActions content={suite} filename="page-coverage.spec.ts" tone="dark" />
+              </div>
+              <details>
+                <summary className="cursor-pointer px-5 py-3 text-xs font-semibold text-cyan-300">Show the code</summary>
+                <pre className="max-h-96 overflow-auto px-5 pb-5 text-xs leading-5 text-slate-100">{suite}</pre>
+              </details>
+            </section>
+          ) : null}
           {run.status === "DONE" ? (
             <p className="mt-6 text-sm leading-6 text-slate-600">
               Each proven test is now a draft Test Case with its code and run evidence. Review and approve them as usual; after
