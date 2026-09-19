@@ -13,7 +13,9 @@ export type ApiRouteSecurityPolicy = {
     | "personal-token"
     // A signed-in person's own data outside any workspace, looked up only by
     // the Clerk user id from the session.
-    | "authenticated-personal";
+    | "authenticated-personal"
+    // Called only by the scheduler, with CRON_SECRET as a bearer token.
+    | "scheduled-job";
   requiredMarker: string;
 };
 
@@ -83,6 +85,10 @@ export const API_ROUTE_SECURITY_POLICY = {
   "mcp/route.ts": {
     boundary: "personal-token",
     requiredMarker: "authenticateEditorRequest",
+  },
+  "cron/live-checks/route.ts": {
+    boundary: "scheduled-job",
+    requiredMarker: "CRON_SECRET",
   },
   "free-tool-drafts/route.ts": {
     boundary: "authenticated-personal",

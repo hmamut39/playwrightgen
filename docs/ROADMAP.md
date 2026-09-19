@@ -102,6 +102,16 @@ test suite (460+ tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **Daily live checks** (2026-09-19): on a project with a live URL, "Turn on
+  and run now" replays every approved browser automation (for the test case's
+  current approved version) on that URL once a day, and records each result as
+  a Test Run attempt, so a pass followed by a failure is a regression on
+  Quality and Release without any CI. No AI allowance is used. Tests that read
+  values from the environment are skipped with the reason shown (accounts are
+  never stored). Vercel cron `/api/cron/live-checks` at 06:00 UTC, protected by
+  `CRON_SECRET` (set in Vercel production and `.env.local`). Verified: the
+  lead approved a TodoMVC automation, "Run now" recorded 1 passed on the live
+  page.
 - **Cover a page, behind a login, in the background** (2026-09-19): a test
   account on the plan form signs in to read the page; proving asks for it again
   and keeps it only in the open page, never stored. Planning now starts at once

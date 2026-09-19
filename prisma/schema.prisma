@@ -355,6 +355,7 @@ model User {
   memberships                  Membership[]
   projectsCreated              Project[]                   @relation("ProjectCreatedBy")
   projectsArchived             Project[]                   @relation("ProjectArchivedBy")
+  projectLiveChecks            Project[]                   @relation("ProjectLiveChecksActor")
   activities                   Activity[]                  @relation("ActivityActor")
   requirementsCreated          Requirement[]               @relation("RequirementCreatedBy")
   requirementsOwned            Requirement[]               @relation("RequirementOwner")
@@ -535,24 +536,33 @@ model Membership {
 }
 
 model Project {
-  id                 String        @id @default(uuid()) @db.Uuid
-  organizationId     String        @db.Uuid
-  name               String        @db.VarChar(200)
-  slug               String        @db.VarChar(100)
-  description        String?       @db.Text
-  status             ProjectStatus @default(ACTIVE)
-  createdByUserId    String        @db.Uuid
-  archivedByUserId   String?       @db.Uuid
-  archivedAt         DateTime?     @db.Timestamptz(3)
-  runnerTokenVersion Int           @default(1)
+  id                    String        @id @default(uuid()) @db.Uuid
+  organizationId        String        @db.Uuid
+  name                  String        @db.VarChar(200)
+  slug                  String        @db.VarChar(100)
+  description           String?       @db.Text
+  status                ProjectStatus @default(ACTIVE)
+  createdByUserId       String        @db.Uuid
+  archivedByUserId      String?       @db.Uuid
+  archivedAt            DateTime?     @db.Timestamptz(3)
+  runnerTokenVersion    Int           @default(1)
   /// Where this project runs, so generated automation can be proven on it.
-  liveUrl            String?       @db.Text
-  createdAt          DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt          DateTime      @updatedAt @db.Timestamptz(3)
+  liveUrl               String?       @db.Text
+  /// Run approved automation on liveUrl every day and record the results.
+  liveChecksEnabled     Boolean       @default(false)
+  /// Who turned the checks on: their results are recorded under this person,
+  /// as CI results are recorded under whoever connected the repository.
+  liveChecksActorUserId String?       @db.Uuid
+  liveChecksLastRunAt   DateTime?     @db.Timestamptz(3)
+  /// Counts from the last round of checks, for the project page.
+  liveChecksLastSummary Json?         @db.JsonB
+  createdAt             DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime      @updatedAt @db.Timestamptz(3)
 
   organization           Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   createdBy              User                        @relation("ProjectCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   archivedBy             User?                       @relation("ProjectArchivedBy", fields: [archivedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  liveChecksActor        User?                       @relation("ProjectLiveChecksActor", fields: [liveChecksActorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   projectMemberships     ProjectMembership[]
   activities             Activity[]
   requirements           Requirement[]

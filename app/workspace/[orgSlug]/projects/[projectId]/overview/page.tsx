@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
 import { SetupChecklist } from "@/components/workspace/setup-checklist";
@@ -14,6 +15,10 @@ import { personName } from "@/lib/format/person-name";
 import { LocalTime } from "@/components/workspace/local-time";
 import { PendingButton } from "@/components/workspace/pending-button";
 import { humanLabel } from "@/lib/format/label";
+import { readLiveChecksSummary, runLiveChecksForProject, setLiveChecks } from "@/lib/services/live-checks";
+
+// "Run now" finishes a round of checks after the page has answered.
+export const maxDuration = 300;
 
 export default async function ProjectOverviewPage({
   params,
@@ -27,10 +32,30 @@ export default async function ProjectOverviewPage({
     requireWorkspaceContext({ orgSlug, projectId }),
   ]);
   const { project } = overview;
+  const liveSummary = readLiveChecksSummary(project.liveChecksLastSummary);
 
   async function liveUrlAction(formData: FormData) {
     "use server";
     await updateProject({ orgSlug, projectId, liveUrl: String(formData.get("liveUrl") ?? "").trim() });
+    revalidatePath(`/workspace/${orgSlug}/projects/${projectId}/overview`);
+  }
+
+  async function liveChecksAction(formData: FormData) {
+    "use server";
+    const intent = formData.get("intent");
+    if (intent === "enable" || intent === "disable") {
+      await setLiveChecks({ orgSlug, projectId, enabled: intent === "enable" });
+    }
+    if (intent === "enable" || intent === "run") {
+      // Checked for permission above (enable) or here (run); the round itself
+      // runs after the page has answered, since it can take a few minutes.
+      if (intent === "run") await setLiveChecks({ orgSlug, projectId, enabled: true });
+      after(async () => {
+        await runLiveChecksForProject(projectId, { deadline: Date.now() + 240_000 }).catch((error: unknown) =>
+          console.error("[live-checks] run now failed", error),
+        );
+      });
+    }
     revalidatePath(`/workspace/${orgSlug}/projects/${projectId}/overview`);
   }
 
@@ -105,6 +130,63 @@ export default async function ProjectOverviewPage({
         ) : (
           <p className="mt-4 text-sm font-medium text-slate-700">{project.liveUrl || "Not set. A project lead can add it."}</p>
         )}
+
+        {project.liveUrl ? (
+          <div className="mt-6 border-t border-cyan-200 pt-5">
+            <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">
+                  Daily live checks {project.liveChecksEnabled ? <span className="ml-1 rounded-full bg-emerald-600 px-2 py-0.5 text-xs text-white">On</span> : <span className="ml-1 rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-700">Off</span>}
+                </p>
+                <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
+                  Every day, each approved browser test runs on this address and the result is recorded under Test Runs. A
+                  test that starts failing shows as a regression on Quality and Release &mdash; no CI needed, and no AI
+                  allowance used. Tests that need a sign-in account are skipped, because accounts are never stored.
+                </p>
+              </div>
+              {overview.canUpdate ? (
+                <form action={liveChecksAction} className="flex shrink-0 flex-wrap gap-2">
+                  {project.liveChecksEnabled ? (
+                    <>
+                      <button name="intent" value="run" className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-semibold text-white hover:bg-cyan-800">Run now</button>
+                      <button name="intent" value="disable" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700">Turn off</button>
+                    </>
+                  ) : (
+                    <button name="intent" value="enable" className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-semibold text-white hover:bg-cyan-800">Turn on and run now</button>
+                  )}
+                </form>
+              ) : null}
+            </div>
+            {liveSummary ? (
+              <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-sm">
+                <p className="font-medium text-slate-900">
+                  Last checked <LocalTime value={new Date(liveSummary.ranAt)} />: {liveSummary.passed} passed
+                  {liveSummary.failed ? <span className="font-semibold text-red-700"> &middot; {liveSummary.failed} failing</span> : null}
+                  {liveSummary.partial ? <> &middot; {liveSummary.partial} partly run</> : null}
+                  {liveSummary.checked === 0 ? " · nothing could be checked yet" : null}
+                </p>
+                {liveSummary.checked === 0 && liveSummary.notChecked.length === 0 ? (
+                  <p className="mt-2 text-xs leading-5 text-slate-500">
+                    No browser automation is approved in this project yet. Approve one on its{" "}
+                    <a href={`/workspace/${orgSlug}/projects/${projectId}/automation`} className="font-semibold text-cyan-800 underline">
+                      Automation
+                    </a>{" "}
+                    page and it is checked in the next round.
+                  </p>
+                ) : null}
+                {liveSummary.notChecked.length ? (
+                  <ul className="mt-2 space-y-1 text-xs text-slate-500">
+                    {liveSummary.notChecked.slice(0, 8).map((entry) => (
+                      <li key={entry.title + entry.reason}>Not checked: {entry.title} &mdash; {entry.reason}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : project.liveChecksEnabled ? (
+              <p className="mt-4 text-xs text-slate-500">The first round is running; results appear here and under Test Runs within a few minutes.</p>
+            ) : null}
+          </div>
+        ) : null}
       </section>
 
       <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
