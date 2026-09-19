@@ -62,7 +62,8 @@ export async function reserveOrganizationAiRequest(input: {
     | "failure-analysis"
     | "automation-generation"
     | "test-case-proposals"
-    | "free-tools";
+    | "free-tools"
+    | "page-coverage";
   source?: EnvironmentSource;
   now?: Date;
   execute?: (keys: string[], args: string[]) => Promise<unknown>;

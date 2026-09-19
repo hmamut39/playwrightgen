@@ -76,6 +76,8 @@ export async function cleanPhase1ATables(
         client.automationArtifactVersion.deleteMany(),
         client.automationArtifact.deleteMany(),
         client.requirementTestCase.deleteMany(),
+        client.pageCoverageItem.deleteMany(),
+        client.pageCoverage.deleteMany(),
         client.testCaseImportedDraft.deleteMany(),
         client.freeToolDraft.deleteMany(),
         client.testCaseVersion.deleteMany(),

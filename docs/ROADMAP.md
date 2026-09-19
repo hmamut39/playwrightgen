@@ -4,7 +4,7 @@ The working plan, kept in the repository so any session can pick up where the
 last one stopped. Update the "Shipped" and "Next" sections at the end of every
 work session.
 
-Last updated: 2026-09-17.
+Last updated: 2026-09-19.
 
 ## Where the product is
 
@@ -102,6 +102,19 @@ test suite (460+ tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **Cover a page** (`lib/services/page-coverage.ts`, `/projects/:id/cover`,
+  2026-09-19): one URL in; an AI plan of up to six test cases for what a person
+  can do there, skipping ones the project already has and listing what it left
+  out on purpose (payments, real accounts). A person ticks what to keep and sees
+  the cost; only then is anything spent. Each kept item becomes a draft Test
+  Case, written from the real page, run, fixed up to twice, with its code and
+  run evidence attached. Proving is one item per request, two in parallel from
+  the progress page, so no request outlives the server's limit; closing the tab
+  pauses it. The summary counts which of the page's named controls the proven
+  tests reach, from the page and the locators rather than the model. Verified:
+  TodoMVC planned in 58s, two kept tests proven in 61s (one passed with 5
+  checks), "reach 2 of the page's 4 named controls"; saucedemo's login page
+  planned locked-out, empty-field and invalid-credential tests.
 - **Automation proves itself before review** (2026-09-17): a project can hold a
   live URL ("Where this project runs", on the project page). With one set,
   generating automation for an approved Test Case reads that page first, so
@@ -146,10 +159,9 @@ test suite (460+ tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Cover a whole page (planner-executor).** From one URL: plan the test cases
-   a page needs, then prove each one in parallel, ending with a suite and a
-   coverage summary. Bounded by the workspace allowance, with a plan a person
-   approves before it spends anything.
+1. **Cover a page: signed-in pages and a suite download.** Let "Cover a page"
+   use a test account like the free tools, and offer the proven tests as one
+   downloadable spec file.
 2. **MCP directory listings (needs the owner).** The official MCP registry
    verifies the publisher through GitHub or DNS, so publishing is the owner's
    step; everything else (the /mcp page, tools, docs) is ready.

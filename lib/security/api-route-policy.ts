@@ -92,6 +92,10 @@ export const API_ROUTE_SECURITY_POLICY = {
     boundary: "authenticated-personal",
     requiredMarker: "readSignedInUserId",
   },
+  "page-coverage/advance/route.ts": {
+    boundary: "authenticated-tenant",
+    requiredMarker: "requireWorkspaceContext",
+  },
   "preview-run/route.ts": {
     boundary: "bounded-public",
     requiredMarker: "reservePublicAiRequest",

@@ -379,6 +379,7 @@ model User {
   repositoryConnectionsCreated RepositoryConnection[]      @relation("RepositoryConnectionCreatedBy")
   repositoryImportsRequested   RepositoryImport[]          @relation("RepositoryImportRequestedBy")
   testCaseImportedDrafts       TestCaseImportedDraft[]     @relation("TestCaseImportedDraftImportedBy")
+  pageCoveragesCreated         PageCoverage[]              @relation("PageCoverageCreatedBy")
 
   @@index([primaryEmail])
   @@index([status])
@@ -412,6 +413,7 @@ model Organization {
   failureFindings         FailureFinding[]
   automationArtifacts     AutomationArtifact[]
   testCaseImportedDrafts  TestCaseImportedDraft[]
+  pageCoverages           PageCoverage[]
   automationVersions      AutomationArtifactVersion[]
   githubInstallations     GitHubInstallation[]
   githubWebhookDeliveries GitHubWebhookDelivery[]
@@ -564,6 +566,7 @@ model Project {
   failureFindings        FailureFinding[]
   automationArtifacts    AutomationArtifact[]
   testCaseImportedDrafts TestCaseImportedDraft[]
+  pageCoverages          PageCoverage[]
   automationVersions     AutomationArtifactVersion[]
   repositoryConnections  RepositoryConnection[]
   repositoryImports      RepositoryImport[]
@@ -1206,4 +1209,75 @@ model FreeToolDraft {
   updatedAt   DateTime @updatedAt @db.Timestamptz(3)
 
   @@index([clerkUserId, updatedAt])
+}
+
+enum PageCoverageStatus {
+  PLANNED
+  PROVING
+  PAUSED
+  DONE
+}
+
+enum PageCoverageItemStatus {
+  PROPOSED
+  SKIPPED
+  QUEUED
+  PROVING
+  PASSED
+  PARTIAL
+  FAILED
+  ERROR
+}
+
+/// "Cover this page": a plan of the test cases one page needs, which a person
+/// trims and approves before anything is spent, and then the proving of each.
+model PageCoverage {
+  id              String             @id @default(uuid()) @db.Uuid
+  organizationId  String             @db.Uuid
+  projectId       String             @db.Uuid
+  pageUrl         String             @db.Text
+  pageTitle       String             @db.VarChar(300)
+  focus           String             @db.Text
+  status          PageCoverageStatus @default(PLANNED)
+  /// Why it stopped early, when it did (the daily allowance, for one).
+  message         String?            @db.Text
+  /// The page's named controls at planning time, for the coverage summary.
+  controls        Json               @db.JsonB
+  createdByUserId String             @db.Uuid
+  createdAt       DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime           @updatedAt @db.Timestamptz(3)
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  project      Project            @relation(fields: [organizationId, projectId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy    User               @relation("PageCoverageCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  items        PageCoverageItem[]
+
+  @@unique([organizationId, projectId, id])
+  @@index([organizationId, projectId, createdAt])
+}
+
+/// One planned test case, and how proving it went.
+model PageCoverageItem {
+  id              String                 @id @default(uuid()) @db.Uuid
+  pageCoverageId  String                 @db.Uuid
+  position        Int
+  title           String                 @db.VarChar(300)
+  objective       String                 @db.Text
+  steps           Json                   @db.JsonB
+  expectedResults Json                   @db.JsonB
+  priority        TestCasePriority       @default(MEDIUM)
+  rationale       String                 @db.Text
+  status          PageCoverageItemStatus @default(PROPOSED)
+  testCaseId      String?                @db.Uuid
+  code            String?                @db.Text
+  checks          Int?
+  fixes           Int?
+  detail          String?                @db.Text
+  startedAt       DateTime?              @db.Timestamptz(3)
+  finishedAt      DateTime?              @db.Timestamptz(3)
+
+  pageCoverage PageCoverage @relation(fields: [pageCoverageId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([pageCoverageId, position])
+  @@index([pageCoverageId, status])
 }

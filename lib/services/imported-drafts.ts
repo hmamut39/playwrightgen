@@ -34,6 +34,7 @@ export type ImportedRunEvidence = RunReceipt;
 export function importedDraftSourceLabel(source: string) {
   if (source === "editor") return "an editor AI assistant";
   if (source === "coverage-review") return "Coverage Review";
+  if (source === "page-coverage") return "Cover a page";
   return "Quick Generate";
 }
 

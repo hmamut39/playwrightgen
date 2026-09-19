@@ -19,6 +19,7 @@ export function ProjectNavigation({
     ["Overview", `${base}/overview`],
     ["Requirements", `${base}/requirements`],
     ["Test Cases", `${base}/test-cases`],
+    ["Cover a page", `${base}/cover`],
     ["Automation", `${base}/automation`],
     ["Test Runs", `${base}/test-runs`],
     ["Release", `${base}/release`],

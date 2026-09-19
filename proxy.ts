@@ -38,6 +38,8 @@ const JSON_ROUTES = [
   "/api/preview-run",
   // A signed-in person's own saved free-tool drafts.
   "/api/free-tool-drafts",
+  // Proves one test of a "cover this page" plan per call.
+  "/api/page-coverage",
 ];
 
 export default clerkMiddleware(async (auth, request) => {
@@ -71,5 +73,6 @@ export const config = {
     "/api/preview-run",
     "/api/free-tool-drafts",
     "/api/free-tool-drafts/:path*",
+    "/api/page-coverage/:path*",
   ],
 };
