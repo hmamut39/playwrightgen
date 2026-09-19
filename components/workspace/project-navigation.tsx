@@ -25,6 +25,7 @@ export function ProjectNavigation({
     ["Release", `${base}/release`],
   ] as const;
   const oversight = [
+    ["Health", `${base}/health`],
     ["Reviews", `${base}/reviews`],
     ["Quality", `${base}/quality`],
     ["Repositories", `${base}/repositories`],

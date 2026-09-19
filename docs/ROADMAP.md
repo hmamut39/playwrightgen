@@ -110,6 +110,16 @@ test suite (489 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **Project Health page** (2026-09-19, /workspace/:org/projects/:id/health):
+  one screen, phone first. A verdict from plain rules
+  (`lib/services/project-health.ts`): "Needs attention" when a live check
+  fails, a regression exists or a release blocker is open (and says which);
+  "No evidence yet" when nothing has run; otherwise "On track". Then cards
+  that open the detail: daily live checks, release blockers, waiting for
+  review, evidence, coverage. New "Health" tab; project cards on the
+  workspace home now open it. Verified at 390px and desktop, no overflow.
+  Note for local work: a `next build` followed by `next dev` on the same
+  .next folder made every project page 404 in dev until .next was deleted.
 - **Tests open the page, not the site root** (2026-09-19): `alignRootNavigation`
   (lib/free-tools/navigation.ts) rewrites `page.goto('/')` to the page relative
   to its folder (`./` or `./page.html`) whenever the page lives below the
@@ -232,9 +242,9 @@ test suite (489 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **A project health page for the phone.** One screen per project: live
-   check status, what started failing, what waits for review, last evidence
-   -- readable at 390px, since the owner checks progress from a phone.
+1. **Show the Health verdict on the project cards.** The workspace home
+   shows badges; a one-word verdict per card (same rules as the Health page)
+   makes the list scannable on a phone.
 2. **MCP directory listings (needs the owner).** The official MCP registry
    verifies the publisher through GitHub or DNS, so publishing is the owner's
    step; everything else (the /mcp page, tools, docs) is ready.
