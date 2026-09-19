@@ -1,11 +1,17 @@
+import { revalidatePath } from "next/cache";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { after } from "next/server";
 
 import { HEALTH_VERDICT_STYLE } from "@/components/workspace/health-verdict";
+import { PendingButton } from "@/components/workspace/pending-button";
+import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
+import { PageCoverageError, startPageCoveragePlan } from "@/lib/services/page-coverage";
 import { LocalTime } from "@/components/workspace/local-time";
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
-import { readLiveChecksSummary } from "@/lib/services/live-checks";
+import { readLiveChecksSummary, runLiveChecksForProject, setLiveChecks } from "@/lib/services/live-checks";
 import { projectHealthVerdict } from "@/lib/services/project-health";
-import { getProjectOverview } from "@/lib/services/projects";
+import { getProjectOverview, updateProject } from "@/lib/services/projects";
 import { getReleaseReadiness } from "@/lib/services/release-readiness";
 import { getReviewQueue } from "@/lib/services/review-queue";
 
@@ -16,6 +22,9 @@ import { getReviewQueue } from "@/lib/services/review-queue";
  * to the page with the detail. It reads the same records as those pages and
  * adds no judgement of its own beyond the verdict's plain rules.
  */
+
+// Planning a first page finishes after the page has answered.
+export const maxDuration = 300;
 
 function Card({ href, title, children }: { href: string; title: string; children: React.ReactNode }) {
   return (
@@ -42,10 +51,11 @@ export default async function ProjectHealthPage({
   params: Promise<{ orgSlug: string; projectId: string }>;
 }) {
   const { orgSlug, projectId } = await params;
-  const [overview, readiness, reviews] = await Promise.all([
+  const [overview, readiness, reviews, context] = await Promise.all([
     getProjectOverview({ orgSlug, projectId, allowArchived: true }),
     getReleaseReadiness({ orgSlug, projectId }),
     getReviewQueue({ orgSlug, projectId }),
+    requireWorkspaceContext({ orgSlug, projectId }),
   ]);
   const { project } = overview;
   const base = `/workspace/${orgSlug}/projects/${projectId}`;
@@ -55,6 +65,52 @@ export default async function ProjectHealthPage({
   const blockers = readiness.findings.filter((finding) => finding.severity === "BLOCKER");
   const waiting = reviews.yours.length + reviews.others.length;
   const { counts } = readiness;
+  const offerFirstRun =
+    health.verdict === "no-evidence" && project.status === "ACTIVE" && context.can("testcase:create");
+
+  // Approved automation and a live address, but nobody has found the setting.
+  const offerLiveChecks =
+    project.status === "ACTIVE" &&
+    Boolean(project.liveUrl) &&
+    !project.liveChecksEnabled &&
+    overview.canUpdate &&
+    counts.testCasesWithCurrentAutomation > 0;
+
+  async function liveChecksAction() {
+    "use server";
+    await setLiveChecks({ orgSlug, projectId, enabled: true });
+    after(async () => {
+      await runLiveChecksForProject(projectId, { deadline: Date.now() + 240_000 }).catch((error: unknown) =>
+        console.error("[health] first live check failed", error),
+      );
+    });
+    revalidatePath(`${base}/health`);
+  }
+
+  /**
+   * The shortest way from an empty project to evidence: plan the tests one page
+   * needs (the same Cover a page flow), with the project's live address when it
+   * has one. An address typed here also becomes the live address, for proving
+   * and daily checks, when this person may set it.
+   */
+  async function firstRunAction(formData: FormData) {
+    "use server";
+    const pageUrl = String(formData.get("pageUrl") ?? project.liveUrl ?? "").trim();
+    let coverageId: string;
+    try {
+      const run = await startPageCoveragePlan({ orgSlug, projectId, pageUrl }, after);
+      coverageId = run.id;
+    } catch (caught) {
+      if (!(caught instanceof PageCoverageError)) console.error("[health] first plan failed unexpectedly", caught);
+      redirect(`${base}/cover?error=${caught instanceof PageCoverageError ? caught.code : "plan_failed"}`);
+    }
+    if (!project.liveUrl && overview.canUpdate) {
+      await updateProject({ orgSlug, projectId, liveUrl: pageUrl }).catch((error: unknown) =>
+        console.error("[health] could not keep the live address", error),
+      );
+    }
+    redirect(`${base}/cover/${coverageId}`);
+  }
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -79,6 +135,56 @@ export default async function ProjectHealthPage({
           Measured <LocalTime value={readiness.measuredAt} />
         </p>
       </section>
+
+      {offerFirstRun ? (
+        <section aria-labelledby="first-run-heading" className="mt-5 rounded-2xl border border-cyan-200 bg-cyan-50 p-5">
+          <h2 id="first-run-heading" className="text-lg font-semibold text-slate-950">
+            Get your first evidence
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-slate-700">
+            PlaywrightGen reads {project.liveUrl ? <span className="break-all font-medium">{project.liveUrl}</span> : "a page of your product"},
+            plans the tests it needs, and &mdash; after you tick which ones &mdash; writes and proves each in a real browser.
+            Planning takes about a minute.
+          </p>
+          <form action={firstRunAction} className="mt-4 flex flex-col gap-2 sm:flex-row">
+            {project.liveUrl ? null : (
+              <input
+                name="pageUrl"
+                type="url"
+                required
+                maxLength={2_000}
+                aria-label="Page address"
+                placeholder="https://your-app.example.com/"
+                className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-cyan-600 focus-visible:ring-2 focus-visible:ring-cyan-500/60"
+              />
+            )}
+            <PendingButton pendingLabel="Starting…" className="rounded-lg bg-cyan-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-800">
+              Plan tests for this page
+            </PendingButton>
+          </form>
+          <p className="mt-2 text-xs text-slate-500">
+            Behind a login? Use <Link href={`${base}/cover`} className="font-semibold underline">Cover a page</Link> with a test account.
+          </p>
+        </section>
+      ) : null}
+
+      {offerLiveChecks ? (
+        <section aria-labelledby="live-offer-heading" className="mt-5 rounded-2xl border border-cyan-200 bg-cyan-50 p-5">
+          <h2 id="live-offer-heading" className="text-lg font-semibold text-slate-950">
+            Check it every day
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-slate-700">
+            {counts.testCasesWithCurrentAutomation} approved test{counts.testCasesWithCurrentAutomation === 1 ? "" : "s"} can run on{" "}
+            <span className="break-all font-medium">{project.liveUrl}</span> every day, so you hear the day one starts
+            failing. No CI needed, and no AI allowance used.
+          </p>
+          <form action={liveChecksAction} className="mt-4">
+            <PendingButton pendingLabel="Turning on…" className="rounded-lg bg-cyan-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-800">
+              Turn on daily checks and run now
+            </PendingButton>
+          </form>
+        </section>
+      ) : null}
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <Card href={`${base}/overview#live-checks`} title="Daily live checks">

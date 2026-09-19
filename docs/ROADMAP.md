@@ -110,6 +110,16 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **First evidence from the Health page** (2026-09-19): while a project reads
+  "No evidence yet", people who can create tests see "Get your first
+  evidence" -- one address field (or none, when the project has a live URL)
+  and "Plan tests for this page", which starts the Cover a page plan and opens
+  it. A typed address also becomes the project's live URL when the person may
+  set it. Verified: new "Marketing site" project, TodoMVC address, 4 tests
+  planned in 65 s, live URL saved. And when a project has a live URL and
+  approved automation but daily checks are off, the Health page offers "Turn
+  on daily checks and run now" (people who can update the project only).
+  Verified: checks off, one tap, round ran (2 passed), offer gone.
 - **Health verdict on every project card** (2026-09-19): the workspace home
   shows "Needs attention" (with why), "No evidence yet" or "On track" on each
   active project, by the Health page's rules (up to 12 projects, computed in
@@ -250,10 +260,10 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Faster first run for a new project.** A new project reads "No evidence
-   yet" until someone writes, approves and runs a test. Offer "Cover a page"
-   straight from the empty Health page, using the project's live URL, so the
-   first evidence is minutes away.
+1. **Review from the phone.** The Health page says what waits for review;
+   approving a test case or automation still means the desktop-sized review
+   pages. Make the review pages read well at 390px (code blocks scroll inside
+   their box, the approve button stays in reach).
 2. **MCP directory listings (needs the owner).** The official MCP registry
    verifies the publisher through GitHub or DNS, so publishing is the owner's
    step; everything else (the /mcp page, tools, docs) is ready.
