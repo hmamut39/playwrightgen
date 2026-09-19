@@ -10,7 +10,7 @@ Last updated: 2026-09-19.
 
 Live at https://playwrightgen.com (Vercel, Clerk production, Stripe live,
 Neon Postgres). Every item below was verified in a real browser, and the full
-test suite (489 tests) passes.
+test suite (493 tests) passes.
 
 ## Shipped (most recent first)
 
@@ -110,6 +110,14 @@ test suite (489 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **Health verdict on every project card** (2026-09-19): the workspace home
+  shows "Needs attention" (with why), "No evidence yet" or "On track" on each
+  active project, by the Health page's rules (up to 12 projects, computed in
+  parallel; unreadable ones show none). Fixed on the way: a new project with
+  nothing run read "Needs attention -- 1 release blocker" because "no run
+  evidence" is a Release blocker; it now reads "No evidence yet". Projects
+  that need attention are listed first, archived last. Verified with a second
+  project: the older one needing attention sorts above the newer one.
 - **Project Health page** (2026-09-19, /workspace/:org/projects/:id/health):
   one screen, phone first. A verdict from plain rules
   (`lib/services/project-health.ts`): "Needs attention" when a live check
@@ -242,9 +250,10 @@ test suite (489 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Show the Health verdict on the project cards.** The workspace home
-   shows badges; a one-word verdict per card (same rules as the Health page)
-   makes the list scannable on a phone.
+1. **Faster first run for a new project.** A new project reads "No evidence
+   yet" until someone writes, approves and runs a test. Offer "Cover a page"
+   straight from the empty Health page, using the project's live URL, so the
+   first evidence is minutes away.
 2. **MCP directory listings (needs the owner).** The official MCP registry
    verifies the publisher through GitHub or DNS, so publishing is the owner's
    step; everything else (the /mcp page, tools, docs) is ready.

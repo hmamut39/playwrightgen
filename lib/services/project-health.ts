@@ -15,7 +15,7 @@ import type { ReleaseReadiness } from "@/lib/services/release-readiness";
 export type HealthVerdict = "attention" | "no-evidence" | "on-track";
 
 export function projectHealthVerdict(input: {
-  readiness: Pick<ReleaseReadiness, "releasable" | "counts" | "evidence" | "findings">;
+  readiness: Pick<ReleaseReadiness, "counts" | "evidence" | "findings">;
   live: Pick<LiveChecksSummary, "failed" | "checked"> | null;
 }): { verdict: HealthVerdict; reasons: string[] } {
   const reasons: string[] = [];
@@ -25,10 +25,12 @@ export function projectHealthVerdict(input: {
   if (input.readiness.counts.regressions > 0) {
     reasons.push(`${input.readiness.counts.regressions} regression${input.readiness.counts.regressions === 1 ? "" : "s"}`);
   }
-  if (!input.readiness.releasable) {
-    const blockers = input.readiness.findings.filter((finding) => finding.severity === "BLOCKER").length || 1;
-    reasons.push(`${blockers} release blocker${blockers === 1 ? "" : "s"}`);
-  }
+  // "No run evidence" is itself a blocker on the Release page; here it is the
+  // no-evidence verdict rather than a reason to call the project unhealthy.
+  const blockers = input.readiness.findings.filter(
+    (finding) => finding.severity === "BLOCKER" && finding.code !== "evidence_missing",
+  ).length;
+  if (blockers) reasons.push(`${blockers} release blocker${blockers === 1 ? "" : "s"}`);
   if (reasons.length) return { verdict: "attention", reasons };
 
   const ran = input.readiness.evidence.hasExecution || Boolean(input.live && input.live.checked > 0);

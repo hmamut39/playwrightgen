@@ -32,6 +32,11 @@ describe("project health verdict", () => {
   });
 
   it("never calls a project healthy when nothing has run", () => {
+    const untested = {
+      ...readiness({ hasExecution: false, releasable: false }),
+      findings: [{ severity: "BLOCKER" as const, code: "evidence_missing", title: "No run evidence", detail: "", href: null, count: 1 }],
+    };
+    expect(projectHealthVerdict({ readiness: untested, live: null })).toEqual({ verdict: "no-evidence", reasons: ["no test has run yet"] });
     expect(projectHealthVerdict({ readiness: readiness({ hasExecution: false }), live: null }).verdict).toBe("no-evidence");
     expect(projectHealthVerdict({ readiness: readiness({ hasExecution: false }), live: { failed: 0, checked: 0 } }).verdict).toBe("no-evidence");
   });

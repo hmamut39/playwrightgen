@@ -7,6 +7,8 @@ import { getOrganizationReviewCounts } from "@/lib/services/review-queue";
 import { LocalTime } from "@/components/workspace/local-time";
 import { humanLabel } from "@/lib/format/label";
 import { readLiveChecksSummary, recentlyStartedFailing } from "@/lib/services/live-checks";
+import { getProjectHealthVerdicts } from "@/lib/services/project-health-verdicts";
+import { HealthVerdictLine } from "@/components/workspace/health-verdict";
 
 export default async function OrganizationWorkspacePage({
   params,
@@ -21,6 +23,11 @@ export default async function OrganizationWorkspacePage({
     getOrganizationReviewCounts({ orgSlug }),
   ]);
   const canCreate = context.can("project:create");
+  const verdicts = await getProjectHealthVerdicts({ orgSlug, projects });
+  // What needs someone first, archived last; otherwise most recently updated first, as listed.
+  const rank = (project: (typeof projects)[number]) =>
+    project.status !== "ACTIVE" ? 2 : verdicts.get(project.id)?.verdict === "attention" ? 0 : 1;
+  const ordered = [...projects].sort((left, right) => rank(left) - rank(right));
   const liveByProject = new Map(
     projects.flatMap((project) => {
       const summary = project.status === "ACTIVE" && project.liveChecksEnabled ? readLiveChecksSummary(project.liveChecksLastSummary) : null;
@@ -83,7 +90,7 @@ export default async function OrganizationWorkspacePage({
         )
       ) : (
         <section className="mt-8 grid gap-4 xl:grid-cols-2">
-          {projects.map((project) => {
+          {ordered.map((project) => {
             const projectRisk = risk.get(project.id);
             return (
             <Link
@@ -100,6 +107,7 @@ export default async function OrganizationWorkspacePage({
                   {humanLabel(project.status)}
                 </span>
               </div>
+              {verdicts.get(project.id) ? <HealthVerdictLine {...verdicts.get(project.id)!} /> : null}
               <p className="mt-4 line-clamp-2 text-sm leading-6 text-slate-600">
                 {project.description || "No description"}
               </p>

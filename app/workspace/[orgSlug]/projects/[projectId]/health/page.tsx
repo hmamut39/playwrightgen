@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { HEALTH_VERDICT_STYLE } from "@/components/workspace/health-verdict";
 import { LocalTime } from "@/components/workspace/local-time";
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
 import { readLiveChecksSummary } from "@/lib/services/live-checks";
@@ -15,12 +16,6 @@ import { getReviewQueue } from "@/lib/services/review-queue";
  * to the page with the detail. It reads the same records as those pages and
  * adds no judgement of its own beyond the verdict's plain rules.
  */
-
-const verdictStyle = {
-  attention: { label: "Needs attention", box: "border-red-200 bg-red-50", text: "text-red-900", dot: "bg-red-600" },
-  "no-evidence": { label: "No evidence yet", box: "border-slate-200 bg-white", text: "text-slate-900", dot: "bg-slate-400" },
-  "on-track": { label: "On track", box: "border-emerald-200 bg-emerald-50", text: "text-emerald-900", dot: "bg-emerald-600" },
-} as const;
 
 function Card({ href, title, children }: { href: string; title: string; children: React.ReactNode }) {
   return (
@@ -56,7 +51,7 @@ export default async function ProjectHealthPage({
   const base = `/workspace/${orgSlug}/projects/${projectId}`;
   const live = project.liveChecksEnabled ? readLiveChecksSummary(project.liveChecksLastSummary) : null;
   const health = projectHealthVerdict({ readiness, live });
-  const style = verdictStyle[health.verdict];
+  const style = HEALTH_VERDICT_STYLE[health.verdict];
   const blockers = readiness.findings.filter((finding) => finding.severity === "BLOCKER");
   const waiting = reviews.yours.length + reviews.others.length;
   const { counts } = readiness;
