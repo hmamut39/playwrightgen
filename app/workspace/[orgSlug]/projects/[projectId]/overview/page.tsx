@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { after } from "next/server";
 
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
@@ -15,17 +16,27 @@ import { personName } from "@/lib/format/person-name";
 import { LocalTime } from "@/components/workspace/local-time";
 import { PendingButton } from "@/components/workspace/pending-button";
 import { humanLabel } from "@/lib/format/label";
-import { readLiveChecksSummary, runLiveChecksForProject, setLiveChecks } from "@/lib/services/live-checks";
+import {
+  describeWebhook,
+  LiveChecksError,
+  readLiveChecksSummary,
+  runLiveChecksForProject,
+  setLiveChecks,
+  setLiveChecksWebhook,
+} from "@/lib/services/live-checks";
 
 // "Run now" finishes a round of checks after the page has answered.
 export const maxDuration = 300;
 
 export default async function ProjectOverviewPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ orgSlug: string; projectId: string }>;
+  searchParams: Promise<{ webhook?: string }>;
 }) {
   const { orgSlug, projectId } = await params;
+  const { webhook: webhookNotice } = await searchParams;
   const [overview, setup, context] = await Promise.all([
     getProjectOverview({ orgSlug, projectId, allowArchived: true }),
     getProjectSetup({ orgSlug, projectId }),
@@ -33,6 +44,8 @@ export default async function ProjectOverviewPage({
   ]);
   const { project } = overview;
   const liveSummary = readLiveChecksSummary(project.liveChecksLastSummary);
+  const webhookLabel = describeWebhook(project.liveChecksWebhookUrl);
+  const overviewPath = `/workspace/${orgSlug}/projects/${projectId}/overview`;
 
   async function liveUrlAction(formData: FormData) {
     "use server";
@@ -57,6 +70,19 @@ export default async function ProjectOverviewPage({
       });
     }
     revalidatePath(`/workspace/${orgSlug}/projects/${projectId}/overview`);
+  }
+
+  async function webhookAction(formData: FormData) {
+    "use server";
+    const remove = formData.get("intent") === "remove";
+    try {
+      await setLiveChecksWebhook({ orgSlug, projectId, webhookUrl: remove ? "" : String(formData.get("webhookUrl") ?? "") });
+    } catch (error) {
+      if (error instanceof LiveChecksError && error.code === "invalid_webhook") redirect(`${overviewPath}?webhook=invalid#live-checks`);
+      throw error;
+    }
+    revalidatePath(overviewPath);
+    redirect(`${overviewPath}?webhook=${remove ? "removed" : "saved"}#live-checks`);
   }
 
   async function transitionAction(formData: FormData) {
@@ -132,7 +158,7 @@ export default async function ProjectOverviewPage({
         )}
 
         {project.liveUrl ? (
-          <div className="mt-6 border-t border-cyan-200 pt-5">
+          <div id="live-checks" className="mt-6 scroll-mt-6 border-t border-cyan-200 pt-5">
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
               <div>
                 <p className="text-sm font-semibold text-slate-900">
@@ -174,6 +200,29 @@ export default async function ProjectOverviewPage({
                     page and it is checked in the next round.
                   </p>
                 ) : null}
+                {liveSummary.failing.length ? (
+                  <ul className="mt-3 space-y-2">
+                    {liveSummary.failing.slice(0, 10).map((entry) => (
+                      <li key={entry.testCaseId} className="rounded-lg border border-red-200 bg-red-50/60 px-3 py-2">
+                        <a href={`/workspace/${orgSlug}/projects/${projectId}/test-cases/${entry.testCaseId}`} className="font-semibold text-red-800 underline">
+                          {entry.title}
+                        </a>
+                        {entry.newToday ? <span className="ml-2 rounded-full bg-red-700 px-2 py-0.5 text-xs font-semibold text-white">Started failing</span> : null}
+                        {entry.detail ? <p className="mt-1 break-words text-xs text-red-900/80">{entry.detail.split("\n")[0]}</p> : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {liveSummary.recovered.length ? (
+                  <p className="mt-3 text-xs font-medium text-emerald-800">
+                    Passing again: {liveSummary.recovered.map((entry) => entry.title).join(", ")}
+                  </p>
+                ) : null}
+                {liveSummary.alert ? (
+                  <p className={`mt-2 text-xs ${liveSummary.alert === "sent" ? "text-slate-500" : "font-semibold text-amber-800"}`}>
+                    {liveSummary.alert === "sent" ? "The change was posted to your channel." : "The change could not be posted to your channel. Check the webhook below."}
+                  </p>
+                ) : null}
                 {liveSummary.notChecked.length ? (
                   <ul className="mt-2 space-y-1 text-xs text-slate-500">
                     {liveSummary.notChecked.slice(0, 8).map((entry) => (
@@ -184,6 +233,46 @@ export default async function ProjectOverviewPage({
               </div>
             ) : project.liveChecksEnabled ? (
               <p className="mt-4 text-xs text-slate-500">The first round is running; results appear here and under Test Runs within a few minutes.</p>
+            ) : null}
+
+            {project.liveChecksEnabled && overview.canUpdate ? (
+              <div className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-sm font-semibold text-slate-900">Tell your team in Slack or Discord</p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">
+                  When a test starts failing, or passes again, the round posts it to a channel. Paste the channel&rsquo;s
+                  incoming webhook address. It is only used for this, and never shown again in full.
+                </p>
+                {webhookNotice === "invalid" ? (
+                  <p role="alert" className="mt-2 text-xs font-semibold text-red-700">
+                    That is not a Slack (https://hooks.slack.com/services/...) or Discord (https://discord.com/api/webhooks/...) webhook address.
+                  </p>
+                ) : webhookNotice === "saved" ? (
+                  <p role="status" className="mt-2 text-xs font-semibold text-emerald-700">Saved. The next change is posted there.</p>
+                ) : webhookNotice === "removed" ? (
+                  <p role="status" className="mt-2 text-xs font-semibold text-slate-700">Removed. Changes show here only.</p>
+                ) : null}
+                <form action={webhookAction} className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    name="webhookUrl"
+                    type="url"
+                    required
+                    maxLength={2_000}
+                    autoComplete="off"
+                    aria-label="Incoming webhook address"
+                    placeholder={webhookLabel ? `Posting to ${webhookLabel}. Paste a new address to change it.` : "https://hooks.slack.com/services/..."}
+                    className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-cyan-600 focus-visible:ring-2 focus-visible:ring-cyan-500/60"
+                  />
+                  <PendingButton pendingLabel="Saving…" className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white">
+                    {webhookLabel ? "Change" : "Save"}
+                  </PendingButton>
+                </form>
+                {webhookLabel ? (
+                  <form action={webhookAction} className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+                    <span>Posting to {webhookLabel}.</span>
+                    <button name="intent" value="remove" className="font-semibold text-slate-800 underline">Remove</button>
+                  </form>
+                ) : null}
+              </div>
             ) : null}
           </div>
         ) : null}

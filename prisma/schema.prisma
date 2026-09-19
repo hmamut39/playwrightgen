@@ -556,6 +556,9 @@ model Project {
   liveChecksLastRunAt   DateTime?     @db.Timestamptz(3)
   /// Counts from the last round of checks, for the project page.
   liveChecksLastSummary Json?         @db.JsonB
+  /// A Slack or Discord incoming webhook told when a live check starts failing
+  /// or recovers. The team pastes their own; it is shown back only as its host.
+  liveChecksWebhookUrl  String?       @db.Text
   createdAt             DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt             DateTime      @updatedAt @db.Timestamptz(3)
 

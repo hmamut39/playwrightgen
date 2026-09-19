@@ -102,6 +102,18 @@ test suite (460+ tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **Live check alerts** (2026-09-19): each round compares every result with
+  the test's last recorded one. A pass that turns into a failure is marked
+  "Started failing" on the project (with the failing step), a red banner on
+  the workspace home names it for two days, and project cards show "Live
+  check: N failing" or "Live check passing". A failure that passes again is
+  listed as "Passing again". A project can add a Slack or Discord incoming
+  webhook (allow-listed hosts only, https, no redirects followed, shown back
+  only as "a Slack channel"); changes are posted there, and a refused post is
+  reported on the page. Verified in a browser by pointing the dev project at
+  another site (started failing, banner, badge) and back (passing again).
+  Email is not used: the Resend key can only send from its test sender until
+  playwrightgen.com is verified in Resend (a DNS step for the owner).
 - **Cover a page over MCP** (2026-09-19): two MCP tools, now 13 in all.
   `plan_page_coverage` reads a page (signed in when env carries E2E_USERNAME
   and E2E_PASSWORD, used for that call only) and returns the plan with a link;
@@ -189,10 +201,10 @@ test suite (460+ tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Tell the team when a live check starts failing.** Daily live checks
-   record the regression, but nobody hears about it until they open
-   PlaywrightGen. Surface it (workspace home banner first, then a message to
-   the project's people) the day a pass turns into a failure.
+1. **Regenerate automation that live checks cannot run.** Approved tests that
+   read made-up environment values (NEW_TODO_SELECTOR and the like) are
+   skipped every day. Offer "Generate again from the live page" right in that
+   list, so the new version names the page's own controls and can be checked.
 2. **MCP directory listings (needs the owner).** The official MCP registry
    verifies the publisher through GitHub or DNS, so publishing is the owner's
    step; everything else (the /mcp page, tools, docs) is ready.

@@ -6,6 +6,7 @@ import { listProjects } from "@/lib/services/projects";
 import { getOrganizationReviewCounts } from "@/lib/services/review-queue";
 import { LocalTime } from "@/components/workspace/local-time";
 import { humanLabel } from "@/lib/format/label";
+import { readLiveChecksSummary, recentlyStartedFailing } from "@/lib/services/live-checks";
 
 export default async function OrganizationWorkspacePage({
   params,
@@ -20,6 +21,16 @@ export default async function OrganizationWorkspacePage({
     getOrganizationReviewCounts({ orgSlug }),
   ]);
   const canCreate = context.can("project:create");
+  const liveByProject = new Map(
+    projects.flatMap((project) => {
+      const summary = project.status === "ACTIVE" && project.liveChecksEnabled ? readLiveChecksSummary(project.liveChecksLastSummary) : null;
+      return summary ? [[project.id, summary] as const] : [];
+    }),
+  );
+  const liveNews = projects.flatMap((project) => {
+    const started = recentlyStartedFailing(liveByProject.get(project.id) ?? null);
+    return started.length ? [{ project, started }] : [];
+  });
 
   return (
     <>
@@ -37,6 +48,23 @@ export default async function OrganizationWorkspacePage({
           </Link>
         ) : null}
       </header>
+
+      {liveNews.length ? (
+        <section role="alert" className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5">
+          <p className="text-sm font-semibold text-red-900">A daily live check found tests that started failing</p>
+          <ul className="mt-2 space-y-1 text-sm text-red-900">
+            {liveNews.map(({ project, started }) => (
+              <li key={project.id}>
+                <Link href={`/workspace/${orgSlug}/projects/${project.id}/overview#live-checks`} className="font-semibold underline">
+                  {project.name}
+                </Link>
+                : {started.slice(0, 3).map((entry) => entry.title).join(", ")}
+                {started.length > 3 ? ` and ${started.length - 3} more` : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {projects.length === 0 ? (
         canCreate ? (
@@ -84,6 +112,15 @@ export default async function OrganizationWorkspacePage({
                 {projectRisk && projectRisk.regressions > 0 ? (
                   <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
                     {projectRisk.regressions} regression{projectRisk.regressions === 1 ? "" : "s"}
+                  </span>
+                ) : null}
+                {liveByProject.get(project.id)?.failing.length ? (
+                  <span className="rounded-full bg-red-600 px-2.5 py-1 text-xs font-semibold text-white">
+                    Live check: {liveByProject.get(project.id)?.failing.length} failing
+                  </span>
+                ) : liveByProject.get(project.id)?.checked ? (
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+                    Live check passing
                   </span>
                 ) : null}
                 {projectRisk && projectRisk.flaky > 0 ? (

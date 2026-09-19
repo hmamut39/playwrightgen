@@ -11,9 +11,12 @@ import {
   submitAutomationArtifact,
 } from "@/lib/services/automation-artifacts";
 import {
+  recentlyStartedFailing,
   runDueLiveChecks,
   runLiveChecksForProject,
   setLiveChecks,
+  setLiveChecksWebhook,
+  webhookKind,
   whyNotCheckable,
 } from "@/lib/services/live-checks";
 import { approveTestCase, createTestCase, submitTestCaseForReview } from "@/lib/services/test-cases";
@@ -129,6 +132,70 @@ describe("daily live checks of approved automation", () => {
     expect(testRun.attempts[1]).toMatchObject({ sourceRef: "live-check", executedByUserId: space.owner.id, baseUrl: "https://demo.playwright.dev/todomvc/" });
     expect(testRun.attempts[1].failureDetails).toContain("Timeout 5000ms exceeded.");
     expect(testRun.attempts[1].summary).toContain("Daily live check on https://demo.playwright.dev/todomvc/");
+  });
+
+  it("says when a test starts failing or passes again, and posts it to the team's channel", async () => {
+    const space = await projectWithApprovedAutomation([publicCode]);
+    await setLiveChecks({ projectId: space.project.id, enabled: true }, space.owned);
+    const slack = "https://hooks.slack.com/services/T000/B000/XXXX";
+    await setLiveChecksWebhook({ projectId: space.project.id, webhookUrl: slack }, space.owned);
+    const posts: Array<{ url: string; body: string }> = [];
+    const post = async (url: string, body: string) => {
+      posts.push({ url, body });
+      return true;
+    };
+
+    // A first failure is failing, not "started failing": there is nothing it changed from.
+    const first = await runLiveChecksForProject(space.project.id, { prisma, runner: async () => run({ failed: 1 }), post });
+    expect(first?.failing).toMatchObject([{ title: "Behaviour 0", newToday: false }]);
+    expect(first?.alert).toBeNull();
+    expect(posts).toHaveLength(0);
+
+    await runLiveChecksForProject(space.project.id, { prisma, runner: async () => run({}), post });
+    expect(posts).toHaveLength(1);
+    expect(JSON.parse(posts[0].body).text).toContain("1 test passing again:\n- Behaviour 0");
+
+    const broke = await runLiveChecksForProject(space.project.id, { prisma, runner: async () => run({ passed: 1, failed: 1 }), post });
+    expect(broke?.failing).toMatchObject([{ title: "Behaviour 0", testCaseId: space.testCaseIds[0], newToday: true }]);
+    expect(broke?.failing[0].detail).toContain("Timeout 5000ms exceeded.");
+    expect(broke?.alert).toBe("sent");
+    expect(posts[1].url).toBe(slack);
+    const text = JSON.parse(posts[1].body).text as string;
+    expect(text).toContain("1 test started failing today:\n- Behaviour 0");
+    expect(text).toContain(`/projects/${space.project.id}/overview`);
+    expect(recentlyStartedFailing(broke)).toHaveLength(1);
+    expect(recentlyStartedFailing(broke, Date.now() + 3 * 24 * 60 * 60_000)).toHaveLength(0);
+
+    // Still failing the next day is not news again, and a channel that refuses is reported.
+    const again = await runLiveChecksForProject(space.project.id, { prisma, runner: async () => run({ failed: 1 }), post: async () => false });
+    expect(again?.failing[0].newToday).toBe(false);
+    expect(again?.alert).toBeNull();
+    await runLiveChecksForProject(space.project.id, { prisma, runner: async () => run({}), post: async () => false });
+    expect((await prisma.project.findUniqueOrThrow({ where: { id: space.project.id } })).liveChecksLastSummary).toMatchObject({ alert: "failed" });
+  });
+
+  it("posts only to Slack or Discord webhooks, set by someone who can update the project", async () => {
+    expect(webhookKind("https://hooks.slack.com/services/T0/B0/x")).toBe("slack");
+    expect(webhookKind("https://discord.com/api/webhooks/1/abc")).toBe("discord");
+    for (const refused of [
+      "http://hooks.slack.com/services/T0/B0/x",
+      "https://hooks.slack.com.evil.example/services/x",
+      "https://hooks.slack.com:8443/services/x",
+      "https://user:pass@hooks.slack.com/services/x",
+      "https://hooks.slack.com/other",
+      "https://169.254.169.254/latest/meta-data",
+      "not a url",
+    ]) {
+      expect(webhookKind(refused)).toBeNull();
+    }
+
+    const space = await projectWithApprovedAutomation([]);
+    await expect(setLiveChecksWebhook({ projectId: space.project.id, webhookUrl: "https://example.com/hook" }, space.owned)).rejects.toMatchObject({ code: "invalid_webhook" });
+    await expect(setLiveChecksWebhook({ projectId: space.project.id, webhookUrl: "https://discord.com/api/webhooks/1/abc" }, space.viewed)).rejects.toMatchObject({ code: "permission_denied" });
+    await setLiveChecksWebhook({ projectId: space.project.id, webhookUrl: " https://discord.com/api/webhooks/1/abc " }, space.owned);
+    expect((await prisma.project.findUniqueOrThrow({ where: { id: space.project.id } })).liveChecksWebhookUrl).toBe("https://discord.com/api/webhooks/1/abc");
+    await setLiveChecksWebhook({ projectId: space.project.id, webhookUrl: "" }, space.owned);
+    expect((await prisma.project.findUniqueOrThrow({ where: { id: space.project.id } })).liveChecksWebhookUrl).toBeNull();
   });
 
   it("skips a test that needs a sign-in account instead of reporting it broken", async () => {
