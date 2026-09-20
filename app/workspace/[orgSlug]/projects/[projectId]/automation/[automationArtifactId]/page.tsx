@@ -5,6 +5,11 @@ import Link from "next/link";
 
 import { AiAllowanceNotice, aiAllowanceNotice } from "@/components/workspace/ai-allowance-notice";
 import { StickyReviewBar } from "@/components/workspace/sticky-review-bar";
+import {
+  AutomationPullRequestError,
+  hasConnectedRepository,
+  openAutomationPullRequest,
+} from "@/lib/services/automation-pull-requests";
 import { ResultActions } from "@/components/free-tools/result-actions";
 import { CodeBlock } from "@/components/workspace/code-block";
 
@@ -43,10 +48,10 @@ export default async function AutomationArtifactPage({
     projectId: string;
     automationArtifactId: string;
   }>;
-  searchParams: Promise<{ notice?: string }>;
+  searchParams: Promise<{ notice?: string; pr?: string; prError?: string }>;
 }) {
   const { orgSlug, projectId, automationArtifactId } = await params;
-  const { notice } = await searchParams;
+  const { notice, pr, prError } = await searchParams;
   const detail = await getAutomationArtifactDetail({
     orgSlug,
     projectId,
@@ -54,6 +59,29 @@ export default async function AutomationArtifactPage({
     allowArchived: true,
   });
   const { artifact } = detail;
+  const canOpenPullRequest =
+    artifact.status === "APPROVED" &&
+    detail.canApprove &&
+    (await hasConnectedRepository({ orgSlug, projectId }).catch(() => false));
+
+  /**
+   * Offers the approved code to the connected repository. PlaywrightGen opens
+   * the pull request and stops; the repository's own review decides.
+   */
+  async function pullRequestAction() {
+    "use server";
+    let url: string;
+    try {
+      const opened = await openAutomationPullRequest({ orgSlug, projectId, automationArtifactId });
+      url = opened.url;
+    } catch (error) {
+      const code = error instanceof AutomationPullRequestError ? error.code : "provider_failed";
+      if (!(error instanceof AutomationPullRequestError)) console.error("[automation] pull request failed", error);
+      redirect(`${artifactPath}?prError=${code}`);
+    }
+    revalidatePath(artifactPath);
+    redirect(`${artifactPath}?pr=${encodeURIComponent(url)}`);
+  }
   const base = `/workspace/${orgSlug}/projects/${projectId}`;
   const artifactPath = `${base}/automation/${automationArtifactId}`;
   const currentVersion = artifact.versions.find(
@@ -147,6 +175,26 @@ export default async function AutomationArtifactPage({
         ← Automation
       </Link>
       <AiAllowanceNotice notice={notice} orgSlug={orgSlug} />
+      {pr ? (
+        <p role="status" className="mt-6 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
+          <span className="font-semibold">Pull request open.</span>{" "}
+          <a href={pr} target="_blank" rel="noreferrer" className="font-semibold underline">
+            Review it on GitHub
+          </a>
+          . PlaywrightGen cannot merge it.
+        </p>
+      ) : null}
+      {prError ? (
+        <p role="alert" className="mt-6 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          {prError === "permission_missing"
+            ? "The GitHub App may only read this repository. A repository admin must allow Contents and Pull requests write, then accept the update on the installation."
+            : prError === "no_repository"
+              ? "No repository is connected to this project yet. Connect one on the Repositories page."
+              : prError === "not_approved"
+                ? "Only approved automation can be offered to the repository."
+                : "GitHub could not be reached. Nothing was written; try again shortly."}
+        </p>
+      ) : null}
 
       <header className="mt-8 flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
         <div className="min-w-0">
@@ -199,6 +247,13 @@ export default async function AutomationArtifactPage({
               <button className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white">
                 Submit for review
               </button>
+            </form>
+          ) : null}
+          {canOpenPullRequest ? (
+            <form action={pullRequestAction}>
+              <PendingButton pendingLabel="Opening…" className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold">
+                Open a pull request
+              </PendingButton>
             </form>
           ) : null}
           {artifact.status === "IN_REVIEW" && detail.canApprove ? (

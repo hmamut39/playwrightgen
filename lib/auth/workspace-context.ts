@@ -50,7 +50,8 @@ export type WorkspacePermission =
   | "automation:approve"
   | "repository:read"
   | "repository:connect"
-  | "repository:import";
+  | "repository:import"
+  | "repository:pull_request";
 
 export type WorkspaceAuthorizationErrorCode =
   | "unauthenticated"
@@ -218,6 +219,7 @@ const LEAD_PERMISSIONS = new Set<WorkspacePermission>([
   "failure:resolve",
   "repository:connect",
   "repository:import",
+  "repository:pull_request",
 ]);
 
 async function defaultAuthenticate(): Promise<WorkspaceAuthState> {

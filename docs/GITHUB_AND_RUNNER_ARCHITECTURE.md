@@ -18,10 +18,22 @@ contract, not evidence that remote execution is enabled.
 - Repository contents: read.
 - Events: `installation` and `installation_repositories` only.
 
-The initial import does not request Actions, Checks, Deployments, Pull Requests,
-Secrets, Workflows, or any repository write permission. A later pull-request
-reporting milestone may add Checks write and the minimum pull-request event
-subscription after a separate permission and abuse review.
+The initial import does not request Actions, Checks, Deployments, Secrets,
+Workflows, or any repository write permission.
+
+### Pull requests from approved automation (2026-09-20)
+
+Offering approved automation to the connected repository needs two more
+repository permissions on the App: Contents write (to create a branch and write
+the file) and Pull requests write (to open the pull request). Nothing else was
+added: no Actions, Checks, Secrets, Workflows, or webhook event subscriptions.
+
+Each pull request mints its own installation token, restricted to the single
+connected repository, carrying only those two permissions, and lasting minutes.
+PlaywrightGen never pushes to a default branch and never merges; the
+repository's own review decides. A team that has not granted the permissions
+sees a plain message naming what a repository admin must allow, and nothing is
+written (`lib/integrations/github/pull-request.ts`).
 
 ### Credential lifecycle
 

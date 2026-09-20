@@ -110,6 +110,25 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **Listed in the official MCP registry** (2026-09-20): `com.playwrightgen/playwrightgen`,
+  published with `server.json` (remote streamable-http at /api/mcp, personal
+  editor token in the Authorization header). Ownership was proven with the
+  registry's HTTP method -- `/.well-known/mcp-registry-auth` carries the public
+  key, the private key lives in `.env.local` as `MCP_REGISTRY_PRIVATE_KEY` --
+  so no GitHub account or DNS change was needed. Republish after changing
+  server.json: `mcp-publisher login http --domain playwrightgen.com
+  --private-key "$MCP_REGISTRY_PRIVATE_KEY"` then `mcp-publisher publish`,
+  raising `version` first.
+- **Pull request from approved automation** (2026-09-20): an approved browser
+  artifact with a connected repository has "Open a pull request" on its
+  Automation page (lead permission `repository:pull_request`). It branches
+  from the default branch, writes `tests/playwrightgen/<name>.spec.ts`, opens
+  the pull request with the approved version, its Test Case version and a link
+  back, and records `AUTOMATION_PULL_REQUEST_OPENED`. Calling it again updates
+  the branch and returns the pull request already open. The installation token
+  is minted per call for that one repository with only contents+pull_requests
+  write; without those permissions it refuses with a plain message and writes
+  nothing.
 - **Review from a phone** (2026-09-19): measured the review pages at 390px.
   The automation page was 408px wide -- a version summary containing a long
   URL could not wrap -- so the whole workspace content area now wraps long
@@ -279,12 +298,7 @@ In priority order. Each item should end verified in a browser and shipped.
    in the scratchpad; make it a checked-in script (`npm run audit:phone`)
    that signs in, walks every workspace page and fails when a page is wider
    than the screen, so this cannot regress unnoticed.
-2. **MCP directory listings (needs the owner).** The official MCP registry
-   verifies the publisher through GitHub or DNS, so publishing is the owner's
-   step; everything else (the /mcp page, tools, docs) is ready.
-3. **Open a pull request from approved automation.** Needs the owner's
-   decision on giving the GitHub App write permission (currently read-only).
-4. **Verify the paid path end to end — on hold at the owner's request.** Stripe
+2. **Verify the paid path end to end — on hold at the owner's request.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to
    do it now, so do not raise it until they bring it up.

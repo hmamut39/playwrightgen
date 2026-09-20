@@ -86,6 +86,7 @@ const actionSummary: Record<ActivityAction, string> = {
   REPOSITORY_CONNECTED: "connected a repository",
   REPOSITORY_ACCESS_CHANGED: "changed repository access",
   REPOSITORY_IMPORT_COMPLETED: "imported repository evidence",
+  AUTOMATION_PULL_REQUEST_OPENED: "opened a pull request with approved automation",
   BILLING_SUBSCRIPTION_UPDATED: "updated the subscription",
   BILLING_ENTITLEMENTS_UPDATED: "updated plan entitlements",
 };
