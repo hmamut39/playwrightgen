@@ -1,0 +1,26 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.playwrightgen/playwrightgen",
+  "title": "PlaywrightGen",
+  "description": "Approved test intent, reviewed Playwright automation and run evidence, inside your editor.",
+  "version": "1.0.0",
+  "websiteUrl": "https://playwrightgen.com/mcp",
+  "repository": {
+    "url": "https://github.com/hmamut39/playwrightgen",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://playwrightgen.com/api/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Bearer <token>, where the token is the personal editor token from your project's Automation page in PlaywrightGen. It speaks for you, proposes but never approves, and stops working when your access ends.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
