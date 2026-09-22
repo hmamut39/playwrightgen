@@ -110,6 +110,28 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **`npm run audit:phone`** (2026-09-22, `scripts/audit-phone.mjs`): signs in
+  with a Clerk ticket, walks all 17 workspace pages at 390px and exits non-zero
+  when a page is wider than the screen, naming the box whose content overflows.
+  Proven both ways: 17/17 pass on the current site, and a deliberately 900px
+  element made it report "health 916px <- div.mx-auto.max-w-3xl". Needs a dev
+  Clerk secret; `AUDIT_BASE_URL`, `AUDIT_EMAIL` and `AUDIT_WIDTH` override the
+  defaults.
+- **A page a role cannot open says so** (2026-09-22): the audit's first run
+  found /projects/new answering HTTP 500 for a member without
+  `project:create` -- `requireWorkspaceContext` threw and the error boundary
+  said "This page didn't load". It now renders `NotAllowed`
+  (components/workspace/not-allowed.tsx): what the page is for, who can open
+  it, and a way back. The same component suits any other page that guards on a
+  permission.
+- **Pull request from approved automation, proven against GitHub** (2026-09-22):
+  after the owner granted Contents + Pull requests write and accepted it on the
+  installation, a real run opened
+  https://github.com/hmamut39/playwrightgen-ci-proof/pull/1 in 5 s -- one file
+  added (tests/playwrightgen/a-visitor-adds-a-todo-and-sees-it-in-the-list.spec.ts,
+  32 lines), branch -> main, description carrying automation v3, Test Case v1,
+  the approver and the record link. A second call returned the same pull
+  request instead of opening another.
 - **Listed in the official MCP registry** (2026-09-20): `com.playwrightgen/playwrightgen`,
   published with `server.json` (remote streamable-http at /api/mcp, personal
   editor token in the Authorization header). Ownership was proven with the
@@ -294,11 +316,13 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Keep the phone measurement from rotting.** The 390px audit is a script
-   in the scratchpad; make it a checked-in script (`npm run audit:phone`)
-   that signs in, walks every workspace page and fails when a page is wider
-   than the screen, so this cannot regress unnoticed.
-2. **Verify the paid path end to end — on hold at the owner's request.** Stripe
+1. **Time the first minute for a new user.** Sign up, create a project, get
+   proven tests: measure each step against production, find the slowest, fix
+   it.
+2. **A live check that fails once is not a regression.** One failure on a
+   flaky test currently reads like a broken feature. Re-run a newly failing
+   test once before recording it, and mark it flaky when the second run passes.
+3. **Verify the paid path end to end — on hold at the owner's request.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to
    do it now, so do not raise it until they bring it up.

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { NotAllowed } from "@/components/workspace/not-allowed";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { slugify } from "@/lib/format/slug";
 import { createProject } from "@/lib/services/projects";
@@ -10,7 +11,17 @@ export default async function NewProjectPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
-  await requireWorkspaceContext({ orgSlug, permission: "project:create" });
+  const context = await requireWorkspaceContext({ orgSlug });
+  if (!context.can("project:create")) {
+    return (
+      <NotAllowed
+        title="Only an owner or admin can create a project"
+        detail="Ask a workspace owner or admin to create it, or to change your role. They can add you to an existing project from its Team tab."
+        backHref={`/workspace/${orgSlug}`}
+        backLabel="Back to projects"
+      />
+    );
+  }
 
   async function createProjectAction(formData: FormData) {
     "use server";
