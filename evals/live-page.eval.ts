@@ -5,6 +5,7 @@ import { generateQuickDraft } from "@/lib/ai/quick-generation";
 import { alignRootNavigation } from "@/lib/free-tools/navigation";
 import { capturePageSnapshot } from "@/lib/free-tools/page-snapshot";
 import { runVerdict } from "@/lib/free-tools/preview-run/receipt";
+import { firstFailureOf } from "@/lib/free-tools/prove-loop";
 import { executeLiveRun, prepareLiveRun } from "@/lib/free-tools/preview-run/run-draft";
 import { alignContainerNames, alignTestIdLocators, siteTestIdAttribute } from "@/lib/free-tools/test-id-attribute";
 
@@ -26,13 +27,19 @@ import { alignContainerNames, alignTestIdLocators, siteTestIdAttribute } from "@
 const PAGE = "https://demo.playwright.dev/todomvc/";
 const ROOT_GOTO = /\.goto\(\s*(['"`])\/(?:[?#][^'"`]*)?\1/;
 
-const results: Array<{ id: string; verdict: string; modelWroteRoot: boolean; checks: number }> = [];
+const results: Array<{ id: string; verdict: string; modelWroteRoot: boolean; checks: number; failure?: string | null }> = [];
 
 async function firstRun(code: string, pageUrl: string) {
   const prepared = prepareLiveRun({ code, pageUrl });
   if (!prepared.ok) throw new Error(prepared.error);
   const { result } = await executeLiveRun(prepared.run);
-  return { verdict: runVerdict(result), checks: result.counts.passed };
+  const failure = firstFailureOf(result);
+  return {
+    verdict: runVerdict(result),
+    checks: result.counts.passed,
+    // Printed on a failure, so a red eval says which step and why.
+    failure: failure ? `${failure.step}: ${failure.line} -- ${failure.reason}`.slice(0, 200) : null,
+  };
 }
 
 const ready = Boolean(process.env.OPENAI_API_KEY?.trim() && process.env.BROWSERLESS_API_KEY?.trim());
@@ -42,6 +49,7 @@ describe.skipIf(!ready)("eval: generated tests pass on a page in a folder", () =
     console.log(`\n  live-page eval: ${results.filter((entry) => entry.verdict !== "failed").length}/${results.length} passed on the first run`);
     for (const entry of results) {
       console.log(`   ${entry.verdict.toUpperCase().padEnd(7)} ${entry.id}  checks=${entry.checks}  model wrote goto('/')=${entry.modelWroteRoot}`);
+      if (entry.failure) console.log(`           ${entry.failure}`);
     }
   });
 
@@ -61,7 +69,7 @@ describe.skipIf(!ready)("eval: generated tests pass on a page in a folder", () =
     // The shipped draft is already aligned, so the model's own '/' cannot be seen here.
     expect(draft.code).not.toMatch(ROOT_GOTO);
     const run = await firstRun(draft.code, snapshot.finalUrl);
-    results.push({ id: "quick-generate", verdict: run.verdict, modelWroteRoot: false, checks: run.checks });
+    results.push({ id: "quick-generate", verdict: run.verdict, modelWroteRoot: false, checks: run.checks, failure: run.failure });
     expect(run.verdict).not.toBe("failed");
   }, 240_000);
 
@@ -87,7 +95,7 @@ describe.skipIf(!ready)("eval: generated tests pass on a page in a folder", () =
     const aligned = alignTestIdLocators(output.code, siteTestIdAttribute(snapshot.elementHints)).code;
     const code = alignRootNavigation(alignContainerNames(aligned, snapshot.aria).code, PAGE).code;
     const run = await firstRun(code, PAGE);
-    results.push({ id: "workspace-automation", verdict: run.verdict, modelWroteRoot, checks: run.checks });
+    results.push({ id: "workspace-automation", verdict: run.verdict, modelWroteRoot, checks: run.checks, failure: run.failure });
     expect(run.verdict).not.toBe("failed");
   }, 240_000);
 });

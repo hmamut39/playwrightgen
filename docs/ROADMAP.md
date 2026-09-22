@@ -110,6 +110,17 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **The first minute, measured and halved** (2026-09-22): a brand-new account
+  to planned tests took 77 s; the plan step was 48 s of it, and inside that the
+  page read was 3.4 s and the model call 44 s. All three AI calls now set
+  `reasoning: { effort }`, defaulting to "low" and overridable per surface
+  (`OPENAI_PAGE_COVERAGE_EFFORT`, `OPENAI_QUICK_GENERATION_EFFORT`,
+  `OPENAI_AUTOMATION_EFFORT`). Planning: 44 s -> 18 s with better plans (the
+  slower setting spent tests on "static content and credit links are present",
+  which the prompt tells it to skip). Generators: the live-page eval, which
+  runs what was generated, went 1/2 passed in 92 s to 2/2 passed in ~49 s,
+  repeated three times. New-account flow end to end: 77 s -> 41 s.
+  The eval now prints the failing step when a first run fails.
 - **`npm run audit:phone`** (2026-09-22, `scripts/audit-phone.mjs`): signs in
   with a Clerk ticket, walks all 17 workspace pages at 390px and exits non-zero
   when a page is wider than the screen, naming the box whose content overflows.
@@ -316,13 +327,10 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Time the first minute for a new user.** Sign up, create a project, get
-   proven tests: measure each step against production, find the slowest, fix
-   it.
-2. **A live check that fails once is not a regression.** One failure on a
+1. **A live check that fails once is not a regression.** One failure on a
    flaky test currently reads like a broken feature. Re-run a newly failing
    test once before recording it, and mark it flaky when the second run passes.
-3. **Verify the paid path end to end — on hold at the owner's request.** Stripe
+2. **Verify the paid path end to end — on hold at the owner's request.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to
    do it now, so do not raise it until they bring it up.

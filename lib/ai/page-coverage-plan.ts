@@ -80,6 +80,11 @@ export async function planPageCoverage(
       model,
       store: false,
       max_output_tokens: 8_000,
+      // Planning reads a page's controls and names the tests they need; it is
+      // not a reasoning-heavy task, and the default effort made a new user wait
+      // half a minute staring at "planning". Configurable so a harder page can
+      // be given more.
+      reasoning: { effort: (process.env.OPENAI_PAGE_COVERAGE_EFFORT?.trim() as "minimal" | "low" | "medium" | "high") || "low" },
       input: [
         { role: "system", content: INSTRUCTIONS },
         {

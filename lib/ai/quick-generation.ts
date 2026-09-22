@@ -200,6 +200,9 @@ export async function generateQuickDraft(
       model,
       store: false,
       max_output_tokens: 8_000,
+      // Effort is configurable: a lower setting answers far quicker, and the
+      // live-page eval measures whether the first run still passes.
+      reasoning: { effort: (process.env.OPENAI_QUICK_GENERATION_EFFORT?.trim() as "minimal" | "low" | "medium" | "high") || "low" },
       input: [
         {
           role: "system",
