@@ -11,6 +11,7 @@ import {
   type WorkspaceContextDependencies,
 } from "@/lib/auth/workspace-context";
 import { validateRunnerIngestEnvironment } from "@/lib/env";
+import { buildReleaseEvidenceReport, type ReleaseEvidenceReport } from "@/lib/services/release-evidence";
 import { siteUrl } from "@/lib/site";
 
 /**
@@ -27,6 +28,12 @@ import { siteUrl } from "@/lib/site";
  * moment, expiring. It carries no session, grants nothing else, and the page it
  * opens shows requirements, what verifies them and how they last ran -- never
  * test code, never a way in.
+ *
+ * A link is live or frozen. A live link shows the project as it stands when
+ * someone opens it, which is what a team wants while a release is being
+ * prepared. A frozen link keeps the evidence as it was the moment it was
+ * shared, which is what "this is what we shipped on the 20th" needs: a link
+ * sent last week should not quietly answer for this week's state.
  *
  * Every link issued is also recorded by the hash of its token, so a team can
  * stop one the moment it goes to the wrong person rather than waiting out its
@@ -94,9 +101,9 @@ export function readProofToken(token: string, now: Date = new Date()): ProofClai
  * project's evidence in front of people who were never given access.
  */
 export async function createProofLink(
-  input: { orgSlug?: string; projectId: string; days?: number; now?: Date },
+  input: { orgSlug?: string; projectId: string; days?: number; now?: Date; freeze?: boolean },
   dependencies?: Dependencies,
-): Promise<{ url: string; expiresAt: Date }> {
+): Promise<{ url: string; expiresAt: Date; frozen: boolean }> {
   const projectId = z.string().uuid().parse(input.projectId);
   const workspace = await requireWorkspaceContext(
     { orgSlug: input.orgSlug, projectId, permission: "project:update" },
@@ -111,6 +118,15 @@ export async function createProofLink(
     issuedAt: now.getTime(),
     expiresAt: expiresAt.getTime(),
   });
+  // Frozen: the report is built once, now, and kept with the link.
+  const snapshot = input.freeze
+    ? await buildReleaseEvidenceReport({
+        organizationId: workspace.organization.id,
+        projectId,
+        now,
+        prisma: dependencies?.prisma,
+      })
+    : null;
   await client(dependencies).proofLink.create({
     data: {
       organizationId: workspace.organization.id,
@@ -118,9 +134,29 @@ export async function createProofLink(
       tokenHash: proofTokenHash(token),
       createdByUserId: workspace.user.id,
       expiresAt,
+      ...(snapshot ? { snapshot: JSON.parse(JSON.stringify(snapshot)) as object } : {}),
     },
   });
-  return { url: `${siteUrl()}/proof/${token}`, expiresAt };
+  return { url: `${siteUrl()}/proof/${token}`, expiresAt, frozen: Boolean(snapshot) };
+}
+
+/** Dates come back from JSON as strings; the page needs them as dates. */
+export function readSnapshot(value: unknown): ReleaseEvidenceReport | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  if (!raw.project || !Array.isArray(raw.requirements) || typeof raw.generatedAt !== "string") return null;
+  const date = (input: unknown) => (typeof input === "string" ? new Date(input) : null);
+  return {
+    ...(raw as unknown as ReleaseEvidenceReport),
+    generatedAt: new Date(raw.generatedAt),
+    requirements: (raw.requirements as ReleaseEvidenceReport["requirements"]).map((requirement) => ({
+      ...requirement,
+      testCases: requirement.testCases.map((testCase) => ({
+        ...testCase,
+        latestExecutedAt: date(testCase.latestExecutedAt as unknown),
+      })),
+    })),
+  };
 }
 
 /**
@@ -132,21 +168,21 @@ export async function createProofLink(
 export async function resolveProofLink(
   token: string,
   options: { prisma?: PrismaClient; now?: Date } = {},
-): Promise<ProofClaim | null> {
+): Promise<(ProofClaim & { snapshot: ReleaseEvidenceReport | null }) | null> {
   const now = options.now ?? new Date();
   const claim = readProofToken(token, now);
   if (!claim) return null;
   const prisma = options.prisma ?? getPrismaClient();
   const record = await prisma.proofLink.findUnique({
     where: { tokenHash: proofTokenHash(token) },
-    select: { id: true, revokedAt: true, projectId: true },
+    select: { id: true, revokedAt: true, projectId: true, snapshot: true },
   });
   if (!record || record.revokedAt || record.projectId !== claim.projectId) return null;
   // Best effort: a reader should never fail because the visit could not be noted.
   await prisma.proofLink
     .update({ where: { id: record.id }, data: { lastViewedAt: now } })
     .catch(() => undefined);
-  return claim;
+  return { ...claim, snapshot: readSnapshot(record.snapshot) };
 }
 
 /** Links a team can still stop, newest first. */
@@ -163,7 +199,14 @@ export async function listProofLinks(
     where: { organizationId: workspace.organization.id, projectId, revokedAt: null, expiresAt: { gt: new Date() } },
     orderBy: { createdAt: "desc" },
     take: 20,
-    select: { id: true, createdAt: true, expiresAt: true, lastViewedAt: true, createdBy: { select: { displayName: true } } },
+    select: {
+      id: true,
+      createdAt: true,
+      expiresAt: true,
+      lastViewedAt: true,
+      snapshot: true,
+      createdBy: { select: { displayName: true } },
+    },
   });
 }
 

@@ -1264,6 +1264,9 @@ model ProofLink {
   expiresAt       DateTime  @db.Timestamptz(3)
   revokedAt       DateTime? @db.Timestamptz(3)
   lastViewedAt    DateTime? @db.Timestamptz(3)
+  /// The evidence as it stood when the link was made. Present only for a
+  /// frozen link, which then never changes; a live link reads the project.
+  snapshot        Json?     @db.JsonB
   createdAt       DateTime  @default(now()) @db.Timestamptz(3)
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)

@@ -52,11 +52,15 @@ export default async function ProofPage({ params }: { params: Promise<{ token: s
   const claim = await resolveProofLink(decodeURIComponent(token));
   if (!claim) return <Expired />;
 
-  const report = await buildReleaseEvidenceReport({
-    organizationId: claim.organizationId,
-    projectId: claim.projectId,
-  }).catch(() => null);
+  // A frozen link answers from what was kept; a live one reads the project.
+  const report =
+    claim.snapshot ??
+    (await buildReleaseEvidenceReport({
+      organizationId: claim.organizationId,
+      projectId: claim.projectId,
+    }).catch(() => null));
   if (!report) return <Expired />;
+  const frozen = Boolean(claim.snapshot);
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-14">
@@ -64,12 +68,18 @@ export default async function ProofPage({ params }: { params: Promise<{ token: s
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">Test evidence</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">{report.project.name}</h1>
         <p className="mt-2 text-sm text-slate-600">
-          {report.organization.name} &middot; as of <LocalTime value={report.generatedAt} />
+          {report.organization.name} &middot; {frozen ? "taken" : "as of"} <LocalTime value={report.generatedAt} />
         </p>
+        {frozen ? (
+          <p className="mt-3 w-fit rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700">
+            A snapshot. It shows what was true when it was shared, and does not change.
+          </p>
+        ) : null}
         <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600">
           Each requirement below is shown with the approved tests that verify it and how those tests last ran. Every
           result was recorded when the test ran, against the approved version it ran. This page is a copy of that
           record: it cannot be edited here, and it shows no test code.
+          {frozen ? "" : " It is read fresh each time this link is opened, so it follows the project."}
         </p>
       </header>
 

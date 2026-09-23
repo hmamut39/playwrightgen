@@ -4,7 +4,7 @@ The working plan, kept in the repository so any session can pick up where the
 last one stopped. Update the "Shipped" and "Next" sections at the end of every
 work session.
 
-Last updated: 2026-09-19.
+Last updated: 2026-09-23.
 
 ## Where the product is
 
@@ -127,6 +127,17 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **A snapshot of the day it shipped** (2026-09-23): the Release page now
+  offers two links. "Share this evidence outside the team" stays live: whoever
+  opens it sees the project as it stands then. "Share a snapshot of today"
+  builds the report once and keeps it with the link (`ProofLink.snapshot`,
+  migration 20260923160000), so "this is what we shipped on the 20th" is still
+  true next week. The shared page says which it is, and the list of live links
+  labels each one Snapshot or Live. A snapshot is a copy of evidence the
+  workspace already holds, so it reveals nothing new; it simply stops a link
+  from quietly answering for a later state. Integration-tested: a requirement
+  renamed after both links were made still reads its old title through the
+  snapshot, while the live link keeps nothing and reads the project.
 - **Health mentions sharing** (2026-09-23): the Release card on the Health
   page says "Evidence can be shared outside the team, read-only", or how many
   live links can read it, so the phone-first screen people open first leads to
@@ -455,10 +466,7 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **A proof link for one release, not just "now".** The page shows evidence
-   as of the moment it is opened, so a link shared before a change shows the
-   state after it. Offer a frozen snapshot as an option.
-2. **Verify the paid path end to end — on hold at the owner's request.** Stripe
+1. **Verify the paid path end to end — on hold at the owner's request.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to
    do it now, so do not raise it until they bring it up.

@@ -73,6 +73,37 @@ describe("stopping a shared proof link", () => {
     expect(await listProofLinks({ projectId: area.project.id }, area.owned)).toEqual([]);
   });
 
+  it("a snapshot holds what was true when it was shared; a live link follows the project", async () => {
+    const area = await space();
+    const requirement = await prisma.requirement.create({
+      data: {
+        organizationId: area.organization.id,
+        projectId: area.project.id,
+        title: "Checkout works",
+        description: "A customer can pay.",
+        acceptanceCriteria: "An order is created.",
+        status: "APPROVED",
+        ownerUserId: area.owner.id,
+        createdByUserId: area.owner.id,
+        currentVersionNumber: 1,
+      },
+    });
+
+    const frozen = await createProofLink({ projectId: area.project.id, freeze: true }, area.owned);
+    const live = await createProofLink({ projectId: area.project.id }, area.owned);
+    expect(frozen.frozen).toBe(true);
+    expect(live.frozen).toBe(false);
+
+    // The project changes after both links were shared.
+    await prisma.requirement.update({ where: { id: requirement.id }, data: { title: "Checkout works with a saved card" } });
+
+    const fromSnapshot = await resolveProofLink(tokenOf(frozen.url), { prisma });
+    expect(fromSnapshot?.snapshot?.requirements[0].title).toBe("Checkout works");
+    expect(fromSnapshot?.snapshot?.generatedAt).toBeInstanceOf(Date);
+    // The live link keeps nothing, so the page reads the project instead.
+    expect((await resolveProofLink(tokenOf(live.url), { prisma }))?.snapshot).toBeNull();
+  });
+
   it("keeps only the hash, so the record cannot reopen the link", async () => {
     const area = await space();
     const link = await createProofLink({ projectId: area.project.id }, area.owned);

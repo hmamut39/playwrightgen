@@ -46,10 +46,10 @@ export default async function ReleaseReadinessPage({
   searchParams,
 }: {
   params: Promise<{ orgSlug: string; projectId: string }>;
-  searchParams: Promise<{ proof?: string; until?: string }>;
+  searchParams: Promise<{ proof?: string; until?: string; kind?: string }>;
 }) {
   const { orgSlug, projectId } = await params;
-  const { proof, until } = await searchParams;
+  const { proof, until, kind } = await searchParams;
   const [readiness, context, proofLinks] = await Promise.all([
     getReleaseReadiness({ orgSlug, projectId }),
     requireWorkspaceContext({ orgSlug, projectId }),
@@ -66,11 +66,11 @@ export default async function ReleaseReadinessPage({
     revalidatePath(`/workspace/${orgSlug}/projects/${projectId}/release`);
   }
 
-  async function proofLinkAction() {
+  async function proofLinkAction(formData: FormData) {
     "use server";
-    const link = await createProofLink({ orgSlug, projectId });
+    const link = await createProofLink({ orgSlug, projectId, freeze: formData.get("freeze") === "yes" });
     redirect(
-      `/workspace/${orgSlug}/projects/${projectId}/release?proof=${encodeURIComponent(link.url)}&until=${link.expiresAt.toISOString()}`,
+      `/workspace/${orgSlug}/projects/${projectId}/release?proof=${encodeURIComponent(link.url)}&until=${link.expiresAt.toISOString()}&kind=${link.frozen ? "snapshot" : "live"}`,
     );
   }
 
@@ -104,8 +104,11 @@ export default async function ReleaseReadinessPage({
             <p className="text-sm font-semibold text-emerald-950">Anyone with this link can read this evidence.</p>
             <CopyField label="Proof link" value={proof} />
             <p className="mt-2 text-xs text-emerald-900">
-              It expires {until ? <LocalTime value={new Date(until)} /> : "in 30 days"}. It shows requirements, what
-              verifies them and how they last ran &mdash; no test code, and no way into this workspace.
+              It expires {until ? <LocalTime value={new Date(until)} /> : "in 30 days"}.{" "}
+              {kind === "snapshot"
+                ? "It holds today's evidence and will not change."
+                : "It follows the project: whoever opens it sees the evidence as it stands then."}{" "}
+              No test code, and no way into this workspace.
             </p>
           </div>
         ) : null}
@@ -118,7 +121,8 @@ export default async function ReleaseReadinessPage({
               {proofLinks.map((link) => (
                 <li key={link.id} className="flex flex-col justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600 sm:flex-row sm:items-center">
                   <span>
-                    Shared by {link.createdBy.displayName || "a lead"} <LocalTime value={link.createdAt} style="date" /> &middot; expires{" "}
+                    {link.snapshot ? "Snapshot" : "Live"} &middot; shared by {link.createdBy.displayName || "a lead"}{" "}
+                    <LocalTime value={link.createdAt} style="date" /> &middot; expires{" "}
                     <LocalTime value={link.expiresAt} style="date" /> &middot;{" "}
                     {link.lastViewedAt ? <>last opened <LocalTime value={link.lastViewedAt} /></> : "never opened"}
                   </span>
@@ -143,14 +147,26 @@ export default async function ReleaseReadinessPage({
             Open the evidence report →
           </Link>
           {context.can("project:update") ? (
-            <form action={proofLinkAction} className="mt-3">
-              <PendingButton
-                pendingLabel="Making a link…"
-                className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-              >
-                Share this evidence outside the team
-              </PendingButton>
-            </form>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <form action={proofLinkAction}>
+                <input type="hidden" name="freeze" value="no" />
+                <PendingButton
+                  pendingLabel="Making a link…"
+                  className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                >
+                  Share this evidence outside the team
+                </PendingButton>
+              </form>
+              <form action={proofLinkAction}>
+                <input type="hidden" name="freeze" value="yes" />
+                <PendingButton
+                  pendingLabel="Taking a snapshot…"
+                  className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                >
+                  Share a snapshot of today
+                </PendingButton>
+              </form>
+            </div>
           ) : null}
           <p className="mt-2 text-xs leading-5 text-slate-500">
             Every requirement, what verifies it, and how each verifying test last
