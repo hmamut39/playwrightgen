@@ -114,13 +114,18 @@ async function main() {
       if (!/sign-in/.test(page.url())) break;
     }
     if (/sign-in/.test(page.url())) throw new Error(`Could not sign in as ${email}; is the Clerk key for this server?`);
-    const projectHref = await page
+    // A real project, not "/projects/new": that link is also a /projects/
+    // link, and following it made every tab 500 on an id that was never a
+    // project, which read as the product being broken when it was not.
+    const hrefs = await page
       .locator("a[href*='/projects/']")
-      .first()
-      .getAttribute("href")
-      .catch(() => null);
+      .evaluateAll((links) => links.map((link) => link.getAttribute("href") ?? ""));
+    const uuid = /\/projects\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\/|$)/i;
+    const projectHref = hrefs.find((href) => uuid.test(href)) ?? null;
     if (!projectHref) throw new Error(`No project visible to ${email}; the audit needs one.`);
-    const projectBase = new URL(projectHref, page.url()).toString().replace(/\/(health|quality|overview)$/, "");
+    const projectBase = new URL(projectHref, page.url())
+      .toString()
+      .replace(/(\/projects\/[0-9a-f-]{36})\/.*$/i, "$1");
     const organizationBase = projectBase.replace(/\/projects\/.*$/, "");
 
     const pages = [
