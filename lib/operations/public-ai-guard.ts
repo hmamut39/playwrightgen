@@ -138,3 +138,38 @@ export async function reservePublicAiRequest(input: {
     minuteRemaining: Math.max(0, minuteLimit - minuteCount),
   };
 }
+
+/**
+ * How many free runs this visitor has left today, without using one.
+ *
+ * Reads the same day counter the reservation increments, keyed by the same
+ * fingerprint, so what a tool shows before the click is what the limit will
+ * enforce after it.
+ */
+export async function readPublicAiAllowance(input: {
+  request: Request;
+  surface: "quick-generate" | "coverage-review" | "release-review" | "preview-run";
+  dailyLimit?: number;
+  now?: Date;
+  source?: EnvironmentSource;
+  read?: (key: string) => Promise<unknown>;
+}): Promise<{ dailyLimit: number; dailyUsed: number; remaining: number }> {
+  const source = input.source ?? process.env;
+  const redisConfig = validateRedisEnvironment(source);
+  const now = input.now ?? new Date();
+  const dailyLimit = z.number().int().positive().parse(input.dailyLimit ?? 5);
+  const hashSecret = source.RATE_LIMIT_HASH_SECRET?.trim() || redisConfig.UPSTASH_REDIS_REST_TOKEN;
+  const fingerprint = publicAiClientFingerprint({ request: input.request, secret: hashSecret });
+  const key = `playwrightgen:public-ai:${input.surface}:${fingerprint}:day:${now.toISOString().slice(0, 10)}`;
+  const read =
+    input.read ??
+    (async (dayKey: string) => {
+      const redis = new Redis({
+        url: redisConfig.UPSTASH_REDIS_REST_URL,
+        token: redisConfig.UPSTASH_REDIS_REST_TOKEN,
+      });
+      return redis.get<number | string | null>(dayKey);
+    });
+  const dailyUsed = Math.max(0, Number((await read(key)) ?? 0) || 0);
+  return { dailyLimit, dailyUsed, remaining: Math.max(0, dailyLimit - dailyUsed) };
+}

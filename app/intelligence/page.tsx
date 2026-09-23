@@ -7,6 +7,7 @@ import { useMemo, useRef, useState } from "react";
 import { ResultActions } from "@/components/free-tools/result-actions";
 import { WorkspaceHandoffButton } from "@/components/free-tools/workspace-handoff-button";
 import type { FreeToolHandoff } from "@/lib/free-tools/handoff";
+import { useFreeToolAllowance } from "@/components/free-tools/use-free-tool-allowance";
 import { LimitReached, readFreeToolLimit, type FreeToolLimit } from "@/components/free-tools/limit-reached";
 import { PreviewRunPanel } from "@/components/free-tools/preview-run-panel";
 import { SavedDrafts, type SavedDraft } from "@/components/free-tools/saved-drafts";
@@ -145,6 +146,12 @@ export default function CoverageReviewPage() {
   const [draftId, setDraftId] = useState<string | null>(null);
   const [savedVersion, setSavedVersion] = useState(0);
   const [remaining, setRemaining] = useState<number | null>(null);
+  const [dailyLimit, setDailyLimit] = useState<number | null>(null);
+  useFreeToolAllowance("coverage-review", ({ remaining: left, limit }) => {
+    setRemaining((current) => current ?? left);
+    setDailyLimit(limit);
+  });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [limit, setLimit] = useState<FreeToolLimit | null>(null);
@@ -345,7 +352,7 @@ export default function CoverageReviewPage() {
           {limit ? <LimitReached limit={limit} returnTo="/intelligence" /> : null}
           {error ? <p role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
           <div className="mt-6 flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-slate-500">{remaining === null ? "Up to 5 successful reviews per day." : `${remaining} successful review${remaining === 1 ? "" : "s"} remaining today.`}</p>
+            <p className="text-xs text-slate-500">{remaining === null ? "Up to 5 successful reviews per day." : `${remaining}${dailyLimit ? ` of ${dailyLimit}` : ""} review${remaining === 1 ? "" : "s"} left today.`}</p>
             <button type="button" onClick={analyze} disabled={loading} className="inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-6 text-sm font-bold text-white hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50">{loading ? "Reviewing supplied evidence…" : "Run preliminary review"}</button>
           </div>
         </section>

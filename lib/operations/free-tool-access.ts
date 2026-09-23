@@ -5,10 +5,12 @@ import { auth } from "@clerk/nextjs/server";
 import { getPrismaClient } from "@/lib/db/prisma";
 import {
   OrganizationAiRateLimitError,
+  readOrganizationAiAllowance,
   reserveOrganizationAiRequest,
 } from "@/lib/operations/organization-ai-guard";
 import {
   PublicAiRateLimitError,
+  readPublicAiAllowance,
   reservePublicAiRequest,
 } from "@/lib/operations/public-ai-guard";
 import { getOrganizationLimits } from "@/lib/services/entitlements";
@@ -154,4 +156,52 @@ export function freeToolLimitBody(error: FreeToolLimitError) {
     upgrade: error.plan === "PUBLIC" && error.code === "daily_limit",
     remaining: 0,
   };
+}
+
+export type FreeToolAllowance = {
+  plan: "TEAM" | "PUBLIC";
+  remaining: number;
+  limit: number;
+};
+
+/**
+ * What this caller has left for a free tool today, without using any of it.
+ *
+ * The tools used to answer "you have used today's allowance" only after the
+ * click, which reads as a fault rather than a limit. This is the same decision
+ * `reserveFreeToolRun` makes -- Team workspace allowance, otherwise the
+ * visitor's daily runs -- read rather than spent.
+ */
+export async function readFreeToolAllowance(
+  input: { request: Request; surface: FreeToolSurface },
+  dependencies: {
+    identify?: () => Promise<Identity>;
+    findTeamOrganization?: (clerkOrganizationId: string) => Promise<string | null>;
+    readTeam?: (organizationId: string) => Promise<{ remaining: number; limit: number }>;
+    readPublic?: (request: Request, surface: FreeToolSurface) => Promise<{ remaining: number; limit: number }>;
+  } = {},
+): Promise<FreeToolAllowance> {
+  const readTeam =
+    dependencies.readTeam ??
+    (async (organizationId: string) => {
+      const allowance = await readOrganizationAiAllowance({ organizationId });
+      return { remaining: allowance.dailyRemaining, limit: allowance.dailyLimit };
+    });
+  const readPublic =
+    dependencies.readPublic ??
+    (async (request: Request, surface: FreeToolSurface) => {
+      const allowance = await readPublicAiAllowance({ request, surface });
+      return { remaining: allowance.remaining, limit: allowance.dailyLimit };
+    });
+
+  const identity = await (dependencies.identify ?? identifyFromSession)();
+  if (identity.userId && identity.orgId) {
+    try {
+      const teamOrganizationId = await (dependencies.findTeamOrganization ?? findTeamOrganization)(identity.orgId);
+      if (teamOrganizationId) return { plan: "TEAM", ...(await readTeam(teamOrganizationId)) };
+    } catch {
+      // A lookup that fails must not claim the paid allowance.
+    }
+  }
+  return { plan: "PUBLIC", ...(await readPublic(input.request, input.surface)) };
 }

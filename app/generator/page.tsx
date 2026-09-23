@@ -10,6 +10,7 @@ import { GenerationProgress } from "@/components/free-tools/generation-progress"
 import { ResultActions } from "@/components/free-tools/result-actions";
 import { WorkspaceHandoffButton } from "@/components/free-tools/workspace-handoff-button";
 import type { FreeToolHandoff } from "@/lib/free-tools/handoff";
+import { useFreeToolAllowance } from "@/components/free-tools/use-free-tool-allowance";
 import { LimitReached, readFreeToolLimit, type FreeToolLimit } from "@/components/free-tools/limit-reached";
 import { PreviewRunPanel, type CompletedRun, type RunResult } from "@/components/free-tools/preview-run-panel";
 import { ProveRounds } from "@/components/free-tools/prove-rounds";
@@ -173,6 +174,12 @@ export default function QuickGeneratePage() {
   const { isSignedIn } = useAuth();
   const [savedVersion, setSavedVersion] = useState(0);
   const [remaining, setRemaining] = useState<number | null>(null);
+  const [dailyLimit, setDailyLimit] = useState<number | null>(null);
+  useFreeToolAllowance("quick-generate", ({ remaining: left, limit }) => {
+    setRemaining((current) => current ?? left);
+    setDailyLimit(limit);
+  });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [limit, setLimit] = useState<FreeToolLimit | null>(null);
@@ -588,7 +595,9 @@ export default function QuickGeneratePage() {
 
             <div className="mt-6 flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs leading-5 text-slate-500">
-                {remaining === null ? "Up to 5 successful drafts per day." : `${remaining} successful draft${remaining === 1 ? "" : "s"} remaining today.`}
+                {remaining === null
+                  ? "Up to 5 successful drafts per day."
+                  : `${remaining}${dailyLimit ? ` of ${dailyLimit}` : ""} draft${remaining === 1 ? "" : "s"} left today.`}
                 {isSignedIn === false ? (
                   <>
                     {" "}

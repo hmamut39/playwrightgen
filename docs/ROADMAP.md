@@ -15,6 +15,17 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Free tools
+- **What is left, before the click** (2026-09-23): Quick Generate and Coverage
+  Review open saying "5 of 5 drafts left today" instead of the generic "up to 5
+  per day", and a Team workspace sees its own allowance. `GET
+  /api/free-tool-allowance?surface=` reads the same counters the reservation
+  increments (visitor keyed by address, workspace by session) and spends
+  nothing; a failed read leaves the old line rather than blocking the tool.
+  Verified in a browser: both tools showed 5 of 5 before any click, three reads
+  in a row left it at 5, and a real draft took it to 4 of 5, still 4 after a
+  reload. Unit-tested that a Team workspace gets its own allowance and that a
+  failed workspace lookup falls back to the visitor count rather than granting
+  the paid one.
 - **Proving, wherever the work starts** (2026-09-17): `prove_playwright_test`
   gives an editor agent the whole loop in one MCP call (write, run, fix, run)
   with a runReceipt when it passes, which `propose_test_case` keeps as
@@ -377,9 +388,9 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Say the same thing on the free tools.** Quick Generate and Coverage
-   Review still fail with "you have used today's allowance" only after the
-   click. Show what is left before it, as the plan page now does.
+1. **Make the run evidence readable on the Test Runs page.** A live check now
+   records a failure and its retry; the list shows attempts but not the story
+   ("failed, ran again, passed"). Say it in one line per run.
 2. **Verify the paid path end to end — on hold at the owner's request.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to

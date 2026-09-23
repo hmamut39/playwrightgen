@@ -102,6 +102,12 @@ export const API_ROUTE_SECURITY_POLICY = {
     boundary: "authenticated-tenant",
     requiredMarker: "requireWorkspaceContext",
   },
+  "free-tool-allowance/route.ts": {
+    boundary: "bounded-public",
+    // Reads the caller's own counters and spends nothing; the visitor key is
+    // their address, the workspace key their session.
+    requiredMarker: "readFreeToolAllowance",
+  },
   "preview-run/route.ts": {
     boundary: "bounded-public",
     requiredMarker: "reservePublicAiRequest",
