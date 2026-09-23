@@ -54,6 +54,13 @@ const tools: Array<{ name: string; kind: "Reads" | "Runs" | "Proposes"; does: st
   { name: "get_approved_automation", kind: "Reads", does: "The approved code, ready to save into the repository." },
   { name: "list_recent_failures", kind: "Reads", does: "What failed in CI recently, with the failure output." },
   { name: "project_overview", kind: "Reads", does: "Release readiness: coverage, regressions and blockers." },
+] as const;
+
+/** What the workspace adds once a proposed test has been approved. */
+const afterApproval = [
+  "Daily checks run it on your live site and say the day it breaks.",
+  "Approved code opens as a pull request in your repository.",
+  "The evidence can be shared as a read-only link with someone outside the team.",
 ];
 
 const KIND_STYLE = {
@@ -127,7 +134,7 @@ export default function McpPage() {
         <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <h2 className="text-2xl font-semibold tracking-[-0.03em] text-slate-950">Tools</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Eleven tools over the Model Context Protocol (Streamable HTTP). Running and generating use your
+            Thirteen tools over the Model Context Protocol (Streamable HTTP). Running and generating use your
             workspace&rsquo;s daily AI allowance.
           </p>
           <div className="mt-5 overflow-x-auto">
@@ -152,6 +159,21 @@ export default function McpPage() {
               </tbody>
             </table>
           </div>
+        </section>
+
+        <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <h2 className="text-2xl font-semibold tracking-[-0.03em] text-slate-950">What happens after your team approves</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            An assistant can propose; approval is what makes a test count. From then on the workspace keeps it working
+            and keeps the record.
+          </p>
+          <ul className="mt-5 grid gap-3 md:grid-cols-3">
+            {afterApproval.map((item) => (
+              <li key={item} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+                {item}
+              </li>
+            ))}
+          </ul>
         </section>
 
         <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">

@@ -81,6 +81,7 @@ const workspaceCapabilities = [
   "Cover a whole page: plan its tests, approve, prove each one",
   "Automation run on your live site before anyone reviews it",
   "Connects to VS Code, Cursor and Claude Code over MCP",
+  "Share the evidence with anyone: a read-only link, expiring, stoppable",
 ] as const;
 
 const integrations = [
@@ -97,6 +98,13 @@ const integrations = [
     description:
       "Tests run in your own GitHub Actions. Only a bounded summary of results comes back, and each one attaches to the exact approved version it exercised.",
     detail: "Signed reports · nothing of yours executes here",
+  },
+  {
+    label: "Everyone else",
+    title: "Proof for the people who ask whether it was tested",
+    description:
+      "Send a manager, a customer or an auditor a read-only link to this project's evidence: each requirement, the approved tests that verify it, and how those tests last ran. No account, no test code, no way into your workspace.",
+    detail: "Expires \u00b7 stoppable the moment you change your mind \u00b7 not indexed",
   },
   {
     label: "Your team",

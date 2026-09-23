@@ -13,6 +13,7 @@ import { readLiveChecksSummary, runLiveChecksForProject, setLiveChecks } from "@
 import { projectHealthVerdict } from "@/lib/services/project-health";
 import { readWeek, summariseWeek } from "@/lib/services/weekly-digest";
 import { getProjectOverview, updateProject } from "@/lib/services/projects";
+import { listProofLinks } from "@/lib/services/release-proof";
 import { getReleaseReadiness } from "@/lib/services/release-readiness";
 import { getReviewQueue } from "@/lib/services/review-queue";
 
@@ -63,6 +64,8 @@ export default async function ProjectHealthPage({
   const live = project.liveChecksEnabled ? readLiveChecksSummary(project.liveChecksLastSummary) : null;
   // The same week the digest posts, for a team without a channel.
   const week = project.liveChecksEnabled ? summariseWeek(await readWeek(projectId)) : null;
+  // Sharing evidence lives on the Release page; this is where people look first.
+  const shared = await listProofLinks({ orgSlug, projectId }).catch(() => []);
   const health = projectHealthVerdict({ readiness, live });
   const style = HEALTH_VERDICT_STYLE[health.verdict];
   const blockers = readiness.findings.filter((finding) => finding.severity === "BLOCKER");
@@ -247,6 +250,11 @@ export default async function ProjectHealthPage({
               {finding.title}
             </p>
           ))}
+          <p className="mt-2 text-xs text-slate-500">
+            {shared.length
+              ? `${shared.length} shared link${shared.length === 1 ? "" : "s"} can read this evidence`
+              : "Evidence can be shared outside the team, read-only"}
+          </p>
         </Card>
 
         <Card href={`${base}/reviews`} title="Waiting for review">

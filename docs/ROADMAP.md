@@ -104,6 +104,12 @@ test suite (493 tests) passes.
   tests and named failure modes.
 
 ### Public site
+- **The public site says evidence can be shared** (2026-09-23): the home page
+  lists "Share the evidence with anyone: a read-only link, expiring,
+  stoppable" and carries a fourth integration card, "Proof for the people who
+  ask whether it was tested". /mcp gained "What happens after your team
+  approves" (daily checks, pull requests, proof links) and its tool count is
+  right again: thirteen, not eleven.
 - **Release Review page split** (2026-09-19): app/engineering-review/page.tsx
   went from 1,503 lines to 920 (the form and its flow). Types and option
   lists are in review-model.ts, the inputs in form-controls.tsx, and the whole
@@ -121,6 +127,10 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **Health mentions sharing** (2026-09-23): the Release card on the Health
+  page says "Evidence can be shared outside the team, read-only", or how many
+  live links can read it, so the phone-first screen people open first leads to
+  proof links rather than hiding them on the Release page.
 - **A proof link can be stopped today** (2026-09-23): every link issued is
   recorded (`ProofLink`, migration 20260923140000) by the SHA-256 of its
   token, so the row can stop a link but never rebuild one. The Release page
@@ -445,9 +455,9 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Say on the Health page that evidence can be shared.** Proof links live
-   on the Release page; the phone-first Health page, which is where people
-   look first, does not mention them.
+1. **A proof link for one release, not just "now".** The page shows evidence
+   as of the moment it is opened, so a link shared before a change shows the
+   state after it. Offer a frozen snapshot as an option.
 2. **Verify the paid path end to end — on hold at the owner's request.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to
