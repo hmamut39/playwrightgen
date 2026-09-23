@@ -121,6 +121,15 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **Each run says what happened** (2026-09-23): the Test Runs list carried a
+  status and an attempt count, which since the live-check retry can mean
+  "broken" or "flaky" equally. Each row now reads its last five attempts and
+  says which: "Failed, then passed when run again." (minutes apart, so the
+  same round), "Failing before, passing now.", "Passed the last 3 times.",
+  "Failed the last 2 times.", "The last attempt could not run."
+  `describeAttempts` (lib/format/attempt-story.ts) is pure and unit-tested,
+  including reading attempts in the order they happened rather than the order
+  given. Verified in a browser at 390px.
 - **What proving will cost, before it starts** (2026-09-23): the plan page now
   says "3 of 20 left today -- enough for about 1 of these 6. The rest wait
   until tomorrow, or untick some now." `readOrganizationAiAllowance` reads the
@@ -388,9 +397,9 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Make the run evidence readable on the Test Runs page.** A live check now
-   records a failure and its retry; the list shows attempts but not the story
-   ("failed, ran again, passed"). Say it in one line per run.
+1. **Say the same on a single run.** The run page lists its attempts but
+   opens without the one-line story the list now gives; put it in the header
+   with the failing step when there is one.
 2. **Verify the paid path end to end — on hold at the owner's request.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to

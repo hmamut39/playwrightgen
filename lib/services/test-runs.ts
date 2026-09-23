@@ -144,6 +144,12 @@ export async function listTestRuns(
         testCaseVersion: { select: { id: true, versionNumber: true } },
         createdBy: { select: { id: true, displayName: true } },
         _count: { select: { attempts: true } },
+        // Enough of the recent attempts to say what happened, in one line.
+        attempts: {
+          select: { result: true, executedAt: true },
+          orderBy: { executedAt: "desc" },
+          take: 5,
+        },
       },
       orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
       skip: params.skip,

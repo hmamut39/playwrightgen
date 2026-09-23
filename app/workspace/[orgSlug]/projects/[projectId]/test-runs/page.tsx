@@ -11,6 +11,7 @@ import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { getProject } from "@/lib/services/projects";
 import { getProjectRunSignals } from "@/lib/services/run-signals";
 import { listTestRuns } from "@/lib/services/test-runs";
+import { describeAttempts } from "@/lib/format/attempt-story";
 import { LocalTime } from "@/components/workspace/local-time";
 
 const statusStyle = {
@@ -77,6 +78,9 @@ export default async function TestRunsPage({
                   <div className="min-w-0">
                     <h2 className="font-semibold text-slate-950">{run.name}</h2>
                     <p className="mt-2 text-sm text-slate-600">{run.testCase.title} · pinned version {run.testCaseVersion.versionNumber}</p>
+                    {describeAttempts(run.attempts) ? (
+                      <p className="mt-1 text-sm font-medium text-slate-700">{describeAttempts(run.attempts)}</p>
+                    ) : null}
                   </div>
                   <div className="flex w-fit flex-wrap items-center gap-2">
                     {signal ? <RunSignalBadge signal={signal.signal} detail={signal.detail} /> : null}
