@@ -11,6 +11,7 @@ import { LocalTime } from "@/components/workspace/local-time";
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
 import { readLiveChecksSummary, runLiveChecksForProject, setLiveChecks } from "@/lib/services/live-checks";
 import { projectHealthVerdict } from "@/lib/services/project-health";
+import { readWeek, summariseWeek } from "@/lib/services/weekly-digest";
 import { getProjectOverview, updateProject } from "@/lib/services/projects";
 import { getReleaseReadiness } from "@/lib/services/release-readiness";
 import { getReviewQueue } from "@/lib/services/review-queue";
@@ -60,6 +61,8 @@ export default async function ProjectHealthPage({
   const { project } = overview;
   const base = `/workspace/${orgSlug}/projects/${projectId}`;
   const live = project.liveChecksEnabled ? readLiveChecksSummary(project.liveChecksLastSummary) : null;
+  // The same week the digest posts, for a team without a channel.
+  const week = project.liveChecksEnabled ? summariseWeek(await readWeek(projectId)) : null;
   const health = projectHealthVerdict({ readiness, live });
   const style = HEALTH_VERDICT_STYLE[health.verdict];
   const blockers = readiness.findings.filter((finding) => finding.severity === "BLOCKER");
@@ -212,6 +215,25 @@ export default async function ProjectHealthPage({
                 </p>
               ) : null}
               {live.notChecked.length ? <p className="mt-1 text-xs text-slate-500">{live.notChecked.length} not checked</p> : null}
+            </>
+          )}
+        </Card>
+
+        <Card href={`${base}/test-runs`} title="This week">
+          {!week || week.checked === 0 ? (
+            <p>No daily check has run yet this week.</p>
+          ) : (
+            <>
+              <Big tone={week.broke.length ? "text-red-700" : "text-slate-950"}>
+                {week.broke.length ? `${week.broke.length} broke` : `${week.steady} steady`}
+              </Big>
+              <p className="text-xs text-slate-500">
+                {week.checked} test{week.checked === 1 ? "" : "s"} checked daily
+              </p>
+              {week.broke.length ? <p className="mt-1 break-words text-red-800">Broke: {week.broke.slice(0, 3).join(", ")}</p> : null}
+              {week.stillFailing.length ? <p className="mt-1 break-words text-red-800">Still failing: {week.stillFailing.slice(0, 3).join(", ")}</p> : null}
+              {week.recovered.length ? <p className="mt-1 break-words text-emerald-800">Passing again: {week.recovered.slice(0, 3).join(", ")}</p> : null}
+              {week.flaky.length ? <p className="mt-1 break-words text-amber-800">Flaky: {week.flaky.slice(0, 3).join(", ")}</p> : null}
             </>
           )}
         </Card>

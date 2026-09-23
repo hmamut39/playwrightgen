@@ -560,6 +560,8 @@ model Project {
   /// A Slack or Discord incoming webhook told when a live check starts failing
   /// or recovers. The team pastes their own; it is shown back only as its host.
   liveChecksWebhookUrl  String?       @db.Text
+  /// When the weekly digest was last posted, so a re-run does not repeat it.
+  liveChecksLastDigestAt DateTime?    @db.Timestamptz(3)
   createdAt             DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt             DateTime      @updatedAt @db.Timestamptz(3)
 

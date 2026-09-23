@@ -121,6 +121,17 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **A week in one message** (2026-09-23): daily checks write a record every
+  day and nobody reads a list of days, so Monday 07:00 UTC
+  (`/api/cron/weekly-digest`, same CRON_SECRET) posts each project's week to
+  its channel: what broke, what is still failing, what is passing again, what
+  was flaky, and how many passed every time. A quiet week still gets one line
+  ("All 6 tests passed every day this week"), because silence and a broken job
+  look the same. `summariseWeek` is pure and unit-tested; the sender is
+  integration-tested against the database, including that a second run the
+  same week posts nothing (`liveChecksLastDigestAt`, migration
+  20260923120000). The same week is on the Health page as a "This week" card,
+  for a team without a channel.
 - **A run opens with its story** (2026-09-23): the run page repeats the list's
   one-line summary under the title, and the failing step when there is one.
   Caught while checking it in a browser: the first version showed the newest
@@ -405,9 +416,9 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **A weekly digest of what changed.** Daily checks now produce a record
-   every day; nobody reads a list of days. One message a week per project:
-   what broke, what recovered, what is still flaky.
+1. **Retire the placeholder Intelligence page.** /intelligence is Coverage
+   Review's real home but reads like an internal name; give it the plain title
+   the rest of the product now uses, and make the menu say what it does.
 2. **Verify the paid path end to end — on hold at the owner's request.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to

@@ -90,6 +90,10 @@ export const API_ROUTE_SECURITY_POLICY = {
     boundary: "scheduled-job",
     requiredMarker: "CRON_SECRET",
   },
+  "cron/weekly-digest/route.ts": {
+    boundary: "scheduled-job",
+    requiredMarker: "CRON_SECRET",
+  },
   "free-tool-drafts/route.ts": {
     boundary: "authenticated-personal",
     requiredMarker: "readSignedInUserId",
