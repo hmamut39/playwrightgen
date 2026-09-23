@@ -121,6 +121,14 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **A run opens with its story** (2026-09-23): the run page repeats the list's
+  one-line summary under the title, and the failing step when there is one.
+  Caught while checking it in a browser: the first version showed the newest
+  failure it could find, so a run reading "Passed the last 3 times." carried
+  "It failed at: ..." from weeks ago. It now shows the failure only when the
+  latest attempt failed, or when the retry proved it flaky (the failure the
+  retry followed), keyed off `FAILED_THEN_PASSED` rather than a second guess
+  at the wording.
 - **Each run says what happened** (2026-09-23): the Test Runs list carried a
   status and an attempt count, which since the live-check retry can mean
   "broken" or "flaky" equally. Each row now reads its last five attempts and
@@ -397,9 +405,9 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Say the same on a single run.** The run page lists its attempts but
-   opens without the one-line story the list now gives; put it in the header
-   with the failing step when there is one.
+1. **A weekly digest of what changed.** Daily checks now produce a record
+   every day; nobody reads a list of days. One message a week per project:
+   what broke, what recovered, what is still flaky.
 2. **Verify the paid path end to end — on hold at the owner's request.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to

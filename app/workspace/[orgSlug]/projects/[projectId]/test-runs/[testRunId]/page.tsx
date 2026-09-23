@@ -18,6 +18,7 @@ import {
 } from "@/lib/services/test-runs";
 import { personName } from "@/lib/format/person-name";
 import { PendingButton, PendingNotice } from "@/components/workspace/pending-button";
+import { describeAttempts, FAILED_THEN_PASSED } from "@/lib/format/attempt-story";
 import { LocalTime } from "@/components/workspace/local-time";
 import { humanLabel } from "@/lib/format/label";
 import { NextStep } from "@/components/workspace/next-step";
@@ -125,6 +126,19 @@ export default async function TestRunDetailPage({
 
   // Attempts are stored newest first.
   const latestAttempt = testRun.attempts[0];
+  // The same sentence the list gives, plus the step that failed when one did:
+  // opening a run should not mean reading every attempt to learn what happened.
+  const story = describeAttempts(testRun.attempts);
+  // Only the failure this run is actually about: the latest attempt when it
+  // failed, or the one the retry followed when it turned out to be flaky. An
+  // old failure under "Passed the last 3 times." reads as a current problem.
+  const relevantFailure =
+    latestAttempt && latestAttempt.result !== "PASSED"
+      ? latestAttempt.failureDetails
+      : story === FAILED_THEN_PASSED
+        ? testRun.attempts[1]?.failureDetails
+        : "";
+  const lastFailure = (relevantFailure ?? "").split(/\r?\n/)[0];
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -133,6 +147,8 @@ export default async function TestRunDetailPage({
         <div>
           <div className="flex flex-wrap items-center gap-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${resultStyle[testRun.status]}`}>{testRun.status.replace("_", " ")}</span><span className="text-xs text-slate-400">{testRun.latestAttemptNumber} {testRun.latestAttemptNumber === 1 ? "attempt" : "attempts"}</span></div>
           <h1 className="mt-3 text-3xl font-semibold tracking-tight">{testRun.name}</h1>
+          {story ? <p className="mt-3 text-base font-medium text-slate-800">{story}</p> : null}
+          {lastFailure ? <p className="mt-1 break-words text-sm text-red-800">It failed at: {lastFailure}</p> : null}
           {runSignal ? <RunSignalExplanation signal={runSignal.signal} detail={runSignal.detail} /> : null}
           <p className="mt-3 text-sm text-slate-500">{humanLabel(testRun.mode)} · {humanLabel(testRun.environment)}{testRun.browser === "NONE" ? "" : ` · ${humanLabel(testRun.browser)}`}</p>
         </div>

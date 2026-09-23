@@ -18,7 +18,8 @@ export type AttemptForStory = {
 /** Attempts close enough together to be the same round rather than another day. */
 const SAME_ROUND_MS = 30 * 60_000;
 
-const RUNS_AGAIN = "Failed, then passed when run again.";
+/** The one sentence that means "flaky": a failure and its retry, minutes apart. */
+export const FAILED_THEN_PASSED = "Failed, then passed when run again.";
 
 export function describeAttempts(attempts: readonly AttemptForStory[]): string | null {
   if (attempts.length === 0) return null;
@@ -32,7 +33,7 @@ export function describeAttempts(attempts: readonly AttemptForStory[]): string |
       previous.result === "FAILED" &&
       latest.executedAt.getTime() - previous.executedAt.getTime() <= SAME_ROUND_MS
     ) {
-      return RUNS_AGAIN;
+      return FAILED_THEN_PASSED;
     }
     const inARow = ordered.findIndex((attempt) => attempt.result !== "PASSED");
     const passes = inARow === -1 ? ordered.length : inARow;
