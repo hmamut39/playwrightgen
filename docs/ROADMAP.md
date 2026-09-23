@@ -15,6 +15,37 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Free tools
+- **A test that passed stopped being called "partly run"** (2026-09-23): walked
+  the "cover a page" shortcut on a fresh project against TodoMVC. Two tests
+  were planned, written and run; nothing failed, twelve and six checks passed
+  -- and both came back "Partly run", with the project reporting 0 passed on
+  the live page. The cause was one step: `await todoInput.focus()`. The preview
+  runner's safe list had nine actions and did not include focus, so the step
+  was skipped, and `runVerdict` downgrades any run with a skipped step to
+  partial. A field being focused before it is filled changes nothing, and it
+  was making honest work look unproven.
+  The safe list now also carries focus, blur, selectText,
+  scrollIntoViewIfNeeded, pressSequentially and type (run as
+  pressSequentially, since models still write the older name), and the
+  matchers toBeFocused, toBeEmpty, toBeEditable and toBeAttached. Every one is
+  deterministic and confined to the page; nothing that reaches outside it was
+  added, and setInputFiles and page.evaluate are still refused. Re-running the
+  same stored test in the real remote browser afterwards: 7 passed, 0 skipped,
+  verdict passed.
+  Two more causes of the same false "partly run" turned up by repeating the
+  walk. `expect(items).toHaveText(['A', 'B', 'C'])` -- Playwright's list form,
+  which asserts every matched element in order -- was refused as "needs a
+  literal value"; it is now read and checked against allInnerTexts, and only
+  for toHaveText and toContainText, where a list means something. And
+  `const before = await items.count()` followed by `toHaveCount(before)` was
+  refused as "needs a literal number". Count, act, count again is one of the
+  most common shapes a generated test takes, and the plan cannot know the
+  number because it never executes anything; the plan now carries a capture
+  step and the name, and the run fills the value in. Anything it still cannot
+  read, such as a count from the environment, is refused as before.
+  End to end on a fresh project afterwards: TodoMVC planned in 29s, two tests
+  proven in 37s, **2 passed on the live page, 0 partly run** -- the same walk
+  that started at 0 passed, 2 partly run.
 - **What is left, before the click** (2026-09-23): Quick Generate and Coverage
   Review open saying "5 of 5 drafts left today" instead of the generic "up to 5
   per day", and a Team workspace sees its own allowance. `GET

@@ -189,3 +189,138 @@ test('x', async ({ page }) => {
     ]);
   });
 });
+
+describe("steps that are safe to run but used to be refused", () => {
+  const draft = (body: string) => `import { test, expect } from '@playwright/test';
+test('x', async ({ page }) => {
+  const field = page.getByRole('textbox', { name: 'Search' });
+${body}
+});`;
+
+  it("runs the ordinary actions a generated test writes around typing", () => {
+    // Every one of these changes nothing a person could not do, and leaving
+    // them out turned a test that passed into "partly run".
+    const plan = planPreviewRun(
+      draft(`  await field.focus();
+  await field.pressSequentially('abc');
+  await field.type('abc');
+  await field.selectText();
+  await field.scrollIntoViewIfNeeded();
+  await field.blur();`),
+    );
+    const operations = plan.tests[0].steps.flatMap((step) => step.operations);
+    expect(operations.map((operation) => operation.op)).toEqual(Array(6).fill("action"));
+    expect(operations.map((operation) => (operation as { action: string }).action)).toEqual([
+      "focus",
+      "pressSequentially",
+      "type",
+      "selectText",
+      "scrollIntoViewIfNeeded",
+      "blur",
+    ]);
+    expect(operations[1]).toMatchObject({ value: "abc" });
+    expect(operations[2]).toMatchObject({ value: "abc" });
+  });
+
+  it("reads the checks that go with them", () => {
+    const plan = planPreviewRun(
+      draft(`  await expect(field).toBeFocused();
+  await expect(field).toBeEditable();
+  await expect(field).toBeAttached();
+  await expect(field).toBeEmpty();
+  await expect(field).not.toBeFocused();`),
+    );
+    const operations = plan.tests[0].steps.flatMap((step) => step.operations);
+    expect(operations.map((operation) => (operation as { matcher: string }).matcher)).toEqual([
+      "toBeFocused",
+      "toBeEditable",
+      "toBeAttached",
+      "toBeEmpty",
+      "toBeFocused",
+    ]);
+    expect(operations[4]).toMatchObject({ negated: true });
+  });
+
+  it("still refuses what it cannot run unattended", () => {
+    const plan = planPreviewRun(
+      draft(`  await field.setInputFiles('/etc/passwd');
+  await page.evaluate(() => document.title);`),
+    );
+    const operations = plan.tests[0].steps.flatMap((step) => step.operations);
+    expect(operations.every((operation) => operation.op === "unsupported")).toBe(true);
+  });
+});
+
+describe("asserting a whole list in one line", () => {
+  const draft = (body: string) => `import { test, expect } from '@playwright/test';
+test('x', async ({ page }) => {
+  const items = page.getByRole('listitem');
+${body}
+});`;
+
+  it("reads toHaveText with a list, which is how a generated test checks order", () => {
+    const plan = planPreviewRun(draft(`  await expect(items).toHaveText(['Task A', 'Task B', 'Task C']);`));
+    expect(plan.tests[0].steps.flatMap((step) => step.operations)[0]).toMatchObject({
+      op: "expect",
+      matcher: "toHaveText",
+      expected: {
+        kind: "list",
+        items: [
+          { kind: "string", value: "Task A" },
+          { kind: "string", value: "Task B" },
+          { kind: "string", value: "Task C" },
+        ],
+      },
+    });
+  });
+
+  it("takes a list of patterns too, and keeps toContainText working the same way", () => {
+    const plan = planPreviewRun(draft(`  await expect(items).toContainText([/^Task/, 'Task B']);`));
+    expect(plan.tests[0].steps.flatMap((step) => step.operations)[0]).toMatchObject({
+      matcher: "toContainText",
+      expected: { kind: "list", items: [{ kind: "regex", source: "^Task" }, { kind: "string", value: "Task B" }] },
+    });
+  });
+
+  it("refuses a list it cannot read, rather than guessing at it", () => {
+    const operations = planPreviewRun(
+      draft(`  await expect(items).toHaveText([process.env.FIRST, 'Task B']);
+  await expect(items).toHaveText([]);`),
+    ).tests[0].steps.flatMap((step) => step.operations);
+    expect(operations.every((operation) => operation.op === "unsupported")).toBe(true);
+  });
+
+  it("does not accept a list where only one value makes sense", () => {
+    const operations = planPreviewRun(draft(`  await expect(items).toHaveValue(['a', 'b']);`))
+      .tests[0].steps.flatMap((step) => step.operations);
+    expect(operations[0]).toMatchObject({ op: "unsupported" });
+  });
+});
+
+describe("counting before and after", () => {
+  it("remembers a count read during the run and checks against it later", () => {
+    const plan = planPreviewRun(`import { test, expect } from '@playwright/test';
+test('x', async ({ page }) => {
+  const items = page.getByRole('listitem');
+  const before = await items.count();
+  await page.getByRole('button', { name: 'Add' }).click();
+  await expect(items).toHaveCount(before);
+});`);
+    const operations = plan.tests[0].steps.flatMap((step) => step.operations);
+    expect(operations.map((operation) => operation.op)).toEqual(["capture", "action", "expect"]);
+    expect(operations[0]).toMatchObject({ name: "before", locator: [{ by: "role", role: "listitem" }] });
+    expect(operations[2]).toMatchObject({ matcher: "toHaveCount", expected: { kind: "ref", name: "before" } });
+  });
+
+  it("still takes a plain number, and still refuses a count it cannot get", () => {
+    const plan = planPreviewRun(`import { test, expect } from '@playwright/test';
+test('x', async ({ page }) => {
+  const items = page.getByRole('listitem');
+  await expect(items).toHaveCount(3);
+  await expect(items).toHaveCount(Number(process.env.EXPECTED));
+});`);
+    const operations = plan.tests[0].steps.flatMap((step) => step.operations);
+    expect(operations[0]).toMatchObject({ matcher: "toHaveCount", expected: 3 });
+    expect(operations[1]).toMatchObject({ op: "unsupported" });
+  });
+});

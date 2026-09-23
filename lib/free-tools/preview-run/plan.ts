@@ -16,6 +16,14 @@ import ts from "typescript";
 
 export type TextMatch = { kind: "string"; value: string } | { kind: "regex"; source: string; flags: string };
 
+/**
+ * What toHaveText and toContainText are given. Playwright accepts a list as
+ * well as one value, and then the list is the whole point: it asserts every
+ * matched element, in order. A generated test that checks three todo items in
+ * one line was being skipped for want of this, which cost the run its verdict.
+ */
+export type TextExpectation = TextMatch | { kind: "list"; items: TextMatch[] };
+
 export type LocatorStep =
   | { by: "role"; role: string; name?: TextMatch; exact?: boolean }
   | { by: "label" | "placeholder" | "text"; text: TextMatch; exact?: boolean }
@@ -27,28 +35,70 @@ export type LocatorStep =
 
 export type LocatorPlan = LocatorStep[];
 
-export type ActionName = "click" | "dblclick" | "fill" | "press" | "check" | "uncheck" | "hover" | "clear" | "selectOption";
+export type ActionName =
+  | "click"
+  | "dblclick"
+  | "fill"
+  | "press"
+  | "check"
+  | "uncheck"
+  | "hover"
+  | "clear"
+  | "selectOption"
+  | "focus"
+  | "blur"
+  | "selectText"
+  | "scrollIntoViewIfNeeded"
+  | "pressSequentially"
+  | "type";
 export type MatcherName =
   | "toBeVisible" | "toBeHidden" | "toBeEnabled" | "toBeDisabled" | "toBeChecked"
   | "toHaveText" | "toContainText" | "toHaveValue" | "toHaveCount" | "toHaveClass"
+  | "toBeFocused" | "toBeEmpty" | "toBeEditable" | "toBeAttached"
   | "toHaveURL" | "toHaveTitle";
 
 export type Operation =
   | { op: "goto"; url: string; source: string }
   | { op: "action"; action: ActionName; locator: LocatorPlan; value?: string; source: string }
-  | { op: "expect"; subject: "locator"; locator: LocatorPlan; matcher: MatcherName; negated: boolean; expected?: TextMatch | number; source: string }
+  | { op: "expect"; subject: "locator"; locator: LocatorPlan; matcher: MatcherName; negated: boolean; expected?: TextExpectation | number | { kind: "ref"; name: string }; source: string }
   | { op: "expect"; subject: "page"; matcher: "toHaveURL" | "toHaveTitle"; negated: boolean; expected: TextMatch; source: string }
+  /**
+   * Reads how many elements a locator matches and remembers it under a name,
+   * so a later toHaveCount can compare against it.
+   *
+   * "Count them before, do something, count them again" is one of the most
+   * common shapes a generated test takes, and the plan cannot evaluate it --
+   * it never runs anything. Carrying the name through to the run keeps such a
+   * test proven instead of reporting a skipped step and losing its verdict.
+   */
+  | { op: "capture"; name: string; locator: LocatorPlan; source: string }
   | { op: "unsupported"; reason: string; source: string };
 
 export type PlannedStep = { name: string; operations: Operation[] };
 export type PlannedTest = { name: string; steps: PlannedStep[] };
 export type RunPlan = { beforeEach: Operation[]; tests: PlannedTest[] };
 
-const ACTIONS = new Set<ActionName>(["click", "dblclick", "fill", "press", "check", "uncheck", "hover", "clear", "selectOption"]);
-const VALUE_ACTIONS = new Set<ActionName>(["fill", "press", "selectOption"]);
+/**
+ * What the preview can carry out.
+ *
+ * The list is not about what Playwright can do; it is about what can be run
+ * unattended, on someone else's public page, and still mean something. Every
+ * entry is deterministic and confined to the page.
+ *
+ * Leaving a safe action out has a cost that is easy to miss: the run reports
+ * "partly run" and the whole test is downgraded, even when nothing failed. A
+ * generated test that focuses a field before typing in it was being called
+ * unproven for a step that changes nothing.
+ */
+const ACTIONS = new Set<ActionName>([
+  "click", "dblclick", "fill", "press", "check", "uncheck", "hover", "clear", "selectOption",
+  "focus", "blur", "selectText", "scrollIntoViewIfNeeded", "pressSequentially", "type",
+]);
+const VALUE_ACTIONS = new Set<ActionName>(["fill", "press", "selectOption", "pressSequentially", "type"]);
 const LOCATOR_MATCHERS = new Set<MatcherName>([
   "toBeVisible", "toBeHidden", "toBeEnabled", "toBeDisabled", "toBeChecked",
   "toHaveText", "toContainText", "toHaveValue", "toHaveCount", "toHaveClass",
+  "toBeFocused", "toBeEmpty", "toBeEditable", "toBeAttached",
 ]);
 const MAX_TESTS = 6;
 const MAX_OPERATIONS = 80;
@@ -58,6 +108,8 @@ const MAX_LOOP_ITEMS = 20;
 type Value =
   | { type: "string"; value: string }
   | { type: "number"; value: number }
+  /** A count read during the run and remembered under this name. */
+  | { type: "countRef"; name: string }
   | { type: "regex"; source: string; flags: string }
   | { type: "page" }
   | { type: "locator"; plan: LocatorPlan }
@@ -77,6 +129,15 @@ function asTextMatch(value: Value): TextMatch | null {
   if (value.type === "string") return { kind: "string", value: value.value };
   if (value.type === "regex") return { kind: "regex", source: value.source, flags: value.flags };
   return null;
+}
+
+/** One value, or a list of them written inline. */
+function asTextExpectation(value: Value): TextExpectation | null {
+  const single = asTextMatch(value);
+  if (single) return single;
+  if (value.type !== "array" || value.items.length === 0) return null;
+  const items = value.items.map(asTextMatch);
+  return items.every((item): item is TextMatch => item !== null) ? { kind: "list", items } : null;
 }
 
 function snippet(node: ts.Node, source: ts.SourceFile) {
@@ -241,6 +302,15 @@ export function planPreviewRun(code: string, options: { env?: Record<string, str
     }
   }
 
+  /** The locator behind a plain await x.count(), when that is what this is. */
+  function countedLocator(node: ts.Expression, scope: Map<string, Value>): LocatorPlan | null {
+    const call = ts.isAwaitExpression(node) ? node.expression : node;
+    if (!ts.isCallExpression(call) || !ts.isPropertyAccessExpression(call.expression)) return null;
+    if (call.expression.name.text !== "count" || call.arguments.length > 0) return null;
+    const target = evaluate(call.expression.expression, scope);
+    return target.type === "locator" ? target.plan : null;
+  }
+
   function evaluateCall(node: ts.CallExpression, scope: Map<string, Value>): Value {
     if (ts.isIdentifier(node.expression) && node.expression.text === "expect") {
       const argument = node.arguments[0];
@@ -328,14 +398,24 @@ export function planPreviewRun(code: string, options: { env?: Record<string, str
       }
       if (LOCATOR_MATCHERS.has(method as MatcherName) && target.locator) {
         const matcher = method as MatcherName;
-        let expectedValue: TextMatch | number | undefined;
+        let expectedValue: TextExpectation | number | { kind: "ref"; name: string } | undefined;
         if (["toHaveText", "toContainText", "toHaveValue", "toHaveClass"].includes(matcher)) {
-          const match = expected ? asTextMatch(expected) : null;
+          // A list is only meaningful for the two that read many elements.
+          const match = expected
+            ? matcher === "toHaveText" || matcher === "toContainText"
+              ? asTextExpectation(expected)
+              : asTextMatch(expected)
+            : null;
           if (!match) return { op: "unsupported", reason: `${matcher} needs a literal value`, source: text };
           expectedValue = match;
         } else if (matcher === "toHaveCount") {
-          if (expected?.type !== "number") return { op: "unsupported", reason: "toHaveCount needs a literal number", source: text };
-          expectedValue = expected.value;
+          if (expected?.type === "countRef") {
+            expectedValue = { kind: "ref", name: expected.name };
+          } else if (expected?.type === "number") {
+            expectedValue = expected.value;
+          } else {
+            return { op: "unsupported", reason: "toHaveCount needs a literal number", source: text };
+          }
         }
         return { op: "expect", subject: "locator", locator: target.locator, matcher, negated: target.negated, ...(expectedValue !== undefined ? { expected: expectedValue } : {}), source: text };
       }
@@ -414,9 +494,17 @@ export function planPreviewRun(code: string, options: { env?: Record<string, str
       }
       if (ts.isVariableStatement(statement)) {
         for (const declaration of statement.declarationList.declarations) {
-          if (ts.isIdentifier(declaration.name) && declaration.initializer) {
-            scope.set(declaration.name.text, evaluate(declaration.initializer, scope));
+          if (!ts.isIdentifier(declaration.name) || !declaration.initializer) continue;
+          const counted = countedLocator(declaration.initializer, scope);
+          if (counted) {
+            const name = declaration.name.text;
+            if (!steps.includes(group)) steps.push(group);
+            group.operations.push({ op: "capture", name, locator: counted, source: snippet(statement, source) });
+            operationCount += 1;
+            scope.set(name, { type: "countRef", name });
+            continue;
           }
+          scope.set(declaration.name.text, evaluate(declaration.initializer, scope));
         }
         continue;
       }

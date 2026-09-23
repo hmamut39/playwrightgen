@@ -149,7 +149,20 @@ async function retry(check: () => Promise<boolean>, timeout: number, describe: (
   throw new StepFailure(lastError ? cleanError(lastError) : await describe());
 }
 
-async function perform(page: Page, operation: Exclude<Operation, { op: "unsupported" }>, baseUrl: URL) {
+async function perform(
+  page: Page,
+  operation: Exclude<Operation, { op: "unsupported" }>,
+  baseUrl: URL,
+  remembered: Map<string, number>,
+) {
+  // "Count them before, do something, count them again" is one of the most
+  // common shapes a generated test takes. The plan cannot know the number; the
+  // run can, so it is read here and kept for the check that compares with it.
+  if (operation.op === "capture") {
+    remembered.set(operation.name, await resolveLocator(page, operation.locator).count());
+    return;
+  }
+
   if (operation.op === "goto") {
     const target = new URL(operation.url, baseUrl);
     if (target.origin !== baseUrl.origin) {
@@ -172,6 +185,16 @@ async function perform(page: Page, operation: Exclude<Operation, { op: "unsuppor
       case "hover": await locator.hover(options); break;
       case "clear": await locator.clear(options); break;
       case "selectOption": await locator.selectOption(operation.value ?? "", options); break;
+      case "focus": await locator.focus(options); break;
+      case "blur": await locator.blur(options); break;
+      case "selectText": await locator.selectText(options); break;
+      case "scrollIntoViewIfNeeded": await locator.scrollIntoViewIfNeeded(options); break;
+      // type() is Playwright's older name for the same thing, and models still
+      // write it; running it as pressSequentially keeps the test proven.
+      case "type":
+      case "pressSequentially":
+        await locator.pressSequentially(operation.value ?? "", options);
+        break;
     }
     return;
   }
@@ -215,15 +238,67 @@ async function perform(page: Page, operation: Exclude<Operation, { op: "unsuppor
       await retry(async () => (await locator.isChecked({ timeout: 1_000 })) !== negated, ASSERT_TIMEOUT_MS,
         async () => `Expected the element ${negated ? "not " : ""}to be checked.`);
       return;
-    case "toHaveCount":
-      await retry(async () => ((await locator.count()) === expected) !== negated, ASSERT_TIMEOUT_MS,
-        async () => `Expected ${negated ? "not " : ""}${String(expected)} matching elements, found ${await locator.count()}.`);
+    case "toBeFocused":
+      await retry(
+        async () => (await locator.evaluate((element) => element === element.ownerDocument.activeElement)) !== negated,
+        ASSERT_TIMEOUT_MS,
+        async () => `Expected the element ${negated ? "not " : ""}to be focused.`,
+      );
       return;
+    case "toBeEditable":
+      await retry(async () => (await locator.isEditable({ timeout: 1_000 })) !== negated, ASSERT_TIMEOUT_MS,
+        async () => `Expected the element ${negated ? "not " : ""}to be editable.`);
+      return;
+    case "toBeAttached":
+      await retry(async () => ((await locator.count()) > 0) !== negated, ASSERT_TIMEOUT_MS,
+        async () => `Expected the element ${negated ? "not " : ""}to be attached to the page.`);
+      return;
+    case "toBeEmpty":
+      await retry(
+        async () => ((await locator.innerText({ timeout: 1_000 })).trim() === "") !== negated,
+        ASSERT_TIMEOUT_MS,
+        async () => `Expected the element ${negated ? "not " : ""}to be empty.`,
+      );
+      return;
+    case "toHaveCount": {
+      const wanted =
+        typeof expected === "object" && expected !== null && "kind" in expected && expected.kind === "ref"
+          ? remembered.get(expected.name)
+          : (expected as number);
+      if (wanted === undefined) {
+        throw new StepFailure(`The count this check compares with was never read.`);
+      }
+      await retry(async () => ((await locator.count()) === wanted) !== negated, ASSERT_TIMEOUT_MS,
+        async () => `Expected ${negated ? "not " : ""}${String(wanted)} matching elements, found ${await locator.count()}.`);
+      return;
+    }
     case "toHaveText":
     case "toContainText":
     case "toHaveValue":
     case "toHaveClass": {
-      const match = expected as TextMatch;
+      const asked = expected as TextMatch | { kind: "list"; items: TextMatch[] };
+      if (asked.kind === "list") {
+        // Every matched element, in order: the same thing Playwright asserts.
+        const mode = operation.matcher === "toContainText" ? "contains" : "equals";
+        const read = () => locator.allInnerTexts();
+        await retry(
+          async () => {
+            const actual = await read();
+            if (actual.length !== asked.items.length) return operation.negated;
+            const results = await Promise.all(
+              asked.items.map((item, index) => textMatches(page, actual[index] ?? "", item, mode)),
+            );
+            return results.every(Boolean) !== operation.negated;
+          },
+          ASSERT_TIMEOUT_MS,
+          async () => {
+            const actual = await read().catch(() => []);
+            return `Expected ${asked.items.length} elements reading ${asked.items.map(describeMatch).join(", ")}, but found ${actual.length}: ${actual.map((entry) => `"${entry.slice(0, 40)}"`).join(", ") || "none"}.`;
+          },
+        );
+        return;
+      }
+      const match = asked;
       const read = async () =>
         operation.matcher === "toHaveValue"
           ? locator.inputValue({ timeout: 1_000 })
@@ -264,6 +339,8 @@ export async function executePreviewRun(
     }));
 
     const testResult: TestResult = { name: test.name, status: "passed", steps: [] };
+    // Values read during this test, for checks written against them.
+    const remembered = new Map<string, number>();
     const context = await options.browser.newContext({ viewport: { width: 1280, height: 800 } });
     const page = await context.newPage();
     let failed = false;
@@ -285,7 +362,7 @@ export async function executePreviewRun(
             continue;
           }
           try {
-            await perform(page, operation, baseUrl);
+            await perform(page, operation, baseUrl, remembered);
             result.status = "passed";
           } catch (error) {
             result.status = "failed";
