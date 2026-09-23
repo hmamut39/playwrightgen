@@ -5,7 +5,7 @@ import { siteUrl } from "@/lib/site";
 const PUBLIC_PAGES: Array<{ path: string; priority: number }> = [
   { path: "/", priority: 1 },
   { path: "/generator", priority: 0.9 },
-  { path: "/intelligence", priority: 0.8 },
+  { path: "/coverage-review", priority: 0.8 },
   { path: "/engineering-review", priority: 0.8 },
   { path: "/mcp", priority: 0.8 },
   { path: "/pricing", priority: 0.7 },

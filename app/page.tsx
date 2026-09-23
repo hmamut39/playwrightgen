@@ -57,7 +57,7 @@ const freeTools = [
     title: "Coverage Review",
     description:
       "Find the gaps, brittle patterns and weak assertions in your tests, run them on the live page, and prove the tests you are missing.",
-    href: "/intelligence",
+    href: "/coverage-review",
     action: "Review test coverage",
   },
   {

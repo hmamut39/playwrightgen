@@ -4,6 +4,7 @@ import {
   requireWorkspaceContext,
   type WorkspaceContextDependencies,
 } from "@/lib/auth/workspace-context";
+import type { PrismaClient } from "@/generated/prisma/client";
 import { getPrismaClient } from "@/lib/db/prisma";
 import { classifyRuns, loadAttemptFacts } from "@/lib/services/run-signals";
 
@@ -74,11 +75,36 @@ export async function getReleaseEvidenceReport(
     { orgSlug: input.orgSlug, projectId: input.projectId, permission: "testrun:read" },
     dependencies,
   );
-  const prisma = dependencies?.prisma ?? getPrismaClient();
-  const organizationId = workspace.organization.id;
+  return buildReleaseEvidenceReport({
+    organizationId: workspace.organization.id,
+    projectId: input.projectId,
+    now: input.now,
+    prisma: dependencies?.prisma,
+  });
+}
+
+/**
+ * The report itself, from ids rather than a session.
+ *
+ * A shared proof link carries its own authorization (a signed token naming one
+ * project), so the same report is built here without a workspace context. The
+ * caller decides who may see it; this only reads.
+ */
+export async function buildReleaseEvidenceReport(input: {
+  organizationId: string;
+  projectId: string;
+  now?: Date;
+  prisma?: PrismaClient;
+}): Promise<ReleaseEvidenceReport> {
+  const prisma = input.prisma ?? getPrismaClient();
+  const organizationId = input.organizationId;
   const projectId = input.projectId;
   const now = input.now ?? new Date();
 
+  const organization = await prisma.organization.findUniqueOrThrow({
+    where: { id: organizationId },
+    select: { name: true, slug: true },
+  });
   const [project, requirements, attemptFacts] = await Promise.all([
     prisma.project.findUniqueOrThrow({
       where: { organizationId_id: { organizationId, id: projectId } },
@@ -181,7 +207,7 @@ export async function getReleaseEvidenceReport(
 
   return {
     project,
-    organization: { name: workspace.organization.name, slug: workspace.organization.slug },
+    organization: { name: organization.name, slug: organization.slug },
     generatedAt: now,
     requirements: evidence,
     totals: {

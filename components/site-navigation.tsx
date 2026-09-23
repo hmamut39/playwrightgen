@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 const freeTools = [
   { href: "/generator", label: "Quick Generate" },
-  { href: "/intelligence", label: "Coverage Review" },
+  { href: "/coverage-review", label: "Coverage Review" },
   { href: "/engineering-review", label: "Release Review" },
 ] as const;
 
@@ -15,6 +15,9 @@ export function SiteNavigation() {
   // menu above it -- with an "Open Workspace" button to the page you are
   // already on -- was a second header that pointed people away from their work.
   if (pathname === "/workspace" || pathname.startsWith("/workspace/")) return null;
+  // A shared proof link is read by someone outside the team, and it promises no
+  // way into the workspace. A menu offering one would break that promise.
+  if (pathname.startsWith("/proof/")) return null;
   const navigationItems = [
     { href: "/#product", label: "Product", match: "/" },
     ...freeTools.map((tool) => ({ ...tool, match: tool.href })),

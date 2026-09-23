@@ -121,6 +121,22 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **Proof links: evidence someone outside the team can read** (2026-09-23):
+  "Share this evidence outside the team" on the Release page mints a signed,
+  expiring link (30 days, 90 max) to a read-only page at /proof/<token>: each
+  requirement, the approved tests that verify it, and how those tests last ran.
+  No session, no test code, no way into the workspace (the site menu hides
+  itself there), and `robots: noindex` -- the link is the permission. The
+  token names one project and nothing else; rotating RUNNER_INGEST_SECRET
+  revokes every link at once. Unit-tested against tampering, another secret,
+  wrong shapes, missing fields and expiry. Verified in a browser: a lead made
+  a link, a browser with no account read the evidence at 390px, and a
+  one-character edit to the token showed "This link is no longer valid".
+  This is the moat made usable: the evidence was already immutable, but it
+  could not leave the workspace without a screenshot or an invitation.
+- **Coverage Review has its plain address** (2026-09-23): /intelligence named
+  the machinery; it is /coverage-review now, with a permanent redirect from the
+  old path and the menu, home page and sitemap updated.
 - **A week in one message** (2026-09-23): daily checks write a record every
   day and nobody reads a list of days, so Monday 07:00 UTC
   (`/api/cron/weekly-digest`, same CRON_SECRET) posts each project's week to
@@ -416,9 +432,9 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Retire the placeholder Intelligence page.** /intelligence is Coverage
-   Review's real home but reads like an internal name; give it the plain title
-   the rest of the product now uses, and make the menu say what it does.
+1. **Let a team retire a proof link.** A link expires, but a team that shared
+   one by mistake needs it gone today: keep issued links per project with a
+   "stop this link" button, checked when a proof page loads.
 2. **Verify the paid path end to end — on hold at the owner's request.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to

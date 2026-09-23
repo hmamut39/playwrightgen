@@ -1,6 +1,12 @@
 import Link from "next/link";
 
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
+import { redirect } from "next/navigation";
+
+import { CopyField } from "@/components/workspace/ci-setup-panel";
+import { PendingButton } from "@/components/workspace/pending-button";
+import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
+import { createProofLink } from "@/lib/services/release-proof";
 import { getReleaseReadiness } from "@/lib/services/release-readiness";
 import { LocalTime } from "@/components/workspace/local-time";
 
@@ -36,11 +42,29 @@ function Metric({
 
 export default async function ReleaseReadinessPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ orgSlug: string; projectId: string }>;
+  searchParams: Promise<{ proof?: string; until?: string }>;
 }) {
   const { orgSlug, projectId } = await params;
-  const readiness = await getReleaseReadiness({ orgSlug, projectId });
+  const { proof, until } = await searchParams;
+  const [readiness, context] = await Promise.all([
+    getReleaseReadiness({ orgSlug, projectId }),
+    requireWorkspaceContext({ orgSlug, projectId }),
+  ]);
+
+  /**
+   * Hands someone outside the team a read-only copy of this evidence. The link
+   * carries no session and expires; the page it opens shows no test code.
+   */
+  async function proofLinkAction() {
+    "use server";
+    const link = await createProofLink({ orgSlug, projectId });
+    redirect(
+      `/workspace/${orgSlug}/projects/${projectId}/release?proof=${encodeURIComponent(link.url)}&until=${link.expiresAt.toISOString()}`,
+    );
+  }
 
   const blockers = readiness.findings.filter((f) => f.severity === "BLOCKER");
   const cautions = readiness.findings.filter((f) => f.severity === "CAUTION");
@@ -67,6 +91,16 @@ export default async function ReleaseReadinessPage({
             as runs, so it can read "fresh" on a project that has never executed
             anything. Stating the execution count alongside it keeps the header
             from implying evidence that does not exist. */}
+        {proof ? (
+          <div role="status" className="mt-5 rounded-2xl border border-emerald-300 bg-emerald-50 p-4 print:hidden">
+            <p className="text-sm font-semibold text-emerald-950">Anyone with this link can read this evidence.</p>
+            <CopyField label="Proof link" value={proof} />
+            <p className="mt-2 text-xs text-emerald-900">
+              It expires {until ? <LocalTime value={new Date(until)} /> : "in 30 days"}. It shows requirements, what
+              verifies them and how they last ran &mdash; no test code, and no way into this workspace.
+            </p>
+          </div>
+        ) : null}
         <div className="mt-5 print:hidden">
           <Link
             href={`/workspace/${orgSlug}/projects/${projectId}/release/report`}
@@ -74,6 +108,16 @@ export default async function ReleaseReadinessPage({
           >
             Open the evidence report →
           </Link>
+          {context.can("project:update") ? (
+            <form action={proofLinkAction} className="mt-3">
+              <PendingButton
+                pendingLabel="Making a link…"
+                className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+              >
+                Share this evidence outside the team
+              </PendingButton>
+            </form>
+          ) : null}
           <p className="mt-2 text-xs leading-5 text-slate-500">
             Every requirement, what verifies it, and how each verifying test last
             ran. Built to print or attach to a release ticket.
