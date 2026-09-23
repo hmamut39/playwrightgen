@@ -135,9 +135,13 @@ test suite (493 tests) passes.
   true next week. The shared page says which it is, and the list of live links
   labels each one Snapshot or Live. A snapshot is a copy of evidence the
   workspace already holds, so it reveals nothing new; it simply stops a link
-  from quietly answering for a later state. Integration-tested: a requirement
-  renamed after both links were made still reads its old title through the
-  snapshot, while the live link keeps nothing and reads the project.
+  from quietly answering for a later state. Integration-tested, and verified
+  in a browser: both links were made, the requirement was renamed, and a
+  browser with no account then read the old title through the snapshot and the
+  new one through the live link, at 390px, with no test code on either page.
+  The list labelled them Snapshot and Live, and "Stop this link" still stopped
+  the snapshot. The migration was applied to the production database before
+  the push.
 - **Health mentions sharing** (2026-09-23): the Release card on the Health
   page says "Evidence can be shared outside the team, read-only", or how many
   live links can read it, so the phone-first screen people open first leads to
