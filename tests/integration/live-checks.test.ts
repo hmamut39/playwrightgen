@@ -16,6 +16,7 @@ import {
   runDueLiveChecks,
   runLiveChecksForProject,
   setLiveChecks,
+  setLiveChecksAlertEmail,
   setLiveChecksWebhook,
   webhookKind,
   whyNotCheckable,
@@ -224,6 +225,76 @@ describe("daily live checks of approved automation", () => {
     expect(again?.alert).toBeNull();
     await runLiveChecksForProject(space.project.id, { prisma, runner: async () => run({}), post: async () => false });
     expect((await prisma.project.findUniqueOrThrow({ where: { id: space.project.id } })).liveChecksLastSummary).toMatchObject({ alert: "failed" });
+  });
+
+  it("mails the same message to a team with no channel", async () => {
+    const space = await projectWithApprovedAutomation([publicCode]);
+    await setLiveChecks({ projectId: space.project.id, enabled: true }, space.owned);
+    const listMemberEmails = async () => ["lead@team.example"];
+    await setLiveChecksAlertEmail(
+      { projectId: space.project.id, email: " Lead@Team.Example " },
+      { ...space.owned, listMemberEmails },
+    );
+
+    const sent: Array<{ to: string; subject: string; text: string }> = [];
+    const email = async (message: { to: string; subject: string; text: string }) => {
+      sent.push(message);
+      return true;
+    };
+
+    // A first failure is not news; there is nothing it changed from.
+    await runLiveChecksForProject(space.project.id, { prisma, runner: async () => run({ failed: 1 }), email });
+    expect(sent).toHaveLength(0);
+
+    await runLiveChecksForProject(space.project.id, { prisma, runner: async () => run({}), email });
+    expect(sent).toHaveLength(1);
+    expect(sent[0].to).toBe("lead@team.example");
+    expect(sent[0].subject).toBe(space.project.name + ": 1 test passing again");
+
+    const broke = await runLiveChecksForProject(space.project.id, {
+      prisma,
+      runner: async () => run({ passed: 1, failed: 1 }),
+      email,
+    });
+    expect(broke?.emailAlert).toBe("sent");
+    expect(sent[1].subject).toBe(space.project.name + ": 1 test started failing today");
+    expect(sent[1].text).toContain("1 test started failing today:\n- Behaviour 0");
+
+    // A mail that could not be sent is recorded, never thrown: the round's
+    // evidence matters more than the message about it.
+    await runLiveChecksForProject(space.project.id, { prisma, runner: async () => run({}), email: async () => false });
+    expect(
+      (await prisma.project.findUniqueOrThrow({ where: { id: space.project.id } })).liveChecksLastSummary,
+    ).toMatchObject({ emailAlert: "failed" });
+  });
+
+  it("refuses an address that belongs to nobody in the workspace", async () => {
+    const space = await projectWithApprovedAutomation([]);
+    const listMemberEmails = async () => ["lead@team.example"];
+    const deps = { ...space.owned, listMemberEmails };
+
+    await expect(
+      setLiveChecksAlertEmail({ projectId: space.project.id, email: "someone@elsewhere.example" }, deps),
+    ).rejects.toMatchObject({ code: "email_not_a_member" });
+    await expect(
+      setLiveChecksAlertEmail({ projectId: space.project.id, email: "not an address" }, deps),
+    ).rejects.toMatchObject({ code: "invalid_email" });
+    await expect(
+      setLiveChecksAlertEmail(
+        { projectId: space.project.id, email: "lead@team.example" },
+        { ...space.viewed, listMemberEmails },
+      ),
+    ).rejects.toMatchObject({ code: "permission_denied" });
+
+    await setLiveChecksAlertEmail({ projectId: space.project.id, email: "lead@team.example" }, deps);
+    expect(
+      (await prisma.project.findUniqueOrThrow({ where: { id: space.project.id } })).liveChecksAlertEmail,
+    ).toBe("lead@team.example");
+    // Clearing it needs no membership check, because it points at nobody.
+    await setLiveChecksAlertEmail({ projectId: space.project.id, email: "" }, space.owned);
+    expect(
+      (await prisma.project.findUniqueOrThrow({ where: { id: space.project.id } })).liveChecksAlertEmail,
+    ).toBeNull();
   });
 
   it("posts only to Slack or Discord webhooks, set by someone who can update the project", async () => {

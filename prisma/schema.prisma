@@ -417,7 +417,7 @@ model Organization {
   automationArtifacts     AutomationArtifact[]
   testCaseImportedDrafts  TestCaseImportedDraft[]
   pageCoverages           PageCoverage[]
-  proofLinks             ProofLink[]
+  proofLinks              ProofLink[]
   automationVersions      AutomationArtifactVersion[]
   githubInstallations     GitHubInstallation[]
   githubWebhookDeliveries GitHubWebhookDelivery[]
@@ -539,33 +539,38 @@ model Membership {
 }
 
 model Project {
-  id                    String        @id @default(uuid()) @db.Uuid
-  organizationId        String        @db.Uuid
-  name                  String        @db.VarChar(200)
-  slug                  String        @db.VarChar(100)
-  description           String?       @db.Text
-  status                ProjectStatus @default(ACTIVE)
-  createdByUserId       String        @db.Uuid
-  archivedByUserId      String?       @db.Uuid
-  archivedAt            DateTime?     @db.Timestamptz(3)
-  runnerTokenVersion    Int           @default(1)
+  id                     String        @id @default(uuid()) @db.Uuid
+  organizationId         String        @db.Uuid
+  name                   String        @db.VarChar(200)
+  slug                   String        @db.VarChar(100)
+  description            String?       @db.Text
+  status                 ProjectStatus @default(ACTIVE)
+  createdByUserId        String        @db.Uuid
+  archivedByUserId       String?       @db.Uuid
+  archivedAt             DateTime?     @db.Timestamptz(3)
+  runnerTokenVersion     Int           @default(1)
   /// Where this project runs, so generated automation can be proven on it.
-  liveUrl               String?       @db.Text
+  liveUrl                String?       @db.Text
   /// Run approved automation on liveUrl every day and record the results.
-  liveChecksEnabled     Boolean       @default(false)
+  liveChecksEnabled      Boolean       @default(false)
   /// Who turned the checks on: their results are recorded under this person,
   /// as CI results are recorded under whoever connected the repository.
-  liveChecksActorUserId String?       @db.Uuid
-  liveChecksLastRunAt   DateTime?     @db.Timestamptz(3)
+  liveChecksActorUserId  String?       @db.Uuid
+  liveChecksLastRunAt    DateTime?     @db.Timestamptz(3)
   /// Counts from the last round of checks, for the project page.
-  liveChecksLastSummary Json?         @db.JsonB
+  liveChecksLastSummary  Json?         @db.JsonB
   /// A Slack or Discord incoming webhook told when a live check starts failing
   /// or recovers. The team pastes their own; it is shown back only as its host.
-  liveChecksWebhookUrl  String?       @db.Text
+  liveChecksWebhookUrl   String?       @db.Text
+  /// An address told when a live check starts failing or recovers, for a team
+  /// with no Slack. It must belong to someone in this workspace, checked
+  /// against Clerk when it is saved, so the product can never be pointed at a
+  /// stranger's inbox. Delivery only: it is never authorization.
+  liveChecksAlertEmail   String?       @db.Text
   /// When the weekly digest was last posted, so a re-run does not repeat it.
-  liveChecksLastDigestAt DateTime?    @db.Timestamptz(3)
-  createdAt             DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt             DateTime      @updatedAt @db.Timestamptz(3)
+  liveChecksLastDigestAt DateTime?     @db.Timestamptz(3)
+  createdAt              DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime      @updatedAt @db.Timestamptz(3)
 
   organization           Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   createdBy              User                        @relation("ProjectCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)

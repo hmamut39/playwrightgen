@@ -24,6 +24,7 @@ import {
   readLiveChecksSummary,
   runLiveChecksForProject,
   setLiveChecks,
+  setLiveChecksAlertEmail,
   setLiveChecksWebhook,
 } from "@/lib/services/live-checks";
 
@@ -35,10 +36,10 @@ export default async function ProjectOverviewPage({
   searchParams,
 }: {
   params: Promise<{ orgSlug: string; projectId: string }>;
-  searchParams: Promise<{ webhook?: string; notice?: string }>;
+  searchParams: Promise<{ webhook?: string; notice?: string; email?: string }>;
 }) {
   const { orgSlug, projectId } = await params;
-  const { webhook: webhookNotice, notice } = await searchParams;
+  const { webhook: webhookNotice, notice, email: emailNotice } = await searchParams;
   const [overview, setup, context] = await Promise.all([
     getProjectOverview({ orgSlug, projectId, allowArchived: true }),
     getProjectSetup({ orgSlug, projectId }),
@@ -110,6 +111,28 @@ export default async function ProjectOverviewPage({
     }
     revalidatePath(overviewPath);
     redirect(`${overviewPath}?webhook=${remove ? "removed" : "saved"}#live-checks`);
+  }
+
+  async function alertEmailAction(formData: FormData) {
+    "use server";
+    const remove = formData.get("intent") === "remove";
+    try {
+      await setLiveChecksAlertEmail({
+        orgSlug,
+        projectId,
+        email: remove ? "" : String(formData.get("alertEmail") ?? ""),
+      });
+    } catch (error) {
+      if (error instanceof LiveChecksError && error.code === "invalid_email") {
+        redirect(`${overviewPath}?email=invalid#live-checks`);
+      }
+      if (error instanceof LiveChecksError && error.code === "email_not_a_member") {
+        redirect(`${overviewPath}?email=stranger#live-checks`);
+      }
+      throw error;
+    }
+    revalidatePath(overviewPath);
+    redirect(`${overviewPath}?email=${remove ? "removed" : "saved"}#live-checks`);
   }
 
   async function transitionAction(formData: FormData) {
@@ -316,6 +339,49 @@ export default async function ProjectOverviewPage({
                     <button name="intent" value="remove" className="font-semibold text-slate-800 underline">Remove</button>
                   </form>
                 ) : null}
+
+                <div className="mt-5 border-t border-slate-200 pt-4">
+                  <p className="text-sm font-semibold text-slate-900">Or by email</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-600">
+                    No Slack? The same message can go to an address instead. It has to belong to someone in this
+                    workspace, so this can never be pointed at a stranger&rsquo;s inbox.
+                  </p>
+                  {emailNotice === "invalid" ? (
+                    <p role="alert" className="mt-2 text-xs font-semibold text-red-700">That is not an email address.</p>
+                  ) : emailNotice === "stranger" ? (
+                    <p role="alert" className="mt-2 text-xs font-semibold text-red-700">
+                      Nobody in this workspace uses that address. Invite them to the workspace first, or use an
+                      address that is already a member.
+                    </p>
+                  ) : emailNotice === "saved" ? (
+                    <p role="status" className="mt-2 text-xs font-semibold text-emerald-700">
+                      Saved. The next change is mailed there.
+                    </p>
+                  ) : emailNotice === "removed" ? (
+                    <p role="status" className="mt-2 text-xs font-semibold text-slate-700">Removed. No mail is sent.</p>
+                  ) : null}
+                  <form action={alertEmailAction} className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <input
+                      name="alertEmail"
+                      type="email"
+                      required
+                      maxLength={320}
+                      autoComplete="off"
+                      aria-label="Address told when a check fails"
+                      placeholder={project.liveChecksAlertEmail ?? "someone@yourteam.com"}
+                      className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-cyan-600 focus-visible:ring-2 focus-visible:ring-cyan-500/60"
+                    />
+                    <PendingButton pendingLabel="Saving…" className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white">
+                      {project.liveChecksAlertEmail ? "Change" : "Save"}
+                    </PendingButton>
+                  </form>
+                  {project.liveChecksAlertEmail ? (
+                    <form action={alertEmailAction} className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+                      <span>Mailing {project.liveChecksAlertEmail}.</span>
+                      <button name="intent" value="remove" className="font-semibold text-slate-800 underline">Remove</button>
+                    </form>
+                  ) : null}
+                </div>
               </div>
             ) : null}
           </div>

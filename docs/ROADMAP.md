@@ -133,6 +133,29 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **A failing check reaches a team with no Slack** (2026-09-23): daily checks
+  could only post to a Slack or Discord channel, so a team with neither learned
+  about a failure the next time somebody opened the app -- too late for the one
+  feature whose point is to say which day it broke. A project can now name an
+  address instead (`Project.liveChecksAlertEmail`, migration 20260923190000),
+  and a round that changes anything mails the same words, with a subject that
+  leads with what broke: "Shop: 1 test started failing today".
+  The address must belong to a member of the workspace, checked against Clerk
+  when it is saved; without that, a lead could point the product at a
+  stranger's inbox and the server would mail it unattended every day. The
+  address authorizes nothing -- it is delivery only. Sending never throws and
+  its outcome is recorded as `emailAlert`, because a round that produced real
+  evidence must not be lost to a slow mail server. Unit- and
+  integration-tested, including a refused address, a viewer who may not set
+  one, and a mail that failed. Verified in a browser against the live Clerk
+  instance: a stranger's address was refused with "Nobody in this workspace
+  uses that address", a member's address saved and was shown back, and Remove
+  cleared it.
+  **Still to do:** mail is sent through Resend from its shared
+  `onboarding@resend.dev` address, which only delivers to the account owner.
+  Setting `LIVE_CHECKS_EMAIL_FROM` to an address on a verified domain turns
+  it on for everyone; verifying the domain is one DNS record on
+  playwrightgen.com and the owner's to add.
 - **What changed since a snapshot** (2026-09-23): a frozen link says what was
   true when it was shared; the question a team asks next is what has moved
   since. Each snapshot link on the Release page now has "What changed since",
@@ -523,13 +546,11 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **A failing daily check should reach someone who is not in Slack.** Alerts
-   go to a Slack or Discord webhook today, and a weekly digest summarises the
-   week. A team without either gets nothing until someone opens the app.
-   Email is the obvious answer and Resend is already wired for the waitlist,
-   but sending to a teammate's address needs a verified sending domain, which
-   is a DNS change on playwrightgen.com and therefore the owner's to make.
-   Build everything else first; ask for the DNS record once, on its own.
+1. **Turn on alert email for everyone.** Everything is built and tested; the
+   only thing left is a verified sending domain. Ask the owner for one DNS
+   record on playwrightgen.com (Resend gives the exact value), then set
+   `LIVE_CHECKS_EMAIL_FROM` in Vercel to an address on it. Until then mail
+   reaches only the Resend account owner.
 2. **Verify the paid path end to end — on hold at the owner's request.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to

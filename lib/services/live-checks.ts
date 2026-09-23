@@ -1,5 +1,6 @@
 import "server-only";
 
+import { clerkClient } from "@clerk/nextjs/server";
 import { z } from "zod";
 
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
@@ -8,6 +9,12 @@ import {
   type WorkspaceContextDependencies,
 } from "@/lib/auth/workspace-context";
 import { getPrismaClient } from "@/lib/db/prisma";
+import {
+  alertSubject,
+  looksLikeEmail,
+  sendAlertEmail,
+  type EmailSender,
+} from "@/lib/services/alert-email";
 import type { PreviewRunResult } from "@/lib/free-tools/preview-run/execute";
 import { planPreviewRun } from "@/lib/free-tools/preview-run/plan";
 import { runVerdict } from "@/lib/free-tools/preview-run/receipt";
@@ -56,11 +63,20 @@ export type LiveChecksSummary = {
   flaky: Array<{ title: string; testCaseId: string; detail: string }>;
   /** Whether the team's channel was told about a change, when there was one. */
   alert: "sent" | "failed" | null;
+  /** The same, for the address a team with no channel gave instead. */
+  emailAlert: "sent" | "failed" | null;
   ranAt: string;
 };
 
 export class LiveChecksError extends Error {
-  constructor(readonly code: "live_url_required" | "not_found" | "invalid_webhook") {
+  constructor(
+    readonly code:
+      | "live_url_required"
+      | "not_found"
+      | "invalid_webhook"
+      | "invalid_email"
+      | "email_not_a_member",
+  ) {
     super(code);
     this.name = "LiveChecksError";
   }
@@ -138,6 +154,51 @@ export async function setLiveChecksWebhook(
     data: { liveChecksWebhookUrl: webhookUrl || null },
   });
   if (updated.count !== 1) throw new LiveChecksError("not_found");
+}
+
+/**
+ * Sets or clears the address told when a check starts failing. Empty clears it.
+ *
+ * The address must belong to someone in this workspace, checked against Clerk
+ * at the moment it is saved. Without that the product would be a way to mail
+ * anybody: a lead could type a stranger's address and the server would post
+ * to it every day, unattended. Clerk proves who is in the organization, so it
+ * is the right place to ask; the address itself authorizes nothing.
+ */
+export async function setLiveChecksAlertEmail(
+  input: { orgSlug?: string; projectId: string; email: string },
+  dependencies?: WorkspaceContextDependencies & { listMemberEmails?: (clerkOrganizationId: string) => Promise<string[]> },
+) {
+  const projectId = z.string().uuid().parse(input.projectId);
+  const workspace = await requireWorkspaceContext(
+    { orgSlug: input.orgSlug, projectId, permission: "project:update" },
+    dependencies,
+  );
+  const email = input.email.trim().toLowerCase();
+  if (email) {
+    if (!looksLikeEmail(email)) throw new LiveChecksError("invalid_email");
+    const members = await (dependencies?.listMemberEmails ?? listWorkspaceMemberEmails)(
+      workspace.organization.clerkOrganizationId,
+    );
+    if (!members.includes(email)) throw new LiveChecksError("email_not_a_member");
+  }
+  const updated = await client(dependencies).project.updateMany({
+    where: { organizationId: workspace.organization.id, id: projectId },
+    data: { liveChecksAlertEmail: email || null },
+  });
+  if (updated.count !== 1) throw new LiveChecksError("not_found");
+}
+
+/** The addresses Clerk knows for this organization's members, lowercased. */
+async function listWorkspaceMemberEmails(clerkOrganizationId: string): Promise<string[]> {
+  const client = await clerkClient();
+  const memberships = await client.organizations.getOrganizationMembershipList({
+    organizationId: clerkOrganizationId,
+    limit: 200,
+  });
+  return memberships.data
+    .map((membership) => membership.publicUserData?.identifier?.trim().toLowerCase())
+    .filter((identifier): identifier is string => Boolean(identifier) && looksLikeEmail(identifier!));
 }
 
 type AlertMessage = { projectName: string; liveUrl: string; link: string; failing: LiveChecksSummary["failing"]; recovered: LiveChecksSummary["recovered"] };
@@ -229,6 +290,7 @@ export function readLiveChecksSummary(value: Prisma.JsonValue | null): LiveCheck
         )
       : [],
     alert: summary.alert === "sent" || summary.alert === "failed" ? summary.alert : null,
+    emailAlert: summary.emailAlert === "sent" || summary.emailAlert === "failed" ? summary.emailAlert : null,
     ranAt: summary.ranAt,
   };
 }
@@ -293,7 +355,7 @@ const runOnPage: Runner = async (code, pageUrl) => {
  */
 export async function runLiveChecksForProject(
   projectId: string,
-  options: { deadline?: number; prisma?: PrismaClient; runner?: Runner; post?: Poster } = {},
+  options: { deadline?: number; prisma?: PrismaClient; runner?: Runner; post?: Poster; email?: EmailSender } = {},
 ): Promise<LiveChecksSummary | null> {
   const prisma = client(options);
   const runner = options.runner ?? runOnPage;
@@ -307,6 +369,7 @@ export async function runLiveChecksForProject(
       liveChecksEnabled: true,
       liveChecksActorUserId: true,
       liveChecksWebhookUrl: true,
+      liveChecksAlertEmail: true,
       name: true,
       organization: { select: { slug: true } },
     },
@@ -343,6 +406,7 @@ export async function runLiveChecksForProject(
     recovered: [],
     flaky: [],
     alert: null,
+    emailAlert: null,
     ranAt: new Date().toISOString(),
   };
   for (const artifact of artifacts) {
@@ -454,18 +518,29 @@ export async function runLiveChecksForProject(
   }
 
   const changed = summary.failing.some((entry) => entry.newToday) || summary.recovered.length > 0;
+  const message = {
+    projectName: project.name,
+    liveUrl,
+    link: `${siteUrl()}/workspace/${project.organization.slug}/projects/${projectId}/overview`,
+    failing: summary.failing,
+    recovered: summary.recovered,
+  };
   if (changed && project.liveChecksWebhookUrl) {
-    summary.alert = await sendAlert(
-      project.liveChecksWebhookUrl,
-      {
-        projectName: project.name,
-        liveUrl,
-        link: `${siteUrl()}/workspace/${project.organization.slug}/projects/${projectId}/overview`,
-        failing: summary.failing,
-        recovered: summary.recovered,
-      },
-      options.post ?? postToWebhook,
-    );
+    summary.alert = await sendAlert(project.liveChecksWebhookUrl, message, options.post ?? postToWebhook);
+  }
+  // The same words by mail, for a team with no channel. Sending never throws,
+  // so a round that produced real evidence is never lost to a mail server.
+  if (changed && project.liveChecksAlertEmail) {
+    const sent = await (options.email ?? sendAlertEmail)({
+      to: project.liveChecksAlertEmail,
+      subject: alertSubject(
+        project.name,
+        summary.failing.filter((entry) => entry.newToday).length,
+        summary.recovered.length,
+      ),
+      text: alertText(message),
+    });
+    summary.emailAlert = sent ? "sent" : "failed";
   }
 
   await prisma.project.update({
