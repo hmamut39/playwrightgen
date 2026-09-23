@@ -170,20 +170,20 @@ export default async function OrganizationWorkspacePage({
 
 const FIRST_STEPS = [
   {
-    title: "Create a project",
-    detail: "One per product or app you test, for example \"Checkout web app\".",
+    title: "Name your app and give it a page",
+    detail: "One project per product you test, plus a public page of it. Both on one short form.",
   },
   {
-    title: "Write what it must do",
-    detail: "Add a requirement in plain words. AI checks it for gaps, and a lead approves it.",
+    title: "Tick the tests you want",
+    detail: "PlaywrightGen reads that page and plans the tests it needs. You choose which ones are worth having.",
   },
   {
-    title: "Turn it into tests",
-    detail: "AI proposes test cases from the requirement and writes the Playwright code. People review and approve both.",
+    title: "Watch each one proved",
+    detail: "Each test is written, run in a real browser and fixed until it passes. You see what passed and what did not.",
   },
   {
-    title: "Run and ship with proof",
-    detail: "Your CI runs the tests. Results come back here, and the Release page shows whether it is safe to ship.",
+    title: "Approve, then let it watch the site",
+    detail: "Approving turns a test into evidence. After that, daily checks run it on your site and tell you the day it breaks.",
   },
 ];
 
@@ -201,10 +201,10 @@ function FirstProjectGuide({ href }: { href: string }) {
       <div className="bg-slate-950 px-6 py-7 text-white sm:px-8">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-300">Start here</p>
         <h2 className="mt-2 text-2xl font-semibold tracking-tight">
-          From a requirement to a release you can prove
+          From nothing to tests that prove your app works
         </h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-          Four steps. The first takes a minute, and each screen after it tells you what comes next.
+          Four steps, and the first two take about a minute together. Each screen says what comes next.
         </p>
       </div>
       <ol className="grid gap-px bg-slate-200 sm:grid-cols-2 lg:grid-cols-4">

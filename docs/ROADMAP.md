@@ -110,6 +110,21 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **A guided first project** (2026-09-23): the new-project form takes "Where
+  does it run?" beside the name. Give a page and the project is created, the
+  address saved, the page read and its tests planned while the form answers --
+  the person lands on the plan instead of an empty project. Leave it empty and
+  nothing changes. The empty-workspace guide now describes that path (name and
+  page, tick the tests, watch each proved, approve and let daily checks watch
+  the site) rather than the old requirement-first one. Verified from a brand
+  new account at 390px: one button, one form, plan ready 40 s after the first
+  click.
+- **No more tests that pass while the product is broken** (2026-09-23): the
+  planner had put "Instruction and attribution links are present" in a plan.
+  The rule is now explicit -- never plan a test whose only outcome is that
+  text, links, headings or credits exist; plan one only when something a
+  person can see changes. Checked on three pages: TodoMVC and saucedemo plans
+  are all behaviour, and a marketing page yields the navigation it really has.
 - **"Flaky" means one thing** (2026-09-23): a live-check retry now records both
   runs, so Test Runs shows the failure and the pass that followed rather than a
   pass that hides a failure, and the Quality page carries a "Flaky in the last
@@ -355,9 +370,9 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **A guided first project.** The empty workspace still leaves a newcomer to
-   pick a tab. Walk them: name the app, give a page, approve the plan, see the
-   first evidence -- one screen at a time, skippable.
+1. **Say what proving will cost before it starts.** The plan page shows the
+   AI cost per test; a newcomer approving six tests cannot tell what that
+   leaves of the daily allowance. Show the allowance before and after.
 2. **Verify the paid path end to end — on hold at the owner's request.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to
