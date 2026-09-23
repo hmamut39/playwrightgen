@@ -133,6 +133,22 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **A new project points at the fast route, and stops offering to share
+  nothing** (2026-09-23): walked a brand-new empty project as a tester would.
+  Two things were wrong. The getting-started card steered everyone down the
+  six-step manual chain -- write a requirement, approve it, write a test case,
+  approve it, link them, generate automation -- while "Cover a page", which
+  does the first four from one address, was only in the navigation. It is now
+  offered inside the card, while no step is done, as "In a hurry?", and the
+  steps stay so somebody can see what the shortcut did. Second, the Release
+  page of an empty project offered "Share this evidence outside the team" and
+  "Share a snapshot of today", and the link would have shown a manager or an
+  auditor a page reading "this project has no approved requirements yet" --
+  worse than no link, because it says the team has nothing rather than that
+  the team has not started. Sharing now appears only once a requirement is
+  approved; before that the page says what makes evidence shareable and points
+  at covering a page. Verified in a browser both ways: the empty project shows
+  the notice and no share buttons, and a project with evidence is unchanged.
 - **The weekly digest says where the project stands** (2026-09-23): the digest
   answered "what happened this week" -- what broke, recovered, stayed broken,
   was flaky. A lead forwarding it upward is asked a different question: where

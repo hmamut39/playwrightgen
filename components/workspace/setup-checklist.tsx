@@ -12,13 +12,21 @@ import type { ProjectSetup } from "@/lib/services/project-setup";
  *
  * Shown only while the chain is incomplete. Once every step is done it would be
  * clutter on a page whose job is to surface gaps.
+ *
+ * The chain is also the long way round. Covering a page does the first four
+ * steps from a URL -- it plans the tests, a person approves them, and each one
+ * is written and proven on the real page -- so the shortcut is offered here
+ * rather than left to be discovered in the navigation. The steps stay, because
+ * someone has to be able to see what the shortcut did.
  */
 export function SetupChecklist({
   setup,
   canAct,
+  coverHref,
 }: {
   setup: ProjectSetup;
   canAct: boolean;
+  coverHref?: string;
 }) {
   if (setup.complete) return null;
 
@@ -48,6 +56,17 @@ export function SetupChecklist({
         approved intent is linked to an approved test, and a release cannot be
         judged until something has actually run.
       </p>
+
+      {coverHref && canAct && setup.completedCount === 0 ? (
+        <p className="mt-3 max-w-3xl rounded-2xl border border-cyan-200 bg-white px-4 py-3 text-sm leading-6 text-slate-700">
+          In a hurry?{" "}
+          <Link href={coverHref} className="font-semibold text-cyan-800 underline">
+            Cover a page
+          </Link>{" "}
+          does the first four steps from one address: it plans the tests a page needs, you approve what to keep, and
+          each one is written and proven on the real page.
+        </p>
+      ) : null}
 
       <ol className="mt-6 space-y-2">
         {setup.steps.map((step, index) => {

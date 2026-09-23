@@ -70,6 +70,14 @@ export default async function ReleaseReadinessPage({
   ]);
 
   /**
+   * There is nothing to share until a requirement has been approved. A link to
+   * a page reading "this project has no approved requirements yet" is worse
+   * than no link: it is sent to a manager or an auditor, and it says the team
+   * has nothing rather than that the team has not started.
+   */
+  const hasEvidenceToShare = readiness.counts.approvedRequirements > 0;
+
+  /**
    * Hands someone outside the team a read-only copy of this evidence. The link
    * carries no session and expires; the page it opens shows no test code.
    */
@@ -182,7 +190,17 @@ export default async function ReleaseReadinessPage({
           >
             Open the evidence report →
           </Link>
-          {context.can("project:update") ? (
+          {context.can("project:update") && !hasEvidenceToShare ? (
+            <p className="mt-3 max-w-xl rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
+              There is nothing to share yet. Evidence becomes shareable once a requirement is approved and a test has
+              verified it &mdash;{" "}
+              <Link href={`/workspace/${orgSlug}/projects/${projectId}/cover`} className="font-semibold text-cyan-800 underline">
+                cover a page
+              </Link>{" "}
+              is the quickest way there.
+            </p>
+          ) : null}
+          {context.can("project:update") && hasEvidenceToShare ? (
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               <form action={proofLinkAction}>
                 <input type="hidden" name="freeze" value="no" />

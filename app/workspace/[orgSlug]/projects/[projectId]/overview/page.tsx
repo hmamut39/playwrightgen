@@ -176,7 +176,11 @@ export default async function ProjectOverviewPage({
           after creating one, so the chain belongs here rather than only on
           Quality, which a new user has no reason to open. It hides itself once
           every step is done, so an established project pays nothing for it. */}
-      <SetupChecklist setup={setup} canAct={context.can("requirement:create")} />
+      <SetupChecklist
+        setup={setup}
+        canAct={context.can("requirement:create")}
+        coverHref={`/workspace/${orgSlug}/projects/${projectId}/cover`}
+      />
 
       {/* Where this project runs. With it, automation generated for an approved
           Test Case is run and fixed before a person reviews it, so a reviewer
