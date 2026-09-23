@@ -135,6 +135,53 @@ describe("daily live checks of approved automation", () => {
     expect(testRun.attempts[1].summary).toContain("Daily live check on https://demo.playwright.dev/todomvc/");
   });
 
+  it("runs a newly failing test once more before calling it a regression", async () => {
+    const space = await projectWithApprovedAutomation([publicCode]);
+    await setLiveChecks({ projectId: space.project.id, enabled: true }, space.owned);
+    await runLiveChecksForProject(space.project.id, { prisma, runner: async () => run({}) });
+
+    // Fails, then passes: flaky, and the attempt recorded is the passing one.
+    let attempt = 0;
+    const flakyRound = await runLiveChecksForProject(space.project.id, {
+      prisma,
+      runner: async () => (attempt++ === 0 ? run({ passed: 1, failed: 1 }) : run({})),
+    });
+    expect(attempt).toBe(2);
+    expect(flakyRound).toMatchObject({ checked: 1, passed: 1, failed: 0, failing: [], recovered: [] });
+    expect(flakyRound?.flaky).toMatchObject([{ title: "Behaviour 0", testCaseId: space.testCaseIds[0] }]);
+    expect(flakyRound?.flaky[0].detail).toContain("Timeout 5000ms exceeded.");
+    const testRun = await prisma.testRun.findFirstOrThrow({
+      where: { projectId: space.project.id },
+      include: { attempts: { orderBy: { attemptNumber: "desc" }, take: 1 } },
+    });
+    expect(testRun.status).toBe("PASSED");
+    expect(testRun.attempts[0].summary).toContain("flaky rather than broken");
+
+    // Failing twice is a regression, and it is recorded as failing.
+    let second = 0;
+    const brokenRound = await runLiveChecksForProject(space.project.id, {
+      prisma,
+      runner: async () => {
+        second += 1;
+        return run({ passed: 1, failed: 1 });
+      },
+    });
+    expect(second).toBe(2);
+    expect(brokenRound?.flaky).toEqual([]);
+    expect(brokenRound?.failing).toMatchObject([{ title: "Behaviour 0", newToday: true }]);
+
+    // Already failing: no second run is spent on it.
+    let third = 0;
+    await runLiveChecksForProject(space.project.id, {
+      prisma,
+      runner: async () => {
+        third += 1;
+        return run({ passed: 1, failed: 1 });
+      },
+    });
+    expect(third).toBe(1);
+  });
+
   it("says when a test starts failing or passes again, and posts it to the team's channel", async () => {
     const space = await projectWithApprovedAutomation([publicCode]);
     await setLiveChecks({ projectId: space.project.id, enabled: true }, space.owned);

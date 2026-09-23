@@ -241,6 +241,11 @@ export default async function ProjectOverviewPage({
                     ))}
                   </ul>
                 ) : null}
+                {liveSummary.flaky.length ? (
+                  <p className="mt-3 text-xs font-medium text-amber-800">
+                    Flaky (failed once, passed when run again): {liveSummary.flaky.map((entry) => entry.title).join(", ")}
+                  </p>
+                ) : null}
                 {liveSummary.recovered.length ? (
                   <p className="mt-3 text-xs font-medium text-emerald-800">
                     Passing again: {liveSummary.recovered.map((entry) => entry.title).join(", ")}

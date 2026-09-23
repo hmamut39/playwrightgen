@@ -52,6 +52,8 @@ export type LiveChecksSummary = {
   failing: Array<{ title: string; testCaseId: string; detail: string; newToday: boolean }>;
   /** Tests that failed last time and passed in this round. */
   recovered: Array<{ title: string; testCaseId: string }>;
+  /** Tests that failed, then passed when run again: flaky, not a regression. */
+  flaky: Array<{ title: string; testCaseId: string; detail: string }>;
   /** Whether the team's channel was told about a change, when there was one. */
   alert: "sent" | "failed" | null;
   ranAt: string;
@@ -212,6 +214,13 @@ export function readLiveChecksSummary(value: Prisma.JsonValue | null): LiveCheck
             : [],
         )
       : [],
+    flaky: Array.isArray(summary.flaky)
+      ? summary.flaky.flatMap((entry) =>
+          entry && typeof entry === "object" && !Array.isArray(entry) && typeof entry.title === "string" && typeof entry.testCaseId === "string"
+            ? [{ title: entry.title, testCaseId: entry.testCaseId, detail: typeof entry.detail === "string" ? entry.detail : "" }]
+            : [],
+        )
+      : [],
     recovered: Array.isArray(summary.recovered)
       ? summary.recovered.flatMap((entry) =>
           entry && typeof entry === "object" && !Array.isArray(entry) && typeof entry.title === "string" && typeof entry.testCaseId === "string"
@@ -332,6 +341,7 @@ export async function runLiveChecksForProject(
     notChecked: [],
     failing: [],
     recovered: [],
+    flaky: [],
     alert: null,
     ranAt: new Date().toISOString(),
   };
@@ -361,6 +371,11 @@ export async function runLiveChecksForProject(
     }
 
     const startedAt = Date.now();
+    const previous = await lastRecordedStatus(prisma, {
+      organizationId,
+      projectId,
+      testCaseVersionId: artifact.testCaseVersion.id,
+    });
     let result: PreviewRunResult;
     try {
       result = await runner(code, liveUrl);
@@ -368,6 +383,22 @@ export async function runLiveChecksForProject(
       console.error("[live-checks] run failed to start", error);
       summary.notChecked.push({ title, reason: "The browser could not be reached; it runs in the next round." });
       continue;
+    }
+
+    // A test that passed before and fails now is either a regression or a
+    // flake, and the difference matters: one is the team's problem today, the
+    // other is noise. One more run tells them apart, and it is only spent when
+    // the result changed, so a test failing every day costs no extra run.
+    let flakeFailure = "";
+    if (runVerdict(result) === "failed" && previous === "PASSED" && (!options.deadline || Date.now() < options.deadline)) {
+      const firstFailure = failureOf(result);
+      try {
+        const second = await runner(code, liveUrl);
+        if (runVerdict(second) !== "failed") flakeFailure = firstFailure;
+        result = second;
+      } catch (error) {
+        console.error("[live-checks] second run failed to start", error);
+      }
     }
     const verdict = runVerdict(result);
     const outcome = verdict === "passed" ? "PASSED" : verdict === "failed" ? "FAILED" : "BLOCKED";
@@ -377,7 +408,7 @@ export async function runLiveChecksForProject(
     else summary.partial += 1;
 
     const failureDetails = outcome === "FAILED" ? failureOf(result) : "";
-    const previous = await recordAttempt(prisma, {
+    await recordAttempt(prisma, {
       organizationId,
       projectId,
       testCaseId: artifact.testCase.id,
@@ -390,9 +421,12 @@ export async function runLiveChecksForProject(
       counts: result.counts,
       failureDetails,
       steps: result.tests.flatMap((test) => test.steps),
+      retried: Boolean(flakeFailure),
     });
-    // A change is judged against this test's last recorded result, from CI or
-    // a person as much as from yesterday's check.
+    // A change is judged against this test's last recorded result.
+    if (flakeFailure) {
+      summary.flaky.push({ title, testCaseId: artifact.testCase.id, detail: flakeFailure.slice(0, 500) });
+    }
     if (outcome === "FAILED") {
       summary.failing.push({ title, testCaseId: artifact.testCase.id, detail: failureDetails.slice(0, 500), newToday: previous === "PASSED" });
     } else if (outcome === "PASSED" && previous === "FAILED") {
@@ -422,6 +456,25 @@ export async function runLiveChecksForProject(
   return summary;
 }
 
+/** This test's last recorded result, from CI or a person as much as from yesterday. */
+async function lastRecordedStatus(
+  prisma: PrismaClient,
+  input: { organizationId: string; projectId: string; testCaseVersionId: string },
+) {
+  const run = await prisma.testRun.findFirst({
+    where: {
+      organizationId: input.organizationId,
+      projectId: input.projectId,
+      testCaseVersionId: input.testCaseVersionId,
+      mode: "PLAYWRIGHT_BROWSER",
+      status: { not: "CANCELED" },
+    },
+    orderBy: { createdAt: "asc" },
+    select: { status: true },
+  });
+  return run?.status ?? null;
+}
+
 /** Records one result; returns the run's status before it, or null for a first run. */
 async function recordAttempt(
   prisma: PrismaClient,
@@ -438,6 +491,8 @@ async function recordAttempt(
     counts: PreviewRunResult["counts"];
     failureDetails: string;
     steps: PreviewRunResult["tests"][number]["steps"];
+    /** The first run failed and this one did not: the attempt says so. */
+    retried?: boolean;
   },
 ) {
   return prisma.$transaction(async (transaction) => {
@@ -491,7 +546,7 @@ async function recordAttempt(
         browser: "CHROMIUM",
         baseUrl: input.liveUrl,
         durationMs: input.durationMs,
-        summary: `Daily live check on ${input.liveUrl}: ${input.counts.passed} checks passed${input.counts.failed ? `, ${input.counts.failed} failed` : ""}${input.counts.skipped + input.counts.notReached ? `, ${input.counts.skipped + input.counts.notReached} not run` : ""}.`,
+        summary: `Daily live check on ${input.liveUrl}: ${input.counts.passed} checks passed${input.counts.failed ? `, ${input.counts.failed} failed` : ""}${input.counts.skipped + input.counts.notReached ? `, ${input.counts.skipped + input.counts.notReached} not run` : ""}.${input.retried ? " It failed once and passed when run again, so it is flaky rather than broken." : ""}`,
         sourceRef: "live-check",
         failureDetails: input.failureDetails,
         stepResults: input.steps.map((step, stepIndex) => ({

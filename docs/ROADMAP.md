@@ -110,6 +110,15 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **One failure is not a regression** (2026-09-22): when a daily live check
+  fails a test that passed last time, it runs that test once more before
+  deciding. Passing on the second run is recorded as the passing attempt,
+  noted on the attempt ("failed once and passed when run again, so it is flaky
+  rather than broken"), and listed as flaky on the project page and the Health
+  card -- no red banner and no channel alert. Failing twice is recorded as the
+  regression it is. A test that was already failing is not run twice, so a
+  persistently broken test costs no extra run, and the retry is skipped when
+  the round is out of time.
 - **The first minute, measured and halved** (2026-09-22): a brand-new account
   to planned tests took 77 s; the plan step was 48 s of it, and inside that the
   page read was 3.4 s and the model call 44 s. All three AI calls now set
@@ -327,9 +336,10 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **A live check that fails once is not a regression.** One failure on a
-   flaky test currently reads like a broken feature. Re-run a newly failing
-   test once before recording it, and mark it flaky when the second run passes.
+1. **Quality page: separate flaky from broken.** The Quality page counts
+   flaky tests from run history; now that live checks name a flake the day it
+   happens, show that signal there too, so "flaky" means one thing across the
+   product.
 2. **Verify the paid path end to end — on hold at the owner's request.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to

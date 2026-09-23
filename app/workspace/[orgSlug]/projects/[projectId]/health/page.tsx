@@ -206,6 +206,11 @@ export default async function ProjectHealthPage({
                   {entry.title}
                 </p>
               ))}
+              {live.flaky.length ? (
+                <p className="mt-1 text-xs text-amber-800">
+                  {live.flaky.length} flaky (failed once, passed when run again)
+                </p>
+              ) : null}
               {live.notChecked.length ? <p className="mt-1 text-xs text-slate-500">{live.notChecked.length} not checked</p> : null}
             </>
           )}
