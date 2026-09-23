@@ -80,6 +80,8 @@ export function readBadgeToken(token: string, now: Date = new Date()): BadgeClai
 
 export type BadgeState =
   | { kind: "verified"; verified: number; total: number }
+  /** Verified, but some of it by runs nobody has repeated in a month. */
+  | { kind: "stale"; verified: number; total: number; stale: number }
   | { kind: "failing"; failing: number }
   | { kind: "unverified" }
   | { kind: "empty" }
@@ -120,16 +122,20 @@ export async function readBadgeState(
     }).catch(() => null));
   if (!report) return { kind: "unavailable" };
 
-  const { verified, failing, unverified } = report.totals;
+  const { verified, failing, unverified, stale } = report.totals;
   const total = verified + failing + unverified;
   if (total === 0) return { kind: "empty" };
   if (failing > 0) return { kind: "failing", failing };
   if (verified === 0) return { kind: "unverified" };
+  // A badge saying "12 of 12 verified" on evidence nobody has repeated in a
+  // month is the same lie the page used to tell. It says so instead.
+  if (stale > 0) return { kind: "stale", verified, total, stale };
   return { kind: "verified", verified, total };
 }
 
 const TONE = {
   verified: "#16a34a",
+  stale: "#b45309",
   failing: "#dc2626",
   unverified: "#64748b",
   empty: "#64748b",
@@ -140,6 +146,8 @@ export function badgeMessage(state: BadgeState) {
   switch (state.kind) {
     case "verified":
       return `${state.verified} of ${state.total} verified`;
+    case "stale":
+      return `${state.verified} of ${state.total} verified, ${state.stale} stale`;
     case "failing":
       return `${state.failing} failing`;
     case "unverified":

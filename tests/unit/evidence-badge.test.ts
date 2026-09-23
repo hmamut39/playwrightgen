@@ -69,6 +69,8 @@ describe("what the badge says", () => {
   it("counts verified requirements, and leads with failure when there is any", () => {
     expect(badgeMessage({ kind: "verified", verified: 12, total: 12 })).toBe("12 of 12 verified");
     expect(badgeMessage({ kind: "failing", failing: 2 })).toBe("2 failing");
+    // Green on month-old evidence would be the same lie the page used to tell.
+    expect(badgeMessage({ kind: "stale", verified: 8, total: 12, stale: 3 })).toBe("8 of 12 verified, 3 stale");
     expect(badgeMessage({ kind: "unverified" })).toBe("none verified");
     expect(badgeMessage({ kind: "empty" })).toBe("no requirements");
     expect(badgeMessage({ kind: "unavailable" })).toBe("unavailable");
@@ -91,6 +93,7 @@ describe("what the badge says", () => {
     expect(badgeSvg({ kind: "failing", failing: 1 })).toContain("#dc2626");
     expect(badgeSvg({ kind: "verified", verified: 1, total: 1 })).toContain("#16a34a");
     expect(badgeSvg({ kind: "unavailable" })).toContain("#94a3b8");
+    expect(badgeSvg({ kind: "stale", verified: 1, total: 1, stale: 1 })).toContain("#b45309");
   });
 
   it("grows with its text, so the message is never clipped", () => {
