@@ -84,13 +84,17 @@ export async function getReleaseReadiness(
   // untested project into a green "nothing is blocking this release", which is
   // the single most consequential claim this page makes. An indexed count over
   // the append-only attempt table answers the execution question directly.
-  const [attemptFacts, totalAttempts] = await Promise.all([
+  const [attemptFacts, totalAttempts, projectSettings] = await Promise.all([
     loadAttemptFacts(prisma, {
       organizationId: workspace.organization.id,
       projectId: input.projectId,
     }),
     prisma.testRunAttempt.count({
       where: { organizationId: workspace.organization.id, projectId: input.projectId },
+    }),
+    prisma.project.findUnique({
+      where: { organizationId_id: { organizationId: workspace.organization.id, id: input.projectId } },
+      select: { liveChecksEnabled: true, liveUrl: true },
     }),
   ]);
   const signals = classifyRuns(attemptFacts);
@@ -152,12 +156,18 @@ export async function getReleaseReadiness(
       count: 1,
     });
   } else if (quality.evidence.freshness === "STALE") {
+    // Daily checks re-run the approved automation every day, so a project with
+    // them on cannot drift into this. Where they are off, naming the switch is
+    // more use than naming the problem again.
+    const couldRunDaily = !projectSettings?.liveChecksEnabled;
     findings.push({
       severity: "CAUTION",
       code: "evidence_stale",
       title: "Execution evidence is stale",
-      detail: `The most recent evidence is ${quality.evidence.ageDays} days old and may not reflect the current application.`,
-      href: `${base}/test-runs`,
+      detail: couldRunDaily
+        ? `The most recent evidence is ${quality.evidence.ageDays} days old and may not reflect the current application. Daily checks would run the approved automation every day and keep it current${projectSettings?.liveUrl ? "" : ", once this project says where it runs"}.`
+        : `The most recent evidence is ${quality.evidence.ageDays} days old and may not reflect the current application. Daily checks are on, so this is automation that is not covering what changed.`,
+      href: couldRunDaily ? `${base}/overview#live-checks` : `${base}/test-runs`,
       count: 1,
     });
   }

@@ -133,6 +133,18 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **Stale evidence names its cure** (2026-09-23): Release readiness reported
+  "Execution evidence is stale -- 47 days old" and linked to Test Runs, which
+  is where the problem is visible rather than where it gets fixed. Daily checks
+  re-run the approved automation every day, so a project with them on cannot
+  drift into staleness; where they are off, the finding now says so and links
+  to the switch, adding "once this project says where it runs" when no live URL
+  is set, because that is the actual first step. Where the checks are already
+  on, stale evidence means automation that is not covering what changed, and
+  the finding says that instead and still points at Test Runs. It stays a
+  caution, never a blocker: old evidence is still evidence.
+  Integration-tested by ageing every timestamp the freshness clock reads, not
+  only the run.
 - **Evidence says how old it is** (2026-09-23): a requirement marked verified
   by a run from two hundred days ago read exactly like one verified this
   morning, which is the difference an auditor is actually asking about. Every
@@ -211,7 +223,10 @@ test suite (493 tests) passes.
   integration-tested, and verified in a browser: the markdown was minted with
   the link, carried no proof link, served as image/svg+xml with a five-minute
   cache, rendered at 170x20 in an <img>, and a one-character edit to the token
-  showed "unavailable".
+  showed "unavailable". It also refuses to be more confident than the evidence:
+  when a verified requirement has not been rechecked in a month the badge turns
+  amber and says so -- "8 of 12 verified, 3 stale" -- because a green badge over
+  month-old runs is exactly the claim the pages were changed to stop making.
 - **Evidence you can keep** (2026-09-23): a proof link used to expire and take
   the evidence with it, which is no use to an auditor who has to file
   something. Both the shared page and the team's own report page now have a

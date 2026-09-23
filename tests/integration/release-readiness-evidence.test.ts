@@ -194,6 +194,100 @@ describe("release readiness and missing execution evidence", () => {
     expect(readiness.releasable).toBe(true);
   });
 
+  it("tells a project with stale evidence what would keep it current", async () => {
+    const space = await workspace();
+    const d = deps(space);
+
+    const requirement = await createRequirement({
+      projectId: space.project.id,
+      title: "Customers can pay by card",
+      description: "Card payment succeeds for a valid card.",
+      acceptanceCriteria: "A valid card produces an order confirmation.",
+    }, d);
+    await submitRequirementForReview({ projectId: space.project.id, requirementId: requirement.id }, d);
+    await approveRequirement({ projectId: space.project.id, requirementId: requirement.id }, d);
+
+    const testCase = await createTestCase({
+      projectId: space.project.id,
+      title: "Card payment succeeds",
+      objective: "Verify a valid card produces a confirmation.",
+      steps: ["Submit a valid card"],
+      expectedResults: ["A confirmation appears"],
+    }, d);
+    await submitTestCaseForReview({ projectId: space.project.id, testCaseId: testCase.id }, d);
+    await approveTestCase({ projectId: space.project.id, testCaseId: testCase.id }, d);
+    await linkRequirementToTestCase({
+      projectId: space.project.id,
+      testCaseId: testCase.id,
+      requirementId: requirement.id,
+    }, d);
+
+    const version = await prisma.testCaseVersion.findFirstOrThrow({
+      where: { testCaseId: testCase.id },
+      orderBy: { versionNumber: "desc" },
+    });
+    const testRun = await prisma.testRun.create({
+      data: {
+        organizationId: space.organization.id,
+        projectId: space.project.id,
+        testCaseId: testCase.id,
+        testCaseVersionId: version.id,
+        name: "Card payment smoke",
+        status: "PASSED",
+        latestAttemptNumber: 1,
+        createdByUserId: space.owner.id,
+      },
+    });
+    await prisma.testRunAttempt.create({
+      data: {
+        organizationId: space.organization.id,
+        projectId: space.project.id,
+        testRunId: testRun.id,
+        attemptNumber: 1,
+        result: "PASSED",
+        mode: "MANUAL",
+        environment: "STAGING",
+        browser: "NONE",
+        summary: "Card payment produced a confirmation.",
+        failureDetails: "",
+        stepResults: [],
+        evidence: [],
+        executedByUserId: space.owner.id,
+      },
+    });
+
+    // Forty-five days pass and nobody touches the project. Every timestamp the
+    // freshness clock reads has to move, not only the run: approving a
+    // document counts as activity too, which is why raw statements are used --
+    // Prisma keeps updatedAt current on its own.
+    const longAgo = new Date(Date.now() - 45 * 86_400_000);
+    const id = space.project.id;
+    await prisma.$executeRaw`UPDATE "Requirement" SET "updatedAt" = ${longAgo}, "approvedAt" = ${longAgo} WHERE "projectId" = ${id}::uuid`;
+    await prisma.$executeRaw`UPDATE "TestCase" SET "updatedAt" = ${longAgo}, "approvedAt" = ${longAgo} WHERE "projectId" = ${id}::uuid`;
+    await prisma.$executeRaw`UPDATE "TestRunAttempt" SET "executedAt" = ${longAgo} WHERE "projectId" = ${id}::uuid`;
+
+    const stale = await getReleaseReadiness({ projectId: id }, d);
+    const finding = stale.findings.find((entry) => entry.code === "evidence_stale");
+    expect(finding).toBeDefined();
+    // Naming the problem again is no use; the switch that fixes it is.
+    expect(finding?.detail).toContain("Daily checks would run the approved automation every day");
+    expect(finding?.detail).toContain("once this project says where it runs");
+    expect(finding?.href).toContain("/overview#live-checks");
+    // A caution, not a blocker: old evidence is still evidence.
+    expect(finding?.severity).toBe("CAUTION");
+
+    // With the checks already on, stale evidence means something else, and
+    // sending the reader back to the switch would be wrong.
+    await prisma.project.update({
+      where: { id },
+      data: { liveUrl: "https://example.com", liveChecksEnabled: true },
+    });
+    const running = await getReleaseReadiness({ projectId: id }, d);
+    const second = running.findings.find((entry) => entry.code === "evidence_stale");
+    expect(second?.detail).toContain("Daily checks are on");
+    expect(second?.href).toContain("/test-runs");
+  });
+
   it("blocks an entirely empty project", async () => {
     const space = await workspace();
 
