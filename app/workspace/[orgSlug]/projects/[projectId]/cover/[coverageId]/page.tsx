@@ -39,7 +39,10 @@ export default async function PageCoverageDetail({
   params: Promise<{ orgSlug: string; projectId: string; coverageId: string }>;
 }) {
   const { orgSlug, projectId, coverageId } = await params;
-  const { run, coverage, suite, canAct, costPerItem } = await getPageCoverage({ orgSlug, projectId, coverageId });
+  const { run, coverage, suite, canAct, costPerItem, allowance } = await getPageCoverage({ orgSlug, projectId, coverageId });
+  // How many of the planned tests today's allowance can actually pay for.
+  const affordable = allowance ? Math.floor(allowance.dailyRemaining / costPerItem) : null;
+  const plannedCount = run.items.filter((item) => item.status === "PROPOSED" || item.status === "QUEUED").length;
   const base = `/workspace/${orgSlug}/projects/${projectId}`;
   const here = `${base}/cover/${coverageId}`;
 
@@ -124,6 +127,31 @@ export default async function PageCoverageDetail({
                 <span className="text-xs text-slate-500">
                   Each test uses up to {costPerItem} of the workspace&rsquo;s daily AI requests: one to write it, and one per
                   automatic fix.
+                  {allowance ? (
+                    <>
+                      {" "}
+                      <span
+                        className={
+                          affordable !== null && affordable < plannedCount
+                            ? "font-semibold text-amber-800"
+                            : "font-medium text-slate-700"
+                        }
+                      >
+                        {allowance.dailyRemaining} of {allowance.dailyLimit} left today
+                        {affordable === null
+                          ? null
+                          : affordable >= plannedCount
+                            ? " \u2014 enough for every test here."
+                            : affordable > 0
+                              ? " \u2014 enough for about " +
+                                affordable +
+                                " of these " +
+                                plannedCount +
+                                ". The rest wait until tomorrow, or untick some now."
+                              : " \u2014 none can be proven until it resets at midnight UTC."}
+                      </span>
+                    </>
+                  ) : null}
                 </span>
               </div>
             </form>

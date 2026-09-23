@@ -21,6 +21,7 @@ import { testAccountSchema, type TestAccount } from "@/lib/free-tools/sign-in";
 import { readControls, type SurfaceControl } from "@/lib/free-tools/surface-coverage";
 import {
   OrganizationAiRateLimitError,
+  readOrganizationAiAllowance,
   reserveOrganizationAiRequest,
 } from "@/lib/operations/organization-ai-guard";
 import { recordImportedDraft } from "@/lib/services/imported-drafts";
@@ -595,6 +596,14 @@ export async function getPageCoverage(
     .filter((item) => item.status === "PASSED" || item.status === "PARTIAL")
     .map((item) => item.code ?? "")
     .join("\n");
+  // What proving will cost, against what is actually left today: finding out
+  // by being refused halfway through a plan is the worst way to learn it.
+  const allowance = await readOrganizationAiAllowance({ organizationId: workspace.organization.id }).catch(
+    (error: unknown) => {
+      console.error("[page-coverage] could not read the allowance", error);
+      return null;
+    },
+  );
   return {
     run,
     coverage: measureControls(controls, provenCode),
@@ -602,6 +611,7 @@ export async function getPageCoverage(
     canAct: workspace.can("testcase:create"),
     /** Most the proving can cost: one request per item, plus its fixes. */
     costPerItem: 1 + FIXES_PER_ITEM,
+    allowance,
   };
 }
 

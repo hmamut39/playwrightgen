@@ -126,3 +126,42 @@ export async function reserveOrganizationAiRequest(input: {
     minuteRemaining: Math.max(0, minuteLimit - minuteCount),
   };
 }
+
+/**
+ * How much of today's AI allowance is left, without spending any of it.
+ *
+ * Someone about to approve six tests should be able to see what that leaves,
+ * and finding out by being refused halfway through is the worst way to learn
+ * it. Reads the same counter the reservation increments, so the number shown
+ * is the number that will be enforced.
+ */
+export async function readOrganizationAiAllowance(input: {
+  organizationId: string;
+  source?: EnvironmentSource;
+  now?: Date;
+  read?: (key: string) => Promise<unknown>;
+  resolveLimits?: typeof getOrganizationLimits;
+}): Promise<{ dailyLimit: number; dailyUsed: number; dailyRemaining: number }> {
+  const organizationId = uuid.parse(input.organizationId);
+  const source = input.source ?? process.env;
+  const now = input.now ?? new Date();
+  const limits = await (input.resolveLimits ?? getOrganizationLimits)({ organizationId, now, source });
+  const key = `playwrightgen:organization-ai:${organizationId}:day:${now.toISOString().slice(0, 10)}`;
+  const read =
+    input.read ??
+    (async (dayKey: string) => {
+      const redisConfig = validateRedisEnvironment(source);
+      const redis = new Redis({
+        url: redisConfig.UPSTASH_REDIS_REST_URL,
+        token: redisConfig.UPSTASH_REDIS_REST_TOKEN,
+      });
+      return redis.get<number | string | null>(dayKey);
+    });
+  const raw = await read(key);
+  const dailyUsed = Math.max(0, Number(raw ?? 0) || 0);
+  return {
+    dailyLimit: limits.aiDailyLimit,
+    dailyUsed,
+    dailyRemaining: Math.max(0, limits.aiDailyLimit - dailyUsed),
+  };
+}

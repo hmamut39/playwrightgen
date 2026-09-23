@@ -110,6 +110,13 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **What proving will cost, before it starts** (2026-09-23): the plan page now
+  says "3 of 20 left today -- enough for about 1 of these 6. The rest wait
+  until tomorrow, or untick some now." `readOrganizationAiAllowance` reads the
+  same day counter the reservation increments and spends nothing (unit-tested,
+  including an unused day, a broken value and an overspent one). A failed read
+  hides the line rather than blocking the page. Verified in a browser at three
+  levels: plenty left, nearly gone, and none.
 - **A guided first project** (2026-09-23): the new-project form takes "Where
   does it run?" beside the name. Give a page and the project is created, the
   address saved, the page read and its tests planned while the form answers --
@@ -370,9 +377,9 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Say what proving will cost before it starts.** The plan page shows the
-   AI cost per test; a newcomer approving six tests cannot tell what that
-   leaves of the daily allowance. Show the allowance before and after.
+1. **Say the same thing on the free tools.** Quick Generate and Coverage
+   Review still fail with "you have used today's allowance" only after the
+   click. Show what is left before it, as the plan page now does.
 2. **Verify the paid path end to end — on hold at the owner's request.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to
