@@ -104,6 +104,12 @@ test suite (493 tests) passes.
   tests and named failure modes.
 
 ### Public site
+- **The site says the evidence can be kept** (2026-09-23): the home page's
+  list gained "Keep it: one file that opens anywhere, and a badge for your
+  README", and the proof card says a reader can download the evidence as a
+  file. /mcp's "what happens after your team approves" says the same. Sharing
+  a link, keeping a file and showing a badge are three different needs, and
+  the site now names all three.
 - **The public site says evidence can be shared** (2026-09-23): the home page
   lists "Share the evidence with anyone: a read-only link, expiring,
   stoppable" and carries a fourth integration card, "Proof for the people who
@@ -127,6 +133,53 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **What changed since a snapshot** (2026-09-23): a frozen link says what was
+  true when it was shared; the question a team asks next is what has moved
+  since. Each snapshot link on the Release page now has "What changed since",
+  which compares the kept report against the project now: verdicts that moved
+  (worst first, because that is what stops a release), requirements added, and
+  requirements the snapshot still shows that the project no longer has. One
+  sentence carries it -- "Since this snapshot, 1 requirement got worse and 1
+  requirement improved" -- and the page states plainly that a verdict moving
+  from verified to failing may be a product that broke or a test that was
+  changed, because the record cannot tell them apart. Reading a snapshot this
+  way is testrun:read and records nothing: it is the team reading their own
+  record, not an outsider following a link. No schema change; the snapshot was
+  already stored. Unit-tested, including that a renamed requirement is not
+  counted as added and removed. Verified in a browser at 390px.
+- **A badge that says what is verified, not what compiled** (2026-09-23):
+  every repository already carries a badge saying the build passed, which says
+  nothing about whether the product does what it was meant to do. Minting a
+  proof link now also offers README markdown for
+  /badge/<token>.svg: "requirements | 12 of 12 verified", red and leading with
+  the count the moment anything fails. A badge token is a second signed
+  statement carrying only the SHA-256 of the proof token, so a public README
+  can never be read back into a link that opens the evidence, and the badge
+  dies when the link is stopped or expires. Reading a badge is deliberately
+  not recorded as a visit, because caches and image proxies fetch it on their
+  own schedule and would make "last opened" meaningless. A stopped, expired or
+  forged token still returns an image, saying "unavailable" -- a README that
+  shows a broken image teaches people the product is broken. Unit- and
+  integration-tested, and verified in a browser: the markdown was minted with
+  the link, carried no proof link, served as image/svg+xml with a five-minute
+  cache, rendered at 170x20 in an <img>, and a one-character edit to the token
+  showed "unavailable".
+- **Evidence you can keep** (2026-09-23): a proof link used to expire and take
+  the evidence with it, which is no use to an auditor who has to file
+  something. Both the shared page and the team's own report page now have a
+  download: one self-contained HTML file, no script, no stylesheet, no image,
+  which opens from a file system, prints to PDF and holds the same
+  requirements, verdicts, test cases, results, dates and short commits the
+  page shows -- and no test code. Dates in the file are UTC, because it is
+  read later and somewhere else, and a snapshot link's file says "Snapshot
+  taken" rather than "Read". The file is named
+  <project>-test-evidence-<date>.html so it is recognisable a year later. The
+  shared download carries the same permission as the page: a stopped or
+  expired link downloads nothing. Unit-tested, including that a requirement
+  title containing markup cannot write the document. Verified in a browser:
+  the team's file downloaded from the report page, a stranger's file
+  downloaded from a snapshot link, and that file then opened from disk with
+  every network request blocked.
 - **A snapshot of the day it shipped** (2026-09-23): the Release page now
   offers two links. "Share this evidence outside the team" stays live: whoever
   opens it sees the project as it stands then. "Share a snapshot of today"
@@ -470,7 +523,14 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Verify the paid path end to end — on hold at the owner's request.** Stripe
+1. **A failing daily check should reach someone who is not in Slack.** Alerts
+   go to a Slack or Discord webhook today, and a weekly digest summarises the
+   week. A team without either gets nothing until someone opens the app.
+   Email is the obvious answer and Resend is already wired for the waitlist,
+   but sending to a teammate's address needs a verified sending domain, which
+   is a DNS change on playwrightgen.com and therefore the owner's to make.
+   Build everything else first; ask for the DNS record once, on its own.
+2. **Verify the paid path end to end — on hold at the owner's request.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to
    do it now, so do not raise it until they bring it up.

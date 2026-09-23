@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { PrismaClient } from "@/generated/prisma/client";
+import { badgeTokenFor, readBadgeState } from "@/lib/services/evidence-badge";
 import {
   createProofLink,
   listProofLinks,
@@ -102,6 +103,36 @@ describe("stopping a shared proof link", () => {
     expect(fromSnapshot?.snapshot?.generatedAt).toBeInstanceOf(Date);
     // The live link keeps nothing, so the page reads the project instead.
     expect((await resolveProofLink(tokenOf(live.url), { prisma }))?.snapshot).toBeNull();
+  });
+
+  it("a badge reads through the same record, and stops when the link stops", async () => {
+    const area = await space();
+    await prisma.requirement.create({
+      data: {
+        organizationId: area.organization.id,
+        projectId: area.project.id,
+        title: "Checkout works",
+        description: "A customer can pay.",
+        acceptanceCriteria: "An order is created.",
+        status: "APPROVED",
+        ownerUserId: area.owner.id,
+        createdByUserId: area.owner.id,
+        currentVersionNumber: 1,
+      },
+    });
+
+    const link = await createProofLink({ projectId: area.project.id }, area.owned);
+    const badge = badgeTokenFor(tokenOf(link.url))!;
+    // Nothing verifies the requirement yet, so the badge says so rather than
+    // implying the project is fine.
+    expect(await readBadgeState(badge, { prisma })).toEqual({ kind: "unverified" });
+
+    // Reading a badge is not a visit: caches fetch it on their own schedule.
+    const [row] = await prisma.proofLink.findMany({ where: { projectId: area.project.id } });
+    expect(row.lastViewedAt).toBeNull();
+
+    await revokeProofLink({ projectId: area.project.id, proofLinkId: row.id }, area.owned);
+    expect(await readBadgeState(badge, { prisma })).toEqual({ kind: "unavailable" });
   });
 
   it("keeps only the hash, so the record cannot reopen the link", async () => {

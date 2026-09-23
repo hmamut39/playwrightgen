@@ -60,7 +60,7 @@ const tools: Array<{ name: string; kind: "Reads" | "Runs" | "Proposes"; does: st
 const afterApproval = [
   "Daily checks run it on your live site and say the day it breaks.",
   "Approved code opens as a pull request in your repository.",
-  "The evidence can be shared as a read-only link with someone outside the team.",
+  "The evidence can be shared as a read-only link, downloaded as a file, or shown as a README badge.",
 ];
 
 const KIND_STYLE = {

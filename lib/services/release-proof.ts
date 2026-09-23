@@ -210,6 +210,32 @@ export async function listProofLinks(
   });
 }
 
+/**
+ * One kept snapshot, for a team that wants to compare the project against it.
+ *
+ * Reading evidence the workspace already holds, so it is the same permission
+ * as reading a run. The link is not reopened and nothing is recorded: this is
+ * the team looking at their own record, not an outsider following a link.
+ */
+export async function readProofLinkSnapshot(
+  input: { orgSlug?: string; projectId: string; proofLinkId: string },
+  dependencies?: Dependencies,
+): Promise<{ takenAt: Date; sharedBy: string | null; snapshot: ReleaseEvidenceReport } | null> {
+  const projectId = z.string().uuid().parse(input.projectId);
+  const proofLinkId = z.string().uuid().parse(input.proofLinkId);
+  const workspace = await requireWorkspaceContext(
+    { orgSlug: input.orgSlug, projectId, permission: "testrun:read" },
+    dependencies,
+  );
+  const record = await client(dependencies).proofLink.findFirst({
+    where: { id: proofLinkId, organizationId: workspace.organization.id, projectId },
+    select: { createdAt: true, snapshot: true, createdBy: { select: { displayName: true } } },
+  });
+  const snapshot = record ? readSnapshot(record.snapshot) : null;
+  if (!record || !snapshot) return null;
+  return { takenAt: record.createdAt, sharedBy: record.createdBy?.displayName ?? null, snapshot };
+}
+
 /** Stops one link now. Whoever may share evidence may also stop sharing it. */
 export async function revokeProofLink(
   input: { orgSlug?: string; projectId: string; proofLinkId: string },

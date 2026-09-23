@@ -7,7 +7,9 @@ import { redirect } from "next/navigation";
 import { CopyField } from "@/components/workspace/ci-setup-panel";
 import { PendingButton } from "@/components/workspace/pending-button";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
+import { badgeTokenFor } from "@/lib/services/evidence-badge";
 import { createProofLink, listProofLinks, revokeProofLink } from "@/lib/services/release-proof";
+import { siteUrl } from "@/lib/site";
 import { getReleaseReadiness } from "@/lib/services/release-readiness";
 import { LocalTime } from "@/components/workspace/local-time";
 
@@ -50,6 +52,17 @@ export default async function ReleaseReadinessPage({
 }) {
   const { orgSlug, projectId } = await params;
   const { proof, until, kind } = await searchParams;
+  /**
+   * The badge is derived from the link we have just minted, because only the
+   * hash of a link is kept afterwards. The markdown shows the image alone and
+   * never links to the evidence: a README is public, and a link in it would
+   * hand the evidence to everyone who reads the repository.
+   */
+  const proofToken = proof?.split("/proof/")[1];
+  const badgeToken = proofToken ? badgeTokenFor(proofToken) : null;
+  const badgeMarkdown = badgeToken
+    ? `![requirements](${siteUrl()}/badge/${badgeToken}.svg)`
+    : null;
   const [readiness, context, proofLinks] = await Promise.all([
     getReleaseReadiness({ orgSlug, projectId }),
     requireWorkspaceContext({ orgSlug, projectId }),
@@ -110,6 +123,15 @@ export default async function ReleaseReadinessPage({
                 : "It follows the project: whoever opens it sees the evidence as it stands then."}{" "}
               No test code, and no way into this workspace.
             </p>
+            {badgeMarkdown ? (
+              <>
+                <CopyField label="Badge for a README" value={badgeMarkdown} />
+                <p className="mt-2 text-xs text-emerald-900">
+                  The badge shows the counts only &mdash; how many requirements are verified &mdash; and opens no
+                  evidence, so it is safe in a public README. Stopping the link stops the badge too.
+                </p>
+              </>
+            ) : null}
           </div>
         ) : null}
         {proofLinks.length ? (
@@ -126,6 +148,15 @@ export default async function ReleaseReadinessPage({
                     <LocalTime value={link.expiresAt} style="date" /> &middot;{" "}
                     {link.lastViewedAt ? <>last opened <LocalTime value={link.lastViewedAt} /></> : "never opened"}
                   </span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {link.snapshot ? (
+                      <Link
+                        href={`/workspace/${orgSlug}/projects/${projectId}/release/changes/${link.id}`}
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-cyan-800 hover:bg-slate-50"
+                      >
+                        What changed since
+                      </Link>
+                    ) : null}
                   {context.can("project:update") ? (
                     <form action={revokeProofAction} className="shrink-0">
                       <input type="hidden" name="proofLinkId" value={link.id} />
@@ -133,7 +164,8 @@ export default async function ReleaseReadinessPage({
                         Stop this link
                       </PendingButton>
                     </form>
-                  ) : null}
+                    ) : null}
+                  </div>
                 </li>
               ))}
             </ul>
