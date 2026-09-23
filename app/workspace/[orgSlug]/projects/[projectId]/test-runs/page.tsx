@@ -46,10 +46,9 @@ export default async function TestRunsPage({
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">{project.name}</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Test Runs</h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
-            Immutable execution attempts pinned to an approved Test Case version.
-            Because every attempt records both its approved version and the exact
-            revision it ran against, a flaky test can be told apart from a real
-            regression.
+            Every time a test runs, the result is kept exactly as it happened and tied to the approved version it ran.
+            Keeping the version and the revision with each result is how a test that is merely flaky can be told apart
+            from one that broke.
           </p>
         </div>
         {context.can("testrun:create") ? <Link href={`/workspace/${orgSlug}/projects/${projectId}/test-runs/new`} className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white">New test run</Link> : null}

@@ -140,7 +140,7 @@ describe("daily live checks of approved automation", () => {
     await setLiveChecks({ projectId: space.project.id, enabled: true }, space.owned);
     await runLiveChecksForProject(space.project.id, { prisma, runner: async () => run({}) });
 
-    // Fails, then passes: flaky, and the attempt recorded is the passing one.
+    // Fails, then passes: flaky, and both runs are recorded.
     let attempt = 0;
     const flakyRound = await runLiveChecksForProject(space.project.id, {
       prisma,
@@ -152,10 +152,14 @@ describe("daily live checks of approved automation", () => {
     expect(flakyRound?.flaky[0].detail).toContain("Timeout 5000ms exceeded.");
     const testRun = await prisma.testRun.findFirstOrThrow({
       where: { projectId: space.project.id },
-      include: { attempts: { orderBy: { attemptNumber: "desc" }, take: 1 } },
+      include: { attempts: { orderBy: { attemptNumber: "asc" } } },
     });
     expect(testRun.status).toBe("PASSED");
-    expect(testRun.attempts[0].summary).toContain("flaky rather than broken");
+    // Both runs are kept: a reader sees that it failed and then passed.
+    expect(testRun.attempts.map((attempt) => attempt.result)).toEqual(["PASSED", "FAILED", "PASSED"]);
+    expect(testRun.attempts[1].summary).toContain("Run again straight away");
+    expect(testRun.attempts[1].failureDetails).toContain("Timeout 5000ms exceeded.");
+    expect(testRun.attempts[2].summary).toContain("flaky rather than broken");
 
     // Failing twice is a regression, and it is recorded as failing.
     let second = 0;

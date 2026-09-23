@@ -394,7 +394,26 @@ export async function runLiveChecksForProject(
       const firstFailure = failureOf(result);
       try {
         const second = await runner(code, liveUrl);
-        if (runVerdict(second) !== "failed") flakeFailure = firstFailure;
+        if (runVerdict(second) !== "failed") {
+          flakeFailure = firstFailure;
+          // Keep the failure as its own attempt: a reader of Test Runs sees
+          // that it failed and then passed, not a pass that hides a failure.
+          await recordAttempt(prisma, {
+            organizationId,
+            projectId,
+            testCaseId: artifact.testCase.id,
+            testCaseVersionId: artifact.testCaseVersion.id,
+            name: artifact.name,
+            liveUrl,
+            actorUserId,
+            outcome: "FAILED",
+            durationMs: Date.now() - startedAt,
+            counts: result.counts,
+            failureDetails: firstFailure,
+            steps: result.tests.flatMap((test) => test.steps),
+            note: "Run again straight away to tell a flake from a regression.",
+          });
+        }
         result = second;
       } catch (error) {
         console.error("[live-checks] second run failed to start", error);
@@ -421,7 +440,7 @@ export async function runLiveChecksForProject(
       counts: result.counts,
       failureDetails,
       steps: result.tests.flatMap((test) => test.steps),
-      retried: Boolean(flakeFailure),
+      ...(flakeFailure ? { note: "It failed once and passed when run again, so it is flaky rather than broken." } : {}),
     });
     // A change is judged against this test's last recorded result.
     if (flakeFailure) {
@@ -491,8 +510,8 @@ async function recordAttempt(
     counts: PreviewRunResult["counts"];
     failureDetails: string;
     steps: PreviewRunResult["tests"][number]["steps"];
-    /** The first run failed and this one did not: the attempt says so. */
-    retried?: boolean;
+    /** Added to the attempt's summary, for what a number cannot say. */
+    note?: string;
   },
 ) {
   return prisma.$transaction(async (transaction) => {
@@ -546,7 +565,7 @@ async function recordAttempt(
         browser: "CHROMIUM",
         baseUrl: input.liveUrl,
         durationMs: input.durationMs,
-        summary: `Daily live check on ${input.liveUrl}: ${input.counts.passed} checks passed${input.counts.failed ? `, ${input.counts.failed} failed` : ""}${input.counts.skipped + input.counts.notReached ? `, ${input.counts.skipped + input.counts.notReached} not run` : ""}.${input.retried ? " It failed once and passed when run again, so it is flaky rather than broken." : ""}`,
+        summary: `Daily live check on ${input.liveUrl}: ${input.counts.passed} checks passed${input.counts.failed ? `, ${input.counts.failed} failed` : ""}${input.counts.skipped + input.counts.notReached ? `, ${input.counts.skipped + input.counts.notReached} not run` : ""}.${input.note ? ` ${input.note}` : ""}`,
         sourceRef: "live-check",
         failureDetails: input.failureDetails,
         stepResults: input.steps.map((step, stepIndex) => ({

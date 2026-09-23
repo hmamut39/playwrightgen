@@ -232,7 +232,7 @@ export default async function TestCaseDetailPage({
 
       <section className="mt-8 rounded-2xl border border-cyan-200 bg-cyan-50/30 p-6 shadow-sm sm:p-8">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">Automation Studio</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">Automation</p>
           <h2 className="mt-2 text-lg font-semibold">Automate this Test Case</h2>
           <p className="mt-1 text-sm text-slate-600">
             Browser and API engines create separate, reviewable artifacts pinned to this exact approved Test Case version. Generated code is never executed automatically.

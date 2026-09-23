@@ -45,15 +45,15 @@ export default async function AutomationPage({
       <header className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">
-            Automation Studio
+            Automation
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-            Reviewable Playwright automation
+            The Playwright code for each approved test
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-            Every artifact pins an approved Test Case version. Browser and API
-            engines generate separate drafts that must pass local validation and
-            human review before approval.
+            PlaywrightGen writes the code for an approved test case, runs it on your live page and fixes what fails
+            &mdash; then a person reviews it. Each version stays tied to the test case version it was written for, so a
+            later change to the test case shows the code as out of date instead of pretending it still fits.
           </p>
         </div>
         <Link

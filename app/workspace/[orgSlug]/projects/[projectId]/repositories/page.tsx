@@ -201,9 +201,9 @@ export default async function ProjectRepositoriesPage({
           Connect tests to their source
         </h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">
-          Review the exact commit, Playwright configuration, and test inventory
-          imported from GitHub. Imports remain preliminary until your team
-          creates or links approved Workspace records.
+          Connect the GitHub repository your tests live in. PlaywrightGen reads the Playwright configuration and the
+          list of tests &mdash; it never changes your code &mdash; so a review can point at what is really in the
+          repository. What it imports stays a reference until someone here links it to an approved test case.
         </p>
       </header>
 

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
 import { SetupChecklist } from "@/components/workspace/setup-checklist";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
+import { readLiveChecksSummary } from "@/lib/services/live-checks";
+import { getProjectOverview } from "@/lib/services/projects";
 import { getProjectQualityIntelligence } from "@/lib/services/project-quality";
 import { getProjectSetup } from "@/lib/services/project-setup";
 import { LocalTime } from "@/components/workspace/local-time";
@@ -27,11 +29,19 @@ export default async function ProjectQualityPage({
   params: Promise<{ orgSlug: string; projectId: string }>;
 }) {
   const { orgSlug, projectId } = await params;
-  const [intelligence, setup, context] = await Promise.all([
+  const [intelligence, setup, context, overview] = await Promise.all([
     getProjectQualityIntelligence({ orgSlug, projectId }),
     getProjectSetup({ orgSlug, projectId }),
     requireWorkspaceContext({ orgSlug, projectId }),
+    getProjectOverview({ orgSlug, projectId, allowArchived: true }),
   ]);
+  // "Flaky" means one thing across the product: the same approved version
+  // failed and passed with nothing changed in between. Run history says it
+  // when the latest attempt failed; the daily check says it the same day,
+  // because it runs a newly failing test again before calling it broken.
+  const liveSummary = overview.project.liveChecksEnabled
+    ? readLiveChecksSummary(overview.project.liveChecksLastSummary)
+    : null;
   const base = `/workspace/${orgSlug}/projects/${projectId}`;
   const totalActionableGaps =
     intelligence.gaps.requirementsWithoutApprovedTests.length +
@@ -52,7 +62,7 @@ export default async function ProjectQualityPage({
           <div className="max-w-3xl">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-200">
-                Quality Command Center
+                Quality
               </span>
               <span
                 className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${freshnessStyle[intelligence.evidence.freshness]}`}
@@ -64,8 +74,8 @@ export default async function ProjectQualityPage({
               {intelligence.project.name}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-              Find the next quality gap from approved intent, versioned automation,
-              immutable runs, and reviewed failure evidence.
+              What is missing, in one place: requirements with nothing testing them, approved tests with no current
+              code, runs that failed, and failures nobody has reviewed.
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-4 lg:min-w-56">
@@ -100,6 +110,16 @@ export default async function ProjectQualityPage({
           value={`${intelligence.counts.recentFailedAttempts} of ${intelligence.counts.recentAttempts}`}
           detail="recent attempts failed or blocked in the last 30 days"
           href={`${base}/test-runs`}
+        />
+        <SignalCard
+          label="Flaky in the last live check"
+          value={String(liveSummary?.flaky.length ?? 0)}
+          detail={
+            liveSummary
+              ? "failed and passed for the same version, with nothing changed in between"
+              : "daily live checks are off for this project"
+          }
+          href={`${base}/overview#live-checks`}
         />
         <SignalCard
           label="Open findings"

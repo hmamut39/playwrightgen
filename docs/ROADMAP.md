@@ -110,6 +110,25 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **"Flaky" means one thing** (2026-09-23): a live-check retry now records both
+  runs, so Test Runs shows the failure and the pass that followed rather than a
+  pass that hides a failure, and the Quality page carries a "Flaky in the last
+  live check" signal worded exactly like the Health card ("failed and passed
+  for the same version, with nothing changed in between").
+- **Plain words where a newcomer lands** (2026-09-23): read every empty page in
+  a brand-new workspace and rewrote the ones written for us rather than for a
+  tester. "Automation Studio / Every artifact pins an approved Test Case
+  version" became "Automation / The Playwright code for each approved test";
+  "Quality Command Center" became "Quality"; "Immutable execution attempts
+  pinned to..." became "Every time a test runs, the result is kept exactly as
+  it happened"; Repositories now says plainly that PlaywrightGen never changes
+  your code. The pricing feature list was a year behind and now names what the
+  product does (cover a page, daily checks with alerts, pull requests, MCP).
+- **Public site read with fresh eyes** (2026-09-23): home, Quick Generate,
+  Release Review, /mcp and /pricing all answer in about 1.4 s on production, at
+  390px and desktop, with no overflow and no console errors, and each has a
+  clear way in ("Write & prove it", "Create a free workspace", "Start the 7
+  days free").
 - **One failure is not a regression** (2026-09-22): when a daily live check
   fails a test that passed last time, it runs that test once more before
   deciding. Passing on the second run is recorded as the passing attempt,
@@ -336,10 +355,9 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Quality page: separate flaky from broken.** The Quality page counts
-   flaky tests from run history; now that live checks name a flake the day it
-   happens, show that signal there too, so "flaky" means one thing across the
-   product.
+1. **A guided first project.** The empty workspace still leaves a newcomer to
+   pick a tab. Walk them: name the app, give a page, approve the plan, see the
+   first evidence -- one screen at a time, skippable.
 2. **Verify the paid path end to end — on hold at the owner's request.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to
