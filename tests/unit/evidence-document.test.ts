@@ -1,0 +1,123 @@
+import { describe, expect, it } from "vitest";
+
+import { evidenceDocument, evidenceFileName } from "@/lib/services/evidence-document";
+import type { ReleaseEvidenceReport } from "@/lib/services/release-evidence";
+
+const report = (overrides: Partial<ReleaseEvidenceReport> = {}): ReleaseEvidenceReport => ({
+  project: { id: "p1", name: "Shop", slug: "shop" },
+  organization: { name: "Acme", slug: "acme" },
+  generatedAt: new Date("2026-09-20T14:30:00.000Z"),
+  totals: { verified: 2, failing: 1, unverified: 0 },
+  truncated: false,
+  requirements: [
+    {
+      id: "r1",
+      title: "Customer can pay",
+      status: "APPROVED",
+      versionNumber: 3,
+      externalReference: "JIRA-12",
+      verdict: "VERIFIED",
+      reason: "Two approved tests verify this, both passed.",
+      testCases: [
+        {
+          id: "t1",
+          title: "Pays with a saved card",
+          status: "APPROVED",
+          versionNumber: 4,
+          latestResult: "PASSED",
+          latestExecutedAt: new Date("2026-09-19T08:05:00.000Z"),
+          latestCommitSha: "abcdef1234567890",
+          signal: null,
+        },
+      ],
+    },
+  ],
+  ...overrides,
+});
+
+describe("the evidence as a file someone can keep", () => {
+  it("holds what the shared page shows, and no test code", () => {
+    const html = evidenceDocument(report());
+    expect(html).toContain("Customer can pay");
+    expect(html).toContain("Pays with a saved card");
+    expect(html).toContain("JIRA-12");
+    expect(html).toContain("Two approved tests verify this, both passed.");
+    // The commit is named short, the way a person quotes one.
+    expect(html).toContain("abcdef12");
+    expect(html).not.toContain("abcdef1234567890");
+    // Nothing to fetch and nothing to run: it has to open from a file system.
+    expect(html).not.toMatch(/<script|<link |src=|await page\.|getByRole\(/);
+  });
+
+  it("dates in UTC, because it is read somewhere else later", () => {
+    const html = evidenceDocument(report());
+    expect(html).toContain("2026-09-20 14:30 UTC");
+    expect(html).toContain("2026-09-19 08:05 UTC");
+  });
+
+  it("says whether the date is a snapshot or a reading", () => {
+    expect(evidenceDocument(report(), { frozen: true })).toContain("Snapshot taken 2026-09-20 14:30 UTC");
+    expect(evidenceDocument(report())).toContain("Read 2026-09-20 14:30 UTC");
+  });
+
+  it("says plainly when nothing verifies a requirement", () => {
+    const html = evidenceDocument(
+      report({
+        requirements: [
+          {
+            id: "r2",
+            title: "Refunds work",
+            status: "APPROVED",
+            versionNumber: 1,
+            externalReference: null,
+            verdict: "UNVERIFIED",
+            reason: "No approved test covers this.",
+            testCases: [],
+          },
+        ],
+        totals: { verified: 0, failing: 0, unverified: 1 },
+      }),
+    );
+    expect(html).toContain("No approved test case verifies this requirement.");
+    expect(html).toContain("Not verified");
+  });
+
+  it("reports a test that never ran rather than leaving it blank", () => {
+    const base = report();
+    const html = evidenceDocument(
+      report({
+        requirements: [
+          {
+            ...base.requirements[0],
+            testCases: [{ ...base.requirements[0].testCases[0], latestResult: null, latestExecutedAt: null, latestCommitSha: null }],
+          },
+        ],
+      }),
+    );
+    expect(html).toContain("never run");
+  });
+
+  it("a title with markup in it cannot write the document", () => {
+    const html = evidenceDocument(
+      report({
+        requirements: [
+          {
+            ...report().requirements[0],
+            title: '<img src=x onerror="alert(1)">',
+            reason: "5 > 3 & \"quoted\"",
+          },
+        ],
+      }),
+    );
+    expect(html).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
+    expect(html).toContain("5 &gt; 3 &amp; &quot;quoted&quot;");
+    expect(html).not.toContain("<img");
+  });
+
+  it("names the file so it is recognisable a year later", () => {
+    expect(evidenceFileName(report())).toBe("shop-test-evidence-2026-09-20.html");
+    expect(evidenceFileName(report({ project: { id: "p", name: "Shop", slug: "Big Shop!" } }))).toBe(
+      "big-shop--test-evidence-2026-09-20.html",
+    );
+  });
+});

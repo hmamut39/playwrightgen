@@ -73,7 +73,17 @@ export default async function ReleaseEvidenceReportPage({
         </p>
         <div className="mt-5 flex flex-wrap gap-3 print:hidden">
           <PrintButton />
+          <a
+            href={`${base}/release/download`}
+            className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            Download the file
+          </a>
         </div>
+        <p className="mt-2 text-xs leading-5 text-slate-500 print:hidden">
+          The file is one page that opens anywhere, with no test code in it &mdash; attach it to a ticket or keep it
+          with the release record.
+        </p>
       </header>
 
       <section className="mt-6 grid gap-3 sm:grid-cols-3">

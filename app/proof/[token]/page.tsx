@@ -81,6 +81,15 @@ export default async function ProofPage({ params }: { params: Promise<{ token: s
           record: it cannot be edited here, and it shows no test code.
           {frozen ? "" : " It is read fresh each time this link is opened, so it follows the project."}
         </p>
+        <a
+          href={`/proof/${encodeURIComponent(token)}/download`}
+          className="mt-5 inline-flex rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+        >
+          Download this evidence
+        </a>
+        <p className="mt-2 text-xs leading-5 text-slate-500">
+          One page you can keep, print or attach to a record. This link expires; the file does not.
+        </p>
       </header>
 
       <section className="mt-8 grid gap-3 sm:grid-cols-3" aria-label="Totals">
