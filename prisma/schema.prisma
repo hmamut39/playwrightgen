@@ -382,6 +382,7 @@ model User {
   repositoryImportsRequested   RepositoryImport[]          @relation("RepositoryImportRequestedBy")
   testCaseImportedDrafts       TestCaseImportedDraft[]     @relation("TestCaseImportedDraftImportedBy")
   pageCoveragesCreated         PageCoverage[]              @relation("PageCoverageCreatedBy")
+  proofLinksCreated            ProofLink[]                 @relation("ProofLinkCreatedBy")
 
   @@index([primaryEmail])
   @@index([status])
@@ -416,6 +417,7 @@ model Organization {
   automationArtifacts     AutomationArtifact[]
   testCaseImportedDrafts  TestCaseImportedDraft[]
   pageCoverages           PageCoverage[]
+  proofLinks             ProofLink[]
   automationVersions      AutomationArtifactVersion[]
   githubInstallations     GitHubInstallation[]
   githubWebhookDeliveries GitHubWebhookDelivery[]
@@ -583,6 +585,7 @@ model Project {
   automationArtifacts    AutomationArtifact[]
   testCaseImportedDrafts TestCaseImportedDraft[]
   pageCoverages          PageCoverage[]
+  proofLinks             ProofLink[]
   automationVersions     AutomationArtifactVersion[]
   repositoryConnections  RepositoryConnection[]
   repositoryImports      RepositoryImport[]
@@ -1249,6 +1252,28 @@ enum PageCoverageItemStatus {
 
 /// "Cover this page": a plan of the test cases one page needs, which a person
 /// trims and approves before anything is spent, and then the proving of each.
+/// A read-only link that lets someone outside the team read this project's
+/// evidence. Kept so a team can stop one before it expires; only the hash of
+/// the token is stored, so the row cannot be used to reconstruct the link.
+model ProofLink {
+  id              String    @id @default(uuid()) @db.Uuid
+  organizationId  String    @db.Uuid
+  projectId       String    @db.Uuid
+  tokenHash       String    @unique @db.VarChar(64)
+  createdByUserId String    @db.Uuid
+  expiresAt       DateTime  @db.Timestamptz(3)
+  revokedAt       DateTime? @db.Timestamptz(3)
+  lastViewedAt    DateTime? @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  project      Project      @relation(fields: [organizationId, projectId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy    User         @relation("ProofLinkCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, projectId, id])
+  @@index([organizationId, projectId, createdAt])
+}
+
 model PageCoverage {
   id              String             @id @default(uuid()) @db.Uuid
   organizationId  String             @db.Uuid

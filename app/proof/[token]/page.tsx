@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { LocalTime } from "@/components/workspace/local-time";
 import { buildReleaseEvidenceReport } from "@/lib/services/release-evidence";
-import { readProofToken } from "@/lib/services/release-proof";
+import { resolveProofLink } from "@/lib/services/release-proof";
 
 /**
  * What a shared proof link shows: the evidence, and nothing else.
@@ -49,7 +49,7 @@ function Expired() {
 
 export default async function ProofPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const claim = readProofToken(decodeURIComponent(token));
+  const claim = await resolveProofLink(decodeURIComponent(token));
   if (!claim) return <Expired />;
 
   const report = await buildReleaseEvidenceReport({

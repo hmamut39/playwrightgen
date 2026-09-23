@@ -1,12 +1,13 @@
 import Link from "next/link";
 
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { CopyField } from "@/components/workspace/ci-setup-panel";
 import { PendingButton } from "@/components/workspace/pending-button";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
-import { createProofLink } from "@/lib/services/release-proof";
+import { createProofLink, listProofLinks, revokeProofLink } from "@/lib/services/release-proof";
 import { getReleaseReadiness } from "@/lib/services/release-readiness";
 import { LocalTime } from "@/components/workspace/local-time";
 
@@ -49,15 +50,22 @@ export default async function ReleaseReadinessPage({
 }) {
   const { orgSlug, projectId } = await params;
   const { proof, until } = await searchParams;
-  const [readiness, context] = await Promise.all([
+  const [readiness, context, proofLinks] = await Promise.all([
     getReleaseReadiness({ orgSlug, projectId }),
     requireWorkspaceContext({ orgSlug, projectId }),
+    listProofLinks({ orgSlug, projectId }).catch(() => []),
   ]);
 
   /**
    * Hands someone outside the team a read-only copy of this evidence. The link
    * carries no session and expires; the page it opens shows no test code.
    */
+  async function revokeProofAction(formData: FormData) {
+    "use server";
+    await revokeProofLink({ orgSlug, projectId, proofLinkId: String(formData.get("proofLinkId") ?? "") });
+    revalidatePath(`/workspace/${orgSlug}/projects/${projectId}/release`);
+  }
+
   async function proofLinkAction() {
     "use server";
     const link = await createProofLink({ orgSlug, projectId });
@@ -100,6 +108,32 @@ export default async function ReleaseReadinessPage({
               verifies them and how they last ran &mdash; no test code, and no way into this workspace.
             </p>
           </div>
+        ) : null}
+        {proofLinks.length ? (
+          <section aria-label="Shared evidence links" className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 print:hidden">
+            <p className="text-sm font-semibold text-slate-900">
+              {proofLinks.length} shared link{proofLinks.length === 1 ? "" : "s"} can read this evidence
+            </p>
+            <ul className="mt-3 space-y-2">
+              {proofLinks.map((link) => (
+                <li key={link.id} className="flex flex-col justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600 sm:flex-row sm:items-center">
+                  <span>
+                    Shared by {link.createdBy.displayName || "a lead"} <LocalTime value={link.createdAt} style="date" /> &middot; expires{" "}
+                    <LocalTime value={link.expiresAt} style="date" /> &middot;{" "}
+                    {link.lastViewedAt ? <>last opened <LocalTime value={link.lastViewedAt} /></> : "never opened"}
+                  </span>
+                  {context.can("project:update") ? (
+                    <form action={revokeProofAction} className="shrink-0">
+                      <input type="hidden" name="proofLinkId" value={link.id} />
+                      <PendingButton pendingLabel="Stopping…" className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800">
+                        Stop this link
+                      </PendingButton>
+                    </form>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </section>
         ) : null}
         <div className="mt-5 print:hidden">
           <Link

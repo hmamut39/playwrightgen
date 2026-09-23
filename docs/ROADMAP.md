@@ -121,6 +121,19 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **A proof link can be stopped today** (2026-09-23): every link issued is
+  recorded (`ProofLink`, migration 20260923140000) by the SHA-256 of its
+  token, so the row can stop a link but never rebuild one. The Release page
+  lists the live links with who shared them, when they expire and whether
+  anyone has opened them, each with "Stop this link"; a stopped link opens
+  nothing from the next request. Sharing and stopping are both
+  `project:update`. Verified end to end in a browser (shared, opened,
+  listed with "last opened", stopped, then "This link is no longer valid")
+  and in integration tests, including a signed token whose record was deleted.
+  Note for future sessions: `prisma migrate diff --from-migrations` resets
+  whatever database it is pointed at as its shadow -- it wiped the test
+  database's migration history here, which cost a rebuild. Write additive
+  migrations by hand instead.
 - **Proof links: evidence someone outside the team can read** (2026-09-23):
   "Share this evidence outside the team" on the Release page mints a signed,
   expiring link (30 days, 90 max) to a read-only page at /proof/<token>: each
@@ -432,9 +445,9 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Let a team retire a proof link.** A link expires, but a team that shared
-   one by mistake needs it gone today: keep issued links per project with a
-   "stop this link" button, checked when a proof page loads.
+1. **Say on the Health page that evidence can be shared.** Proof links live
+   on the Release page; the phone-first Health page, which is where people
+   look first, does not mention them.
 2. **Verify the paid path end to end — on hold at the owner's request.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to

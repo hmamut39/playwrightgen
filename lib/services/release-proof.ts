@@ -1,9 +1,11 @@
 import "server-only";
 
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 import { z } from "zod";
 
+import type { PrismaClient } from "@/generated/prisma/client";
+import { getPrismaClient } from "@/lib/db/prisma";
 import {
   requireWorkspaceContext,
   type WorkspaceContextDependencies,
@@ -24,8 +26,13 @@ import { siteUrl } from "@/lib/site";
  * A proof link is a signed statement about one project: this project, this
  * moment, expiring. It carries no session, grants nothing else, and the page it
  * opens shows requirements, what verifies them and how they last ran -- never
- * test code, never a way in. Rotating the runner secret revokes every link
- * issued, which is the emergency stop.
+ * test code, never a way in.
+ *
+ * Every link issued is also recorded by the hash of its token, so a team can
+ * stop one the moment it goes to the wrong person rather than waiting out its
+ * expiry. The record cannot rebuild the link it refers to. Rotating the runner
+ * secret still invalidates every link at once, which is the wider emergency
+ * stop.
  */
 
 const MAX_DAYS = 90;
@@ -37,6 +44,17 @@ const payloadSchema = z.object({
 });
 
 export type ProofClaim = z.infer<typeof payloadSchema>;
+
+type Dependencies = WorkspaceContextDependencies & { prisma?: PrismaClient };
+
+function client(dependencies?: Dependencies) {
+  return dependencies?.prisma ?? getPrismaClient();
+}
+
+/** What is stored for a link: enough to stop it, not enough to use it. */
+export function proofTokenHash(token: string) {
+  return createHash("sha256").update(token).digest("hex");
+}
 
 function secret() {
   return validateRunnerIngestEnvironment().RUNNER_INGEST_SECRET;
@@ -77,7 +95,7 @@ export function readProofToken(token: string, now: Date = new Date()): ProofClai
  */
 export async function createProofLink(
   input: { orgSlug?: string; projectId: string; days?: number; now?: Date },
-  dependencies?: WorkspaceContextDependencies,
+  dependencies?: Dependencies,
 ): Promise<{ url: string; expiresAt: Date }> {
   const projectId = z.string().uuid().parse(input.projectId);
   const workspace = await requireWorkspaceContext(
@@ -93,5 +111,75 @@ export async function createProofLink(
     issuedAt: now.getTime(),
     expiresAt: expiresAt.getTime(),
   });
+  await client(dependencies).proofLink.create({
+    data: {
+      organizationId: workspace.organization.id,
+      projectId,
+      tokenHash: proofTokenHash(token),
+      createdByUserId: workspace.user.id,
+      expiresAt,
+    },
+  });
   return { url: `${siteUrl()}/proof/${token}`, expiresAt };
+}
+
+/**
+ * The claim a link makes, once the record says it is still live.
+ *
+ * A signature alone is not enough any more: a link the team stopped, or one
+ * whose record was never written, opens nothing.
+ */
+export async function resolveProofLink(
+  token: string,
+  options: { prisma?: PrismaClient; now?: Date } = {},
+): Promise<ProofClaim | null> {
+  const now = options.now ?? new Date();
+  const claim = readProofToken(token, now);
+  if (!claim) return null;
+  const prisma = options.prisma ?? getPrismaClient();
+  const record = await prisma.proofLink.findUnique({
+    where: { tokenHash: proofTokenHash(token) },
+    select: { id: true, revokedAt: true, projectId: true },
+  });
+  if (!record || record.revokedAt || record.projectId !== claim.projectId) return null;
+  // Best effort: a reader should never fail because the visit could not be noted.
+  await prisma.proofLink
+    .update({ where: { id: record.id }, data: { lastViewedAt: now } })
+    .catch(() => undefined);
+  return claim;
+}
+
+/** Links a team can still stop, newest first. */
+export async function listProofLinks(
+  input: { orgSlug?: string; projectId: string },
+  dependencies?: Dependencies,
+) {
+  const projectId = z.string().uuid().parse(input.projectId);
+  const workspace = await requireWorkspaceContext(
+    { orgSlug: input.orgSlug, projectId, permission: "testrun:read" },
+    dependencies,
+  );
+  return client(dependencies).proofLink.findMany({
+    where: { organizationId: workspace.organization.id, projectId, revokedAt: null, expiresAt: { gt: new Date() } },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+    select: { id: true, createdAt: true, expiresAt: true, lastViewedAt: true, createdBy: { select: { displayName: true } } },
+  });
+}
+
+/** Stops one link now. Whoever may share evidence may also stop sharing it. */
+export async function revokeProofLink(
+  input: { orgSlug?: string; projectId: string; proofLinkId: string },
+  dependencies?: Dependencies,
+) {
+  const projectId = z.string().uuid().parse(input.projectId);
+  const proofLinkId = z.string().uuid().parse(input.proofLinkId);
+  const workspace = await requireWorkspaceContext(
+    { orgSlug: input.orgSlug, projectId, permission: "project:update" },
+    dependencies,
+  );
+  await client(dependencies).proofLink.updateMany({
+    where: { id: proofLinkId, organizationId: workspace.organization.id, projectId, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
 }
