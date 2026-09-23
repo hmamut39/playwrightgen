@@ -133,6 +133,31 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **Evidence says how old it is** (2026-09-23): a requirement marked verified
+  by a run from two hundred days ago read exactly like one verified this
+  morning, which is the difference an auditor is actually asking about. Every
+  requirement now carries `lastVerifiedAt`, `ageDays` and a freshness band,
+  from the same seven- and thirty-day thresholds the project's own quality
+  view already used, so there is one definition of "old" in the product. The
+  age sits next to the verdict on the shared proof page, on the team's report
+  and in the downloaded file -- "checked 9 days ago", "never run" -- and a
+  verdict older than a month is amber. Above them, `totals.stale` counts the
+  verified requirements nobody has rechecked in a month and says so in a
+  sentence: "1 of the verified requirements was last checked more than a month
+  ago. A verdict is only as current as the run behind it." The verdict itself
+  is unchanged: a passing run is still a passing run, and the age is reported
+  rather than used to overrule it. A snapshot kept before these fields existed
+  still opens and simply says it cannot tell. Unit- and integration-tested
+  (forty-day-old evidence reads STALE and is counted; a requirement nothing
+  has run has no age at all). Verified in a browser, including ageing the
+  development project by forty days to see the banner and restoring all
+  thirteen attempts exactly.
+- **The phone audit was measuring a project that never existed**
+  (2026-09-23): `npm run audit:phone` took the first link containing
+  /projects/, which on a workspace home can be "New project"; every tab under
+  that id answered 500 and the audit reported fourteen broken pages when
+  nothing was broken. It now requires a project id that is a UUID. All
+  seventeen workspace pages fit 390px.
 - **A failing check reaches a team with no Slack** (2026-09-23): daily checks
   could only post to a Slack or Discord channel, so a team with neither learned
   about a failure the next time somebody opened the app -- too late for the one

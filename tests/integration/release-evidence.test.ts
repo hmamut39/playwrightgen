@@ -176,6 +176,40 @@ describe("release evidence report", () => {
     expect(report.requirements[0].testCases[0].latestResult).toBe("PASSED");
   });
 
+  it("says how old the evidence is, and counts a verdict nobody has rechecked", async () => {
+    const space = await workspace();
+    const requirement = await approvedRequirement(space);
+    const testCase = await linkedTestCase(space, requirement.id, true);
+    await recordAttempt(space, testCase.id, "PASSED");
+    // The run happened; forty days pass and nobody runs it again.
+    await prisma.testRunAttempt.updateMany({
+      where: { projectId: space.project.id },
+      data: { executedAt: new Date(Date.now() - 40 * 86_400_000) },
+    });
+
+    const report = await getReleaseEvidenceReport({ projectId: space.project.id }, deps(space));
+
+    // Still verified -- the run did pass -- but no longer presented as current.
+    expect(report.requirements[0].verdict).toBe("VERIFIED");
+    expect(report.requirements[0].freshness).toBe("STALE");
+    expect(report.requirements[0].ageDays).toBe(40);
+    expect(report.requirements[0].lastVerifiedAt).toBeInstanceOf(Date);
+    expect(report.totals).toMatchObject({ verified: 1, stale: 1 });
+  });
+
+  it("reports a requirement nothing has run as having no age at all", async () => {
+    const space = await workspace();
+    const requirement = await approvedRequirement(space);
+    await linkedTestCase(space, requirement.id, true);
+
+    const report = await getReleaseEvidenceReport({ projectId: space.project.id }, deps(space));
+
+    expect(report.requirements[0].freshness).toBe("MISSING");
+    expect(report.requirements[0].ageDays).toBeNull();
+    expect(report.requirements[0].lastVerifiedAt).toBeNull();
+    expect(report.totals.stale).toBe(0);
+  });
+
   it("reports a failing test as failing rather than as coverage", async () => {
     const space = await workspace();
     const requirement = await approvedRequirement(space);

@@ -7,7 +7,7 @@ const report = (overrides: Partial<ReleaseEvidenceReport> = {}): ReleaseEvidence
   project: { id: "p1", name: "Shop", slug: "shop" },
   organization: { name: "Acme", slug: "acme" },
   generatedAt: new Date("2026-09-20T14:30:00.000Z"),
-  totals: { verified: 2, failing: 1, unverified: 0 },
+  totals: { verified: 2, failing: 1, unverified: 0, stale: 0 },
   truncated: false,
   requirements: [
     {
@@ -18,6 +18,9 @@ const report = (overrides: Partial<ReleaseEvidenceReport> = {}): ReleaseEvidence
       externalReference: "JIRA-12",
       verdict: "VERIFIED",
       reason: "Two approved tests verify this, both passed.",
+      lastVerifiedAt: new Date("2026-09-19T08:05:00.000Z"),
+      ageDays: 1,
+      freshness: "FRESH",
       testCases: [
         {
           id: "t1",
@@ -72,10 +75,13 @@ describe("the evidence as a file someone can keep", () => {
             externalReference: null,
             verdict: "UNVERIFIED",
             reason: "No approved test covers this.",
+            lastVerifiedAt: null,
+            ageDays: null,
+            freshness: "MISSING",
             testCases: [],
           },
         ],
-        totals: { verified: 0, failing: 0, unverified: 1 },
+        totals: { verified: 0, failing: 0, unverified: 1, stale: 0 },
       }),
     );
     expect(html).toContain("No approved test case verifies this requirement.");
@@ -119,5 +125,28 @@ describe("the evidence as a file someone can keep", () => {
     expect(evidenceFileName(report({ project: { id: "p", name: "Shop", slug: "Big Shop!" } }))).toBe(
       "big-shop--test-evidence-2026-09-20.html",
     );
+  });
+});
+
+describe("how old the evidence is", () => {
+  it("says it in words a reader does not have to work out", () => {
+    const base = report().requirements[0];
+    const html = (ageDays: number | null) =>
+      evidenceDocument(report({ requirements: [{ ...base, ageDays }] }));
+    expect(html(0)).toContain("checked today");
+    expect(html(1)).toContain("checked yesterday");
+    expect(html(94)).toContain("checked 94 days ago");
+    expect(html(null)).toContain("never run");
+  });
+
+  it("counts stale verified requirements instead of hiding them", () => {
+    const html = evidenceDocument(report({ totals: { verified: 4, failing: 0, unverified: 0, stale: 3 } }));
+    expect(html).toContain("3 of the verified requirements were last checked more than a month ago");
+    expect(evidenceDocument(report())).not.toContain("more than a month ago");
+  });
+
+  it("uses the singular when only one is stale", () => {
+    const html = evidenceDocument(report({ totals: { verified: 1, failing: 0, unverified: 0, stale: 1 } }));
+    expect(html).toContain("1 of the verified requirement was last checked more than a month ago");
   });
 });

@@ -29,6 +29,14 @@ const RESULT_WORD: Record<string, string> = {
   SKIPPED: "was skipped",
 };
 
+/** How old the evidence is, said plainly rather than left for the reader. */
+export function ageWord(ageDays: number | null) {
+  if (ageDays === null) return "never run";
+  if (ageDays === 0) return "checked today";
+  if (ageDays === 1) return "checked yesterday";
+  return `checked ${ageDays} days ago`;
+}
+
 const VERDICT_WORD = {
   VERIFIED: "Verified",
   FAILING: "Failing",
@@ -50,6 +58,7 @@ function requirementSection(requirement: ReleaseEvidenceReport["requirements"][n
   const meta = [
     `Version ${requirement.versionNumber}`,
     requirement.externalReference ? escape(requirement.externalReference) : null,
+    ageWord(requirement.ageDays),
   ]
     .filter(Boolean)
     .join(" &middot; ");
@@ -135,6 +144,7 @@ export function evidenceDocument(report: ReleaseEvidenceReport, options: { froze
   td.good { color: #166534; }
   td.bad { color: #b91c1c; font-weight: 600; }
   .none { color: #94a3b8; margin: 12px 0 0; }
+  .note.stale { background: #fffbeb; color: #92400e; }
   footer { margin: 36px 0 0; padding: 18px 0 0; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px; }
   @media print {
     body { padding: 0; }
@@ -154,6 +164,11 @@ export function evidenceDocument(report: ReleaseEvidenceReport, options: { froze
     <div class="total"><span>Failing</span><strong>${report.totals.failing}</strong></div>
     <div class="total"><span>Not verified</span><strong>${report.totals.unverified}</strong></div>
   </div>
+  ${
+    report.totals.stale
+      ? `<p class="note stale">${report.totals.stale} of the verified requirement${report.totals.stale === 1 ? " was" : "s were"} last checked more than a month ago. A verdict is only as current as the run behind it.</p>`
+      : ""
+  }
 
   <h2>Requirements</h2>
   ${

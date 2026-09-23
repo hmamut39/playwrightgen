@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth/workspace-context";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { getPrismaClient } from "@/lib/db/prisma";
+import { freshnessFor, type EvidenceFreshness } from "@/lib/services/project-quality";
 import { classifyRuns, loadAttemptFacts } from "@/lib/services/run-signals";
 
 /**
@@ -55,6 +56,17 @@ export type EvidenceRequirement = {
   verdict: RequirementVerdict;
   /** Why the verdict is what it is, in one sentence a reader can check. */
   reason: string;
+  /**
+   * When this requirement was last exercised at all, and how old that is.
+   *
+   * A verdict alone is not evidence. "Verified" by a run from two hundred days
+   * ago reads exactly like "verified" this morning, and the difference is the
+   * whole question an auditor is asking. The age travels with the verdict so
+   * nobody has to work it out.
+   */
+  lastVerifiedAt: Date | null;
+  ageDays: number | null;
+  freshness: EvidenceFreshness;
   testCases: EvidenceTestCase[];
 };
 
@@ -63,7 +75,13 @@ export type ReleaseEvidenceReport = {
   organization: { name: string; slug: string };
   generatedAt: Date;
   requirements: EvidenceRequirement[];
-  totals: { verified: number; failing: number; unverified: number };
+  totals: {
+    verified: number;
+    failing: number;
+    unverified: number;
+    /** Verified, but by evidence older than a month. Counted, not hidden. */
+    stale: number;
+  };
   truncated: boolean;
 };
 
@@ -193,6 +211,12 @@ export async function buildReleaseEvidenceReport(input: {
         reason = "Nothing is linked to this requirement, so nothing verifies it.";
       }
 
+      const executedAt = executed
+        .map((testCase) => testCase.latestExecutedAt?.getTime())
+        .filter((time): time is number => typeof time === "number");
+      const lastVerifiedAt = executedAt.length ? new Date(Math.max(...executedAt)) : null;
+      const age = freshnessFor(lastVerifiedAt, now);
+
       return {
         id: requirement.id,
         title: requirement.title,
@@ -201,6 +225,9 @@ export async function buildReleaseEvidenceReport(input: {
         externalReference: requirement.externalReference,
         verdict,
         reason,
+        lastVerifiedAt,
+        ageDays: age.ageDays,
+        freshness: age.freshness,
         testCases,
       };
     });
@@ -211,6 +238,7 @@ export async function buildReleaseEvidenceReport(input: {
     generatedAt: now,
     requirements: evidence,
     totals: {
+      stale: evidence.filter((item) => item.verdict === "VERIFIED" && item.freshness === "STALE").length,
       verified: evidence.filter((item) => item.verdict === "VERIFIED").length,
       failing: evidence.filter((item) => item.verdict === "FAILING").length,
       unverified: evidence.filter((item) => item.verdict === "UNVERIFIED").length,

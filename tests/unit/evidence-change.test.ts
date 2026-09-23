@@ -11,6 +11,9 @@ const requirement = (id: string, title: string, verdict: RequirementVerdict): Ev
   externalReference: null,
   verdict,
   reason: "",
+  lastVerifiedAt: null,
+  ageDays: null,
+  freshness: "MISSING",
   testCases: [],
 });
 
@@ -23,6 +26,7 @@ const report = (requirements: EvidenceRequirement[]): ReleaseEvidenceReport => (
     verified: requirements.filter((item) => item.verdict === "VERIFIED").length,
     failing: requirements.filter((item) => item.verdict === "FAILING").length,
     unverified: requirements.filter((item) => item.verdict === "UNVERIFIED").length,
+    stale: 0,
   },
   truncated: false,
 });

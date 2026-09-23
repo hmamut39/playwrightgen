@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { LocalTime } from "@/components/workspace/local-time";
+import { ageWord } from "@/lib/services/evidence-document";
 import { buildReleaseEvidenceReport } from "@/lib/services/release-evidence";
 import { resolveProofLink } from "@/lib/services/release-proof";
 
@@ -105,6 +106,13 @@ export default async function ProofPage({ params }: { params: Promise<{ token: s
         ))}
       </section>
 
+      {report.totals.stale ? (
+        <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+          {report.totals.stale} of the verified requirement{report.totals.stale === 1 ? " was" : "s were"} last checked
+          more than a month ago. A verdict is only as current as the run behind it.
+        </p>
+      ) : null}
+
       <section className="mt-8 space-y-4">
         {report.requirements.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">
@@ -119,6 +127,10 @@ export default async function ProofPage({ params }: { params: Promise<{ token: s
                   <p className="mt-1 text-xs text-slate-400">
                     Version {requirement.versionNumber}
                     {requirement.externalReference ? ` · ${requirement.externalReference}` : ""}
+                    {" · "}
+                    <span className={requirement.freshness === "STALE" ? "font-semibold text-amber-700" : undefined}>
+                      {ageWord(requirement.ageDays)}
+                    </span>
                   </p>
                 </div>
                 <span

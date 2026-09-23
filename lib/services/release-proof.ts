@@ -149,8 +149,22 @@ export function readSnapshot(value: unknown): ReleaseEvidenceReport | null {
   return {
     ...(raw as unknown as ReleaseEvidenceReport),
     generatedAt: new Date(raw.generatedAt),
+    totals: (() => {
+      const totals = (raw.totals ?? {}) as Partial<ReleaseEvidenceReport["totals"]>;
+      return {
+        verified: totals.verified ?? 0,
+        failing: totals.failing ?? 0,
+        unverified: totals.unverified ?? 0,
+        stale: totals.stale ?? 0,
+      };
+    })(),
+    // A snapshot kept before evidence carried its age still opens; it simply
+    // cannot say how old it was, and says so rather than guessing.
     requirements: (raw.requirements as ReleaseEvidenceReport["requirements"]).map((requirement) => ({
       ...requirement,
+      lastVerifiedAt: date(requirement.lastVerifiedAt as unknown),
+      ageDays: typeof requirement.ageDays === "number" ? requirement.ageDays : null,
+      freshness: requirement.freshness ?? "MISSING",
       testCases: requirement.testCases.map((testCase) => ({
         ...testCase,
         latestExecutedAt: date(testCase.latestExecutedAt as unknown),

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PrintButton } from "@/components/workspace/print-button";
 import { getReleaseEvidenceReport } from "@/lib/services/release-evidence";
 import { LocalTime } from "@/components/workspace/local-time";
+import { ageWord } from "@/lib/services/evidence-document";
 
 /**
  * The evidence pack behind a release decision.
@@ -71,6 +72,12 @@ export default async function ReleaseEvidenceReportPage({
         <p className="mt-3 text-xs text-slate-500">
           Generated <LocalTime value={report.generatedAt} />
         </p>
+        {report.totals.stale ? (
+          <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+            {report.totals.stale} of the verified requirement{report.totals.stale === 1 ? " was" : "s were"} last
+            checked more than a month ago. A verdict is only as current as the run behind it.
+          </p>
+        ) : null}
         <div className="mt-5 flex flex-wrap gap-3 print:hidden">
           <PrintButton />
           <a
@@ -124,6 +131,10 @@ export default async function ReleaseEvidenceReportPage({
                     {requirement.externalReference
                       ? ` · ${requirement.externalReference}`
                       : ""}
+                    {" · "}
+                    <span className={requirement.freshness === "STALE" ? "font-semibold text-amber-700" : undefined}>
+                      {ageWord(requirement.ageDays)}
+                    </span>
                   </p>
                 </div>
                 <span

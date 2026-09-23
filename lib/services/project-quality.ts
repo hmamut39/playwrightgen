@@ -78,7 +78,7 @@ function newestDate(dates: Array<Date | null | undefined>): Date | null {
   return timestamps.length ? new Date(Math.max(...timestamps)) : null;
 }
 
-function freshnessFor(lastEvidenceAt: Date | null, now: Date) {
+export function freshnessFor(lastEvidenceAt: Date | null, now: Date) {
   if (!lastEvidenceAt) {
     return { freshness: "MISSING" as const, ageDays: null };
   }
