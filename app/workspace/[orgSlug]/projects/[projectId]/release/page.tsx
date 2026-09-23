@@ -123,6 +123,10 @@ export default async function ReleaseReadinessPage({
                 : "It follows the project: whoever opens it sees the evidence as it stands then."}{" "}
               No test code, and no way into this workspace.
             </p>
+            <p className="mt-2 text-xs font-semibold text-emerald-900">
+              Copy it now. Only a hash of it is kept, so this is the one time it can be shown &mdash; that is also why
+              a link that goes astray can be stopped but never rebuilt.
+            </p>
             {badgeMarkdown ? (
               <>
                 <CopyField label="Badge for a README" value={badgeMarkdown} />
