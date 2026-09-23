@@ -2,6 +2,7 @@ import "server-only";
 
 import type { PrismaClient } from "@/generated/prisma/client";
 import { getPrismaClient } from "@/lib/db/prisma";
+import { buildReleaseEvidenceReport } from "@/lib/services/release-evidence";
 import { siteUrl } from "@/lib/site";
 
 /**
@@ -19,6 +20,27 @@ const WEEK_MS = 7 * 24 * 60 * 60_000;
 const SAME_ROUND_MS = 30 * 60_000;
 /** A digest is not sent again inside this window, however often the job runs. */
 const MIN_INTERVAL_MS = 6 * 24 * 60 * 60_000;
+
+/**
+ * Where the project stands, not only what moved this week.
+ *
+ * A digest of what broke and recovered answers "what happened"; a lead
+ * forwarding it upward is asked "so where are we". Those are different
+ * questions, and the second one is about requirements rather than tests.
+ */
+export type CoverageLine = { verified: number; failing: number; unverified: number; stale: number };
+
+export function coverageText(coverage: CoverageLine) {
+  const total = coverage.verified + coverage.failing + coverage.unverified;
+  if (total === 0) return null;
+  const parts = [`${coverage.verified} verified`];
+  if (coverage.failing) parts.push(`${coverage.failing} failing`);
+  if (coverage.unverified) parts.push(`${coverage.unverified} not verified`);
+  const stale = coverage.stale
+    ? ` ${coverage.stale} of the verified ${coverage.stale === 1 ? "was" : "were"} last checked over a month ago.`
+    : "";
+  return `${total} requirement${total === 1 ? "" : "s"}: ${parts.join(", ")}.${stale}`;
+}
 
 export type WeekAttempt = {
   testCaseId: string;
@@ -85,19 +107,28 @@ export function isQuietWeek(digest: WeeklyDigest) {
   return digest.broke.length === 0 && digest.recovered.length === 0 && digest.flaky.length === 0 && digest.stillFailing.length === 0;
 }
 
-export function digestText(input: { projectName: string; liveUrl: string; link: string; digest: WeeklyDigest }) {
+export function digestText(input: {
+  projectName: string;
+  liveUrl: string;
+  link: string;
+  digest: WeeklyDigest;
+  coverage?: CoverageLine | null;
+}) {
   const { digest } = input;
   const list = (label: string, titles: string[]) =>
     titles.length ? [`${label} (${titles.length}):`, ...titles.slice(0, 10).map((title) => `- ${title}`)] : [];
   return [
     `PlaywrightGen week in review -- ${input.projectName} (${input.liveUrl})`,
     `${digest.checked} test${digest.checked === 1 ? "" : "s"} checked daily; ${digest.steady} passed every time.`,
+    input.coverage ? coverageText(input.coverage) : null,
     ...list("Broke this week", digest.broke),
     ...list("Still failing", digest.stillFailing),
     ...list("Passing again", digest.recovered),
     ...list("Flaky (failed, then passed on a retry)", digest.flaky),
     `Evidence: ${input.link}`,
-  ].join("\n");
+  ]
+    .filter((line) => line !== null)
+    .join("\n");
 }
 
 function client(dependencies?: { prisma?: PrismaClient }) {
@@ -168,7 +199,14 @@ export async function sendWeeklyDigests(options: {
       ],
     },
     orderBy: { liveChecksLastDigestAt: { sort: "asc", nulls: "first" } },
-    select: { id: true, name: true, liveUrl: true, liveChecksWebhookUrl: true, organization: { select: { slug: true } } },
+    select: {
+      id: true,
+      name: true,
+      organizationId: true,
+      liveUrl: true,
+      liveChecksWebhookUrl: true,
+      organization: { select: { slug: true } },
+    },
     take: 100,
   });
 
@@ -181,13 +219,31 @@ export async function sendWeeklyDigests(options: {
     // Nothing ran at all: the project is not being checked, so there is nothing
     // to report and nothing to record either.
     if (digest.checked === 0) continue;
+    // Best effort: a digest about a week that really happened must not be
+    // lost because the standings could not be read.
+    const coverage = await buildReleaseEvidenceReport({
+      organizationId: project.organizationId,
+      projectId: project.id,
+      now,
+      prisma: options.prisma,
+    })
+      .then((report) => report.totals)
+      .catch(() => null);
+    const standings = coverage ? coverageText(coverage) : null;
     const text = isQuietWeek(digest)
-      ? `PlaywrightGen week in review -- ${project.name} (${project.liveUrl ?? ""})\nAll ${digest.checked} test${digest.checked === 1 ? "" : "s"} passed every day this week.`
+      ? [
+          `PlaywrightGen week in review -- ${project.name} (${project.liveUrl ?? ""})`,
+          `All ${digest.checked} test${digest.checked === 1 ? "" : "s"} passed every day this week.`,
+          standings,
+        ]
+          .filter((line) => line !== null)
+          .join("\n")
       : digestText({
           projectName: project.name,
           liveUrl: project.liveUrl ?? "",
           link: `${siteUrl()}/workspace/${project.organization.slug}/projects/${project.id}/health`,
           digest,
+          coverage,
         });
     const kind = /discord(app)?\.com/.test(project.liveChecksWebhookUrl ?? "") ? "discord" : "slack";
     const body = JSON.stringify(

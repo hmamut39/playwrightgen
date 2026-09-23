@@ -133,6 +133,17 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **The weekly digest says where the project stands** (2026-09-23): the digest
+  answered "what happened this week" -- what broke, recovered, stayed broken,
+  was flaky. A lead forwarding it upward is asked a different question: where
+  are we. That one is about requirements, not tests, so the message now carries
+  a standings line from the same evidence report the Release page uses: "12
+  requirements: 9 verified, 1 failing, 2 not verified. 3 of the verified were
+  last checked over a month ago." Zeroes are left unsaid rather than padded,
+  a project with no requirements gets no line at all, and a quiet week carries
+  the standings too, since "all passed" means more when it says how much is
+  covered. Reading the standings is best effort: a digest about a week that
+  really happened is never lost because the report could not be built.
 - **Stale evidence names its cure** (2026-09-23): Release readiness reported
   "Execution evidence is stale -- 47 days old" and linked to Test Runs, which
   is where the problem is visible rather than where it gets fixed. Daily checks
@@ -586,15 +597,22 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Turn on alert email for everyone.** Everything is built and tested; the
-   only thing left is a verified sending domain. Ask the owner for one DNS
-   record on playwrightgen.com (Resend gives the exact value), then set
-   `LIVE_CHECKS_EMAIL_FROM` in Vercel to an address on it. Until then mail
-   reaches only the Resend account owner.
-2. **Verify the paid path end to end — on hold at the owner's request.** Stripe
+1. **Verify the paid path end to end — on hold at the owner's request.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to
    do it now, so do not raise it until they bring it up.
+
+## Set aside at the owner's request
+
+- **Turning on alert email for everyone.** The feature is built, tested and
+  shipped; mail reaches only the Resend account owner because
+  playwrightgen.com is not a verified sending domain. On 2026-09-23 the owner
+  said this is not necessary for now: "i am okay if that email work not
+  neccessary". Do not raise it again until they do. If they ever ask, the work
+  is one DNS record on playwrightgen.com (Resend gives the exact value, and
+  the domain's DNS is on Cloudflare, not Vercel), then `LIVE_CHECKS_EMAIL_FROM`
+  in Vercel set to an address on it. The `RESEND_API_KEY` in `.env.local` is
+  send-only, so it cannot manage domains.
 
 ## Things to know when resuming
 

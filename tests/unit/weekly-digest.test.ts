@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { digestText, isQuietWeek, summariseWeek, type WeekAttempt } from "@/lib/services/weekly-digest";
+import { coverageText, digestText, isQuietWeek, summariseWeek, type WeekAttempt } from "@/lib/services/weekly-digest";
 
 const day = (index: number, minutes = 0) =>
   new Date(Date.UTC(2026, 8, 14 + index, 6, minutes));
@@ -80,5 +80,30 @@ describe("a week of daily checks, in one message", () => {
     expect(text).toContain("Evidence: https://playwrightgen.com/workspace/acme/projects/1/health");
     // Nothing recovered, so that heading is not there at all.
     expect(text).not.toContain("Passing again");
+    // No standings were passed, so none are invented.
+    expect(text).not.toContain("requirements:");
+  });
+
+  it("says where the project stands, not only what moved", () => {
+    const week = summariseWeek([attempt("a", "Sign in works", "PASSED", day(0))]);
+    const line = (coverage: Parameters<typeof coverageText>[0]) =>
+      digestText({
+        projectName: "Checkout web app",
+        liveUrl: "https://shop.example.com/",
+        link: "https://playwrightgen.com/workspace/acme/projects/1/health",
+        digest: week,
+        coverage,
+      });
+
+    expect(line({ verified: 9, failing: 1, unverified: 2, stale: 3 })).toContain(
+      "12 requirements: 9 verified, 1 failing, 2 not verified. 3 of the verified were last checked over a month ago.",
+    );
+    // Nothing to report is left unsaid rather than padded with zeroes.
+    expect(line({ verified: 4, failing: 0, unverified: 0, stale: 0 })).toContain("4 requirements: 4 verified.");
+    expect(line({ verified: 1, failing: 0, unverified: 0, stale: 1 })).toContain(
+      "1 requirement: 1 verified. 1 of the verified was last checked over a month ago.",
+    );
+    // A project with no requirements has no standings to give.
+    expect(coverageText({ verified: 0, failing: 0, unverified: 0, stale: 0 })).toBeNull();
   });
 });
