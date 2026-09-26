@@ -101,7 +101,18 @@ function requirementSection(requirement: ReleaseEvidenceReport["requirements"][n
  * One HTML file holding the whole report. `frozen` says whether it came from a
  * snapshot, because that changes what the date at the top means.
  */
-export function evidenceDocument(report: ReleaseEvidenceReport, options: { frozen?: boolean } = {}) {
+export type DocumentSignature = {
+  signedName: string;
+  signedRole: string | null;
+  note: string | null;
+  signedAt: Date;
+  evidenceHash: string;
+};
+
+export function evidenceDocument(
+  report: ReleaseEvidenceReport,
+  options: { frozen?: boolean; signatures?: readonly DocumentSignature[] } = {},
+) {
   const title = `Test evidence — ${report.project.name}`;
   const taken = options.frozen
     ? `Snapshot taken ${stamp(report.generatedAt)}. It shows what was true at that moment.`
@@ -178,6 +189,26 @@ export function evidenceDocument(report: ReleaseEvidenceReport, options: { froze
       : `<p class="none">This project has no approved requirements yet, so there is nothing to verify.</p>`
   }
   ${report.truncated ? `<p class="none">Only the first requirements are shown; the project has more.</p>` : ""}
+
+  ${
+    options.signatures?.length
+      ? `<h2>Accepted by</h2>
+  ${options.signatures
+    .map(
+      (signature) => `<section class="requirement">
+      <div class="head">
+        <h3>${escape(signature.signedName)}${signature.signedRole ? ` &middot; ${escape(signature.signedRole)}` : ""}</h3>
+        <span class="verdict verified">Accepted</span>
+      </div>
+      <p class="meta">${stamp(signature.signedAt)} &middot; evidence ${escape(signature.evidenceHash.slice(0, 12))}</p>
+      ${signature.note ? `<p class="reason">${escape(signature.note)}</p>` : ""}
+    </section>`,
+    )
+    .join("")}
+  <p class="none">Each name above is what that person typed when they accepted the evidence. PlaywrightGen did not
+  verify their identity; it recorded that a named person accepted evidence with the reference shown.</p>`
+      : ""
+  }
 
   <footer>
     Exported from PlaywrightGen, which keeps each approval and each run as a record that cannot be edited after the

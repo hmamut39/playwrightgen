@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { evidenceDocument, evidenceFileName } from "@/lib/services/evidence-document";
+import { readLinkSignatures } from "@/lib/services/evidence-signature";
 import { buildReleaseEvidenceReport } from "@/lib/services/release-evidence";
 import { resolveProofLink } from "@/lib/services/release-proof";
 
@@ -24,7 +25,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
     }).catch(() => null));
   if (!report) return new NextResponse("This link is no longer valid.", { status: 404 });
 
-  return new NextResponse(evidenceDocument(report, { frozen: Boolean(claim.snapshot) }), {
+  // Whoever accepted this evidence belongs in the file that is kept, not only
+  // on the page that expires.
+  const signatures = await readLinkSignatures(decodeURIComponent(token)).catch(() => []);
+
+  return new NextResponse(evidenceDocument(report, { frozen: Boolean(claim.snapshot), signatures }), {
     headers: {
       "content-type": "text/html; charset=utf-8",
       "content-disposition": `attachment; filename="${evidenceFileName(report)}"`,

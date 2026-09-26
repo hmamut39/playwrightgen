@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { evidenceDocument, evidenceFileName } from "@/lib/services/evidence-document";
+import { listEvidenceSignatures } from "@/lib/services/evidence-signature";
 import { getReleaseEvidenceReport } from "@/lib/services/release-evidence";
 
 /**
@@ -17,7 +18,8 @@ export async function GET(
 ) {
   const { orgSlug, projectId } = await params;
   const report = await getReleaseEvidenceReport({ orgSlug, projectId });
-  return new NextResponse(evidenceDocument(report), {
+  const signatures = await listEvidenceSignatures({ orgSlug, projectId }).catch(() => []);
+  return new NextResponse(evidenceDocument(report, { signatures }), {
     headers: {
       "content-type": "text/html; charset=utf-8",
       "content-disposition": `attachment; filename="${evidenceFileName(report)}"`,

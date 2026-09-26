@@ -8,6 +8,8 @@ import { CopyField } from "@/components/workspace/ci-setup-panel";
 import { PendingButton } from "@/components/workspace/pending-button";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { badgeTokenFor } from "@/lib/services/evidence-badge";
+import { listEvidenceSignatures, stillMatches } from "@/lib/services/evidence-signature";
+import { getReleaseEvidenceReport } from "@/lib/services/release-evidence";
 import { createProofLink, listProofLinks, revokeProofLink } from "@/lib/services/release-proof";
 import { siteUrl } from "@/lib/site";
 import { getReleaseReadiness } from "@/lib/services/release-readiness";
@@ -63,10 +65,12 @@ export default async function ReleaseReadinessPage({
   const badgeMarkdown = badgeToken
     ? `![requirements](${siteUrl()}/badge/${badgeToken}.svg)`
     : null;
-  const [readiness, context, proofLinks] = await Promise.all([
+  const [readiness, context, proofLinks, signatures, evidenceNow] = await Promise.all([
     getReleaseReadiness({ orgSlug, projectId }),
     requireWorkspaceContext({ orgSlug, projectId }),
     listProofLinks({ orgSlug, projectId }).catch(() => []),
+    listEvidenceSignatures({ orgSlug, projectId }).catch(() => []),
+    getReleaseEvidenceReport({ orgSlug, projectId }).catch(() => null),
   ]);
 
   /**
@@ -145,6 +149,43 @@ export default async function ReleaseReadinessPage({
               </>
             ) : null}
           </div>
+        ) : null}
+        {signatures.length ? (
+          <section aria-label="Accepted evidence" className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <p className="text-sm font-semibold text-emerald-950">
+              {signatures.length} acceptance{signatures.length === 1 ? "" : "s"} recorded
+            </p>
+            <p className="mt-1 text-xs leading-5 text-emerald-900">
+              Somebody outside the team read a shared link and accepted what it showed. PlaywrightGen records the name
+              they gave; it does not check who they are.
+            </p>
+            <ul className="mt-3 space-y-2">
+              {signatures.map((signature) => {
+                // The honest answer a reader needs later: is this still what
+                // the project says, or has it moved since they accepted it?
+                const current = evidenceNow ? stillMatches(signature, evidenceNow) : null;
+                return (
+                  <li key={signature.id} className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600">
+                    <span className="font-semibold text-slate-900">{signature.signedName}</span>
+                    {signature.signedRole ? `, ${signature.signedRole}` : ""} &middot;{" "}
+                    <LocalTime value={signature.signedAt} />
+                    {current === null ? null : current ? (
+                      <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-800">
+                        the evidence is unchanged since
+                      </span>
+                    ) : (
+                      <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-800">
+                        the evidence has changed since
+                      </span>
+                    )}
+                    {signature.note ? (
+                      <span className="mt-1 block whitespace-pre-wrap text-slate-600">{signature.note}</span>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
         ) : null}
         {proofLinks.length ? (
           <section aria-label="Shared evidence links" className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 print:hidden">

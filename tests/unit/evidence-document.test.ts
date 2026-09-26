@@ -194,3 +194,42 @@ describe("who proposed the test", () => {
     expect(html).not.toContain("<script>");
   });
 });
+
+describe("the acceptance in the kept file", () => {
+  const signature = {
+    signedName: "Dana Okonkwo",
+    signedRole: "Product owner",
+    note: "Accepted for the September release.",
+    signedAt: new Date("2026-09-21T09:15:00.000Z"),
+    evidenceHash: "abc123def4567890abc123def4567890abc123def4567890abc123def4567890",
+  };
+
+  it("names who accepted it, when, and which evidence", () => {
+    const html = evidenceDocument(report(), { signatures: [signature] });
+    expect(html).toContain("Accepted by");
+    expect(html).toContain("Dana Okonkwo");
+    expect(html).toContain("Product owner");
+    expect(html).toContain("2026-09-21 09:15 UTC");
+    // A short reference to the exact evidence, so a later reader can check.
+    expect(html).toContain("abc123def456");
+    expect(html).toContain("Accepted for the September release.");
+  });
+
+  it("says plainly that the identity was not verified", () => {
+    const html = evidenceDocument(report(), { signatures: [signature] });
+    expect(html).toContain("did not\n  verify their identity");
+  });
+
+  it("says nothing at all when nobody has accepted it", () => {
+    expect(evidenceDocument(report())).not.toContain("Accepted by");
+  });
+
+  it("cannot have a signer's name write markup into the document", () => {
+    const html = evidenceDocument(report(), {
+      signatures: [{ ...signature, signedName: '<img src=x onerror="alert(1)">', note: "5 > 3" }],
+    });
+    expect(html).toContain("&lt;img src=x");
+    expect(html).not.toContain("<img");
+    expect(html).toContain("5 &gt; 3");
+  });
+});

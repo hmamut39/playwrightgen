@@ -164,6 +164,31 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **Somebody outside the team can accept the evidence, and that is kept**
+  (2026-09-26): every audit chain ends at a person saying "yes, this is
+  acceptable", and in most teams that moment happens in a meeting or an email
+  and is never recorded -- so a year later nobody can say what exactly was
+  accepted. A proof link already puts the evidence in front of that person; the
+  shared page now keeps their answer next to it (`EvidenceSignature`, migration
+  20260926180000). They give a name, optionally a role and a note, and it
+  appears on the page, on the team's Release page, and in the file an auditor
+  keeps.
+  Two rules make it worth keeping. It is bound to what was on the screen: the
+  report is hashed at the moment of signing and a copy is stored, so the
+  Release page can say "the evidence is unchanged since" or "the evidence has
+  changed since" rather than leaving a reader to assume. The hash covers the
+  claims and not the moment they were read, or unchanged evidence would hash
+  differently every time and the comparison would mean nothing. And it does not
+  pretend to be more than it is: the name is what the signer typed, and the
+  page, the Release card and the exported file all say the identity was not
+  verified. What it does have is a link that was sent to someone, expires, can
+  be stopped, and a signature that cannot be moved to other evidence.
+  Signing goes through the same check as opening, so a stopped or expired link
+  records nothing, and a link holds at most twenty acceptances -- it is sent to
+  a few people, not a petition. Integration-tested across all of those.
+  Verified in a browser at 390px: a reader with no account accepted the
+  evidence, saw it echoed back, and the team's Release page showed it with "the
+  evidence is unchanged since".
 - **An agent can finally see what is not covered** (2026-09-26): the MCP server
   let an assistant list test cases -- what somebody has already written -- but
   requirements were invisible to it, so it could not see what was agreed or

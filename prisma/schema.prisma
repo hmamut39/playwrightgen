@@ -418,6 +418,7 @@ model Organization {
   testCaseImportedDrafts  TestCaseImportedDraft[]
   pageCoverages           PageCoverage[]
   proofLinks              ProofLink[]
+  evidenceSignatures      EvidenceSignature[]
   automationVersions      AutomationArtifactVersion[]
   githubInstallations     GitHubInstallation[]
   githubWebhookDeliveries GitHubWebhookDelivery[]
@@ -591,6 +592,7 @@ model Project {
   testCaseImportedDrafts TestCaseImportedDraft[]
   pageCoverages          PageCoverage[]
   proofLinks             ProofLink[]
+  evidenceSignatures     EvidenceSignature[]
   automationVersions     AutomationArtifactVersion[]
   repositoryConnections  RepositoryConnection[]
   repositoryImports      RepositoryImport[]
@@ -1283,9 +1285,49 @@ model ProofLink {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   project      Project      @relation(fields: [organizationId, projectId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   createdBy    User         @relation("ProofLinkCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  signatures   EvidenceSignature[]
 
   @@unique([organizationId, projectId, id])
   @@index([organizationId, projectId, createdAt])
+}
+
+/// Somebody outside the team accepting the evidence in front of them.
+///
+/// Every audit chain ends at a person saying "yes, this is acceptable", and in
+/// most teams that moment happens in a meeting or an email and is never
+/// recorded. A proof link already puts the evidence in front of that person;
+/// this keeps their answer next to it.
+///
+/// The name is what the signer typed. PlaywrightGen does not know who held the
+/// link, so the record says a named person accepted this evidence, not that
+/// their identity was verified -- the strength is that the link was sent to
+/// someone, expires, can be stopped, and the signature is bound to the exact
+/// evidence by its hash.
+model EvidenceSignature {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  projectId      String   @db.Uuid
+  proofLinkId    String   @db.Uuid
+  /// As typed by the signer.
+  signedName     String   @db.VarChar(120)
+  /// Their role, when they gave one: "Product owner", "Head of QA".
+  signedRole     String?  @db.VarChar(120)
+  /// Anything they wanted on the record with the acceptance.
+  note           String?  @db.Text
+  /// SHA-256 of the evidence as it stood when they signed, so a later reader
+  /// can tell whether what they are looking at is what was accepted.
+  evidenceHash   String   @db.VarChar(64)
+  /// The evidence itself, kept so the signature can still be read years later
+  /// even after the project has moved on.
+  evidence       Json     @db.JsonB
+  signedAt       DateTime @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  project      Project      @relation(fields: [organizationId, projectId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  proofLink    ProofLink    @relation(fields: [organizationId, projectId, proofLinkId], references: [organizationId, projectId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([organizationId, projectId, signedAt])
+  @@index([proofLinkId])
 }
 
 model PageCoverage {
