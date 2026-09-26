@@ -164,6 +164,20 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **Approve everything proven, in one action** (2026-09-26): the queue already
+  said which items had passed on the live page; accepting four of them still
+  cost four page loads. The Reviews page now offers "Approve the N proven
+  tests" when more than one in the reader's own turn carries a passing run.
+  Only tests a run has already proven are included -- anything else is a
+  judgement somebody has to make by reading it, and hurrying that would defeat
+  the point of the gate. Each one goes through the same approveTestCase service
+  as the single-item button, one at a time, so no rule is skipped: above all
+  that nobody approves their own work, which holds because the list is built
+  from the reader's own turn and the queue already excludes own submissions
+  wherever another approver exists. A refusal is counted and reported ("3 tests
+  approved. 1 could not be, and stayed where they were"), never swallowed.
+  Verified in a browser: three proven tests accepted in one action, and the
+  reader's queue was then empty.
 - **Somebody outside the team can accept the evidence, and that is kept**
   (2026-09-26): every audit chain ends at a person saying "yes, this is
   acceptable", and in most teams that moment happens in a meeting or an email
@@ -749,30 +763,22 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Make approval fast.** AI has broken review everywhere else: pull requests
-   51% larger, review time up 441%, and 31% more merged with no review at all,
-   while 96% of developers say they do not fully trust AI-written code.
-   PlaywrightGen's answer is that nothing counts until a person approves it,
-   which only holds if approving is quick. One screen per waiting item: what it
-   verifies, that it passed on the real page with N checks, what it does not
-   cover, and what changed since the last version -- and approve everything
-   proven in one action.
-2. **Open the evidence to agents.** Read tools over MCP: what verifies this
-   requirement, what changed since the last release, what is approved but never
-   ran, which past failures look like this one. Feeding agents processed
-   evidence records instead of raw CI logs lifted useful advice from 35% to 53%
-   in published measurements, and the records already exist -- structured
-   retrieval over Postgres, not embeddings, and no vector database.
-3. **UAT sign-off.** A proof link a business reader can sign, with the
-   signature kept as evidence. It is the missing human link in every audit
-   chain and no competitor has it. Pairs with a compliance pack for the EU AI
-   Act, whose high-risk deadline is December 2027.
-4. **MCP 2026-07-28.** The server speaks 2025-06-18. The new spec is a
+1. **A compliance pack.** One download that answers what a notified body asks
+   for: requirement, the tests that verify it, the runs, who approved each and
+   when, who accepted the result, and the version history behind all of it. The
+   pieces exist -- evidence report, authorship, approvals, signatures -- so
+   this is assembly and wording rather than new machinery. The EU AI Act's
+   high-risk deadline is December 2027, so the demand builds through next year.
+2. **Requirements from where the work starts.** Pull from Jira, Linear or
+   GitHub issues so the chain begins at the ticket rather than in the middle.
+   In regulated teams, ticket to requirement to test to run to release is the
+   deliverable.
+3. **MCP 2026-07-28.** The server speaks 2025-06-18. The new spec is a
    stateless rewrite (no initialize handshake, no session id, Mcp-Method
    routing, MRTR in place of server-initiated requests). Clients still
    negotiate older versions, so this is maintenance rather than a feature: do
    it when a client needs it, and keep 2025-06-18 working when it happens.
-5. **Verify the paid path end to end — on hold at the owner's request.** Stripe
+4. **Verify the paid path end to end — on hold at the owner's request.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to
    do it now, so do not raise it until they bring it up.

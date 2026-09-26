@@ -3,7 +3,12 @@ import Link from "next/link";
 import { LocalTime } from "@/components/workspace/local-time";
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
 import { personName } from "@/lib/format/person-name";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+
+import { PendingButton } from "@/components/workspace/pending-button";
 import { getReviewQueue, type ReviewItem } from "@/lib/services/review-queue";
+import { approveTestCase } from "@/lib/services/test-cases";
 
 const KIND_LABEL = {
   requirement: "Requirement",
@@ -101,11 +106,50 @@ function ReviewList({ items, empty }: { items: ReviewItem[]; empty: string }) {
 
 export default async function ReviewQueuePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ orgSlug: string; projectId: string }>;
+  searchParams: Promise<{ approved?: string; refused?: string }>;
 }) {
   const { orgSlug, projectId } = await params;
+  const { approved, refused } = await searchParams;
   const queue = await getReviewQueue({ orgSlug, projectId });
+  const path = `/workspace/${orgSlug}/projects/${projectId}/reviews`;
+
+  /**
+   * Test cases in this reader's turn that already passed on the live page.
+   *
+   * Accepting four tests that each carry a passing run should not cost four
+   * page loads. This is only the ones a run has already proven: anything else
+   * is a judgement someone has to make by reading it, and hurrying that would
+   * defeat the point of the gate.
+   */
+  const provenForMe = queue.yours.filter(
+    (item) => item.kind === "testCase" && item.evidence.provenChecks !== null,
+  );
+
+  async function approveProvenAction() {
+    "use server";
+    const queueNow = await getReviewQueue({ orgSlug, projectId });
+    const proven = queueNow.yours.filter(
+      (item) => item.kind === "testCase" && item.evidence.provenChecks !== null,
+    );
+    let done = 0;
+    let stopped = 0;
+    for (const item of proven) {
+      // One at a time through the same service as the single-item button, so
+      // every rule still applies -- above all that nobody approves their own
+      // work. A refusal is counted and reported, never swallowed.
+      try {
+        await approveTestCase({ orgSlug, projectId, testCaseId: item.id });
+        done += 1;
+      } catch {
+        stopped += 1;
+      }
+    }
+    revalidatePath(path);
+    redirect(`${path}?approved=${done}${stopped ? `&refused=${stopped}` : ""}`);
+  }
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -121,6 +165,36 @@ export default async function ReviewQueuePage({
           Approving is what turns a draft into evidence a release can rely on.
         </p>
       </header>
+
+      {approved ? (
+        <p
+          role="status"
+          className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900"
+        >
+          {approved} test{approved === "1" ? "" : "s"} approved.
+          {refused ? ` ${refused} could not be, and stayed where they were.` : ""}
+        </p>
+      ) : null}
+
+      {provenForMe.length > 1 ? (
+        <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="text-sm font-semibold text-slate-900">
+            {provenForMe.length} of these already passed on the live page
+          </p>
+          <p className="mt-1 text-xs leading-5 text-slate-600">
+            Each one ran and passed, and its run is kept with it. You can accept them together, or open any of them
+            first &mdash; approving is still what makes them count.
+          </p>
+          <form action={approveProvenAction} className="mt-3">
+            <PendingButton
+              pendingLabel="Approving…"
+              className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
+            >
+              Approve the {provenForMe.length} proven tests
+            </PendingButton>
+          </form>
+        </section>
+      ) : null}
 
       <section className="mt-8">
         <h2 className="mb-3 text-lg font-semibold text-slate-950">
