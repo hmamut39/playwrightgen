@@ -812,6 +812,14 @@ In priority order. Each item should end verified in a browser and shipped.
 
 ## Things to know when resuming
 
+- **The full suite can crash this machine.** `npx vitest run` spawns many
+  workers and twice took the owner's machine down mid-run on 2026-09-26, both
+  times freezing their screen. If memory is tight, verify a change with the
+  test files it touches plus typecheck, lint and a build, and say plainly in
+  the report that the full suite was not run. Never start a second vitest
+  process while one is running: they share one test database and destroy each
+  other's fixtures.
+
 - Local development: `npx next dev -p 3000`. The dev database may need
   `db:migrate:verified` with `EXPECTED_NEON_BRANCH_ID=br-restless-dawn-axyqbc68`
   and `EXPECTED_NEON_PROJECT_ID=restless-frost-04247280` (dev branch, not
