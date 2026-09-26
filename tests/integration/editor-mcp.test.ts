@@ -15,6 +15,11 @@ import {
   submitAutomationArtifact,
 } from "@/lib/services/automation-artifacts";
 import { authenticateEditorRequest, type EditorSession } from "@/lib/services/editor-access";
+import {
+  approveRequirement,
+  createRequirement,
+  submitRequirementForReview,
+} from "@/lib/services/requirements";
 import { approveTestCase, createTestCase, submitTestCaseForReview } from "@/lib/services/test-cases";
 import {
   cleanPhase1ATables,
@@ -239,6 +244,8 @@ export default defineConfig({ use: { baseURL: "http://localhost:3000" } });`,
       };
       expect(list.result.tools.map((tool) => tool.name)).toEqual([
         "project_overview",
+        "list_requirements",
+        "get_requirement",
         "list_test_cases",
         "get_test_case",
         "list_approved_automation",
@@ -297,6 +304,112 @@ test('customer applies a discount code', async ({ page }) => {
   await page.getByRole('textbox', { name: 'Discount code' }).fill('SAVE10');
   await expect(page.getByText('10% off')).toBeVisible();
 });`;
+
+    it("shows an agent what is agreed and what nothing verifies yet", async () => {
+      const space = await workspace();
+      const session = await sessionFor(space);
+      const owner = deps(space);
+
+      const requirement = await createRequirement(
+        {
+          projectId: space.project.id,
+          title: "Customers can pay by card",
+          description: "A valid card produces an order.",
+          acceptanceCriteria: "An order confirmation appears.",
+        },
+        owner,
+      );
+      await submitRequirementForReview({ projectId: space.project.id, requirementId: requirement.id }, owner);
+      await approveRequirement({ projectId: space.project.id, requirementId: requirement.id }, owner);
+
+      const listed = await call(session, "list_requirements", {});
+      expect(listed.result.isError).toBeUndefined();
+      const requirements = listed.result.structuredContent?.requirements as Array<Record<string, unknown>>;
+      expect(requirements).toHaveLength(1);
+      expect(requirements[0]).toMatchObject({
+        id: requirement.id,
+        title: "Customers can pay by card",
+        verdict: "UNVERIFIED",
+        verifiedBy: 0,
+      });
+
+      // The whole point: an agent can ask for exactly the gaps.
+      const gaps = await call(session, "list_requirements", { verdict: "UNVERIFIED" });
+      expect((gaps.result.structuredContent?.requirements as unknown[]).length).toBe(1);
+      const verified = await call(session, "list_requirements", { verdict: "VERIFIED" });
+      expect(verified.result.structuredContent?.requirements).toEqual([]);
+      expect(String(verified.result.content[0].text)).toContain("No requirement is verified.");
+
+      const one = await call(session, "get_requirement", { requirementId: requirement.id });
+      expect(String(one.result.content[0].text)).toContain("No approved test verifies this requirement yet.");
+      expect(one.result.structuredContent?.requirement).toMatchObject({ verdict: "UNVERIFIED" });
+
+      // A requirement in another project, or none at all, says so rather than
+      // leaking that something exists elsewhere.
+      const missing = await call(session, "get_requirement", { requirementId: randomUUID() });
+      expect(missing.result.isError).toBe(true);
+      expect(String(missing.result.content[0].text)).toContain("No approved requirement in this project");
+    });
+
+    it("records which assistant proposed the test, and which sent its code", async () => {
+      const space = await workspace();
+      const session = await sessionFor(space);
+      // What the editor said about itself on the way in.
+      const named = { ...session, agent: "Claude Code 2.1.0" };
+
+      const proposed = await call(named, "propose_test_case", {
+        title: "Customer applies a discount code",
+        objective: "A valid code lowers the total.",
+        steps: ["Open the cart", "Enter SAVE10"],
+        expectedResults: ["The cart shows 10% off"],
+        playwrightCode: draftCode,
+      });
+      const id = String(proposed.result.structuredContent?.id);
+
+      // On the version, not the Test Case: who proposed version 1 does not
+      // change when someone edits it later.
+      const version = await prisma.testCaseVersion.findFirstOrThrow({
+        where: { testCaseId: id, versionNumber: 1 },
+      });
+      expect(version.authoredByAgent).toBe("Claude Code 2.1.0");
+      const draft = await prisma.testCaseImportedDraft.findFirstOrThrow({ where: { testCaseId: id } });
+      expect(draft.authoredByAgent).toBe("Claude Code 2.1.0");
+
+      // Code sent later by a different assistant is attributed to that one.
+      await call({ ...session, agent: "Cursor" }, "submit_playwright_code", {
+        testCaseId: id,
+        code: draftCode.replace("SAVE10", "SAVE20"),
+      });
+      expect(
+        (await prisma.testCaseImportedDraft.findFirstOrThrow({ where: { testCaseId: id } })).authoredByAgent,
+      ).toBe("Cursor");
+      // The proposal's own authorship is history and does not move.
+      expect(
+        (await prisma.testCaseVersion.findFirstOrThrow({ where: { testCaseId: id, versionNumber: 1 } })).authoredByAgent,
+      ).toBe("Claude Code 2.1.0");
+    });
+
+    it("leaves authorship empty when the caller did not say who it was", async () => {
+      const space = await workspace();
+      const session = await sessionFor(space);
+
+      const proposed = await call(session, "propose_test_case", {
+        title: "Customer sees the cart total",
+        objective: "The total adds up.",
+        steps: ["Open the cart"],
+        expectedResults: ["A total is shown"],
+      });
+      const id = String(proposed.result.structuredContent?.id);
+
+      // Null, never a guess: a record that invents an author is worse than one
+      // that admits it does not know.
+      const version = await prisma.testCaseVersion.findFirstOrThrow({
+        where: { testCaseId: id, versionNumber: 1 },
+      });
+      expect(version.authoredByAgent).toBeNull();
+      // It is still recorded as an AI proposal, which is what it is.
+      expect((await prisma.testCase.findUniqueOrThrow({ where: { id } })).source).toBe("AI_SUGGESTED");
+    });
 
     it("lets an agent propose a test case with code for review, but never approve it", async () => {
       const space = await workspace();
@@ -502,7 +615,7 @@ test("adds", async ({ page }) => {
 
       const listed = await post({ jsonrpc: "2.0", id: 1, method: "tools/list" });
       expect(listed.status).toBe(200);
-      expect((await listed.json()).result.tools).toHaveLength(13);
+      expect((await listed.json()).result.tools).toHaveLength(15);
 
       const notified = await post({ jsonrpc: "2.0", method: "notifications/initialized" });
       expect(notified.status).toBe(202);

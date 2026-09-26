@@ -164,6 +164,62 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **An agent can finally see what is not covered** (2026-09-26): the MCP server
+  let an assistant list test cases -- what somebody has already written -- but
+  requirements were invisible to it, so it could not see what was agreed or
+  what nothing verifies. Writing tests for the gaps is impossible if the gaps
+  cannot be named, and this project is the one place that knows them, because
+  it holds intent, tests and runs together. `list_requirements` returns each
+  approved requirement with a verdict derived from stored records only, its
+  reason, how many days since anything checked it, and how many approved tests
+  verify it; `verdict: "UNVERIFIED"` returns exactly the gaps.
+  `get_requirement` returns one of them with every approved test, how each last
+  ran, and which assistant proposed it -- provenance and proof in one answer.
+  Both read only, spend no AI allowance, and are annotated readOnlyHint so a
+  client can approve them without asking. Fifteen tools now, and /mcp says so.
+  Verified over real HTTP against the development project: the requirement came
+  back FAILING with "1 approved test last ran and did not pass. Last checked 12
+  days ago", and its three tests with their individual results.
+- **The review queue answers what a reviewer would open each item to learn**
+  (2026-09-26): approval is the gate the whole product rests on, and a gate is
+  only worth having if people pass through it. Reviewing AI-written work is
+  measurably slower than reviewing a person's -- published figures this year
+  put review time up 441% and 31% more pull requests merged with no review at
+  all -- and a queue that said only "a test case is waiting" made every item
+  cost a page load and a read. Each waiting item now carries the three facts a
+  reviewer actually decides on: "passed on the live page - 9 checks", who
+  proposed it when an assistant did, and the requirement it is linked to
+  verify. Only a receipt reading "passed" earns the badge; a partial run shows
+  nothing, because calling it proven would be the overstatement the rest of the
+  product avoids. Integration-tested both ways. Verified in a browser: a proven
+  draft submitted for review showed its badge in the queue at 390px.
+  A note for future sessions: do not run a second vitest file while the full
+  suite is running. They share one test database, and the cleanup between tests
+  deletes everything, so the two runs destroy each other's fixtures and fail
+  with foreign key errors that look like product bugs.
+- **The evidence names which assistant proposed the test** (2026-09-26): a
+  proposal arriving over MCP was recorded as AI_SUGGESTED and nothing more, so
+  the trail said "an AI made this" and stopped -- while the server received the
+  caller's identity on every request and discarded it. Traceability for
+  AI-assisted work is now expected to name which tool produced which artifact,
+  and PlaywrightGen is in the rare position of being both the MCP server and
+  the evidence store, so it can record the answer instead of reconstructing it
+  later. `TestCaseVersion.authoredByAgent` and
+  `TestCaseImportedDraft.authoredByAgent` (migration 20260926170000) hold the
+  name; it appears in version history, on the shared proof page, and as a
+  "Proposed by" column in the file an auditor keeps.
+  The name is the caller's own claim about itself, taken from MCP's clientInfo
+  where a message carries it and otherwise from the User-Agent, with the
+  version kept because "which tool, and which version" is what a trail is asked
+  later. It authorizes nothing: the editor token decides access and a person
+  still approves everything. A caller that says only "node" or "curl" leaves
+  the field null rather than putting a runtime in the audit trail as though
+  something had been established. Recorded on the version rather than the Test
+  Case, because who proposed version 1 does not change when someone edits it.
+  Unit- and integration-tested, including code later sent by a different
+  assistant being attributed to that one while the proposal's authorship stays
+  put. Verified over real HTTP: a call with "Claude Code/2.1.0 (mcp)" was
+  recorded as "Claude Code 2.1.0", and one with "node" as null.
 - **The project notices tests that already passed** (2026-09-26): walked what
   happens *after* the "cover a page" shortcut, which nobody had checked. Two
   tests had just been written, run and passed on the live page -- and the
@@ -668,7 +724,30 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Verify the paid path end to end — on hold at the owner's request.** Stripe
+1. **Make approval fast.** AI has broken review everywhere else: pull requests
+   51% larger, review time up 441%, and 31% more merged with no review at all,
+   while 96% of developers say they do not fully trust AI-written code.
+   PlaywrightGen's answer is that nothing counts until a person approves it,
+   which only holds if approving is quick. One screen per waiting item: what it
+   verifies, that it passed on the real page with N checks, what it does not
+   cover, and what changed since the last version -- and approve everything
+   proven in one action.
+2. **Open the evidence to agents.** Read tools over MCP: what verifies this
+   requirement, what changed since the last release, what is approved but never
+   ran, which past failures look like this one. Feeding agents processed
+   evidence records instead of raw CI logs lifted useful advice from 35% to 53%
+   in published measurements, and the records already exist -- structured
+   retrieval over Postgres, not embeddings, and no vector database.
+3. **UAT sign-off.** A proof link a business reader can sign, with the
+   signature kept as evidence. It is the missing human link in every audit
+   chain and no competitor has it. Pairs with a compliance pack for the EU AI
+   Act, whose high-risk deadline is December 2027.
+4. **MCP 2026-07-28.** The server speaks 2025-06-18. The new spec is a
+   stateless rewrite (no initialize handshake, no session id, Mcp-Method
+   routing, MRTR in place of server-initiated requests). Clients still
+   negotiate older versions, so this is maintenance rather than a feature: do
+   it when a client needs it, and keep 2025-06-18 working when it happens.
+5. **Verify the paid path end to end — on hold at the owner's request.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to
    do it now, so do not raise it until they bring it up.

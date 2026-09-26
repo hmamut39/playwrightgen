@@ -29,6 +29,7 @@ import {
   listAutomationArtifacts,
 } from "@/lib/services/automation-artifacts";
 import type { EditorSession } from "@/lib/services/editor-access";
+import { getReleaseEvidenceReport } from "@/lib/services/release-evidence";
 import { getReleaseReadiness } from "@/lib/services/release-readiness";
 import {
   getPageCoverage,
@@ -241,6 +242,121 @@ const tools: Tool[] = [
           severity, code, title, detail, count,
         })),
       });
+    },
+  },
+  {
+    /**
+     * What the product is supposed to do, and whether anything shows that it
+     * does.
+     *
+     * An assistant could already list test cases, which is the answer to "what
+     * has somebody written". It could not see requirements at all, so it could
+     * not see the more useful question: what was agreed, and what is still
+     * unverified. Writing tests for the gaps is only possible once the gaps can
+     * be named, and this project is the one place that knows them, because it
+     * holds intent, tests and runs together.
+     */
+    name: "list_requirements",
+    title: "List requirements and what verifies them",
+    description:
+      "Approved requirements in this project with a verdict derived from stored records only: VERIFIED (an approved test last ran and passed), FAILING (one last ran and did not pass), or UNVERIFIED (nothing approved covers it, or nothing has run). Use verdict: \"UNVERIFIED\" to find what still needs a test. Reads only; spends no AI allowance.",
+    annotations: READ_ONLY,
+    inputSchema: {
+      type: "object",
+      properties: {
+        verdict: {
+          type: "string",
+          enum: ["VERIFIED", "FAILING", "UNVERIFIED"],
+          description: "Only requirements with this verdict.",
+        },
+      },
+      additionalProperties: false,
+    },
+    async run(session, args) {
+      const input = z
+        .object({ verdict: z.enum(["VERIFIED", "FAILING", "UNVERIFIED"]).optional() })
+        .parse(args ?? {});
+      const report = await getReleaseEvidenceReport(
+        { orgSlug: session.orgSlug, projectId: session.projectId },
+        session.dependencies,
+      );
+      const requirements = report.requirements
+        .filter((requirement) => !input.verdict || requirement.verdict === input.verdict)
+        .map((requirement) => ({
+          id: requirement.id,
+          title: requirement.title,
+          verdict: requirement.verdict,
+          reason: requirement.reason,
+          lastCheckedDaysAgo: requirement.ageDays,
+          externalReference: requirement.externalReference,
+          verifiedBy: requirement.testCases.length,
+        }));
+      const body = requirements.length
+        ? requirements
+            .map(
+              (requirement) =>
+                `- ${requirement.title}\n  id: ${requirement.id} · ${requirement.verdict}${requirement.externalReference ? ` · ${requirement.externalReference}` : ""}\n  ${requirement.reason}${requirement.lastCheckedDaysAgo === null ? "" : ` Last checked ${requirement.lastCheckedDaysAgo} day${requirement.lastCheckedDaysAgo === 1 ? "" : "s"} ago.`}`,
+            )
+            .join("\n")
+        : input.verdict
+          ? `No requirement is ${input.verdict.toLowerCase()}.`
+          : "This project has no approved requirements yet.";
+      return text(
+        `${body}\n\n${report.totals.verified} verified, ${report.totals.failing} failing, ${report.totals.unverified} not verified.`,
+        {
+          requirements,
+          totals: report.totals,
+        },
+      );
+    },
+  },
+  {
+    /**
+     * One requirement, with the tests that verify it and how they last ran.
+     * The same chain the evidence page shows a person, in the form an
+     * assistant can act on.
+     */
+    name: "get_requirement",
+    title: "Get a requirement and its evidence",
+    description:
+      "One approved requirement: its verdict, why, and every approved test that verifies it with how that test last ran. Use it before writing a test, so the new one covers what is missing rather than what is already proven. Reads only; spends no AI allowance.",
+    annotations: READ_ONLY,
+    inputSchema: {
+      type: "object",
+      properties: { requirementId: { type: "string", description: "From list_requirements." } },
+      required: ["requirementId"],
+      additionalProperties: false,
+    },
+    async run(session, args) {
+      const input = z.object({ requirementId: z.string().uuid() }).parse(args ?? {});
+      const report = await getReleaseEvidenceReport(
+        { orgSlug: session.orgSlug, projectId: session.projectId },
+        session.dependencies,
+      );
+      const requirement = report.requirements.find((entry) => entry.id === input.requirementId);
+      if (!requirement) {
+        return toolError("No approved requirement in this project has that id. Use list_requirements to find it.");
+      }
+      const tests = requirement.testCases.map((testCase) => ({
+        id: testCase.id,
+        title: testCase.title,
+        version: testCase.versionNumber,
+        lastResult: testCase.latestResult,
+        lastRunAt: testCase.latestExecutedAt ? testCase.latestExecutedAt.toISOString() : null,
+        proposedBy: testCase.authoredByAgent,
+      }));
+      const lines = tests.length
+        ? tests
+            .map(
+              (testCase) =>
+                `- ${testCase.title}\n  id: ${testCase.id} · v${testCase.version} · ${testCase.lastResult ? `last run ${testCase.lastResult.toLowerCase()}` : "never run"}${testCase.proposedBy ? ` · proposed by ${testCase.proposedBy}` : ""}`,
+            )
+            .join("\n")
+        : "No approved test verifies this requirement yet.";
+      return text(
+        `${requirement.title}\n${requirement.verdict} — ${requirement.reason}\n\n${lines}`,
+        { requirement: { id: requirement.id, title: requirement.title, verdict: requirement.verdict, reason: requirement.reason }, tests },
+      );
     },
   },
   {
@@ -954,6 +1070,7 @@ const tools: Tool[] = [
           type: input.type,
           priority: input.priority,
           source: "AI_SUGGESTED",
+          authoredByAgent: session.agent ?? null,
           tags: ["from-editor"],
           automationStatus: input.playwrightCode ? "CANDIDATE" : undefined,
         },
@@ -963,7 +1080,13 @@ const tools: Tool[] = [
       if (input.playwrightCode) {
         try {
           const attached = await attachEditorCode(
-            { ...scope, testCaseId: created.id, code: input.playwrightCode, runReceipt: input.runReceipt },
+            {
+              ...scope,
+              testCaseId: created.id,
+              code: input.playwrightCode,
+              runReceipt: input.runReceipt,
+              authoredByAgent: session.agent ?? null,
+            },
             session.dependencies,
           );
           notes.push(
@@ -1025,6 +1148,7 @@ const tools: Tool[] = [
           testCaseId: input.testCaseId,
           code: input.code,
           runReceipt: input.runReceipt,
+          authoredByAgent: session.agent ?? null,
         },
         session.dependencies,
       );

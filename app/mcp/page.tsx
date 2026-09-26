@@ -48,6 +48,8 @@ const tools: Array<{ name: string; kind: "Reads" | "Runs" | "Proposes"; does: st
   { name: "run_playwright_test", kind: "Runs", does: "Replays a test on the live page; reports each step and the page at a failure." },
   { name: "propose_test_case", kind: "Proposes", does: "Creates a draft test case, optionally with code and a passing run, for review." },
   { name: "submit_playwright_code", kind: "Proposes", does: "Sends code for an existing test case, waiting for a person to use it." },
+  { name: "list_requirements", kind: "Reads", does: "What the product is meant to do, each with a verdict from stored records: verified, failing, or nothing verifies it yet. Ask for the unverified ones to find the gaps worth writing." },
+  { name: "get_requirement", kind: "Reads", does: "One requirement with every approved test that verifies it, how each last ran, and who proposed it." },
   { name: "list_test_cases", kind: "Reads", does: "Test cases with their review status and version." },
   { name: "get_test_case", kind: "Reads", does: "Approved steps, expected results and the version marker for the test title." },
   { name: "list_approved_automation", kind: "Reads", does: "Reviewed Playwright automation in the project." },
@@ -134,7 +136,7 @@ export default function McpPage() {
         <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <h2 className="text-2xl font-semibold tracking-[-0.03em] text-slate-950">Tools</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Thirteen tools over the Model Context Protocol (Streamable HTTP). Running and generating use your
+            Fifteen tools over the Model Context Protocol (Streamable HTTP). Running and generating use your
             workspace&rsquo;s daily AI allowance.
           </p>
           <div className="mt-5 overflow-x-auto">
