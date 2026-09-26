@@ -99,6 +99,103 @@ describe("review queue", () => {
     expect(ownerQueue.yours.map((item) => item.kind).sort()).toEqual(["requirement", "testCase"]);
   });
 
+  /** A receipt in the shape the signer issues, so it survives validation. */
+  const receipt = (input: { verdict: "passed" | "partial"; passed: number; skipped: number }) => ({
+    v: 1,
+    codeSha256: "a".repeat(64),
+    pageUrl: "https://shop.example.com/",
+    verdict: input.verdict,
+    passed: input.passed,
+    failed: 0,
+    skipped: input.skipped,
+    notReached: 0,
+    tests: 1,
+    durationMs: 4_200,
+    ranAt: new Date().toISOString(),
+  });
+
+  it("says in the queue what a reviewer would otherwise open each item to learn", async () => {
+    const space = await workspace();
+    const lead = await person(space, "PROJECT_LEAD");
+    const engineer = await person(space, "MEMBER");
+
+    const requirement = await createRequirement(
+      {
+        projectId: space.project.id,
+        title: "Customers can pay by card",
+        description: "A valid card produces an order.",
+        acceptanceCriteria: "An order confirmation appears.",
+      },
+      as(space, engineer),
+    );
+    const testCase = await createTestCase(
+      {
+        projectId: space.project.id,
+        title: "Card payment succeeds",
+        objective: "A valid card produces a confirmation.",
+        steps: ["Submit a valid card"],
+        expectedResults: ["A confirmation appears"],
+        requirementIds: [requirement.id],
+        authoredByAgent: "Claude Code 2.1.0",
+      },
+      as(space, engineer),
+    );
+    await prisma.testCaseImportedDraft.create({
+      data: {
+        organizationId: space.organization.id,
+        projectId: space.project.id,
+        testCaseId: testCase.id,
+        importedByUserId: engineer.id,
+        source: "editor",
+        code: "import { test } from '@playwright/test';",
+        runEvidence: receipt({ verdict: "passed", passed: 8, skipped: 0 }),
+      },
+    });
+    await submitTestCaseForReview({ projectId: space.project.id, testCaseId: testCase.id }, as(space, engineer));
+
+    const queue = await getReviewQueue({ projectId: space.project.id }, as(space, lead));
+    const waiting = queue.yours.find((entry) => entry.id === testCase.id);
+    expect(waiting?.evidence).toEqual({
+      provenChecks: 8,
+      authoredByAgent: "Claude Code 2.1.0",
+      verifies: "Customers can pay by card",
+    });
+  });
+
+  it("does not call a partly run test proven in the queue", async () => {
+    const space = await workspace();
+    const lead = await person(space, "PROJECT_LEAD");
+    const engineer = await person(space, "MEMBER");
+
+    const testCase = await createTestCase(
+      {
+        projectId: space.project.id,
+        title: "Cart total adds up",
+        objective: "The total adds up.",
+        steps: ["Open the cart"],
+        expectedResults: ["A total is shown"],
+      },
+      as(space, engineer),
+    );
+    await prisma.testCaseImportedDraft.create({
+      data: {
+        organizationId: space.organization.id,
+        projectId: space.project.id,
+        testCaseId: testCase.id,
+        importedByUserId: engineer.id,
+        source: "editor",
+        code: "import { test } from '@playwright/test';",
+        // Nothing failed, but a step could not run: that is not proof.
+        runEvidence: receipt({ verdict: "partial", passed: 6, skipped: 1 }),
+      },
+    });
+    await submitTestCaseForReview({ projectId: space.project.id, testCaseId: testCase.id }, as(space, engineer));
+
+    const queue = await getReviewQueue({ projectId: space.project.id }, as(space, lead));
+    const waiting = queue.yours.find((entry) => entry.id === testCase.id);
+    expect(waiting?.evidence).toEqual({ provenChecks: null, authoredByAgent: null, verifies: null });
+  });
+
   it("counts what waits in each project for the workspace home", async () => {
     const space = await workspace();
     const other = await workspace();

@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { ActivityAction } from "@/generated/prisma/client";
+import { readRunEvidence } from "@/lib/services/imported-drafts";
 import {
   requireWorkspaceContext,
   type WorkspaceContextDependencies,
@@ -36,6 +37,25 @@ export type ReviewItem = {
   yours: boolean;
   /** Why it is not the reader's move, when it is not. */
   reason: "own_submission" | "not_an_approver" | null;
+  /**
+   * What is already known about this, so the queue can be read rather than
+   * opened one item at a time.
+   *
+   * Approval is the gate the whole product rests on, and a gate is only worth
+   * having if people pass through it. Reviewing AI-written work is slower than
+   * reviewing a person's, and a queue that says only "a test case is waiting"
+   * makes every item cost a page load and a read. These three facts are what a
+   * reviewer actually decides on: who wrote it, whether it has already been
+   * proven, and what it claims to verify.
+   */
+  evidence: {
+    /** Checks that passed on the live page, when it was proven there. */
+    provenChecks: number | null;
+    /** Which assistant proposed it, when one did and said so. */
+    authoredByAgent: string | null;
+    /** The requirement it is linked to verify, when it is linked. */
+    verifies: string | null;
+  };
 };
 
 const SUBMITTED_ACTIONS: Record<ReviewKind, ActivityAction> = {
@@ -70,7 +90,15 @@ export async function getReviewQueue(
     }),
     prisma.testCase.findMany({
       where: scope,
-      select: { id: true, title: true, submittedForReviewAt: true },
+      select: {
+        id: true,
+        title: true,
+        submittedForReviewAt: true,
+        // Version 1 is the proposal, so its author is the one who wrote this.
+        versions: { where: { versionNumber: 1 }, select: { authoredByAgent: true }, take: 1 },
+        importedDraft: { select: { runEvidence: true } },
+        requirementLinks: { select: { requirement: { select: { title: true } } }, take: 1 },
+      },
       orderBy: [{ submittedForReviewAt: "asc" }, { id: "asc" }],
       take: LIMIT,
     }),
@@ -117,11 +145,14 @@ export async function getReviewQueue(
     automation: context.can("automation:approve"),
   };
 
+  const NOTHING_KNOWN = { provenChecks: null, authoredByAgent: null, verifies: null };
+
   function item(
     kind: ReviewKind,
     record: { id: string; submittedForReviewAt: Date | null },
     title: string,
     href: string,
+    evidence: ReviewItem["evidence"] = NOTHING_KNOWN,
   ): ReviewItem {
     const by = submitter.get(record.id);
     const ownSubmission = by?.userId === context.user.id;
@@ -142,6 +173,7 @@ export async function getReviewQueue(
         : null,
       yours: reason === null,
       reason,
+      evidence,
     };
   }
 
@@ -149,9 +181,17 @@ export async function getReviewQueue(
     ...requirements.map((record) =>
       item("requirement", record, record.title, `${base}/requirements/${record.id}`),
     ),
-    ...testCases.map((record) =>
-      item("testCase", record, record.title, `${base}/test-cases/${record.id}`),
-    ),
+    ...testCases.map((record) => {
+      // A receipt counts only when it says the run passed; a partial one is
+      // not proof, and showing it as one would be the overstatement the rest
+      // of the product avoids.
+      const receipt = readRunEvidence(record.importedDraft?.runEvidence ?? null);
+      return item("testCase", record, record.title, `${base}/test-cases/${record.id}`, {
+        provenChecks: receipt?.verdict === "passed" ? receipt.passed : null,
+        authoredByAgent: record.versions[0]?.authoredByAgent ?? null,
+        verifies: record.requirementLinks[0]?.requirement.title ?? null,
+      });
+    }),
     ...automation.map((record) =>
       item("automation", record, record.name, `${base}/automation/${record.id}`),
     ),

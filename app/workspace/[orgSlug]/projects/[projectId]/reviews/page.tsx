@@ -57,6 +57,28 @@ function ReviewList({ items, empty }: { items: ReviewItem[]; empty: string }) {
                     ? " · you submitted this, so someone else approves it"
                     : null}
                 </span>
+                {item.evidence.provenChecks !== null ||
+                item.evidence.authoredByAgent ||
+                item.evidence.verifies ? (
+                  <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    {item.evidence.provenChecks !== null ? (
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800 ring-1 ring-inset ring-emerald-200">
+                        passed on the live page · {item.evidence.provenChecks} check
+                        {item.evidence.provenChecks === 1 ? "" : "s"}
+                      </span>
+                    ) : null}
+                    {item.evidence.authoredByAgent ? (
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                        proposed by {item.evidence.authoredByAgent}
+                      </span>
+                    ) : null}
+                    {item.evidence.verifies ? (
+                      <span className="truncate text-xs text-slate-500">
+                        verifies &ldquo;{item.evidence.verifies}&rdquo;
+                      </span>
+                    ) : null}
+                  </span>
+                ) : null}
               </span>
               {waited ? (
                 <span
