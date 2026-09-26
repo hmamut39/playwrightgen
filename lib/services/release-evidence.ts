@@ -43,6 +43,17 @@ export type EvidenceTestCase = {
   versionNumber: number;
   latestResult: "PASSED" | "FAILED" | "BLOCKED" | "SKIPPED" | null;
   latestExecutedAt: Date | null;
+  /**
+   * Who approved it, and when.
+   *
+   * The chain already said who proposed a test and that it ran and passed.
+   * The part a reviewing body actually asks for was missing: the sign-off
+   * record naming who accepted each artifact and when. It is held in the
+   * activity trail rather than on the record, so it has to be read back --
+   * which is the right way round, since the trail is append-only.
+   */
+  approvedBy: string | null;
+  approvedAt: Date | null;
   latestCommitSha: string | null;
   /**
    * Which assistant proposed this test, when one did and said who it was.
@@ -76,6 +87,9 @@ export type EvidenceRequirement = {
   lastVerifiedAt: Date | null;
   ageDays: number | null;
   freshness: EvidenceFreshness;
+  /** Who approved this requirement, and when. */
+  approvedBy: string | null;
+  approvedAt: Date | null;
   testCases: EvidenceTestCase[];
 };
 
@@ -132,7 +146,7 @@ export async function buildReleaseEvidenceReport(input: {
     where: { id: organizationId },
     select: { name: true, slug: true },
   });
-  const [project, requirements, attemptFacts] = await Promise.all([
+  const [project, requirements, attemptFacts, approvalActivity] = await Promise.all([
     prisma.project.findUniqueOrThrow({
       where: { organizationId_id: { organizationId, id: projectId } },
       select: { id: true, name: true, slug: true },
@@ -169,7 +183,25 @@ export async function buildReleaseEvidenceReport(input: {
       },
     }),
     loadAttemptFacts(prisma, { organizationId, projectId }),
+    // Who signed off each artifact. Append-only, so the newest entry per
+    // target is the approval that stands.
+    prisma.activity.findMany({
+      where: {
+        organizationId,
+        projectId,
+        action: { in: ["REQUIREMENT_APPROVED", "TEST_CASE_APPROVED"] },
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { targetId: true, createdAt: true, actor: { select: { displayName: true } } },
+      take: 2_000,
+    }),
   ]);
+  const approvals = new Map<string, { by: string | null; at: Date }>();
+  for (const approval of approvalActivity) {
+    if (!approvals.has(approval.targetId)) {
+      approvals.set(approval.targetId, { by: approval.actor?.displayName ?? null, at: approval.createdAt });
+    }
+  }
 
   const signals = classifyRuns(attemptFacts);
 
@@ -197,6 +229,8 @@ export async function buildReleaseEvidenceReport(input: {
           latestResult: latest?.result ?? null,
           latestExecutedAt: latest?.executedAt ?? null,
           latestCommitSha: latest?.commitSha ?? null,
+          approvedBy: approvals.get(link.testCase.id)?.by ?? null,
+          approvedAt: approvals.get(link.testCase.id)?.at ?? null,
           authoredByAgent: link.testCase.versions[0]?.authoredByAgent ?? null,
           signal: latest ? (signals.get(latest.testRunId)?.signal ?? null) : null,
         };
@@ -245,6 +279,8 @@ export async function buildReleaseEvidenceReport(input: {
         lastVerifiedAt,
         ageDays: age.ageDays,
         freshness: age.freshness,
+        approvedBy: approvals.get(requirement.id)?.by ?? null,
+        approvedAt: approvals.get(requirement.id)?.at ?? null,
         testCases,
       };
     });

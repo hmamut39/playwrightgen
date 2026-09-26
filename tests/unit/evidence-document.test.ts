@@ -21,6 +21,8 @@ const report = (overrides: Partial<ReleaseEvidenceReport> = {}): ReleaseEvidence
       lastVerifiedAt: new Date("2026-09-19T08:05:00.000Z"),
       ageDays: 1,
       freshness: "FRESH",
+      approvedBy: "Priya Raman",
+      approvedAt: new Date("2026-09-18T10:00:00.000Z"),
       testCases: [
         {
           id: "t1",
@@ -30,6 +32,8 @@ const report = (overrides: Partial<ReleaseEvidenceReport> = {}): ReleaseEvidence
           latestResult: "PASSED",
           latestExecutedAt: new Date("2026-09-19T08:05:00.000Z"),
           latestCommitSha: "abcdef1234567890",
+          approvedBy: "Priya Raman",
+          approvedAt: new Date("2026-09-19T12:00:00.000Z"),
           authoredByAgent: "Claude Code 2.1.0",
           signal: null,
         },
@@ -79,6 +83,8 @@ describe("the evidence as a file someone can keep", () => {
             lastVerifiedAt: null,
             ageDays: null,
             freshness: "MISSING",
+            approvedBy: null,
+            approvedAt: null,
             testCases: [],
           },
         ],
@@ -231,5 +237,42 @@ describe("the acceptance in the kept file", () => {
     expect(html).toContain("&lt;img src=x");
     expect(html).not.toContain("<img");
     expect(html).toContain("5 &gt; 3");
+  });
+});
+
+describe("who approved it", () => {
+  it("names the approver and the date, which is the sign-off record", () => {
+    const html = evidenceDocument(report());
+    expect(html).toContain("approved by Priya Raman on 2026-09-18 10:00 UTC");
+    // And per test case, since that is what is checked one by one.
+    expect(html).toContain("approved by Priya Raman on 2026-09-19 12:00 UTC");
+  });
+
+  it("says nothing when no approval is recorded, rather than implying one", () => {
+    const base = report();
+    const html = evidenceDocument(
+      report({
+        requirements: [
+          {
+            ...base.requirements[0],
+            approvedBy: null,
+            approvedAt: null,
+            testCases: [{ ...base.requirements[0].testCases[0], approvedBy: null, approvedAt: null }],
+          },
+        ],
+      }),
+    );
+    expect(html).not.toContain("approved by");
+  });
+
+  it("cannot have an approver's name write markup into the document", () => {
+    const base = report();
+    const html = evidenceDocument(
+      report({
+        requirements: [{ ...base.requirements[0], approvedBy: '<img src=x onerror="alert(1)">' }],
+      }),
+    );
+    expect(html).toContain("&lt;img src=x");
+    expect(html).not.toContain("<img");
   });
 });

@@ -165,6 +165,7 @@ export default async function ProofPage({
                   <p className="mt-1 text-xs text-slate-400">
                     Version {requirement.versionNumber}
                     {requirement.externalReference ? ` · ${requirement.externalReference}` : ""}
+                    {requirement.approvedBy ? ` · approved by ${requirement.approvedBy}` : ""}
                     {" · "}
                     <span className={requirement.freshness === "STALE" ? "font-semibold text-amber-700" : undefined}>
                       {ageWord(requirement.ageDays)}

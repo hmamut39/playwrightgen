@@ -164,6 +164,21 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **The evidence names who approved it** (2026-09-26): the chain said who
+  proposed a test and that it ran and passed, and it ended with whoever
+  accepted the result -- but the part a reviewing body actually asks for was
+  missing between them: the sign-off record naming who approved each artifact
+  and when. PlaywrightGen already had it, in the append-only activity trail,
+  where nobody exporting evidence would ever find it. The evidence report now
+  reads it back for every requirement and every test case, and the shared page
+  and the kept file say "approved by Priya Raman on 2026-09-18 10:00 UTC".
+  Read from the trail rather than a column on the record, which is the right
+  way round: the trail cannot be edited after the fact. Where no approval is
+  recorded nothing is said, rather than implying one. No schema change.
+  Unit- and integration-tested, including that the name is read back from the
+  activity rather than assumed.
+  The chain is now whole: proposed by, proven on the live page, approved by a
+  named person on a date, accepted by whoever the evidence was shared with.
 - **Approve everything proven, in one action** (2026-09-26): the queue already
   said which items had passed on the live page; accepting four of them still
   cost four page loads. The Reviews page now offers "Approve the N proven

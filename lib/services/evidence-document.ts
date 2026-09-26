@@ -58,6 +58,11 @@ function requirementSection(requirement: ReleaseEvidenceReport["requirements"][n
   const meta = [
     `Version ${requirement.versionNumber}`,
     requirement.externalReference ? escape(requirement.externalReference) : null,
+    // The sign-off record a reviewing body asks for: who accepted this, and
+    // when. Said here rather than left in an activity log nobody exports.
+    requirement.approvedBy
+      ? `approved by ${escape(requirement.approvedBy)}${requirement.approvedAt ? ` on ${stamp(requirement.approvedAt)}` : ""}`
+      : null,
     ageWord(requirement.ageDays),
   ]
     .filter(Boolean)
@@ -73,7 +78,7 @@ function requirementSection(requirement: ReleaseEvidenceReport["requirements"][n
                 ? RESULT_WORD[testCase.latestResult] ?? testCase.latestResult.toLowerCase()
                 : "never run";
               return `<tr>
-                <td>${escape(testCase.title)}</td>
+                <td>${escape(testCase.title)}${testCase.approvedBy ? `<br><span class="who">approved by ${escape(testCase.approvedBy)}${testCase.approvedAt ? ` on ${stamp(testCase.approvedAt)}` : ""}</span>` : ""}</td>
                 <td>${testCase.authoredByAgent ? escape(testCase.authoredByAgent) : "a person"}</td>
                 <td class="num">${testCase.versionNumber}</td>
                 <td class="${testCase.latestResult === "FAILED" ? "bad" : testCase.latestResult === "PASSED" ? "good" : ""}">${result}</td>
@@ -156,6 +161,7 @@ export function evidenceDocument(
   td.good { color: #166534; }
   td.bad { color: #b91c1c; font-weight: 600; }
   .none { color: #94a3b8; margin: 12px 0 0; }
+  .who { color: #64748b; font-size: 11px; }
   .note.stale { background: #fffbeb; color: #92400e; }
   footer { margin: 36px 0 0; padding: 18px 0 0; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px; }
   @media print {

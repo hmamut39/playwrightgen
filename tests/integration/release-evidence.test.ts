@@ -210,6 +210,22 @@ describe("release evidence report", () => {
     expect(report.totals.stale).toBe(0);
   });
 
+  it("names who approved the requirement and the test, from the trail", async () => {
+    const space = await workspace();
+    const requirement = await approvedRequirement(space);
+    const testCase = await linkedTestCase(space, requirement.id, true);
+    await recordAttempt(space, testCase.id, "PASSED");
+
+    const report = await getReleaseEvidenceReport({ projectId: space.project.id }, deps(space));
+
+    // The sign-off record a reviewing body asks for: a named person and a
+    // date, read back from the append-only activity rather than assumed.
+    expect(report.requirements[0].approvedBy).toBe("Owner");
+    expect(report.requirements[0].approvedAt).toBeInstanceOf(Date);
+    expect(report.requirements[0].testCases[0].approvedBy).toBe("Owner");
+    expect(report.requirements[0].testCases[0].approvedAt).toBeInstanceOf(Date);
+  });
+
   it("reports a failing test as failing rather than as coverage", async () => {
     const space = await workspace();
     const requirement = await approvedRequirement(space);
