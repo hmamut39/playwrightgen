@@ -13,6 +13,7 @@ import { readLiveChecksSummary, runLiveChecksForProject, setLiveChecks } from "@
 import { projectHealthVerdict } from "@/lib/services/project-health";
 import { readWeek, summariseWeek } from "@/lib/services/weekly-digest";
 import { getProjectOverview, updateProject } from "@/lib/services/projects";
+import { getProjectSetup } from "@/lib/services/project-setup";
 import { listProofLinks } from "@/lib/services/release-proof";
 import { getReleaseReadiness } from "@/lib/services/release-readiness";
 import { getReviewQueue } from "@/lib/services/review-queue";
@@ -71,8 +72,18 @@ export default async function ProjectHealthPage({
   const blockers = readiness.findings.filter((finding) => finding.severity === "BLOCKER");
   const waiting = reviews.yours.length + reviews.others.length;
   const { counts } = readiness;
+  /**
+   * Tests that already ran are waiting for a person, so do not ask for a first
+   * run again. Someone who has just watched two tests pass on their own page
+   * and is then invited to "get your first evidence" concludes the product did
+   * not notice, or did not work.
+   */
+  const setup = await getProjectSetup({ orgSlug, projectId });
   const offerFirstRun =
-    health.verdict === "no-evidence" && project.status === "ACTIVE" && context.can("testcase:create");
+    health.verdict === "no-evidence" &&
+    project.status === "ACTIVE" &&
+    context.can("testcase:create") &&
+    setup.provenDrafts.count === 0;
 
   // Approved automation and a live address, but nobody has found the setting.
   const offerLiveChecks =
@@ -141,6 +152,24 @@ export default async function ProjectHealthPage({
           Measured <LocalTime value={readiness.measuredAt} />
         </p>
       </section>
+
+      {setup.provenDrafts.count > 0 && health.verdict === "no-evidence" ? (
+        <section aria-labelledby="proven-drafts-heading" className="mt-5 rounded-2xl border border-emerald-300 bg-emerald-50 p-5">
+          <h2 id="proven-drafts-heading" className="text-lg font-semibold text-slate-950">
+            {setup.provenDrafts.count} test{setup.provenDrafts.count === 1 ? " is" : "s are"} proven and waiting for you
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-slate-700">
+            Each one ran on your page and passed, and is kept as a draft with its code and the record of that run. This
+            screen still says no evidence because nothing counts until a person approves it.
+          </p>
+          <Link
+            href={setup.provenDrafts.href}
+            className="mt-4 inline-flex rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-900"
+          >
+            {setup.provenDrafts.count === 1 ? "Review the proven test" : "Review the proven tests"} &rarr;
+          </Link>
+        </section>
+      ) : null}
 
       {offerFirstRun ? (
         <section aria-labelledby="first-run-heading" className="mt-5 rounded-2xl border border-cyan-200 bg-cyan-50 p-5">

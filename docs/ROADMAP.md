@@ -164,6 +164,30 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **The project notices tests that already passed** (2026-09-26): walked what
+  happens *after* the "cover a page" shortcut, which nobody had checked. Two
+  tests had just been written, run and passed on the live page -- and the
+  project said the person had done nothing: the getting-started card read "0 of
+  6 done" and offered the shortcut again, Health said "No evidence yet, no test
+  has run yet" and invited them to "Get your first evidence", and Reviews said
+  nothing was waiting, because the drafts had never been submitted. Every one
+  of those statements was literally true and together they read as "it did not
+  work".
+  `ProjectSetup` now carries `provenDrafts`: draft Test Cases whose kept code
+  has a signed receipt saying it passed, and which have not yet become an
+  automation version. The overview card and the Health page lead with them --
+  "4 tests are already proven on your page, waiting for a person" -- explain
+  that nothing counts until somebody approves it, and link straight to the one
+  draft, or to the list when there are several. Health no longer asks for a
+  first run while proven work is waiting, and the "In a hurry?" shortcut stops
+  being offered once it has been used.
+  Only a receipt reading "passed" counts: a partial run also carries one, and
+  calling that proven would be the overstatement the rest of the product works
+  to avoid. Integration-tested, including the partial, the draft with no run
+  at all, and the draft whose code has since been used. Walked end to end
+  afterwards: submit, approve, "Use this code as the automation" -- Version 1
+  created, the checklist moved from 0 of 6 to 2 of 6, and the waiting count
+  fell from 4 to 3.
 - **A new project points at the fast route, and stops offering to share
   nothing** (2026-09-23): walked a brand-new empty project as a tester would.
   Two things were wrong. The getting-started card steered everyone down the

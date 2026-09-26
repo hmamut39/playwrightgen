@@ -57,7 +57,26 @@ export function SetupChecklist({
         judged until something has actually run.
       </p>
 
-      {coverHref && canAct && setup.completedCount === 0 ? (
+      {setup.provenDrafts.count > 0 ? (
+        <div className="mt-4 rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3.5">
+          <p className="text-sm font-semibold text-emerald-950">
+            {setup.provenDrafts.count} test{setup.provenDrafts.count === 1 ? " is" : "s are"} already proven on your
+            page, waiting for a person.
+          </p>
+          <p className="mt-1 text-sm leading-6 text-emerald-900">
+            Each one ran and passed, and is kept as a draft with its code and the record of that run. Nothing counts as
+            coverage until you approve it &mdash; that is the point &mdash; so this is the step to do next.
+          </p>
+          <Link
+            href={setup.provenDrafts.href}
+            className="mt-3 inline-flex rounded-xl bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-900"
+          >
+            {setup.provenDrafts.count === 1 ? "Open the proven test" : "Open the proven tests"} &rarr;
+          </Link>
+        </div>
+      ) : null}
+
+      {coverHref && canAct && setup.completedCount === 0 && setup.provenDrafts.count === 0 ? (
         <p className="mt-3 max-w-3xl rounded-2xl border border-cyan-200 bg-white px-4 py-3 text-sm leading-6 text-slate-700">
           In a hurry?{" "}
           <Link href={coverHref} className="font-semibold text-cyan-800 underline">

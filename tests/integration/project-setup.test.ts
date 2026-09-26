@@ -156,6 +156,65 @@ describe("project setup chain", () => {
     expect(linked.complete).toBe(false);
   });
 
+  it("notices tests that already passed and are waiting for a person", async () => {
+    const space = await workspace();
+    const draft = async (title: string, verdict: "passed" | "partial" | null) => {
+      const testCase = await createTestCase(
+        {
+          projectId: space.project.id,
+          title,
+          objective: "Proven by covering a page.",
+          steps: ["Open the page"],
+          expectedResults: ["It works"],
+        },
+        deps(space),
+      );
+      await prisma.testCaseImportedDraft.create({
+        data: {
+          organizationId: space.organization.id,
+          projectId: space.project.id,
+          testCaseId: testCase.id,
+          importedByUserId: space.owner.id,
+          source: "page-coverage",
+          code: "import { test } from '@playwright/test';",
+          ...(verdict ? { runEvidence: { verdict, passed: 6, failed: 0 } } : {}),
+        },
+      });
+      return testCase;
+    };
+
+    const empty = await getProjectSetup({ projectId: space.project.id }, deps(space));
+    expect(empty.provenDrafts).toMatchObject({ count: 0 });
+
+    const proven = await draft("Adds a todo", "passed");
+    const one = await getProjectSetup({ projectId: space.project.id }, deps(space));
+    expect(one.provenDrafts.count).toBe(1);
+    // One draft: straight to it, rather than to a list to search.
+    expect(one.provenDrafts.href).toContain(`/test-cases/${proven.id}`);
+
+    // A run that only partly ran is not proof, and neither is one with no run
+    // behind it at all: claiming either would be the overstatement the rest of
+    // the product works to avoid.
+    await draft("Edits a todo", "partial");
+    await draft("Deletes a todo", null);
+    const still = await getProjectSetup({ projectId: space.project.id }, deps(space));
+    expect(still.provenDrafts.count).toBe(1);
+
+    await draft("Clears completed", "passed");
+    const two = await getProjectSetup({ projectId: space.project.id }, deps(space));
+    expect(two.provenDrafts.count).toBe(2);
+    // More than one: the list, since there is no single one to open.
+    expect(two.provenDrafts.href.endsWith("/test-cases")).toBe(true);
+
+    // Once the code has become an automation version there is nothing waiting.
+    await prisma.testCaseImportedDraft.updateMany({
+      where: { projectId: space.project.id },
+      data: { usedAt: new Date() },
+    });
+    const used = await getProjectSetup({ projectId: space.project.id }, deps(space));
+    expect(used.provenDrafts.count).toBe(0);
+  });
+
   it("does not count another project's progress", async () => {
     const space = await workspace();
     const other = await prisma.project.create({

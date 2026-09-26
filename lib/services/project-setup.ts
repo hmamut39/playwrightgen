@@ -35,10 +35,27 @@ export type SetupStep = {
   actionLabel: string;
 };
 
+/**
+ * Tests that already ran and passed, waiting for a person.
+ *
+ * Covering a page leaves draft Test Cases behind, each with its code and the
+ * signed receipt of the run that proved it. Every step of the chain below
+ * still reads "not done", which is true and reads as an accusation: someone
+ * who has just watched two tests pass on their own page is told they have
+ * done nothing, and nothing on the screen says the drafts are there or what
+ * to do with them.
+ */
+export type ProvenDrafts = {
+  count: number;
+  /** Where to send someone to deal with them. */
+  href: string;
+};
+
 export type ProjectSetup = {
   steps: SetupStep[];
   completedCount: number;
   complete: boolean;
+  provenDrafts: ProvenDrafts;
 };
 
 export async function getProjectSetup(
@@ -65,6 +82,7 @@ export async function getProjectSetup(
     latestRequirement,
     approvedRequirement,
     approvedTestCase,
+    provenDraftRows,
   ] = await Promise.all([
     prisma.requirement.count({ where: { ...scope, status: "APPROVED" } }),
     prisma.testCase.count({ where: { ...scope, status: "APPROVED" } }),
@@ -88,6 +106,22 @@ export async function getProjectSetup(
       where: { ...scope, status: "APPROVED" },
       orderBy: { updatedAt: "desc" },
       select: { id: true },
+    }),
+    // A draft whose code was proven and has not yet become an automation
+    // version: the run receipt is what makes it more than a suggestion.
+    prisma.testCaseImportedDraft.findMany({
+      // "passed", not merely "ran": a partial run also carries a receipt, and
+      // calling that proven would be the overstatement the rest of the product
+      // works to avoid.
+      where: {
+        ...scope,
+        usedAt: null,
+        runEvidence: { path: ["verdict"], equals: "passed" },
+        testCase: { status: "DRAFT" },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { testCaseId: true },
+      take: 20,
     }),
   ]);
 
@@ -162,5 +196,10 @@ export async function getProjectSetup(
 
   const completedCount = steps.filter((step) => step.done).length;
 
-  return { steps, completedCount, complete: completedCount === steps.length };
+  const provenDrafts = {
+    count: provenDraftRows.length,
+    href: provenDraftRows.length === 1 ? `${base}/test-cases/${provenDraftRows[0].testCaseId}` : `${base}/test-cases`,
+  };
+
+  return { steps, completedCount, complete: completedCount === steps.length, provenDrafts };
 }
