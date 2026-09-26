@@ -269,6 +269,8 @@ export async function createTestCase(
     tags?: string[];
     automationStatus?: AutomationStatus;
     requirementIds?: string[];
+    /** Which assistant proposed this, when one did and said who it was. */
+    authoredByAgent?: string | null;
     requestId?: string;
   },
   dependencies?: TestCaseDependencies,
@@ -334,15 +336,20 @@ export async function createTestCase(
       },
     });
     await transaction.testCaseVersion.create({
-      data: versionData({
-        organizationId: context.organization.id,
-        projectId,
-        testCaseId: testCase.id,
-        versionNumber: 1,
-        ...content,
-        ownerUserId: context.user.id,
-        createdByUserId: context.user.id,
-      }),
+      data: {
+        ...versionData({
+          organizationId: context.organization.id,
+          projectId,
+          testCaseId: testCase.id,
+          versionNumber: 1,
+          ...content,
+          ownerUserId: context.user.id,
+          createdByUserId: context.user.id,
+        }),
+        // Recorded on the version rather than the Test Case: the Test Case
+        // changes, and who wrote version 1 does not.
+        authoredByAgent: input.authoredByAgent?.slice(0, 120) || null,
+      },
     });
     if (requirementIds.length) {
       await transaction.requirementTestCase.createMany({

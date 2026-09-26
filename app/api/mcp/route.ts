@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 
+import { readAgentName } from "@/lib/mcp/agent-identity";
 import { handleMcpMessage } from "@/lib/mcp/playwrightgen-mcp";
 import { authenticateEditorRequest, type EditorSession } from "@/lib/services/editor-access";
 
@@ -46,6 +47,11 @@ export async function handleMcpRequest(
     );
   }
 
+  // Who is calling, as they describe themselves. Recorded with what they
+  // propose; it decides nothing. The handshake's clientInfo is preferred where
+  // a message carries it, since this server keeps no session to remember it.
+  const agent = readAgentName({ userAgent: request.headers.get("user-agent") });
+
   const raw = await request.text();
   if (Buffer.byteLength(raw, "utf8") > MAX_BODY_BYTES) {
     return json({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "Request too large" } }, 413);
@@ -63,13 +69,13 @@ export async function handleMcpRequest(
     }
     const responses = [];
     for (const message of payload) {
-      const response = await handleMcpMessage(message, session);
+      const response = await handleMcpMessage(message, { ...session, agent });
       if (response) responses.push(response);
     }
     return responses.length ? json(responses) : new Response(null, { status: 202 });
   }
 
-  const response = await handleMcpMessage(payload, session);
+  const response = await handleMcpMessage(payload, { ...session, agent });
   // Notifications and client responses are acknowledged without a body.
   return response ? json(response) : new Response(null, { status: 202 });
 }

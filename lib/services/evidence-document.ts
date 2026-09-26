@@ -65,7 +65,7 @@ function requirementSection(requirement: ReleaseEvidenceReport["requirements"][n
 
   const tests = requirement.testCases.length
     ? `<table>
-        <thead><tr><th>Test case</th><th>Version</th><th>Last run</th><th>When</th><th>Commit</th></tr></thead>
+        <thead><tr><th>Test case</th><th>Proposed by</th><th>Version</th><th>Last run</th><th>When</th><th>Commit</th></tr></thead>
         <tbody>
           ${requirement.testCases
             .map((testCase) => {
@@ -74,6 +74,7 @@ function requirementSection(requirement: ReleaseEvidenceReport["requirements"][n
                 : "never run";
               return `<tr>
                 <td>${escape(testCase.title)}</td>
+                <td>${testCase.authoredByAgent ? escape(testCase.authoredByAgent) : "a person"}</td>
                 <td class="num">${testCase.versionNumber}</td>
                 <td class="${testCase.latestResult === "FAILED" ? "bad" : testCase.latestResult === "PASSED" ? "good" : ""}">${result}</td>
                 <td>${testCase.latestExecutedAt ? stamp(testCase.latestExecutedAt) : "&mdash;"}</td>
@@ -181,7 +182,8 @@ export function evidenceDocument(report: ReleaseEvidenceReport, options: { froze
   <footer>
     Exported from PlaywrightGen, which keeps each approval and each run as a record that cannot be edited after the
     fact. Every result above was recorded when the test ran, against the approved version it ran. This document
-    contains no test code. playwrightgen.com
+    contains no test code. Where a test was proposed by an assistant, the assistant is named; a person approved every
+    one of them either way. playwrightgen.com
   </footer>
 </main>
 </body>

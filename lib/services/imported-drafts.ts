@@ -55,7 +55,15 @@ export class ImportedDraftError extends Error {
  * run of this exact code.
  */
 export async function attachEditorCode(
-  input: { orgSlug?: string; projectId: string; testCaseId: string; code: string; runReceipt?: string | null },
+  input: {
+    orgSlug?: string;
+    projectId: string;
+    testCaseId: string;
+    code: string;
+    runReceipt?: string | null;
+    /** Which assistant sent this code, when it said who it was. */
+    authoredByAgent?: string | null;
+  },
   dependencies?: WorkspaceContextDependencies,
   secret: string | null = readRunReceiptSecret(),
 ) {
@@ -86,6 +94,7 @@ export async function attachEditorCode(
   const evidence = input.runReceipt && secret ? verifyRunReceipt(input.runReceipt, code, secret) : null;
   const fields = {
     source: "editor",
+    authoredByAgent: input.authoredByAgent?.slice(0, 120) || null,
     code,
     pageUrl: evidence?.pageUrl ?? null,
     runEvidence: evidence ? (evidence as unknown as Prisma.InputJsonValue) : Prisma.DbNull,

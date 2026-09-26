@@ -146,7 +146,8 @@ export default async function ProofPage({ params }: { params: Promise<{ token: s
                     <li key={testCase.id} className="rounded-xl bg-slate-50 px-4 py-3 text-sm">
                       <p className="font-medium text-slate-900">{testCase.title}</p>
                       <p className="mt-1 text-xs text-slate-500">
-                        Version {testCase.versionNumber} &middot;{" "}
+                        Version {testCase.versionNumber}
+                        {testCase.authoredByAgent ? ` · proposed by ${testCase.authoredByAgent}` : ""} &middot;{" "}
                         {testCase.latestResult
                           ? `last run ${resultWord[testCase.latestResult] ?? testCase.latestResult.toLowerCase()}`
                           : "never run"}

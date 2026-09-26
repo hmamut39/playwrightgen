@@ -30,6 +30,7 @@ const report = (overrides: Partial<ReleaseEvidenceReport> = {}): ReleaseEvidence
           latestResult: "PASSED",
           latestExecutedAt: new Date("2026-09-19T08:05:00.000Z"),
           latestCommitSha: "abcdef1234567890",
+          authoredByAgent: "Claude Code 2.1.0",
           signal: null,
         },
       ],
@@ -148,5 +149,48 @@ describe("how old the evidence is", () => {
   it("uses the singular when only one is stale", () => {
     const html = evidenceDocument(report({ totals: { verified: 1, failing: 0, unverified: 0, stale: 1 } }));
     expect(html).toContain("1 of the verified requirement was last checked more than a month ago");
+  });
+});
+
+describe("who proposed the test", () => {
+  it("names the assistant in the kept file, because the chain has to say", () => {
+    const html = evidenceDocument(report());
+    expect(html).toContain("Proposed by");
+    expect(html).toContain("Claude Code 2.1.0");
+    expect(html).toContain("the assistant is named; a person approved every");
+  });
+
+  it("says a person wrote it when no assistant did", () => {
+    const base = report();
+    const html = evidenceDocument(
+      report({
+        requirements: [
+          {
+            ...base.requirements[0],
+            testCases: [{ ...base.requirements[0].testCases[0], authoredByAgent: null }],
+          },
+        ],
+      }),
+    );
+    expect(html).toContain("<td>a person</td>");
+    expect(html).not.toContain("Claude Code");
+  });
+
+  it("cannot have a name write markup into the document", () => {
+    const base = report();
+    const html = evidenceDocument(
+      report({
+        requirements: [
+          {
+            ...base.requirements[0],
+            testCases: [
+              { ...base.requirements[0].testCases[0], authoredByAgent: '<script>alert(1)</script>' },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).not.toContain("<script>");
   });
 });

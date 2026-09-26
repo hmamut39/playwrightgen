@@ -59,6 +59,12 @@ export type EditorSession = {
   orgSlug: string;
   projectId: string;
   projectName: string;
+  /**
+   * Which assistant is calling, when it said so. Its own claim about itself,
+   * recorded with what it proposes so the trail names the tool rather than
+   * only saying "an AI". It grants nothing: the token above decides access.
+   */
+  agent?: string | null;
   /** Run every read through the same authorization as the web app. */
   dependencies: WorkspaceContextDependencies;
 };

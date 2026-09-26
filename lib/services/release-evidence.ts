@@ -44,6 +44,15 @@ export type EvidenceTestCase = {
   latestResult: "PASSED" | "FAILED" | "BLOCKED" | "SKIPPED" | null;
   latestExecutedAt: Date | null;
   latestCommitSha: string | null;
+  /**
+   * Which assistant proposed this test, when one did and said who it was.
+   *
+   * Evidence that says only "an AI wrote it" answers half the question a
+   * reviewer or an auditor is actually asking. Naming the tool costs nothing
+   * here and is what traceability for AI-assisted work is now expected to
+   * carry; it is the caller's own claim, and a person still approved it.
+   */
+  authoredByAgent: string | null;
   signal: string | null;
 };
 
@@ -146,6 +155,13 @@ export async function buildReleaseEvidenceReport(input: {
                 title: true,
                 status: true,
                 currentVersionNumber: true,
+                // Version 1 is the proposal: who wrote it does not change when
+                // the Test Case is edited later.
+                versions: {
+                  where: { versionNumber: 1 },
+                  select: { authoredByAgent: true },
+                  take: 1,
+                },
               },
             },
           },
@@ -181,6 +197,7 @@ export async function buildReleaseEvidenceReport(input: {
           latestResult: latest?.result ?? null,
           latestExecutedAt: latest?.executedAt ?? null,
           latestCommitSha: latest?.commitSha ?? null,
+          authoredByAgent: link.testCase.versions[0]?.authoredByAgent ?? null,
           signal: latest ? (signals.get(latest.testRunId)?.signal ?? null) : null,
         };
       });

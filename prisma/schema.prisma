@@ -795,6 +795,10 @@ model TestCaseVersion {
   priority         TestCasePriority
   type             TestCaseType
   source           TestCaseSource
+  /// Which assistant proposed this version, when one did and said who it was.
+  /// Its own claim about itself, kept for reading history: it never decides
+  /// what anyone may do, and a person still approves everything.
+  authoredByAgent  String?          @db.VarChar(120)
   tags             String[]
   automationStatus AutomationStatus
   ownerUserId      String           @db.Uuid
@@ -1199,6 +1203,8 @@ model TestCaseImportedDraft {
   projectId                 String    @db.Uuid
   testCaseId                String    @db.Uuid
   source                    String    @db.VarChar(40)
+  /// Which assistant sent this code, when it came from one that said so.
+  authoredByAgent           String?   @db.VarChar(120)
   code                      String    @db.Text
   pageUrl                   String?   @db.Text
   runEvidence               Json?     @db.JsonB
