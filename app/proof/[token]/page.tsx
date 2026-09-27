@@ -166,6 +166,9 @@ export default async function ProofPage({
                     Version {requirement.versionNumber}
                     {requirement.externalReference ? ` · ${requirement.externalReference}` : ""}
                     {requirement.approvedBy ? ` · approved by ${requirement.approvedBy}` : ""}
+                    {requirement.criteriaCount
+                      ? ` · ${requirement.criteriaCount} acceptance criteri${requirement.criteriaCount === 1 ? "on" : "a"}`
+                      : ""}
                     {" · "}
                     <span className={requirement.freshness === "STALE" ? "font-semibold text-amber-700" : undefined}>
                       {ageWord(requirement.ageDays)}

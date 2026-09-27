@@ -64,6 +64,9 @@ function requirementSection(requirement: ReleaseEvidenceReport["requirements"][n
     requirement.approvedBy
       ? `approved by ${escape(requirement.approvedBy)}${requirement.approvedAt ? ` on ${stamp(requirement.approvedAt)}` : ""}`
       : null,
+    requirement.criteriaCount
+      ? `${requirement.criteriaCount} acceptance criteri${requirement.criteriaCount === 1 ? "on" : "a"}`
+      : null,
     ageWord(requirement.ageDays),
   ]
     .filter(Boolean)
@@ -228,7 +231,9 @@ export function evidenceDocument(
     to cannot be counted as covered. It is assembled from stored records only.</p>
     <p class="reason"><strong>What the verdicts mean.</strong> <em>Verified</em> means an approved test last ran and
     passed. <em>Failing</em> means one last ran and did not pass. <em>Not verified</em> means nothing approved covers
-    the requirement, or nothing has run. No judgement is applied beyond what the records state, and a requirement that
+    the requirement, or nothing has run. Verified is not a statement about every acceptance criterion: a test that
+    passed shows what that test checks, and the records do not say which criteria it covers, so each requirement
+    states how many criteria it has for a reader to judge against. No judgement is applied beyond what the records state, and a requirement that
     nothing has exercised is reported as not verified rather than assumed to be fine.</p>
     <p class="reason"><strong>How each entry came to be here.</strong> A person approved the requirement and the test;
     the approver and date are named against each. Every result was recorded when the test ran, against the approved

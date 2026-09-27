@@ -164,6 +164,25 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **One passing test no longer speaks for six acceptance criteria**
+  (2026-09-27): a requirement is called verified when an approved test last ran
+  and passed -- any one of them -- so a requirement with six criteria and one
+  passing test read exactly like one with six criteria and six. Reading a
+  ticket now routinely produces requirements with five or six criteria, which
+  made the overstatement common rather than theoretical, and it was going into
+  the pack an auditor is handed.
+  Nothing in the records says which criteria a test covers, so this does not
+  claim to. It reports the number the requirement itself states -- "2
+  acceptance criteria", next to the approver and the age -- and when the tests
+  are outnumbered the reason says so: "1 approved test last ran and passed.
+  This requirement states 6 acceptance criteria, and the records do not say
+  which of them those tests cover." Where they are not outnumbered nothing
+  extra is said. The pack's method section carries the same warning, so a
+  reader is never left to assume that verified means every criterion was
+  checked. Blank lines are not criteria. No schema change.
+  Integration- and unit-tested both ways. Verified in a real downloaded pack:
+  "Version 1 · approved by Aylin Tester on 2026-09-13 19:52 UTC · 2 acceptance
+  criteria · checked 13 days ago".
 - **An agent can start the chain** (2026-09-27): an assistant could propose
   tests and read what was agreed, but the chain begins at a requirement and
   only a person in the web app could create one -- so an assistant working

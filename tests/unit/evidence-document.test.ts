@@ -23,6 +23,7 @@ const report = (overrides: Partial<ReleaseEvidenceReport> = {}): ReleaseEvidence
       freshness: "FRESH",
       approvedBy: "Priya Raman",
       approvedAt: new Date("2026-09-18T10:00:00.000Z"),
+      criteriaCount: 2,
       testCases: [
         {
           id: "t1",
@@ -85,6 +86,7 @@ describe("the evidence as a file someone can keep", () => {
             freshness: "MISSING",
             approvedBy: null,
             approvedAt: null,
+            criteriaCount: 3,
             testCases: [],
           },
         ],
@@ -305,5 +307,27 @@ describe("the pack an auditor is handed", () => {
     expect(html).toContain("without verifying who they");
     expect(html).toContain("how long ago it was last checked");
     expect(html).toContain("only report requirements this project has recorded");
+  });
+});
+
+describe("how much the requirement claims", () => {
+  it("states the number of acceptance criteria next to the verdict", () => {
+    const html = evidenceDocument(report());
+    expect(html).toContain("2 acceptance criteria");
+  });
+
+  it("uses the singular for one, and says nothing when there are none", () => {
+    const base = report().requirements[0];
+    expect(evidenceDocument(report({ requirements: [{ ...base, criteriaCount: 1 }] }))).toContain(
+      "1 acceptance criterion",
+    );
+    // None recorded: the requirement's own line says nothing rather than "0".
+    const none = evidenceDocument(report({ requirements: [{ ...base, criteriaCount: 0 }] }));
+    expect(none).not.toContain("0 acceptance criteri");
+  });
+
+  it("warns the reader that verified is not a claim about every criterion", () => {
+    const html = evidenceDocument(report());
+    expect(html).toContain("Verified is not a statement about every acceptance criterion");
   });
 });

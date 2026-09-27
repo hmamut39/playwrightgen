@@ -210,6 +210,54 @@ describe("release evidence report", () => {
     expect(report.totals.stale).toBe(0);
   });
 
+  it("does not let one passing test speak for six acceptance criteria", async () => {
+    const space = await workspace();
+    const requirement = await approvedRequirement(space);
+    // Six things this requirement claims, written the way the form stores them.
+    await prisma.requirement.update({
+      where: { id: requirement.id },
+      data: {
+        acceptanceCriteria: [
+          "A saved card appears on the payment step",
+          "",
+          "Cards are ordered most recently used first",
+          "The security code is required",
+          "The order confirmation shows the order number",
+          "An expired saved card cannot be selected",
+          "A guest customer sees no saved cards",
+        ].join("\n"),
+      },
+    });
+    const testCase = await linkedTestCase(space, requirement.id, true);
+    await recordAttempt(space, testCase.id, "PASSED");
+
+    const report = await getReleaseEvidenceReport({ projectId: space.project.id }, deps(space));
+    const [entry] = report.requirements;
+
+    // Still verified -- a test did pass -- but the reader is told what that
+    // does and does not establish, and blank lines are not criteria.
+    expect(entry.verdict).toBe("VERIFIED");
+    expect(entry.criteriaCount).toBe(6);
+    expect(entry.reason).toContain("1 approved test last ran and passed.");
+    expect(entry.reason).toContain("states 6 acceptance criteria");
+    expect(entry.reason).toContain("do not say which of them those tests cover");
+  });
+
+  it("says nothing extra when the tests are not outnumbered by the criteria", async () => {
+    const space = await workspace();
+    const requirement = await approvedRequirement(space);
+    await prisma.requirement.update({
+      where: { id: requirement.id },
+      data: { acceptanceCriteria: "An order confirmation appears" },
+    });
+    const testCase = await linkedTestCase(space, requirement.id, true);
+    await recordAttempt(space, testCase.id, "PASSED");
+
+    const report = await getReleaseEvidenceReport({ projectId: space.project.id }, deps(space));
+    expect(report.requirements[0].criteriaCount).toBe(1);
+    expect(report.requirements[0].reason).toBe("1 approved test last ran and passed.");
+  });
+
   it("names who approved the requirement and the test, from the trail", async () => {
     const space = await workspace();
     const requirement = await approvedRequirement(space);

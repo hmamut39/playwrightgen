@@ -90,6 +90,18 @@ export type EvidenceRequirement = {
   /** Who approved this requirement, and when. */
   approvedBy: string | null;
   approvedAt: Date | null;
+  /**
+   * How many acceptance criteria the requirement states.
+   *
+   * A requirement is called verified when an approved test last ran and
+   * passed -- any one of them. A requirement with six criteria and one passing
+   * test therefore reads exactly like one with six criteria and six. Nothing
+   * in the records says which criteria a test covers, so this does not claim
+   * to: it reports the number, and the reason says plainly that the mapping is
+   * not recorded. A reader can then see thin coverage instead of being told
+   * everything is fine.
+   */
+  criteriaCount: number;
   testCases: EvidenceTestCase[];
 };
 
@@ -160,6 +172,7 @@ export async function buildReleaseEvidenceReport(input: {
         title: true,
         status: true,
         currentVersionNumber: true,
+        acceptanceCriteria: true,
         externalReference: true,
         testCaseLinks: {
           select: {
@@ -236,6 +249,10 @@ export async function buildReleaseEvidenceReport(input: {
         };
       });
 
+      const criteriaCount = requirement.acceptanceCriteria
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean).length;
       const approved = testCases.filter((testCase) => testCase.status === "APPROVED");
       const executed = approved.filter((testCase) => testCase.latestResult !== null);
       const failing = executed.filter((testCase) => testCase.latestResult !== "PASSED");
@@ -249,6 +266,11 @@ export async function buildReleaseEvidenceReport(input: {
       } else if (passing.length > 0) {
         verdict = "VERIFIED";
         reason = `${passing.length} approved test${passing.length === 1 ? "" : "s"} last ran and passed.`;
+        // Said out loud rather than left for a reader to assume: one passing
+        // test does not mean six criteria were each checked.
+        if (criteriaCount > passing.length) {
+          reason += ` This requirement states ${criteriaCount} acceptance criteria, and the records do not say which of them those tests cover.`;
+        }
       } else if (approved.length > 0) {
         verdict = "UNVERIFIED";
         reason =
@@ -281,6 +303,7 @@ export async function buildReleaseEvidenceReport(input: {
         freshness: age.freshness,
         approvedBy: approvals.get(requirement.id)?.by ?? null,
         approvedAt: approvals.get(requirement.id)?.at ?? null,
+        criteriaCount,
         testCases,
       };
     });

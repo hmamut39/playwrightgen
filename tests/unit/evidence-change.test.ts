@@ -16,6 +16,7 @@ const requirement = (id: string, title: string, verdict: RequirementVerdict): Ev
   freshness: "MISSING",
   approvedBy: null,
   approvedAt: null,
+  criteriaCount: 1,
   testCases: [],
 });
 
