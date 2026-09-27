@@ -1,7 +1,5 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
-
 import { z } from "zod";
 
 import type { PrismaClient } from "@/generated/prisma/client";
@@ -10,6 +8,7 @@ import {
   type WorkspaceContextDependencies,
 } from "@/lib/auth/workspace-context";
 import { getPrismaClient } from "@/lib/db/prisma";
+import { evidenceHash } from "@/lib/services/evidence-hash";
 import { buildReleaseEvidenceReport, type ReleaseEvidenceReport } from "@/lib/services/release-evidence";
 import { proofTokenHash, readProofToken, readSnapshot } from "@/lib/services/release-proof";
 
@@ -49,29 +48,6 @@ const inputSchema = z.object({
   signedRole: z.string().trim().max(120).optional(),
   note: z.string().trim().max(2_000).optional(),
 });
-
-/** What a reader is shown, and what a later reader can check against. */
-export function evidenceHash(report: ReleaseEvidenceReport) {
-  // Only the claims, not the moment it was read: the same evidence read twice
-  // must hash the same, or the hash says nothing about whether it changed.
-  const claims = {
-    project: report.project.id,
-    totals: report.totals,
-    requirements: report.requirements.map((requirement) => ({
-      id: requirement.id,
-      title: requirement.title,
-      verdict: requirement.verdict,
-      version: requirement.versionNumber,
-      testCases: requirement.testCases.map((testCase) => ({
-        id: testCase.id,
-        version: testCase.versionNumber,
-        result: testCase.latestResult,
-        ranAt: testCase.latestExecutedAt?.toISOString() ?? null,
-      })),
-    })),
-  };
-  return createHash("sha256").update(JSON.stringify(claims)).digest("hex");
-}
 
 /**
  * Records an acceptance against a live proof link.

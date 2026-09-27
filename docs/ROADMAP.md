@@ -164,6 +164,29 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **The exported evidence is a pack an auditor can use** (2026-09-27): the file
+  already held the evidence; what it lacked was the framing that lets somebody
+  outside the team trust and navigate it. It now carries a document reference
+  -- the first twelve characters of the evidence hash -- so a reader holding a
+  file and a reader looking at the page can tell whether they are looking at
+  the same thing, and two copies of the same evidence can be told apart from
+  two different sets. Below the evidence, "How to read this" states what the
+  document is, what each verdict means and that nothing is assumed beyond the
+  records, how each entry came to be there (a person approved it; where an
+  assistant proposed a test it is named), and -- the part that makes it usable
+  as evidence rather than marketing -- what it does not claim: that the names
+  were identity-checked, that the evidence is current, or that coverage is
+  complete.
+  The hash moved to `lib/services/evidence-hash.ts` so there is exactly one
+  definition: a signature records the hash of what somebody accepted, and the
+  document prints the same reference, and those two must never drift apart.
+  Unit-tested, including that the same evidence yields the same reference and
+  different evidence does not. Verified by downloading the file and opening it
+  from disk with every network request blocked.
+  Note: verified with the tests around the change (51 across evidence,
+  signatures, proof links and the report), typecheck, lint and a production
+  build. The full suite was not run -- the machine had 4 GB free and the full
+  run has crashed it twice.
 - **The evidence names who approved it** (2026-09-26): the chain said who
   proposed a test and that it ran and passed, and it ended with whoever
   accepted the result -- but the part a reviewing body actually asks for was
@@ -778,22 +801,16 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **A compliance pack.** One download that answers what a notified body asks
-   for: requirement, the tests that verify it, the runs, who approved each and
-   when, who accepted the result, and the version history behind all of it. The
-   pieces exist -- evidence report, authorship, approvals, signatures -- so
-   this is assembly and wording rather than new machinery. The EU AI Act's
-   high-risk deadline is December 2027, so the demand builds through next year.
-2. **Requirements from where the work starts.** Pull from Jira, Linear or
+1. **Requirements from where the work starts.** Pull from Jira, Linear or
    GitHub issues so the chain begins at the ticket rather than in the middle.
    In regulated teams, ticket to requirement to test to run to release is the
    deliverable.
-3. **MCP 2026-07-28.** The server speaks 2025-06-18. The new spec is a
+2. **MCP 2026-07-28.** The server speaks 2025-06-18. The new spec is a
    stateless rewrite (no initialize handshake, no session id, Mcp-Method
    routing, MRTR in place of server-initiated requests). Clients still
    negotiate older versions, so this is maintenance rather than a feature: do
    it when a client needs it, and keep 2025-06-18 working when it happens.
-4. **Verify the paid path end to end — on hold at the owner's request.** Stripe
+3. **Verify the paid path end to end — on hold at the owner's request.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to
    do it now, so do not raise it until they bring it up.

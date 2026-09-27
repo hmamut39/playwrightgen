@@ -1,3 +1,4 @@
+import { evidenceHash } from "@/lib/services/evidence-hash";
 import type { ReleaseEvidenceReport } from "@/lib/services/release-evidence";
 
 /**
@@ -119,6 +120,9 @@ export function evidenceDocument(
   options: { frozen?: boolean; signatures?: readonly DocumentSignature[] } = {},
 ) {
   const title = `Test evidence — ${report.project.name}`;
+  // A reader holding this file and a reader looking at the page can compare
+  // this and know whether they are looking at the same evidence.
+  const reference = evidenceHash(report).slice(0, 12);
   const taken = options.frozen
     ? `Snapshot taken ${stamp(report.generatedAt)}. It shows what was true at that moment.`
     : `Read ${stamp(report.generatedAt)}. It shows the project as it stood at that moment.`;
@@ -175,7 +179,7 @@ export function evidenceDocument(
   <p class="kicker">Test evidence</p>
   <h1>${escape(report.project.name)}</h1>
   <p class="sub">${escape(report.organization.name)}</p>
-  <p class="note">${taken}</p>
+  <p class="note">${taken}<br>Document reference ${reference}</p>
 
   <div class="totals">
     <div class="total"><span>Verified</span><strong>${report.totals.verified}</strong></div>
@@ -215,6 +219,26 @@ export function evidenceDocument(
   verify their identity; it recorded that a named person accepted evidence with the reference shown.</p>`
       : ""
   }
+
+  <h2>How to read this</h2>
+  <section class="requirement">
+    <p class="reason"><strong>What it is.</strong> Every requirement this project has approved, the approved tests that
+    verify each one, and the result of the last run of each of those tests. It is assembled from stored records only.</p>
+    <p class="reason"><strong>What the verdicts mean.</strong> <em>Verified</em> means an approved test last ran and
+    passed. <em>Failing</em> means one last ran and did not pass. <em>Not verified</em> means nothing approved covers
+    the requirement, or nothing has run. No judgement is applied beyond what the records state, and a requirement that
+    nothing has exercised is reported as not verified rather than assumed to be fine.</p>
+    <p class="reason"><strong>How each entry came to be here.</strong> A person approved the requirement and the test;
+    the approver and date are named against each. Every result was recorded when the test ran, against the approved
+    version it ran. Where an assistant proposed a test, the assistant is named, and a person still approved it.</p>
+    <p class="reason"><strong>What this document does not claim.</strong> That the names above were identity-checked:
+    a person accepting shared evidence types their own name, and PlaywrightGen records it without verifying who they
+    are. That the evidence is current: each entry states how long ago it was last checked, and nothing here refreshes
+    it. That coverage is complete: it can only report requirements this project has recorded.</p>
+    <p class="reason"><strong>Changing it.</strong> Requirement, test and run versions cannot be edited after the fact;
+    a change creates a new version. This file is a copy, so treat the document reference above as the way to tell one
+    copy from another.</p>
+  </section>
 
   <footer>
     Exported from PlaywrightGen, which keeps each approval and each run as a record that cannot be edited after the

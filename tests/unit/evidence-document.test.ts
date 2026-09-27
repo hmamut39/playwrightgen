@@ -276,3 +276,31 @@ describe("who approved it", () => {
     expect(html).not.toContain("<img");
   });
 });
+
+describe("the pack an auditor is handed", () => {
+  it("carries a reference that tells one set of evidence from another", () => {
+    const html = evidenceDocument(report());
+    const reference = /Document reference ([0-9a-f]{12})/.exec(html)?.[1];
+    expect(reference).toBeDefined();
+    // The same evidence read twice carries the same reference; different
+    // evidence does not, or the reference would say nothing.
+    expect(evidenceDocument(report())).toContain(`Document reference ${reference}`);
+    const changed = report({ totals: { verified: 1, failing: 0, unverified: 0, stale: 0 } });
+    expect(evidenceDocument(changed)).not.toContain(`Document reference ${reference}`);
+  });
+
+  it("says how the verdicts were reached, not only what they are", () => {
+    const html = evidenceDocument(report());
+    expect(html).toContain("How to read this");
+    expect(html).toContain("assembled from stored records only");
+    expect(html).toContain("reported as not verified rather than assumed to be fine");
+  });
+
+  it("states its own limits, which is what makes it usable as evidence", () => {
+    const html = evidenceDocument(report());
+    // The three honest limits: identity, currency, completeness.
+    expect(html).toContain("without verifying who they");
+    expect(html).toContain("how long ago it was last checked");
+    expect(html).toContain("only report requirements this project has recorded");
+  });
+});

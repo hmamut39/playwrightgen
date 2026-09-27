@@ -5,12 +5,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { PrismaClient } from "@/generated/prisma/client";
 import {
   EvidenceSignatureError,
-  evidenceHash,
   listEvidenceSignatures,
   readLinkSignatures,
   signEvidence,
   stillMatches,
 } from "@/lib/services/evidence-signature";
+import { evidenceHash } from "@/lib/services/evidence-hash";
 import { buildReleaseEvidenceReport } from "@/lib/services/release-evidence";
 import { createProofLink, revokeProofLink } from "@/lib/services/release-proof";
 import {
