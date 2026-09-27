@@ -164,6 +164,23 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **What this requirement still needs** (2026-09-27): a requirement counts as
+  verified when any one approved test last ran and passed, so a requirement
+  with six criteria and two tests reads as covered, and the records cannot do
+  better -- nothing links a test to the criterion it checks. The requirement
+  page now reads the two lists against each other and says which criteria
+  nothing appears to check, and, in the other direction, which behaviour the
+  tests exercise that the requirement never states. That second one is the
+  harder gap to notice, because everything looks green while the story quietly
+  left something out, and it is the question a team adopting this asks first.
+  It is a reading, not a record: rendered in the panel, never stored, never
+  counted, never near a verdict, and labelled that way on screen. A mapping
+  nobody has verified is a good prompt for a person and a bad thing to show an
+  auditor, and the only difference is whether it was written down as fact.
+  Only approved tests are compared, because a draft proves nothing, and a
+  requirement with no criteria says so rather than returning an empty reading.
+  Integration-tested, including that nothing is written: same updatedAt, same
+  version number, no AI suggestion rows.
 - **An assistant is never told the project is releasable** (2026-09-27): the
   Release page is careful -- "no blocking condition was found in the recorded
   evidence... not a guarantee about untested behaviour" -- while

@@ -15,8 +15,10 @@ import {
   updateRequirementDraft,
 } from "@/lib/services/requirements";
 import { personName } from "@/lib/format/person-name";
+import { CriteriaGapsError, readRequirementGaps } from "@/lib/services/criteria-gaps";
 import { proposeTestCasesForRequirement } from "@/lib/services/test-case-proposals";
 import { ProposeTestCases, type ProposalState } from "@/components/workspace/propose-test-cases";
+import { RequirementGaps, initialGapsState, type GapsState } from "@/components/workspace/requirement-gaps";
 import { PendingButton, PendingNotice } from "@/components/workspace/pending-button";
 import { ReviewTrailPanel } from "@/components/workspace/review-trail";
 import { NextStep } from "@/components/workspace/next-step";
@@ -121,6 +123,34 @@ export default async function RequirementDetailPage({
     }
     revalidatePath(requirementPath);
     revalidatePath(listPath);
+  }
+
+  /**
+   * Reads the criteria against the approved tests. The result goes back to
+   * the panel and nowhere else -- nothing is saved, so nothing unverified can
+   * end up in the evidence somebody is shown.
+   */
+  async function readGapsAction(_state: GapsState, _formData: FormData): Promise<GapsState> {
+    "use server";
+    try {
+      const gaps = await readRequirementGaps({ orgSlug, projectId, requirementId });
+      return {
+        status: "read",
+        criteria: gaps.criteria,
+        notInTheRequirement: gaps.notInTheRequirement,
+        message: "",
+      };
+    } catch (error) {
+      const message =
+        error instanceof CriteriaGapsError
+          ? error.code === "no_criteria"
+            ? "This requirement lists no acceptance criteria, so there is nothing to compare against."
+            : error.code === "no_tests"
+              ? "No approved test is linked to this requirement yet. A draft proves nothing, so there is nothing to compare."
+              : "It could not be read just now."
+          : "It could not be read just now.";
+      return { ...initialGapsState, status: "error", message };
+    }
   }
 
   async function proposeTestCasesAction(
@@ -434,6 +464,8 @@ export default async function RequirementDetailPage({
           </p>
         </section>
       )}
+
+      <RequirementGaps action={readGapsAction} />
 
       <section className="mt-8 rounded-2xl border border-sky-200 bg-sky-50/40 p-6 shadow-sm sm:p-8">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
