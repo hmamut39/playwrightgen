@@ -164,6 +164,20 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **Green no longer means "checked lately"** (2026-09-27): the Health page
+  calls a project on track when something has run and nothing is failing or
+  blocking. A project whose only run was six months ago satisfies all of that,
+  so it showed a plain green "On track" above "Tests have run, nothing is
+  failing, and nothing blocks a release" -- every word true, and the wrong
+  impression, on the screen people glance at from a phone. The verdict stays
+  on track, because old evidence is still evidence and calling it a problem
+  would cry wolf, but it now carries the age: "nothing failing, but the last
+  evidence is 193 days old". Evidence merely aging (a week to a month) says
+  nothing, or the line that matters would be trained out of people.
+  Unit-tested both ways, with the exact sentence pinned. Not confirmed in a
+  browser: the freshness clock reads requirement, test-case and automation
+  timestamps as well as runs, and forcing the development project into a stale
+  state without disturbing it proved more trouble than it was worth.
 - **One passing test no longer speaks for six acceptance criteria**
   (2026-09-27): a requirement is called verified when an approved test last ran
   and passed -- any one of them -- so a requirement with six criteria and one
@@ -880,7 +894,7 @@ In priority order. Each item should end verified in a browser and shipped.
    routing, MRTR in place of server-initiated requests). Clients still
    negotiate older versions, so this is maintenance rather than a feature: do
    it when a client needs it, and keep 2025-06-18 working when it happens.
-3. **Verify the paid path end to end — on hold at the owner's request.** Stripe
+3. **Verify the paid path end to end — the owner has scheduled this for the week of 2026-09-28.** Stripe
    payment, then webhook, then entitlement, then the Team allowance. Needs the
    owner's account and a real card; they said on 2026-09-19 they do not want to
    do it now, so do not raise it until they bring it up.

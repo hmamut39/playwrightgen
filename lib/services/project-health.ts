@@ -11,6 +11,13 @@ import type { ReleaseReadiness } from "@/lib/services/release-readiness";
  *   release blocker is open.
  * - "no-evidence": nothing has ever run, so there is nothing to call healthy.
  * - "on-track": it has run, and nothing above is true.
+ *
+ * On track is not the same as recently checked. A project whose only run was
+ * six months ago has nothing failing and nothing blocking, and would read as a
+ * plain green "on track" on the screen people glance at from a phone. The
+ * verdict stays on track -- old evidence is still evidence, and calling it a
+ * problem would cry wolf -- but it carries how long ago it was, so nobody
+ * reads green as "checked lately".
  */
 export type HealthVerdict = "attention" | "no-evidence" | "on-track";
 
@@ -35,5 +42,12 @@ export function projectHealthVerdict(input: {
 
   const ran = input.readiness.evidence.hasExecution || Boolean(input.live && input.live.checked > 0);
   if (!ran) return { verdict: "no-evidence", reasons: ["no test has run yet"] };
+  // Nothing is wrong, but the screen must not imply it was checked lately.
+  if (input.readiness.evidence.freshness === "STALE" && input.readiness.evidence.ageDays !== null) {
+    return {
+      verdict: "on-track",
+      reasons: [`nothing failing, but the last evidence is ${input.readiness.evidence.ageDays} days old`],
+    };
+  }
   return { verdict: "on-track", reasons: [] };
 }
