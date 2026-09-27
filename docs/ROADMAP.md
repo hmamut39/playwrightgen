@@ -164,6 +164,25 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **A failing test is only repaired when the test is what is broken**
+  (2026-09-27, groundwork): "can it fix the failing test" is the first thing a
+  team asks, and the honest answer has a condition attached. A test fails for
+  two different reasons. The product changed and the test is right -- the
+  failure is the whole point, and quietly repairing the test deletes the only
+  warning anybody was going to get. Or the test is wrong, a renamed button or a
+  timing assumption, and repairing it is the chore worth automating.
+  Failure analysis already told them apart (`FailureCategory` with a
+  confidence), and nothing used that. `readRepairReadiness` now does: a repair
+  is offered only when the strongest finding says TEST_DEFECT or FLAKY_TIMING
+  with at least 60 confidence, and a PRODUCT_DEFECT is refused in words --
+  "repairing the test here would delete the only warning anybody was going to
+  get" -- rather than by a button that silently declines. Environment, test
+  data, dependency and unknown are left to a person. So is a failure nothing
+  has analysed yet.
+  Integration-tested across every category. Still to build: the repair itself,
+  which can reuse `proveDraftOnLivePage` with the existing approved code as
+  its starting point, and should land beside the Test Case as a proposal with
+  its run evidence rather than replacing any automation on its own.
 - **What this requirement still needs** (2026-09-27): a requirement counts as
   verified when any one approved test last ran and passed, so a requirement
   with six criteria and two tests reads as covered, and the records cannot do
