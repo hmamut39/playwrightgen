@@ -10,6 +10,11 @@ import {
   startAutomationArtifactGeneration,
   listAutomationArtifacts,
 } from "@/lib/services/automation-artifacts";
+import {
+  AutomationRepairError,
+  proposeAutomationRepair,
+  readRepairReadiness,
+} from "@/lib/services/automation-repair";
 import { getImportedDraft } from "@/lib/services/imported-drafts";
 import { MAX_PAGE_SIZE } from "@/lib/services/list-query";
 import { listRequirements } from "@/lib/services/requirements";
@@ -58,6 +63,31 @@ export default async function TestCaseDetailPage({
   ]);
   const { testCase } = detail;
   const testPath = `/workspace/${orgSlug}/projects/${projectId}/test-cases/${testCaseId}`;
+  /**
+   * Whether a repair may be offered, read here rather than behind the button,
+   * so somebody sees "this looks like a product bug" instead of pressing
+   * something that silently declines.
+   */
+  const repair = await readRepairReadiness({ orgSlug, projectId, testCaseId }).catch(() => null);
+
+  async function repairAction() {
+    "use server";
+    let message: string;
+    try {
+      const outcome = await proposeAutomationRepair({ orgSlug, projectId, testCaseId });
+      message = outcome.message;
+    } catch (error) {
+      message =
+        error instanceof AutomationRepairError
+          ? (error.detail ??
+            (error.code === "no_live_url"
+              ? "This project has no live address, so there is nowhere to prove a repair."
+              : "There is no approved automation to repair yet."))
+          : "The repair could not be run just now.";
+    }
+    revalidatePath(testPath);
+    redirect(`${testPath}?notice=repair:${encodeURIComponent(message)}`);
+  }
   const listPath = `/workspace/${orgSlug}/projects/${projectId}/test-cases`;
   const steps = readTestCaseList(testCase.steps);
   const expectedResults = readTestCaseList(testCase.expectedResults);
@@ -229,6 +259,40 @@ export default async function TestCaseDetailPage({
           <div className="mt-7 grid gap-6 border-t pt-6 sm:grid-cols-2"><div><h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Steps</h2><ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-slate-700">{steps.map((step, index) => <li key={`${index}-${step}`}>{step}</li>)}</ol></div><div><h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Expected results</h2><ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-slate-700">{expectedResults.map((result, index) => <li key={`${index}-${result}`}>{result}</li>)}</ul></div></div>
         </section>
       )}
+
+      {repair ? (
+        <section className="mt-8 rounded-2xl border border-amber-200 bg-amber-50/50 p-6 shadow-sm sm:p-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-800">This test is failing</p>
+          <h2 className="mt-2 text-lg font-semibold">
+            {repair.allowed ? "The test looks like what is broken" : "Read this before repairing the test"}
+          </h2>
+          {repair.title ? (
+            <p className="mt-2 text-sm text-slate-700">
+              Analysis: {repair.title}
+              {repair.confidence === null ? "" : ` · ${repair.confidence}% confident`}
+            </p>
+          ) : null}
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">{repair.message}</p>
+          {repair.allowed ? (
+            <form action={repairAction} className="mt-4">
+              <PendingButton
+                pendingLabel="Running it and fixing…"
+                className="rounded-lg bg-amber-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-900"
+              >
+                Repair it and prove it on the live page
+              </PendingButton>
+              <span className="ml-3 text-xs text-slate-600">
+                Starts from the approved code. A fix costs one AI request; a run that passes costs nothing.
+              </span>
+            </form>
+          ) : null}
+          {notice?.startsWith("repair:") ? (
+            <p role="status" className="mt-3 text-sm font-semibold text-slate-900">
+              {decodeURIComponent(notice.slice("repair:".length))}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="mt-8 rounded-2xl border border-cyan-200 bg-cyan-50/30 p-6 shadow-sm sm:p-8">
         <div>

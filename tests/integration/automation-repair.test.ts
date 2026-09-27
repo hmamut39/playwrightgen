@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { FailureCategory, PrismaClient } from "@/generated/prisma/client";
-import { readRepairReadiness } from "@/lib/services/automation-repair";
+import { AutomationRepairError, proposeAutomationRepair, readRepairReadiness } from "@/lib/services/automation-repair";
 import {
   cleanPhase1ATables,
   connectTestDatabase,
@@ -148,6 +148,43 @@ describe("whether a failing test may be repaired", () => {
       },
     });
   }
+
+  it("will not even start a repair when the product is what looks broken", async () => {
+    const area = await space();
+    await diagnose(area, "PRODUCT_DEFECT", 85);
+    // A live URL and approved automation exist, so the only thing stopping it
+    // is the diagnosis -- which is the point.
+    await prisma.project.update({
+      where: { id: area.project.id },
+      data: { liveUrl: "https://shop.example.com/" },
+    });
+
+    await expect(
+      proposeAutomationRepair(
+        { projectId: area.project.id, testCaseId: area.testCase.id },
+        area.owned,
+      ),
+    ).rejects.toMatchObject({ code: "looks_like_product_defect" });
+  });
+
+  it("needs somewhere to run and something to repair", async () => {
+    const area = await space();
+    await diagnose(area, "TEST_DEFECT", 80);
+
+    // No live URL: there is nowhere to prove a repair, so it does not guess.
+    await expect(
+      proposeAutomationRepair({ projectId: area.project.id, testCaseId: area.testCase.id }, area.owned),
+    ).rejects.toMatchObject({ code: "no_live_url" });
+
+    await prisma.project.update({
+      where: { id: area.project.id },
+      data: { liveUrl: "https://shop.example.com/" },
+    });
+    // No approved automation: there is no code to start from.
+    await expect(
+      proposeAutomationRepair({ projectId: area.project.id, testCaseId: area.testCase.id }, area.owned),
+    ).rejects.toBeInstanceOf(AutomationRepairError);
+  });
 
   it("refuses when the product is what looks broken", async () => {
     const area = await space();

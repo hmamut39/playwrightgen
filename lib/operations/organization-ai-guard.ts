@@ -65,7 +65,8 @@ export async function reserveOrganizationAiRequest(input: {
     | "free-tools"
     | "page-coverage"
     | "requirement-drafting"
-    | "criteria-coverage";
+    | "criteria-coverage"
+    | "automation-repair";
   source?: EnvironmentSource;
   now?: Date;
   execute?: (keys: string[], args: string[]) => Promise<unknown>;

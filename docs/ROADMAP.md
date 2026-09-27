@@ -165,7 +165,7 @@ test suite (493 tests) passes.
 
 ### Workspace (new-user and team experience)
 - **A failing test is only repaired when the test is what is broken**
-  (2026-09-27, groundwork): "can it fix the failing test" is the first thing a
+  (2026-09-27): "can it fix the failing test" is the first thing a
   team asks, and the honest answer has a condition attached. A test fails for
   two different reasons. The product changed and the test is right -- the
   failure is the whole point, and quietly repairing the test deletes the only
@@ -179,10 +179,23 @@ test suite (493 tests) passes.
   get" -- rather than by a button that silently declines. Environment, test
   data, dependency and unknown are left to a person. So is a failure nothing
   has analysed yet.
-  Integration-tested across every category. Still to build: the repair itself,
-  which can reuse `proveDraftOnLivePage` with the existing approved code as
-  its starting point, and should land beside the Test Case as a proposal with
-  its run evidence rather than replacing any automation on its own.
+  The repair itself is now built. `proposeAutomationRepair` checks that gate
+  first, then runs the team's own approved code against the project's live
+  address through `proveDraftOnLivePage`: if it fails, the failing step is
+  repaired from the page as it actually was and run again, up to two fixes.
+  It starts from approved code rather than writing a new test, so a run that
+  passes spends nothing and only a fix costs a request, and what comes back is
+  recognisably their test with one thing changed. A repair that ends partial
+  is not proposed at all -- nothing failed is not the same as proved -- and
+  neither is one that still fails, which may mean the failure was not the test
+  after all. When it passes it lands beside the Test Case with its run
+  evidence, exactly where code from covering a page lands, and a person
+  chooses to use it. It replaces no automation on its own.
+  The Test Case page shows the diagnosis and the reason without anyone
+  pressing anything, so a product defect reads as "repairing the test here
+  would delete the only warning anybody was going to get" rather than as a
+  button that declines. Integration-tested across every category, plus the
+  refusals for no live address and no approved automation.
 - **What this requirement still needs** (2026-09-27): a requirement counts as
   verified when any one approved test last ran and passed, so a requirement
   with six criteria and two tests reads as covered, and the records cannot do
