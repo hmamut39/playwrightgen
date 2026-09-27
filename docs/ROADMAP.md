@@ -164,6 +164,29 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **An agent can start the chain** (2026-09-27): an assistant could propose
+  tests and read what was agreed, but the chain begins at a requirement and
+  only a person in the web app could create one -- so an assistant working
+  from a ticket had to stop and ask somebody to go and type it in, which is
+  where intent gets reworded or lost. `propose_requirement` creates a draft
+  with a title, description and acceptance criteria, optionally submitted for
+  review, and the chain names the assistant that proposed it
+  (`RequirementVersion.authoredByAgent`, migration 20260927150000) for the
+  same reasons it does on a Test Case version. It only proposes: coverage is
+  measured against approved intent, so nothing it writes counts until a person
+  approves it. Sixteen tools now. Verified over real HTTP: proposed from a
+  caller identifying as Cursor 1.8.2, came back IN_REVIEW and UNVERIFIED, and
+  the version recorded the assistant.
+- **A correction to yesterday's pack** (2026-09-27): writing the test above
+  caught it. The evidence report includes every requirement that is not
+  archived, drafts included -- but three places described it as covering
+  approved requirements, one of them the compliance pack's own "What it is",
+  which is exactly the kind of overstatement that document exists to avoid.
+  The pack now says it covers approved requirements and drafts alike, and that
+  a draft will read as not verified because intent nobody has agreed to cannot
+  be counted as covered. `list_requirements` and `get_requirement` say the same
+  and now return each requirement's review status, so an agent can tell intent
+  somebody agreed to from intent nobody has yet.
 - **A requirement can start from the ticket it came from** (2026-09-27): the
   chain starts at an approved requirement, and that requirement had to be
   typed by hand -- while the work itself almost always starts in a Jira

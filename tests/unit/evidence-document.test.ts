@@ -293,6 +293,9 @@ describe("the pack an auditor is handed", () => {
     const html = evidenceDocument(report());
     expect(html).toContain("How to read this");
     expect(html).toContain("assembled from stored records only");
+    // It says which requirements it covers, and it is not only the approved ones.
+    expect(html).toContain("approved ones");
+    expect(html).toContain("drafts alike");
     expect(html).toContain("reported as not verified rather than assumed to be fine");
   });
 

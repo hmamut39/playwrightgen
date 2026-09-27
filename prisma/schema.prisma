@@ -666,6 +666,11 @@ model RequirementVersion {
   description        String            @db.Text
   acceptanceCriteria String            @db.Text
   source             RequirementSource
+  /// Which assistant proposed this version, when one did and said who it was.
+  /// The same claim, with the same limits, as on a Test Case version: it is
+  /// what the caller said about itself, kept for reading history, and it
+  /// decides nothing.
+  authoredByAgent    String?           @db.VarChar(120)
   externalReference  String?           @db.VarChar(500)
   ownerUserId        String            @db.Uuid
   createdByUserId    String            @db.Uuid
@@ -1282,9 +1287,9 @@ model ProofLink {
   snapshot        Json?     @db.JsonB
   createdAt       DateTime  @default(now()) @db.Timestamptz(3)
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  project      Project      @relation(fields: [organizationId, projectId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
-  createdBy    User         @relation("ProofLinkCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  project      Project             @relation(fields: [organizationId, projectId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy    User                @relation("ProofLinkCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   signatures   EvidenceSignature[]
 
   @@unique([organizationId, projectId, id])

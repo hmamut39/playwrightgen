@@ -222,8 +222,10 @@ export function evidenceDocument(
 
   <h2>How to read this</h2>
   <section class="requirement">
-    <p class="reason"><strong>What it is.</strong> Every requirement this project has approved, the approved tests that
-    verify each one, and the result of the last run of each of those tests. It is assembled from stored records only.</p>
+    <p class="reason"><strong>What it is.</strong> Every requirement this project holds that has not been archived -- approved ones
+    and drafts alike -- the approved tests that verify each one, and the result of the last run of each of those
+    tests. A requirement still in draft is included and will read as not verified, because intent nobody has agreed
+    to cannot be counted as covered. It is assembled from stored records only.</p>
     <p class="reason"><strong>What the verdicts mean.</strong> <em>Verified</em> means an approved test last ran and
     passed. <em>Failing</em> means one last ran and did not pass. <em>Not verified</em> means nothing approved covers
     the requirement, or nothing has run. No judgement is applied beyond what the records state, and a requirement that

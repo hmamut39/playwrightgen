@@ -30,6 +30,7 @@ import {
 } from "@/lib/services/automation-artifacts";
 import type { EditorSession } from "@/lib/services/editor-access";
 import { getReleaseEvidenceReport } from "@/lib/services/release-evidence";
+import { createRequirement, submitRequirementForReview } from "@/lib/services/requirements";
 import { getReleaseReadiness } from "@/lib/services/release-readiness";
 import {
   getPageCoverage,
@@ -259,7 +260,7 @@ const tools: Tool[] = [
     name: "list_requirements",
     title: "List requirements and what verifies them",
     description:
-      "Approved requirements in this project with a verdict derived from stored records only: VERIFIED (an approved test last ran and passed), FAILING (one last ran and did not pass), or UNVERIFIED (nothing approved covers it, or nothing has run). Use verdict: \"UNVERIFIED\" to find what still needs a test. Reads only; spends no AI allowance.",
+      "Every requirement in this project that is not archived -- approved ones and drafts alike, each with its review status -- and a verdict derived from stored records only: VERIFIED (an approved test last ran and passed), FAILING (one last ran and did not pass), or UNVERIFIED (nothing approved covers it, or nothing has run). Use verdict: \"UNVERIFIED\" to find what still needs a test. Reads only; spends no AI allowance.",
     annotations: READ_ONLY,
     inputSchema: {
       type: "object",
@@ -285,6 +286,7 @@ const tools: Tool[] = [
         .map((requirement) => ({
           id: requirement.id,
           title: requirement.title,
+          status: requirement.status,
           verdict: requirement.verdict,
           reason: requirement.reason,
           lastCheckedDaysAgo: requirement.ageDays,
@@ -295,7 +297,7 @@ const tools: Tool[] = [
         ? requirements
             .map(
               (requirement) =>
-                `- ${requirement.title}\n  id: ${requirement.id} · ${requirement.verdict}${requirement.externalReference ? ` · ${requirement.externalReference}` : ""}\n  ${requirement.reason}${requirement.lastCheckedDaysAgo === null ? "" : ` Last checked ${requirement.lastCheckedDaysAgo} day${requirement.lastCheckedDaysAgo === 1 ? "" : "s"} ago.`}`,
+                `- ${requirement.title}\n  id: ${requirement.id} · ${requirement.status} · ${requirement.verdict}${requirement.externalReference ? ` · ${requirement.externalReference}` : ""}\n  ${requirement.reason}${requirement.lastCheckedDaysAgo === null ? "" : ` Last checked ${requirement.lastCheckedDaysAgo} day${requirement.lastCheckedDaysAgo === 1 ? "" : "s"} ago.`}`,
             )
             .join("\n")
         : input.verdict
@@ -319,7 +321,7 @@ const tools: Tool[] = [
     name: "get_requirement",
     title: "Get a requirement and its evidence",
     description:
-      "One approved requirement: its verdict, why, and every approved test that verifies it with how that test last ran. Use it before writing a test, so the new one covers what is missing rather than what is already proven. Reads only; spends no AI allowance.",
+      "One requirement: its review status, its verdict, why, and every approved test that verifies it with how that test last ran. Use it before writing a test, so the new one covers what is missing rather than what is already proven. Reads only; spends no AI allowance.",
     annotations: READ_ONLY,
     inputSchema: {
       type: "object",
@@ -335,7 +337,7 @@ const tools: Tool[] = [
       );
       const requirement = report.requirements.find((entry) => entry.id === input.requirementId);
       if (!requirement) {
-        return toolError("No approved requirement in this project has that id. Use list_requirements to find it.");
+        return toolError("No requirement in this project has that id. Use list_requirements to find it.");
       }
       const tests = requirement.testCases.map((testCase) => ({
         id: testCase.id,
@@ -355,7 +357,7 @@ const tools: Tool[] = [
         : "No approved test verifies this requirement yet.";
       return text(
         `${requirement.title}\n${requirement.verdict} — ${requirement.reason}\n\n${lines}`,
-        { requirement: { id: requirement.id, title: requirement.title, verdict: requirement.verdict, reason: requirement.reason }, tests },
+        { requirement: { id: requirement.id, title: requirement.title, status: requirement.status, verdict: requirement.verdict, reason: requirement.reason }, tests },
       );
     },
   },
@@ -1018,6 +1020,88 @@ const tools: Tool[] = [
         if (step.status !== "PROVING") break;
       }
       return describeCoverage(session, input.coverageId, proved ? `Proved ${proved} test${proved === 1 ? "" : "s"} in this call.` : undefined);
+    },
+  },
+  {
+    /**
+     * The one thing an assistant could not start.
+     *
+     * It could proposes tests, and it could read what is agreed -- but the
+     * chain begins at a requirement, and only a person sitting in the web app
+     * could create one. So an assistant working from a ticket had to stop and
+     * ask somebody to go and type it in, which is where the intent gets
+     * reworded or lost.
+     *
+     * It still only proposes. A requirement arrives as a draft, and coverage
+     * is measured against approved intent, so nothing an assistant writes here
+     * counts until a person has read it and approved it.
+     */
+    name: "propose_requirement",
+    title: "Propose a requirement",
+    description:
+      "Creates a draft requirement in this project: what the product should do, and how somebody would know it works. Use it when the behaviour you are about to test has no requirement yet -- check list_requirements first. Write only what your source supports; do not invent behaviour to fill a gap, and say what is unsettled in the description instead. A person reviews and approves it; until then it counts as nothing.",
+    annotations: WRITE,
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "One sentence: what a person can do." },
+        description: { type: "string", description: "What the behaviour is, from your source only." },
+        acceptanceCriteria: {
+          type: "array",
+          items: { type: "string" },
+          description: "How somebody would know it works. Each one observable from outside.",
+        },
+        externalReference: { type: "string", description: "A ticket key or URL, when there is one." },
+        submitForReview: { type: "boolean", description: "Send it to the review queue straight away." },
+      },
+      required: ["title", "description", "acceptanceCriteria"],
+      additionalProperties: false,
+    },
+    async run(session, args) {
+      const input = z
+        .object({
+          title: z.string().min(1).max(300),
+          description: z.string().min(1).max(20_000),
+          acceptanceCriteria: z.array(z.string().min(1).max(2_000)).min(1).max(20),
+          externalReference: z.string().max(500).optional(),
+          submitForReview: z.boolean().optional(),
+        })
+        .parse(args);
+      const scope = { orgSlug: session.orgSlug, projectId: session.projectId };
+      const created = await createRequirement(
+        {
+          ...scope,
+          title: input.title,
+          description: input.description,
+          // One per line, which is how the form and the reviewers read them.
+          acceptanceCriteria: input.acceptanceCriteria.map((line) => line.trim()).filter(Boolean).join("\n"),
+          source: "AI_SUGGESTED",
+          externalReference: input.externalReference || null,
+          authoredByAgent: session.agent ?? null,
+        },
+        session.dependencies,
+      );
+
+      const notes: string[] = [];
+      let status = "DRAFT";
+      if (input.submitForReview) {
+        try {
+          await submitRequirementForReview({ ...scope, requirementId: created.id }, session.dependencies);
+          status = "IN_REVIEW";
+        } catch (error) {
+          notes.push(`It stays a draft: ${describeToolFailure(error)}`);
+        }
+      }
+      const url = `${siteUrl()}/workspace/${session.orgSlug}/projects/${session.projectId}/requirements/${created.id}`;
+      return text(
+        [
+          `Proposed "${created.title}" as a ${status === "IN_REVIEW" ? "requirement waiting for review" : "draft requirement"}.`,
+          "A person approves it before it counts as intent anything is measured against.",
+          ...notes,
+          url,
+        ].join(" "),
+        { id: created.id, status, url },
+      );
     },
   },
   {

@@ -240,6 +240,8 @@ export async function createRequirement(
     acceptanceCriteria?: string;
     source?: RequirementSource;
     externalReference?: string | null;
+    /** Which assistant proposed this, when one did and said who it was. */
+    authoredByAgent?: string | null;
     requestId?: string;
   },
   dependencies?: RequirementServiceDependencies,
@@ -284,6 +286,9 @@ export async function createRequirement(
         description: requirement.description,
         acceptanceCriteria: requirement.acceptanceCriteria,
         source: requirement.source,
+        // On the version rather than the Requirement: who proposed version 1
+        // does not change when somebody edits it later.
+        authoredByAgent: input.authoredByAgent?.slice(0, 120) || null,
         externalReference: requirement.externalReference,
         ownerUserId: requirement.ownerUserId,
         createdByUserId: context.user.id,

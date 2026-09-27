@@ -256,12 +256,14 @@ export default defineConfig({ use: { baseURL: "http://localhost:3000" } });`,
         "prove_playwright_test",
         "plan_page_coverage",
         "prove_page_coverage",
+        "propose_requirement",
         "propose_test_case",
         "submit_playwright_code",
       ]);
       expect(list.result.tools.filter((tool) => !tool.annotations.readOnlyHint).map((tool) => tool.name)).toEqual([
         "plan_page_coverage",
         "prove_page_coverage",
+        "propose_requirement",
         "propose_test_case",
         "submit_playwright_code",
       ]);
@@ -304,6 +306,46 @@ test('customer applies a discount code', async ({ page }) => {
   await page.getByRole('textbox', { name: 'Discount code' }).fill('SAVE10');
   await expect(page.getByText('10% off')).toBeVisible();
 });`;
+
+    it("lets an agent start the chain with a requirement, and no further", async () => {
+      const space = await workspace();
+      const session = await sessionFor(space);
+
+      const proposed = await call({ ...session, agent: "Cursor 1.8" }, "propose_requirement", {
+        title: "A customer can pay with a saved card",
+        description: "A returning customer selects a saved card and completes the order.",
+        acceptanceCriteria: ["An order confirmation appears", "The saved card is charged once"],
+        externalReference: "SHOP-412",
+        submitForReview: true,
+      });
+      expect(proposed.result.isError).toBeUndefined();
+      expect(proposed.result.structuredContent).toMatchObject({ status: "IN_REVIEW" });
+      const id = String(proposed.result.structuredContent?.id);
+
+      const requirement = await prisma.requirement.findUniqueOrThrow({ where: { id } });
+      // Proposed, never approved: coverage is measured against approved intent.
+      expect(requirement.status).toBe("IN_REVIEW");
+      expect(requirement.source).toBe("AI_SUGGESTED");
+      // One criterion per line, the way the form and the reviewers read them.
+      expect(requirement.acceptanceCriteria.split("\n")).toEqual([
+        "An order confirmation appears",
+        "The saved card is charged once",
+      ]);
+
+      // The chain names the assistant here too, on the version rather than
+      // the record, for the same reason it does on a Test Case.
+      const version = await prisma.requirementVersion.findFirstOrThrow({
+        where: { requirementId: id, versionNumber: 1 },
+      });
+      expect(version.authoredByAgent).toBe("Cursor 1.8");
+
+      // It is immediately visible to the agent, with its status, so the agent
+      // can tell intent somebody agreed to from intent nobody has yet.
+      const listed = await call(session, "list_requirements", {});
+      expect(listed.result.structuredContent?.requirements).toMatchObject([
+        { id, status: "IN_REVIEW", verdict: "UNVERIFIED" },
+      ]);
+    });
 
     it("shows an agent what is agreed and what nothing verifies yet", async () => {
       const space = await workspace();
@@ -348,7 +390,7 @@ test('customer applies a discount code', async ({ page }) => {
       // leaking that something exists elsewhere.
       const missing = await call(session, "get_requirement", { requirementId: randomUUID() });
       expect(missing.result.isError).toBe(true);
-      expect(String(missing.result.content[0].text)).toContain("No approved requirement in this project");
+      expect(String(missing.result.content[0].text)).toContain("No requirement in this project");
     });
 
     it("records which assistant proposed the test, and which sent its code", async () => {
@@ -615,7 +657,7 @@ test("adds", async ({ page }) => {
 
       const listed = await post({ jsonrpc: "2.0", id: 1, method: "tools/list" });
       expect(listed.status).toBe(200);
-      expect((await listed.json()).result.tools).toHaveLength(15);
+      expect((await listed.json()).result.tools).toHaveLength(16);
 
       const notified = await post({ jsonrpc: "2.0", method: "notifications/initialized" });
       expect(notified.status).toBe(202);
