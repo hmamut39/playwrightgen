@@ -216,20 +216,33 @@ const tools: Tool[] = [
     name: "project_overview",
     title: "Project overview",
     description:
-      "Release readiness for this project: whether it can ship, coverage counts, and the blockers and cautions standing in the way.",
+      "Release readiness for this project: whether any blocking condition was found in the recorded evidence, coverage counts, how old that evidence is, and every blocker and caution with its reason. It reports what the records show; it is not a judgement that the project is safe to ship.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     async run(session) {
       const readiness = await getReleaseReadiness(
         { orgSlug: session.orgSlug, projectId: session.projectId },
         session.dependencies,
       );
+      const blockers = readiness.findings.filter((finding) => finding.severity === "BLOCKER").length;
+      const cautions = readiness.findings.length - blockers;
+      // Not "Releasable: yes". The web page is careful to say that no blocking
+      // condition was found in the records and that this is not a guarantee
+      // about untested behaviour. An assistant reading a bare yes would tell
+      // somebody the project is ready to ship, which is a stronger claim than
+      // this product makes anywhere else.
       const lines = [
         `Project: ${readiness.project.name}`,
-        `Releasable: ${readiness.releasable ? "yes" : "no"}`,
+        `Blocking conditions: ${blockers === 0 ? "none found in the recorded evidence" : String(blockers)}${cautions ? ` · ${cautions} caution${cautions === 1 ? "" : "s"} to review` : ""}`,
         `Approved requirements: ${readiness.counts.approvedRequirements} (${readiness.counts.requirementsWithApprovedTests} with an approved test)`,
         `Approved test cases: ${readiness.counts.approvedTestCases} (${readiness.counts.testCasesWithCurrentAutomation} with current automation)`,
         `Regressions: ${readiness.counts.regressions} · Flaky: ${readiness.counts.flaky} · Open findings: ${readiness.counts.openFindings}`,
-        `Recorded attempts: ${readiness.evidence.attemptCount}`,
+        `Recorded attempts: ${readiness.evidence.attemptCount}${
+          readiness.evidence.ageDays === null
+            ? ""
+            : `, the most recent ${readiness.evidence.ageDays} day${readiness.evidence.ageDays === 1 ? "" : "s"} ago`
+        }${readiness.evidence.freshness === "STALE" ? " (old enough that it may not reflect the current application)" : ""}`,
+        "",
+        "This reports what the records show. It is not a judgement that the project is safe to ship, and it says nothing about behaviour nobody has tested.",
         "",
         readiness.findings.length ? "Findings:" : "No findings.",
         ...readiness.findings.map(
@@ -237,7 +250,9 @@ const tools: Tool[] = [
         ),
       ];
       return text(lines.join("\n"), {
-        releasable: readiness.releasable,
+        blockersFound: blockers,
+        cautionsFound: cautions,
+        evidenceAgeDays: readiness.evidence.ageDays,
         counts: readiness.counts,
         findings: readiness.findings.map(({ severity, code, title, detail, count }) => ({
           severity, code, title, detail, count,

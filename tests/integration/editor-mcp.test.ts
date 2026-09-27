@@ -307,6 +307,23 @@ test('customer applies a discount code', async ({ page }) => {
   await expect(page.getByText('10% off')).toBeVisible();
 });`;
 
+    it("never tells an assistant the project is releasable", async () => {
+      const space = await workspace();
+      const session = await sessionFor(space);
+
+      const overview = await call(session, "project_overview", {});
+      const body = String(overview.result.content[0].text);
+
+      // A bare "Releasable: yes" is a stronger claim than this product makes
+      // anywhere, and an assistant would repeat it to somebody as fact.
+      expect(body).not.toContain("Releasable:");
+      expect(body).toContain("Blocking conditions:");
+      expect(body).toContain("It is not a judgement that the project is safe to ship");
+      // The machine-readable side says the same, with no boolean to misread.
+      expect(overview.result.structuredContent).not.toHaveProperty("releasable");
+      expect(overview.result.structuredContent).toMatchObject({ blockersFound: expect.any(Number) });
+    });
+
     it("lets an agent start the chain with a requirement, and no further", async () => {
       const space = await workspace();
       const session = await sessionFor(space);

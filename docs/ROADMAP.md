@@ -164,6 +164,18 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **An assistant is never told the project is releasable** (2026-09-27): the
+  Release page is careful -- "no blocking condition was found in the recorded
+  evidence... not a guarantee about untested behaviour" -- while
+  `project_overview` handed an assistant a bare "Releasable: yes" and a
+  `releasable: true` field. An assistant repeats that to a person as fact, and
+  it is a stronger claim than this product makes anywhere. The tool now says
+  "Blocking conditions: none found in the recorded evidence", adds how old the
+  evidence is and marks it when stale, and carries the same sentence the page
+  does. The structured result lost `releasable` and gained `blockersFound`,
+  `cautionsFound` and `evidenceAgeDays`, so there is no boolean left to
+  misread. Integration-tested that the word does not appear at all. Verified
+  over real HTTP against the development project.
 - **Green no longer means "checked lately"** (2026-09-27): the Health page
   calls a project on track when something has run and nothing is failing or
   blocking. A project whose only run was six months ago satisfies all of that,
