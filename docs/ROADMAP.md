@@ -164,6 +164,31 @@ test suite (493 tests) passes.
   errors, nothing wider than a phone.
 
 ### Workspace (new-user and team experience)
+- **A requirement can start from the ticket it came from** (2026-09-27): the
+  chain starts at an approved requirement, and that requirement had to be
+  typed by hand -- while the work itself almost always starts in a Jira
+  ticket, a Linear issue or a GitHub issue. People retyped the same intent
+  into a second place, which is a chore and a chance to lose the wording that
+  was agreed. "Start from a ticket" on the new-requirement page takes pasted
+  text and fills the title, description, acceptance criteria and external
+  reference for a person to check and edit; nothing is created until they
+  press Create draft, and nothing counts until somebody approves it.
+  Pasting rather than integrating was the point: it works with every tracker
+  on the first day, needs no account, no OAuth and no permission from anybody,
+  and a later Jira or GitHub integration only has to fetch the same text.
+  What it refuses matters more than what it writes. It never fills a gap: what
+  the ticket left open comes back as questions for a person to settle, shown
+  in amber above the form and kept out of the description and the criteria, so
+  a guess never becomes something approved, verified and shown to an auditor.
+  A ticket that is not about product behaviour -- an upgrade, a question, a bug
+  report that never says what should happen -- is reported as that rather than
+  forced into a requirement. Integration-tested, including the refusals, the
+  viewer who may not write requirements, and text too short to read (which
+  spends nothing).
+  Verified with the real model on a realistic ticket: 15 seconds, it kept "no
+  default card in this release", and returned seven genuine open questions
+  including what happens when a saved card has expired and what "most recently
+  used" means.
 - **The exported evidence is a pack an auditor can use** (2026-09-27): the file
   already held the evidence; what it lacked was the framing that lets somebody
   outside the team trust and navigate it. It now carries a document reference
@@ -801,10 +826,13 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Requirements from where the work starts.** Pull from Jira, Linear or
-   GitHub issues so the chain begins at the ticket rather than in the middle.
-   In regulated teams, ticket to requirement to test to run to release is the
-   deliverable.
+1. **Fetch the ticket instead of pasting it.** Reading a pasted ticket now
+   works; the remaining half is fetching the text automatically. GitHub is
+   closest -- the App is installed, but it holds contents and metadata at read
+   only and `app-client.ts` enforces that least-privilege check, so issues
+   would need the owner to grant `issues: read` and the check relaxed to match.
+   Jira and Linear need OAuth apps the owner would have to create. Ask for one
+   of these only when the pasted flow has proved itself.
 2. **MCP 2026-07-28.** The server speaks 2025-06-18. The new spec is a
    stateless rewrite (no initialize handshake, no session id, Mcp-Method
    routing, MRTR in place of server-initiated requests). Clients still
