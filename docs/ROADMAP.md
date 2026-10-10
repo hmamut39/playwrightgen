@@ -1115,15 +1115,29 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Fetch a ticket from Jira or Linear.** GitHub issues are done (2026-10-10).
+1. **Finish the sweep for state decided in two places.** Twice on 2026-10-10 a
+   bug came from one place choosing rows and another filtering them: the Test
+   Run form read a page of test cases and then kept the approved ones, and the
+   permission gate demanded read-only while the App held the write the pull
+   request feature needs. Both were silent. Worth walking the remaining list
+   and detail pages asking the same question: does anything narrow, filter or
+   validate a set after it has already been bounded somewhere else? Start with
+   the pages that call a service and then use `.filter(` on its items.
+2. **Does production use a different GitHub App?** The owner granted
+   `issues: read` on `playwrightgen-development` on 2026-10-10 and it is
+   verified working. If the production deployment points at another App, the
+   ticket fetch there says "the App may not read issues in that repository
+   yet" until the same grant is made. Degrades cleanly, so this is a question
+   to ask rather than a fault to chase. `GITHUB_APP_SLUG` in Vercel answers it.
+3. **Fetch a ticket from Jira or Linear.** GitHub issues are done (2026-10-10).
    Jira and Linear each need an OAuth app the owner would have to create, so
    ask only when somebody actually wants one.
-2. **MCP 2026-07-28.** The server speaks 2025-06-18. The new spec is a
+4. **MCP 2026-07-28.** The server speaks 2025-06-18. The new spec is a
    stateless rewrite (no initialize handshake, no session id, Mcp-Method
    routing, MRTR in place of server-initiated requests). Clients still
    negotiate older versions, so this is maintenance rather than a feature: do
    it when a client needs it, and keep 2025-06-18 working when it happens.
-3. **Verify the paid path end to end.** Stripe payment, then webhook, then
+5. **Verify the paid path end to end.** Stripe payment, then webhook, then
    entitlement, then the Team allowance. Needs the owner's account and a real
    card. They deferred it again on 2026-10-10 ("i am not gonna do this for
    now"), having deferred it on 2026-09-19 as well. Do not raise it; wait for
