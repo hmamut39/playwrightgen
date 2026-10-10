@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { CI_PROVIDERS, CI_TEMPLATES, type CiProvider } from "@/lib/ci/templates";
+
 type CopyFieldProps = {
   label: string;
   value: string;
@@ -79,6 +81,12 @@ export function CiSetupPanel({
   appUrl,
   rotateAction,
 }: CiSetupPanelProps) {
+  // Which pipeline the instructions below are written for. An IT department
+  // rarely runs only one, and instructions for the wrong one are worse than
+  // none: they look followable right up to the point they fail.
+  const [provider, setProvider] = useState<CiProvider>("github-actions");
+  const active = CI_PROVIDERS.find((entry) => entry.id === provider) ?? CI_PROVIDERS[0];
+
   return (
     <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
@@ -88,8 +96,8 @@ export function CiSetupPanel({
         Run tests in your own CI
       </h2>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-        Your tests run on your GitHub Actions runners, against your environment,
-        using your secrets. PlaywrightGen never executes your code and never
+        Your tests run on your own runners, against your environment, using your
+        own secrets, on GitHub Actions, GitLab CI or Jenkins. PlaywrightGen never executes your code and never
         receives your source — only a bounded summary of results, which becomes
         immutable Test Run evidence pinned to the approved version each test
         covers.
@@ -118,50 +126,77 @@ export function CiSetupPanel({
             <CopyField label="Variable · PLAYWRIGHTGEN_URL" value={appUrl} />
           </div>
 
-          <ol className="mt-6 grid gap-3 text-sm leading-6 text-slate-600">
+          <div className="mt-6 flex flex-wrap gap-2" role="group" aria-label="Pipeline">
+            {CI_PROVIDERS.map((entry) => (
+              <button
+                key={entry.id}
+                type="button"
+                onClick={() => setProvider(entry.id)}
+                aria-pressed={entry.id === provider}
+                className={
+                  entry.id === provider
+                    ? "rounded-xl border border-cyan-300 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-800"
+                    : "rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+                }
+              >
+                {entry.name}
+              </button>
+            ))}
+          </div>
+
+          <ol className="mt-4 grid gap-3 text-sm leading-6 text-slate-600">
             <li className="flex gap-3">
               <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">
                 1
               </span>
               <span>
-                In your repository, add the token above as an Actions{" "}
-                <strong className="font-medium text-slate-800">secret</strong>, and
-                the other three as Actions{" "}
-                <strong className="font-medium text-slate-800">variables</strong>.
+                In{" "}
+                <strong className="font-medium text-slate-800">{active.where}</strong>
+                , {active.secretLabel}
               </span>
             </li>
             <li className="flex gap-3">
               <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">
                 2
               </span>
-              <span>
-                Copy{" "}
-                <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">
-                  playwrightgen.yml
-                </code>{" "}
-                and{" "}
-                <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">
-                  playwrightgen-report.mjs
-                </code>{" "}
-                from{" "}
-                <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">
-                  templates/github-actions/
-                </code>{" "}
-                into your repository&rsquo;s{" "}
-                <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">
-                  .github/workflows/
-                </code>
-                .
-              </span>
+              <div className="min-w-0 grid gap-2">
+                <span>
+                  Download both files and commit each one at the path shown. These
+                  are the same files this deployment is tested against, so what you
+                  run is what was verified here.
+                </span>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {active.files.map((name) => (
+                    <a
+                      key={name}
+                      href={`/ci/${name}`}
+                      download
+                      className="group grid min-w-0 gap-1 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 transition hover:border-cyan-300 hover:bg-cyan-50/40"
+                    >
+                      <span className="flex items-center justify-between gap-2">
+                        <code className="min-w-0 truncate font-mono text-xs text-slate-700">
+                          {CI_TEMPLATES[name].destination}
+                        </code>
+                        <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-cyan-700">
+                          Download
+                        </span>
+                      </span>
+                      <span className="text-xs leading-5 text-slate-500">
+                        {CI_TEMPLATES[name].summary}
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              </div>
             </li>
             <li className="flex gap-3">
               <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">
                 3
               </span>
               <span>
-                Push. Approved automation carries a version marker, so each result
-                attaches to the exact Test Case version it exercised. Results
-                appear under Test Runs.
+                Run the pipeline. Approved automation carries a version marker, so
+                each result attaches to the exact Test Case version it exercised.
+                Results appear under Test Runs.
               </span>
             </li>
           </ol>

@@ -39,7 +39,11 @@ export const ingestPayloadSchema = z.object({
   organizationId: uuidSchema,
   projectId: uuidSchema,
   run: z.object({
-    provider: z.literal("github_actions"),
+    // Widened from GitHub Actions alone. An IT department rarely runs one CI,
+    // and a team on GitLab or Jenkins could not report at all before this.
+    // The value is recorded with the attempt and grants nothing: the HMAC
+    // signature is still what authorizes the write.
+    provider: z.enum(["github_actions", "gitlab_ci", "jenkins", "azure_pipelines", "other"]),
     externalId: z.string().trim().min(1).max(200),
     url: webUrlSchema(),
     commitSha: z.string().trim().regex(/^[0-9a-f]{40}$/i),

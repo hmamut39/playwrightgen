@@ -74,6 +74,9 @@ jobs:
       - name: Report results to PlaywrightGen
         if: always()
         env:
+          # Named rather than left to the reporter's default, so the evidence
+          # says which pipeline produced it even after a team adds a second.
+          PLAYWRIGHTGEN_PROVIDER: github_actions
           PLAYWRIGHTGEN_TOKEN: ${{ secrets.PLAYWRIGHTGEN_TOKEN }}
           VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
           PLAYWRIGHTGEN_ORG_ID: ${{ vars.PLAYWRIGHTGEN_ORG_ID }}

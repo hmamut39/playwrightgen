@@ -1,6 +1,9 @@
 // PlaywrightGen result reporter.
 //
-// Copy this file into your repository at .github/workflows/playwrightgen-report.mjs
+// Download this file from your PlaywrightGen project's Repositories tab and
+// commit it beside your pipeline definition. The same file serves GitHub
+// Actions, GitLab CI and Jenkins; the pipeline says which one it is running
+// under through PLAYWRIGHTGEN_PROVIDER.
 //
 // Reads the Playwright JSON report, keeps only the fields PlaywrightGen records
 // as evidence, signs the exact request body with your project token, and posts
@@ -53,7 +56,7 @@ const attachmentKind = (attachment) => {
  * One entry per kind of artifact this test produced.
  *
  * Every entry points at the uploaded archive rather than at an individual file,
- * because GitHub exposes a URL for the artifact as a whole and not for its
+ * because CI systems expose a URL for the artifact as a whole and not for its
  * contents. The label says so, so a reviewer following the link knows they are
  * downloading an archive to look inside rather than opening the trace itself.
  */
@@ -107,11 +110,20 @@ if (results.length === 0) {
   process.exit(0);
 }
 
+// Which CI this ran under. It is recorded with the evidence so a reviewer
+// reading an attempt months later can tell where it came from, which starts
+// to matter as soon as a team runs more than one pipeline. Defaults to GitHub
+// Actions so a workflow written before this existed keeps reporting unchanged.
+const PROVIDERS = new Set(["github_actions", "gitlab_ci", "jenkins", "azure_pipelines", "other"]);
+const provider = PROVIDERS.has(process.env.PLAYWRIGHTGEN_PROVIDER ?? "")
+  ? process.env.PLAYWRIGHTGEN_PROVIDER
+  : "github_actions";
+
 const payload = {
   organizationId,
   projectId,
   run: {
-    provider: "github_actions",
+    provider,
     externalId: process.env.RUN_ID ?? "unknown",
     url: process.env.RUN_URL ?? `${baseUrl}/`,
     commitSha: process.env.COMMIT_SHA ?? "",

@@ -1,0 +1,110 @@
+// PlaywrightGen result reporting for Jenkins
+//
+// Download this file and playwrightgen-report.mjs from your PlaywrightGen
+// project's Repositories tab. Commit the reporter as ci/playwrightgen-report.mjs
+// and either use this file as your Jenkinsfile or copy the stages into the one
+// you already have.
+//
+// Your tests run on your own agents, against your own environment, using your
+// own credentials. PlaywrightGen never executes your code and never receives
+// your repository contents - only a bounded summary of results.
+//
+// Required Jenkins credentials (Manage Jenkins > Credentials), as Secret text:
+//   playwrightgen-token       Project ingest token, shown in Workspace under
+//                             the project's Repositories tab.
+//
+// Required pipeline environment, filled in below:
+//   PLAYWRIGHTGEN_ORG_ID      Organization UUID, shown next to the token.
+//   PLAYWRIGHTGEN_PROJECT_ID  Project UUID, shown next to the token.
+//   PLAYWRIGHTGEN_URL         Your PlaywrightGen base URL.
+//
+// Optional credential:
+//   vercel-protection-bypass  Only when the PlaywrightGen deployment sits
+//                             behind Vercel Deployment Protection. It gets the
+//                             request past the edge check; the ingest endpoint
+//                             still requires a valid HMAC signature.
+
+pipeline {
+  // Node rather than a pinned Playwright image, so the browser installed always
+  // matches the Playwright version in your own package.json. Replace with
+  // `agent any` if your agents already have Node and the browsers.
+  agent {
+    docker {
+      image 'node:20'
+      // Playwright's browser install needs root inside the container.
+      args '-u root:root'
+    }
+  }
+
+  options {
+    timeout(time: 30, unit: 'MINUTES')
+    timestamps()
+  }
+
+  environment {
+    PLAYWRIGHTGEN_TOKEN = credentials('playwrightgen-token')
+    PLAYWRIGHTGEN_PROVIDER = 'jenkins'
+
+    // Uncomment only if you created the credential. A credentials() binding
+    // for an id that does not exist fails the build before anything runs.
+    // VERCEL_PROTECTION_BYPASS = credentials('vercel-protection-bypass')
+
+    // Fill these three in, or set them as global properties instead.
+    PLAYWRIGHTGEN_ORG_ID = ''
+    PLAYWRIGHTGEN_PROJECT_ID = ''
+    PLAYWRIGHTGEN_URL = ''
+
+    // Which environment this run exercised: LOCAL, DEVELOPMENT, STAGING,
+    // PRODUCTION or OTHER. It is recorded with the evidence.
+    PLAYWRIGHTGEN_ENVIRONMENT = 'DEVELOPMENT'
+
+    // Generic names the reporter reads, filled from Jenkins' own variables.
+    RUN_ID = "${env.BUILD_NUMBER}"
+    RUN_URL = "${env.BUILD_URL}"
+    COMMIT_SHA = "${env.GIT_COMMIT}"
+    REF_NAME = "${env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'unknown'}"
+
+    // Traces, screenshots and videos live on the agent workspace, which is
+    // reused or wiped. The archive below gives a reviewer opening the failure
+    // weeks later somewhere durable to look.
+    PLAYWRIGHTGEN_ARTIFACT_URL = "${env.BUILD_URL}artifact/"
+  }
+
+  stages {
+    stage('Install') {
+      steps {
+        sh 'npm ci'
+        sh 'npx playwright install --with-deps chromium'
+      }
+    }
+
+    stage('Test') {
+      steps {
+        // A failing run is evidence too, so reporting happens either way and
+        // the build's own result is decided in the Report stage.
+        script {
+          env.PLAYWRIGHTGEN_OUTCOME = sh(
+            script: 'npx playwright test --reporter=json > playwright-report.json',
+            returnStatus: true,
+          ) == 0 ? 'passed' : 'failed'
+        }
+      }
+    }
+
+    stage('Report') {
+      steps {
+        archiveArtifacts artifacts: 'test-results/**, playwright-report/**',
+                         allowEmptyArchive: true,
+                         fingerprint: false
+
+        sh 'node ci/playwrightgen-report.mjs'
+
+        script {
+          if (env.PLAYWRIGHTGEN_OUTCOME != 'passed') {
+            error('Playwright tests failed. The results were reported to PlaywrightGen.')
+          }
+        }
+      }
+    }
+  }
+}

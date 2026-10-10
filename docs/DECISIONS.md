@@ -503,3 +503,31 @@ must not reactivate historical raw-exception logging or provider-message
 leakage. A helper that cannot receive the exception makes the safe boundary
 structural and keeps temporary diagnostics correlatable without copying
 secrets, response bodies, URLs, or user content into logs.
+
+## 038 — Serve the CI pipeline files from the product, for three pipelines
+
+**Decision:** The files a customer commits into their own repository are
+served by `GET /ci/<provider>/<file>`, read from `templates/` at request time
+and listed by a manifest in `lib/ci/templates.ts` that both the route and the
+setup panel read. The route is public and unauthenticated. GitHub Actions,
+GitLab CI and Jenkins are each offered a pipeline definition plus the one
+shared reporter, served at whichever path that pipeline expects. The reporter
+names its pipeline through `PLAYWRIGHTGEN_PROVIDER` and `ingestPayloadSchema`
+accepts that set rather than `github_actions` alone. `templates/` is added to
+the route's `outputFileTracingIncludes`, and a unit gate holds the manifest,
+the pipeline definitions, the reporter and the ingest schema to each other.
+
+**Reason:** The panel previously instructed customers to copy two files out of
+a folder that exists only in this repository, so the first step of CI setup
+was impossible for everyone outside it. Serving the same files the repository
+tests against removes the copy that could drift. They are public because they
+carry the names of credentials and none of their values, and a build engineer
+should be able to fetch one from a machine that has never signed in; the
+project token stays behind workspace authorization, and the HMAC signature
+remains the only thing that authorizes an ingest write, so the provider value
+is recorded evidence and grants nothing. Three pipelines because an IT
+department rarely runs one, and a team on GitLab or Jenkins could not report
+at all. One reporter because a divergent copy per pipeline would make the
+evidence depend on which CI produced it. The tracing entry is required because
+a runtime `fs` read is invisible to static analysis, which would leave the
+files out of the deployment and fail in production only.

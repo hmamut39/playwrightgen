@@ -4,7 +4,7 @@ The working plan, kept in the repository so any session can pick up where the
 last one stopped. Update the "Shipped" and "Next" sections at the end of every
 work session.
 
-Last updated: 2026-09-23.
+Last updated: 2026-10-10.
 
 ## Where the product is
 
@@ -13,6 +13,39 @@ Neon Postgres). Every item below was verified in a real browser, and the full
 test suite (493 tests) passes.
 
 ## Shipped (most recent first)
+
+### Running tests in your own CI
+- **The pipeline files became downloadable, and there are three of them now**
+  (2026-10-10): the CI setup panel told a customer to copy `playwrightgen.yml`
+  and `playwrightgen-report.mjs` out of `templates/github-actions/` -- a folder
+  that exists in this repository and nowhere a customer can reach. The
+  instruction was impossible to follow for everybody except the person who
+  wrote it, and it sat in the first hour of the first thing an SDET or a build
+  engineer does. Nothing failed to say so, because the instruction was prose.
+  The files are now served by `GET /ci/<provider>/<file>`, public on purpose:
+  they carry the names of credentials and none of their values, so a build
+  engineer can curl one from a machine that has never signed in. The panel
+  lists them as downloads, each labelled with the path it is committed at.
+  GitLab CI and Jenkins were added beside GitHub Actions, because an IT
+  department rarely runs only one CI and a team on either could not report at
+  all before this. All three run the same reporter -- one file, served at each
+  pipeline's own path -- so a fix reaches every pipeline at once and the
+  evidence a reviewer reads does not depend on which CI produced it. The
+  reporter now names its pipeline through `PLAYWRIGHTGEN_PROVIDER`, recorded
+  with the attempt; `ingestPayloadSchema` accepts the five values it can send
+  instead of GitHub Actions alone. The value grants nothing: the HMAC
+  signature is still what authorizes the write.
+  Two things are now checked rather than trusted. `outputFileTracingIncludes`
+  puts `templates/` in the route's trace -- a runtime `fs` read is invisible to
+  static analysis, so without it the files are left out of the deployment and
+  the download 500s in production only, which is the worst place to find out;
+  the built trace was confirmed to list all four. And `tests/unit/`
+  `ci-templates.test.ts` (9 tests) holds the manifest to the pipeline files:
+  every download has a readable file behind it, each definition really runs the
+  reporter at the path the manifest tells a person to commit it at, every
+  provider the reporter can send is one ingest accepts, no template leaks a
+  token, and nothing outside the manifest can be fetched by asking for it
+  cleverly.
 
 ### Free tools
 - **A test that passed stopped being called "partly run"** (2026-09-23): walked
@@ -955,10 +988,11 @@ In priority order. Each item should end verified in a browser and shipped.
    routing, MRTR in place of server-initiated requests). Clients still
    negotiate older versions, so this is maintenance rather than a feature: do
    it when a client needs it, and keep 2025-06-18 working when it happens.
-3. **Verify the paid path end to end — the owner has scheduled this for the week of 2026-09-28.** Stripe
-   payment, then webhook, then entitlement, then the Team allowance. Needs the
-   owner's account and a real card; they said on 2026-09-19 they do not want to
-   do it now, so do not raise it until they bring it up.
+3. **Verify the paid path end to end.** Stripe payment, then webhook, then
+   entitlement, then the Team allowance. Needs the owner's account and a real
+   card. They deferred it again on 2026-10-10 ("i am not gonna do this for
+   now"), having deferred it on 2026-09-19 as well. Do not raise it; wait for
+   them to bring it up.
 
 ## Set aside at the owner's request
 

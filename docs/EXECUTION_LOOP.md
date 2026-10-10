@@ -31,9 +31,11 @@ for evidence.
    evidence.
 2. A reviewer approves the artifact. The marker is already present in the code
    they reviewed, so approval changes nothing about it.
-3. The customer commits the spec and two workflow files from
-   `templates/github-actions/`.
-4. On push, GitHub Actions runs Playwright with the JSON reporter.
+3. The customer commits the spec and two pipeline files, downloaded from the
+   project's Repositories tab (served by `GET /ci/<provider>/<file>`).
+   GitHub Actions, GitLab CI and Jenkins are offered, and all three run the
+   same reporter, so the evidence does not depend on which CI produced it.
+4. On push, their CI runs Playwright with the JSON reporter.
 5. `playwrightgen-report.mjs` flattens the report, keeps only recorded fields,
    signs the exact request body with the project ingest token, and posts it to
    `POST /api/runs/ingest`.
