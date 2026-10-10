@@ -14,6 +14,28 @@ test suite (493 tests) passes.
 
 ## Shipped (most recent first)
 
+### Starting from a ticket
+- **A ticket can be fetched instead of pasted** (2026-10-10): the owner
+  granted the GitHub App `issues: read` and accepted it on the installation,
+  so a requirement can now start from the address of an issue. Paste
+  `https://github.com/owner/repository/issues/123` and the title, labels and
+  body are read from GitHub and handed to the same reader the paste box fed:
+  the same refusal when a ticket is not about behaviour, the same open
+  questions kept out of the description.
+  Only a repository the project has actively connected may be read. The App
+  is installed across an account, and without that check a member of one
+  project could read issues out of any repository it reaches; the connection
+  is the permission, scoped to the organization and the project. The token
+  minted lasts minutes, covers that one repository and carries `issues: read`
+  alone -- there is no write path, and the permission ceiling refuses
+  `issues: write` so one cannot appear later.
+  The external reference is taken from the address rather than read back out
+  of the text. Which ticket was fetched is a fact; finding it in the body is a
+  guess, and a ticket mentioning another one would make that guess wrong.
+  Verified end to end in a browser against a real issue: an unconnected
+  repository was refused by name, and the connected one produced a titled
+  requirement with four acceptance criteria and the reference
+  `owner/repository#2`.
 ### Connecting a repository
 - **The App could no longer pass its own verification** (2026-10-10): the
   installation check required every permission to be `read`, which matched an
@@ -1093,13 +1115,9 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Fetch the ticket instead of pasting it.** Reading a pasted ticket now
-   works; the remaining half is fetching the text automatically. GitHub is
-   closest -- the App is installed, but it holds contents and metadata at read
-   only and `app-client.ts` enforces that least-privilege check, so issues
-   would need the owner to grant `issues: read` and the check relaxed to match.
-   Jira and Linear need OAuth apps the owner would have to create. Ask for one
-   of these only when the pasted flow has proved itself.
+1. **Fetch a ticket from Jira or Linear.** GitHub issues are done (2026-10-10).
+   Jira and Linear each need an OAuth app the owner would have to create, so
+   ask only when somebody actually wants one.
 2. **MCP 2026-07-28.** The server speaks 2025-06-18. The new spec is a
    stateless rewrite (no initialize handshake, no session id, Mcp-Method
    routing, MRTR in place of server-initiated requests). Clients still

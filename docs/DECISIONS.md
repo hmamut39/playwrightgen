@@ -636,3 +636,25 @@ allowlist shape is kept because it fails closed: a permission added to the App
 later, by anyone, is refused until someone decides it belongs. `issues` is
 capped at read so the ticket-fetching path can never acquire the ability to
 change a customer's tickets.
+
+## 044 — A ticket may only be fetched from a repository the project connected
+
+**Decision:** `fetchTicketFromGitHub` parses a github.com issue address,
+requires an ACTIVE `RepositoryConnection` for that owner and repository scoped
+to the organization and project, and mints a repository-scoped token carrying
+`issues: read` alone. The fetched text goes to the existing
+`draftRequirementFromTicket` unchanged, and the external reference is taken
+from the address rather than from the model's reading of the body.
+
+**Reason:** The App is installed across an account, so reachability is not
+authorization: without the connection check, a member of one project could
+read issues out of any repository the installation covers. The connection is
+already the thing a team deliberately made, so it is the permission. The
+token is narrowed to issues read for this one path rather than reusing the
+pull request token, so the ticket-reading code cannot write even by mistake.
+Reusing the existing drafting service means the refusal to turn a
+non-behaviour ticket into a requirement, and the rule that open questions
+stay out of the description, apply to fetched tickets without being
+reimplemented. The reference is taken from the address because which ticket
+was fetched is known, and a body that mentions a different ticket would
+otherwise put the wrong identity on the evidence.

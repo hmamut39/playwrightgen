@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { PendingButton } from "@/components/workspace/pending-button";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
+import { fetchTicketFromGitHub, TicketFetchError } from "@/lib/services/ticket-fetch";
 import {
   draftRequirementFromTicket,
   RequirementDraftingError,
@@ -42,12 +43,29 @@ export default async function NewRequirementPage({
   async function readTicketAction(formData: FormData) {
     "use server";
     const here = `/workspace/${orgSlug}/projects/${projectId}/requirements/new`;
+    let ticket = String(formData.get("ticket") ?? "");
+    const ticketUrl = String(formData.get("ticketUrl") ?? "").trim();
+    // Known rather than guessed. When a ticket is fetched, which ticket it
+    // was is a fact; reading it back out of the text is a guess, and a body
+    // mentioning another ticket would make that guess the wrong one.
+    let fetchedReference: string | null = null;
+    if (ticketUrl) {
+      try {
+        const fetched = await fetchTicketFromGitHub({ orgSlug, projectId, url: ticketUrl });
+        ticket = fetched.ticket;
+        fetchedReference = fetched.reference;
+      } catch (error) {
+        if (error instanceof TicketFetchError) redirect(`${here}?read=${error.code}`);
+        throw error;
+      }
+    }
+
     let drafted;
     try {
       drafted = await draftRequirementFromTicket({
         orgSlug,
         projectId,
-        ticket: String(formData.get("ticket") ?? ""),
+        ticket,
       });
     } catch (error) {
       if (error instanceof RequirementDraftingError) redirect(`${here}?read=${error.code}`);
@@ -58,7 +76,7 @@ export default async function NewRequirementPage({
       title: drafted.title,
       description: drafted.description,
       acceptanceCriteria: drafted.acceptanceCriteria,
-      externalReference: drafted.externalReference,
+      externalReference: fetchedReference ?? drafted.externalReference,
       ...(drafted.assumptions.length ? { assumptions: drafted.assumptions.join("\n") } : {}),
     });
     redirect(`${here}?${carried.toString()}`);
@@ -103,10 +121,23 @@ export default async function NewRequirementPage({
           below for you to check and edit. Nothing is created until you press Create draft.
         </p>
         <form action={readTicketAction} className="mt-3">
+          <label className="block text-xs font-medium text-slate-700">
+            Or the address of an issue in a repository this project has connected
+            <input
+              type="url"
+              name="ticketUrl"
+              placeholder="https://github.com/owner/repository/issues/123"
+              className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-cyan-600 focus-visible:ring-2 focus-visible:ring-cyan-500/60"
+            />
+          </label>
+          <p className="mt-1.5 mb-3 text-xs leading-5 text-slate-500">
+            Given an address, the ticket is read from GitHub and the box below is
+            ignored. Only repositories connected to this project can be read, and
+            nothing in them is changed.
+          </p>
           <textarea
             name="ticket"
             rows={5}
-            required
             minLength={20}
             maxLength={20_000}
             aria-label="Ticket text"
@@ -126,6 +157,35 @@ export default async function NewRequirementPage({
           <p role="alert" className="mt-3 text-xs font-semibold text-amber-800">
             That ticket does not describe product behaviour a test could verify &mdash; it reads as work like an
             upgrade, a question or a bug report with no expected behaviour. Write the requirement yourself below.
+          </p>
+        ) : filled.read === "not_a_github_issue" ? (
+          <p role="alert" className="mt-3 text-xs font-semibold text-red-700">
+            That is not the address of a GitHub issue. It should look like
+            <span className="font-mono"> https://github.com/owner/repository/issues/123</span>.
+          </p>
+        ) : filled.read === "repository_not_connected" ? (
+          <p role="alert" className="mt-3 text-xs font-semibold text-amber-800">
+            That repository is not connected to this project, so its issues cannot
+            be read from here. Connect it on the Repositories tab, or paste the
+            ticket instead.
+          </p>
+        ) : filled.read === "issue_not_found" ? (
+          <p role="alert" className="mt-3 text-xs font-semibold text-amber-800">
+            No issue with that number could be read in that repository.
+          </p>
+        ) : filled.read === "issue_is_a_pull_request" ? (
+          <p role="alert" className="mt-3 text-xs font-semibold text-amber-800">
+            That address is a pull request rather than an issue.
+          </p>
+        ) : filled.read === "issue_permission_missing" ? (
+          <p role="alert" className="mt-3 text-xs font-semibold text-amber-800">
+            The GitHub App may not read issues in that repository yet. An
+            administrator can grant it read access to issues and accept the
+            request on the installation.
+          </p>
+        ) : filled.read === "github_unavailable" ? (
+          <p role="alert" className="mt-3 text-xs font-semibold text-red-700">
+            GitHub could not be reached just now. Pasting the ticket still works.
           </p>
         ) : filled.read === "empty_ticket" ? (
           <p role="alert" className="mt-3 text-xs font-semibold text-red-700">There is not enough text to read.</p>
