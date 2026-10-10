@@ -15,6 +15,26 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Running tests in your own CI
+- **A delivery from CI is recorded even when it records nothing** (2026-10-10):
+  results attach to an approved test through a `[pwg:...]` marker in the test
+  title, which PlaywrightGen writes. A team with an existing Playwright suite
+  has no markers, so their first pipeline run reports hundreds of results and
+  none are recorded -- correctly. What was wrong is that this left no trace:
+  an empty Test Runs tab, an empty activity feed, and nothing to distinguish a
+  wrong token from a working pipeline whose tests simply are not ours. The
+  counts existed and were a line of JSON in a CI log.
+  Every delivery now writes one Activity row -- pipeline, ref, commit, and the
+  recorded, duplicate and unmatched counts -- so "did my CI reach you?" is a
+  question the product can answer. The row is evidence of a delivery and
+  claims nothing about whether anything passed. The Repositories tab shows the
+  last one under the CI steps, with an amber note when nothing was recorded,
+  and says plainly when nothing has ever arrived. `deliveryNote` writes the
+  sentence once and both the page and the runner's reply use it, so a build
+  engineer reading a CI log and a tester reading the page are told the same
+  thing; the reporter prints that sentence instead of the raw JSON.
+  Migration `20261010100000_v1_ci_delivery_recorded` adds one enum value.
+
+### Running tests in your own CI
 - **The pipeline files became downloadable, and there are three of them now**
   (2026-10-10): the CI setup panel told a customer to copy `playwrightgen.yml`
   and `playwrightgen-report.mjs` out of `templates/github-actions/` -- a folder

@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { CI_PROVIDERS, CI_TEMPLATES, type CiProvider } from "@/lib/ci/templates";
+import { LocalTime } from "@/components/workspace/local-time";
 
 type CopyFieldProps = {
   label: string;
@@ -67,6 +68,22 @@ export type CiSetupPanelProps = {
   tokenVersion?: number;
   orgSlug: string;
   appUrl: string;
+  /**
+   * The last time their CI reached here. Null means never, which is its own
+   * answer: until now an empty Test Runs tab meant either that, or a wrong
+   * token, or a suite with no markers, and nothing told them which.
+   */
+  lastDelivery?: {
+    receivedAt: Date | string;
+    providerName: string;
+    runUrl: string | null;
+    ref: string | null;
+    commitSha: string | null;
+    recorded: number;
+    unmatched: number;
+    total: number;
+    note: string;
+  } | null;
   rotateAction?: (formData: FormData) => void | Promise<void>;
 };
 
@@ -79,6 +96,7 @@ export function CiSetupPanel({
   tokenVersion,
   orgSlug,
   appUrl,
+  lastDelivery,
   rotateAction,
 }: CiSetupPanelProps) {
   // Which pipeline the instructions below are written for. An IT department
@@ -200,6 +218,70 @@ export function CiSetupPanel({
               </span>
             </li>
           </ol>
+
+          <div
+            className={
+              lastDelivery
+                ? "mt-6 rounded-2xl border border-slate-200 bg-white px-4 py-3.5"
+                : "mt-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-3.5"
+            }
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+              Last results delivery
+            </p>
+            {lastDelivery ? (
+              <>
+                <p className="mt-1.5 text-sm leading-6 text-slate-700">
+                  {lastDelivery.providerName} reached this project{" "}
+                  <LocalTime value={lastDelivery.receivedAt} />
+                  {lastDelivery.ref ? (
+                    <>
+                      {" "}
+                      from <span className="font-medium text-slate-800">{lastDelivery.ref}</span>
+                    </>
+                  ) : null}
+                  {lastDelivery.commitSha ? (
+                    <>
+                      {" "}
+                      at{" "}
+                      <code className="font-mono text-xs">
+                        {lastDelivery.commitSha.slice(0, 8)}
+                      </code>
+                    </>
+                  ) : null}
+                  .
+                </p>
+                {/* The counts, in words. A pipeline that delivered nothing
+                    usable is not broken, and the difference matters. */}
+                <p
+                  className={
+                    lastDelivery.recorded === 0 && lastDelivery.total > 0
+                      ? "mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900"
+                      : "mt-2 text-xs leading-5 text-slate-500"
+                  }
+                >
+                  {lastDelivery.note}
+                </p>
+                {lastDelivery.runUrl ? (
+                  <a
+                    href={lastDelivery.runUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 inline-block text-xs font-medium text-cyan-700 underline underline-offset-2"
+                  >
+                    Open the pipeline run
+                  </a>
+                ) : null}
+              </>
+            ) : (
+              <p className="mt-1.5 text-sm leading-6 text-slate-600">
+                No results have arrived from your CI yet. When a pipeline reaches
+                this project it is recorded here, even if none of its results
+                could be attached to a test &mdash; so a pipeline that cannot
+                reach us never looks the same as one that can.
+              </p>
+            )}
+          </div>
 
           <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-3">

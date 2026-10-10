@@ -372,5 +372,39 @@ export async function ingestPlaywrightResults(
     } else summary.duplicates += 1;
   }
 
+  // The delivery itself, recorded whether or not it recorded anything.
+  //
+  // A team with an existing Playwright suite has no [pwg:...] markers, so
+  // their first pipeline run reports hundreds of results and stores none of
+  // them. Without this row the Test Runs tab, the activity feed and the
+  // project page were all empty, which is exactly what a wrong token looks
+  // like too. The counts existed; they were a line of JSON in a CI log.
+  //
+  // It claims nothing about whether anything passed. It says a pipeline
+  // reached here, when, from where, and what became of what it sent.
+  await prisma.activity.create({
+    data: {
+      organizationId,
+      projectId,
+      actorUserId,
+      source: "SYSTEM",
+      action: "CI_RESULTS_DELIVERED",
+      targetType: "PROJECT",
+      targetId: projectId,
+      metadata: {
+        provider: payload.run.provider,
+        externalId: payload.run.externalId,
+        url: payload.run.url,
+        ref: payload.run.ref,
+        commitSha: payload.run.commitSha,
+        environment: payload.environment,
+        recorded: summary.recorded,
+        duplicates: summary.duplicates,
+        unmatched: summary.unmatched,
+        total: payload.results.length,
+      },
+    },
+  });
+
   return summary;
 }

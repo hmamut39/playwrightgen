@@ -167,4 +167,15 @@ if (!response.ok) {
   process.exit(0);
 }
 
-console.log(`PlaywrightGen: ${text}`);
+// The endpoint explains the outcome in a sentence. A run that reports 400
+// results and records none of them is not an error, and three numbers do not
+// say why -- so print the sentence when there is one.
+let note = text;
+try {
+  const parsed = JSON.parse(text);
+  if (parsed && typeof parsed.message === "string") note = parsed.message;
+} catch {
+  // Not JSON; print whatever came back.
+}
+
+console.log(`PlaywrightGen: ${note}`);

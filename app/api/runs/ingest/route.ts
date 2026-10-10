@@ -1,5 +1,6 @@
 import { after, NextRequest } from "next/server";
 
+import { deliveryNote } from "@/lib/ci/delivery-note";
 import { getPrismaClient } from "@/lib/db/prisma";
 import {
   EnvironmentValidationError,
@@ -166,8 +167,13 @@ export async function handleRunIngestRequest(
       unmatched: summary.unmatched,
     };
 
+    // The same sentence the project page shows, so a build engineer reading
+    // their CI log and a tester reading the page are told the same thing.
+    // Three numbers do not explain why a pipeline recorded nothing.
+    const message = deliveryNote({ ...counts, total: payload.data.results.length });
+
     return responder.json(
-      { status: "ok", ...counts },
+      { status: "ok", ...counts, message },
       { status: 200, code: "recorded" },
     );
   } catch (error: unknown) {

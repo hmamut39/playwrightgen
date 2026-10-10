@@ -531,3 +531,24 @@ at all. One reporter because a divergent copy per pipeline would make the
 evidence depend on which CI produced it. The tracing entry is required because
 a runtime `fs` read is invisible to static analysis, which would leave the
 files out of the deployment and fail in production only.
+
+## 039 — Record every CI delivery, including the ones that record nothing
+
+**Decision:** `ingestPlaywrightResults` writes one `Activity`
+(`CI_RESULTS_DELIVERED`, target the project) for every signed delivery,
+carrying the provider, run URL, ref, commit and the recorded, duplicate and
+unmatched counts, whether or not anything was recorded. `deliveryNote` turns
+those counts into one sentence, used both in the ingest response and on the
+Repositories tab, and the shipped reporter prints that sentence rather than
+the raw JSON.
+
+**Reason:** Results are attached to an approved test by a marker PlaywrightGen
+writes into the test title. A team with an existing Playwright suite has no
+markers, so a correctly configured pipeline records nothing on its first run.
+Before this, that outcome was indistinguishable from a wrong token, an
+inactive connection or a pipeline that never ran: all four produced an empty
+Test Runs tab and an empty activity feed. The delivery row makes reachability
+an observable fact rather than an inference, and it is deliberately evidence
+of a delivery only -- it says what arrived and what became of it, never that
+anything passed. One shared sentence keeps the runner's log and the project
+page from drifting into two different explanations of the same number.
