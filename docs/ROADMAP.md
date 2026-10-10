@@ -14,6 +14,28 @@ test suite (493 tests) passes.
 
 ## Shipped (most recent first)
 
+### Connecting a repository
+- **The App could no longer pass its own verification** (2026-10-10): the
+  installation check required every permission to be `read`, which matched an
+  App that only read repositories. Opening a pull request with approved
+  automation needs to write a branch and a file and open the request, so the
+  App was granted `contents: write` and `pull_requests: write` -- and the
+  check was never updated. Asking GitHub what the App actually holds, while
+  adding `issues: read`, is what surfaced it: the live App's permissions are
+  exactly the set the repository's own test asserted must be refused, so
+  connecting a new GitHub installation failed, and the callback reported it as
+  "GitHub access or repository evidence could not be verified" -- a sentence
+  that sends people to look at their repository, their token and their
+  network, none of which were the problem.
+  The ceiling is now per permission instead of one blanket level, and each
+  entry names the shipped feature that cannot work without it: metadata read,
+  contents write, pull requests write, issues read. It stays an allowlist, so
+  a permission nobody decided on is still refused whatever its level, and
+  `issues` is capped at read because PlaywrightGen reads a ticket and never
+  changes one. A permissions mismatch now has its own message on the
+  Repositories tab saying it is a setting on the App and listing what is
+  required, rather than sharing the generic failure.
+  Verified against the live App and installation over the real GitHub API.
 ### Working at a real team's size
 - **A project's hundred-and-first requirement can be reached** (2026-10-10):
   three pickers rendered a list capped at a hundred, ordered by what changed

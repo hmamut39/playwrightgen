@@ -6,6 +6,7 @@ import { validateGitHubSetupEnvironment } from "@/lib/env";
 import {
   exchangeGitHubUserCode,
   getVerifiedGitHubInstallation,
+  GitHubProviderError,
   verifyGitHubUserInstallationAccess,
 } from "@/lib/integrations/github/app-client";
 import {
@@ -23,7 +24,7 @@ function projectRepositoriesUrl(
   appUrl: string,
   orgSlug: string,
   projectId: string,
-  result: "connected" | "failed",
+  result: "connected" | "failed" | "permissions_failed",
 ) {
   const url = new URL(
     "/workspace/" +
@@ -39,6 +40,7 @@ function projectRepositoriesUrl(
 
 export async function GET(request: NextRequest) {
   let fallbackUrl: URL | null = null;
+  let permissionsFallbackUrl: URL | null = null;
   try {
     const environment = validateGitHubSetupEnvironment();
     const state = verifyGitHubSetupState(
@@ -51,6 +53,12 @@ export async function GET(request: NextRequest) {
       state.orgSlug,
       state.projectId,
       "failed",
+    );
+    permissionsFallbackUrl = projectRepositoriesUrl(
+      environment.NEXT_PUBLIC_APP_URL,
+      state.orgSlug,
+      state.projectId,
+      "permissions_failed",
     );
     if (request.nextUrl.searchParams.get("error")) {
       return NextResponse.redirect(fallbackUrl);
@@ -108,7 +116,18 @@ export async function GET(request: NextRequest) {
     );
     response.cookies.delete(GITHUB_PKCE_COOKIE);
     return response;
-  } catch {
+  } catch (error: unknown) {
+    // One failure deserves its own name. The App's permissions not matching
+    // what this deployment allows is a configuration problem with a known
+    // fix, and reporting it as "GitHub access could not be verified" sent
+    // people looking at their repository, their token and their network.
+    if (
+      error instanceof GitHubProviderError &&
+      error.code === "github_permissions_not_least_privilege" &&
+      permissionsFallbackUrl
+    ) {
+      return NextResponse.redirect(permissionsFallbackUrl);
+    }
     if (fallbackUrl) return NextResponse.redirect(fallbackUrl);
     return NextResponse.json(
       { status: "error", code: "github_setup_failed" },

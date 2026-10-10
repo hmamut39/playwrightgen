@@ -615,3 +615,24 @@ client cannot ask about another project, and it goes through the same read
 permission as the listing it replaces. It is client-side because two of the
 three pages are creation forms, and searching by reloading the page would
 discard everything typed into them.
+
+## 043 — The GitHub permission ceiling is per permission, not one level
+
+**Decision:** `getVerifiedGitHubInstallation` checks each granted permission
+against `PERMISSION_CEILING` -- metadata read, contents write, pull requests
+write, issues read -- and requires `contents` to be present. It remains an
+allowlist: an unlisted permission is refused at any level. A failure of this
+check redirects with `github=permissions_failed` and the Repositories tab
+explains it separately from other setup failures.
+
+**Reason:** The old rule was `read` for everything, written when the App only
+read repositories. The pull request feature cannot create a branch, commit a
+spec or open a request without write, so the App was granted it and the check
+was left behind -- leaving the App unable to pass its own verification, and a
+repository connection failing with a message that named nothing. A single
+blanket level cannot express "write here, read there", so it became a
+ceiling per permission, each entry justified by a shipped feature. The
+allowlist shape is kept because it fails closed: a permission added to the App
+later, by anyone, is refused until someone decides it belongs. `issues` is
+capped at read so the ticket-fetching path can never acquire the ability to
+change a customer's tickets.

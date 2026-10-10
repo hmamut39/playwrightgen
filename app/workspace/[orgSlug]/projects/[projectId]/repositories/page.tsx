@@ -238,6 +238,16 @@ export default async function ProjectRepositoriesPage({
           Repository evidence was imported and pinned to the resolved commit.
         </div>
       ) : null}
+      {githubResult === "permissions_failed" ? (
+        <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+          <span className="font-semibold">The GitHub App&rsquo;s permissions do not match what this deployment allows.</span>{" "}
+          Nothing was connected and no Workspace record changed. This is a
+          setting on the App itself rather than anything about your repository:
+          an administrator can compare its repository permissions against the
+          ones PlaywrightGen requires, which are repository contents and pull
+          requests at write, metadata and issues at read, and nothing else.
+        </div>
+      ) : null}
       {githubResult === "failed" ||
       githubResult === "connection_failed" ||
       githubResult === "public_connection_failed" ||

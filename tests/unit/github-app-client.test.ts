@@ -342,18 +342,67 @@ describe("least-privilege GitHub App client", () => {
     });
   });
 
-  it("rejects an installation when the App has broader than read-only permissions", async () => {
+  it("accepts the write permissions a pull request cannot be opened without", async () => {
     const key = privateKey();
     const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(jsonResponse({
       id: 456,
       app_id: 123,
       account: { id: 321, login: "acme", type: "Organization" },
       repository_selection: "selected",
+      // Exactly what the App holds in order to commit a spec on a branch
+      // and open a pull request for it.
       permissions: {
         metadata: "read",
-        contents: "read",
+        contents: "write",
         pull_requests: "write",
+        issues: "read",
       },
+      suspended_at: null,
+      created_at: "2026-08-26T12:00:00.000Z",
+      updated_at: "2026-08-26T12:01:00.000Z",
+    }));
+
+    const installation = await getVerifiedGitHubInstallation({
+      installationId: "456",
+      fetcher,
+      environment: setupEnvironment(key),
+    });
+
+    expect(installation.externalInstallationId).toBe("456");
+  });
+
+  it("refuses a permission nobody decided this App should have", async () => {
+    const key = privateKey();
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(jsonResponse({
+      id: 456,
+      app_id: 123,
+      account: { id: 321, login: "acme", type: "Organization" },
+      repository_selection: "selected",
+      // An allowlist, not a list of things to avoid: anything that is not
+      // required by a shipped feature is refused, whatever its level.
+      permissions: { metadata: "read", contents: "write", administration: "read" },
+      suspended_at: null,
+      created_at: "2026-08-26T12:00:00.000Z",
+      updated_at: "2026-08-26T12:01:00.000Z",
+    }));
+
+    await expect(getVerifiedGitHubInstallation({
+      installationId: "456",
+      fetcher,
+      environment: setupEnvironment(key),
+    })).rejects.toMatchObject({
+      code: "github_permissions_not_least_privilege",
+    });
+  });
+
+  it("refuses an installation that cannot read repository contents at all", async () => {
+    const key = privateKey();
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(jsonResponse({
+      id: 456,
+      app_id: 123,
+      account: { id: 321, login: "acme", type: "Organization" },
+      repository_selection: "selected",
+      permissions: { metadata: "read" },
       suspended_at: null,
       created_at: "2026-08-26T12:00:00.000Z",
       updated_at: "2026-08-26T12:01:00.000Z",

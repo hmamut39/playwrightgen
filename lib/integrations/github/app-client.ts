@@ -305,19 +305,40 @@ export async function verifyGitHubUserInstallationAccess(input: {
 }
 
 /**
- * Every permission this App is allowed to hold, each at read.
+ * Every permission this App may hold, and the most each may be.
  *
- * The check stays an allowlist rather than a list of things to avoid: a
- * permission nobody thought about is refused by default, which is the only
- * version of least privilege that survives someone editing the App later.
+ * This was once `read` for everything, which matched an App that only read
+ * repositories. Opening a pull request with approved automation needs to
+ * write a branch and a file and open the request, so the App was granted
+ * those -- and the check was never updated, which meant the App could no
+ * longer pass its own verification and connecting a repository failed with
+ * a message that named nothing.
  *
- * `contents` is required -- without it there is no repository to read.
- * `metadata` comes with every installation. `issues` is optional and is what
- * lets a ticket be fetched instead of pasted; an installation that has not
- * been granted it, or whose owner has not yet accepted the request, verifies
- * exactly as before and simply cannot fetch tickets.
+ * So the ceiling is per permission rather than one blanket level. It stays
+ * an allowlist, not a list of things to avoid: a permission nobody thought
+ * about is refused by default, which is the only version of least privilege
+ * that survives someone editing the App later. Each entry is here because a
+ * shipped feature cannot work without it:
+ *
+ * - `metadata` read: every installation has it and nothing works without it.
+ * - `contents` write: create the branch and commit the spec a pull request
+ *   proposes. Required -- without contents there is no repository to read.
+ * - `pull_requests` write: open that request. It never merges and never
+ *   pushes to a default branch.
+ * - `issues` read: fetch the ticket a requirement is drafted from. Read
+ *   only, always: PlaywrightGen reads a ticket and never changes one.
+ *
+ * Optional ones may be absent. An installation granted less than the ceiling
+ * verifies, and the feature that needed it simply cannot run -- GitHub
+ * refuses a token asking for more than the App was granted, so a missing
+ * permission surfaces as a plain error at the point of use.
  */
-const ALLOWED_PERMISSIONS = new Set(["contents", "metadata", "issues"]);
+const PERMISSION_CEILING: Record<string, ReadonlyArray<string>> = {
+  metadata: ["read"],
+  contents: ["read", "write"],
+  pull_requests: ["read", "write"],
+  issues: ["read"],
+};
 
 export async function getVerifiedGitHubInstallation(input: {
   installationId: string;
@@ -344,10 +365,9 @@ export async function getVerifiedGitHubInstallation(input: {
   }
   const permissions = Object.entries(installation.permissions);
   if (
-    installation.permissions.contents !== "read" ||
+    !installation.permissions.contents ||
     permissions.some(
-      ([name, level]) =>
-        !ALLOWED_PERMISSIONS.has(name) || level !== "read",
+      ([name, level]) => !PERMISSION_CEILING[name]?.includes(level),
     )
   ) {
     throw new GitHubProviderError("github_permissions_not_least_privilege");
