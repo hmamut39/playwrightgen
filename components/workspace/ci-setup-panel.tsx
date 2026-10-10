@@ -262,6 +262,14 @@ export function CiSetupPanel({
                 >
                   {lastDelivery.note}
                 </p>
+                {/* The note explains why nothing was recorded; this says
+                    where to go about it, which a CI log cannot. */}
+                {lastDelivery.recorded === 0 && lastDelivery.total > 0 ? (
+                  <p className="mt-2 text-xs leading-5 text-slate-500">
+                    Every Test Case page shows its own marker, for tests that
+                    already live in your repository.
+                  </p>
+                ) : null}
                 {lastDelivery.runUrl ? (
                   <a
                     href={lastDelivery.runUrl}

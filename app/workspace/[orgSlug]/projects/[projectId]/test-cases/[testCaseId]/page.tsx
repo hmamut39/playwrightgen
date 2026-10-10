@@ -1,5 +1,6 @@
 import { AiAllowanceNotice, aiAllowanceNotice } from "@/components/workspace/ai-allowance-notice";
 import { StickyReviewBar } from "@/components/workspace/sticky-review-bar";
+import { VersionMarkerPanel } from "@/components/workspace/version-marker-panel";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -15,6 +16,7 @@ import {
   proposeAutomationRepair,
   readRepairReadiness,
 } from "@/lib/services/automation-repair";
+import { buildTestCaseVersionMarker } from "@/lib/integrations/runner/ingest-token";
 import { getImportedDraft } from "@/lib/services/imported-drafts";
 import { MAX_PAGE_SIZE } from "@/lib/services/list-query";
 import { listRequirements } from "@/lib/services/requirements";
@@ -95,6 +97,12 @@ export default async function TestCaseDetailPage({
   const availableRequirements = requirements.items.filter((requirement) => !linkedIds.has(requirement.id));
   const isReviewComplete = Boolean(testCase.objective.trim() && steps.length && expectedResults.length);
   const automationBase = `/workspace/${orgSlug}/projects/${projectId}/automation`;
+  // The version a CI result would attach to: the one this Test Case is on
+  // now. A case without one has no marker to show, and a wrong marker is
+  // worse than none.
+  const currentVersion = testCase.versions.find(
+    (version) => version.versionNumber === testCase.currentVersionNumber,
+  );
   const approvedAutomation = automationArtifacts.items.find((artifact) => artifact.status === "APPROVED");
   const pendingAutomation = automationArtifacts.items.find(
     (artifact) => artifact.status === "DRAFT" || artifact.status === "IN_REVIEW",
@@ -362,6 +370,15 @@ export default async function TestCaseDetailPage({
           </p>
         ) : null}
       </section>
+
+      {currentVersion ? (
+        <VersionMarkerPanel
+          marker={buildTestCaseVersionMarker(currentVersion.id)}
+          versionNumber={currentVersion.versionNumber}
+          approved={testCase.status === "APPROVED"}
+          title={currentVersion.title}
+        />
+      ) : null}
 
       <section className="mt-8 rounded-2xl border border-violet-200 bg-violet-50/30 p-6 shadow-sm sm:p-8">
         <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-700">Traceability</p><h2 className="mt-2 text-lg font-semibold">Linked Requirements</h2><p className="mt-1 text-sm text-slate-600">Shows exactly which approved product intent this test helps verify.</p></div>

@@ -15,6 +15,22 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Running tests in your own CI
+- **The marker is visible to a person, not only to an agent** (2026-10-10):
+  having just told teams that their existing tests record nothing because they
+  carry no `[pwg:...]` marker, the obvious next question was where to get one.
+  The answer was nowhere: the marker appeared only in the MCP tool output, so
+  a senior SDET with four hundred existing Playwright tests and no agent could
+  not adopt a single one of them by hand. Every Test Case page now shows the
+  marker for its current version, with a copy button and the `test(` line it
+  belongs in. It is shown for an unapproved version too, saying plainly that
+  results recorded against it are kept but do not count as approved coverage --
+  hiding it until approval would send somebody looking for a mistake that is
+  not there. The delivery note on the Repositories tab points at it when a
+  pipeline recorded nothing. Matching on title instead was rejected: a renamed
+  test would silently detach, or attach to the wrong version, and the marker
+  being the only binding is what makes the evidence worth anything.
+
+### Running tests in your own CI
 - **A delivery from CI is recorded even when it records nothing** (2026-10-10):
   results attach to an approved test through a `[pwg:...]` marker in the test
   title, which PlaywrightGen writes. A team with an existing Playwright suite
