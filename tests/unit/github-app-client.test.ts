@@ -294,6 +294,54 @@ describe("least-privilege GitHub App client", () => {
     expect(JSON.stringify(repositories)).not.toContain("transient-installation-token");
   });
 
+  it("accepts an installation that may also read issues", async () => {
+    const key = privateKey();
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(jsonResponse({
+      id: 456,
+      app_id: 123,
+      account: { id: 321, login: "acme", type: "Organization" },
+      repository_selection: "selected",
+      // What the installation looks like once the owner has accepted the
+      // request that lets a ticket be fetched instead of pasted.
+      permissions: { metadata: "read", contents: "read", issues: "read" },
+      suspended_at: null,
+      created_at: "2026-08-26T12:00:00.000Z",
+      updated_at: "2026-08-26T12:01:00.000Z",
+    }));
+
+    const installation = await getVerifiedGitHubInstallation({
+      installationId: "456",
+      fetcher,
+      environment: setupEnvironment(key),
+    });
+
+    expect(installation.externalInstallationId).toBe("456");
+  });
+
+  it("still refuses to let issues be written", async () => {
+    const key = privateKey();
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(jsonResponse({
+      id: 456,
+      app_id: 123,
+      account: { id: 321, login: "acme", type: "Organization" },
+      repository_selection: "selected",
+      // Read is the whole point: PlaywrightGen reads a ticket and never
+      // changes one.
+      permissions: { metadata: "read", contents: "read", issues: "write" },
+      suspended_at: null,
+      created_at: "2026-08-26T12:00:00.000Z",
+      updated_at: "2026-08-26T12:01:00.000Z",
+    }));
+
+    await expect(getVerifiedGitHubInstallation({
+      installationId: "456",
+      fetcher,
+      environment: setupEnvironment(key),
+    })).rejects.toMatchObject({
+      code: "github_permissions_not_least_privilege",
+    });
+  });
+
   it("rejects an installation when the App has broader than read-only permissions", async () => {
     const key = privateKey();
     const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(jsonResponse({

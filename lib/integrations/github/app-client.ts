@@ -304,6 +304,21 @@ export async function verifyGitHubUserInstallationAccess(input: {
   });
 }
 
+/**
+ * Every permission this App is allowed to hold, each at read.
+ *
+ * The check stays an allowlist rather than a list of things to avoid: a
+ * permission nobody thought about is refused by default, which is the only
+ * version of least privilege that survives someone editing the App later.
+ *
+ * `contents` is required -- without it there is no repository to read.
+ * `metadata` comes with every installation. `issues` is optional and is what
+ * lets a ticket be fetched instead of pasted; an installation that has not
+ * been granted it, or whose owner has not yet accepted the request, verifies
+ * exactly as before and simply cannot fetch tickets.
+ */
+const ALLOWED_PERMISSIONS = new Set(["contents", "metadata", "issues"]);
+
 export async function getVerifiedGitHubInstallation(input: {
   installationId: string;
   fetcher?: typeof fetch;
@@ -332,7 +347,7 @@ export async function getVerifiedGitHubInstallation(input: {
     installation.permissions.contents !== "read" ||
     permissions.some(
       ([name, level]) =>
-        !["contents", "metadata"].includes(name) || level !== "read",
+        !ALLOWED_PERMISSIONS.has(name) || level !== "read",
     )
   ) {
     throw new GitHubProviderError("github_permissions_not_least_privilege");
