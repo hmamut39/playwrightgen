@@ -594,3 +594,24 @@ are indistinguishable. The actor is null rather than guessed: possession of a
 token is not knowledge of a person, and a guess does not belong in an
 append-only record. The lookback is bounded because rotations are rare and
 each check is one HMAC on a body already found wanting.
+
+## 042 — Pickers are a sample with a search, not a truncated list
+
+**Decision:** Requirement and Test Case pickers render `PICKER_PAGE_SIZE`
+(25) options, state the true total, and search through the service rather
+than over the fetched page. `listTestCases` gained a `statuses` option so the
+Test Run form filters to approved in the query. The shared `SearchablePicker`
+is a client component holding chosen options visible across searches, with
+the search exposed as a server action closed over the page's own
+organization and project.
+
+**Reason:** A list capped at a hundred with no search and no count is not a
+truncated list, it is a silent one: past the cap, a requirement could not be
+linked and the page was indistinguishable from one where it did not exist.
+Filtering a fetched page by status compounded it, because the rows that
+survived the cap and the rows that satisfied the filter were decided in
+different places. The action is closed over the page's identifiers so a
+client cannot ask about another project, and it goes through the same read
+permission as the listing it replaces. It is client-side because two of the
+three pages are creation forms, and searching by reloading the page would
+discard everything typed into them.

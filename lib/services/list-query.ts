@@ -19,6 +19,15 @@ import { z } from "zod";
 
 export const DEFAULT_PAGE_SIZE = 25;
 export const MAX_PAGE_SIZE = 100;
+/**
+ * How many options a picker shows at once.
+ *
+ * Small on purpose. A picker is a sample with a search behind it, not an
+ * attempt at the whole list: a hundred options in a box is no more usable
+ * than a thousand, and pretending otherwise is what hid the ones past the
+ * cap in the first place.
+ */
+export const PICKER_PAGE_SIZE = 25;
 
 export type ListParams = {
   search?: string;

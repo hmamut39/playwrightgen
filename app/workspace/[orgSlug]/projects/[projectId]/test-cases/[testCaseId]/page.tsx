@@ -1,5 +1,6 @@
 import { AiAllowanceNotice, aiAllowanceNotice } from "@/components/workspace/ai-allowance-notice";
 import { StickyReviewBar } from "@/components/workspace/sticky-review-bar";
+import { SearchablePicker, type PickerOption } from "@/components/workspace/searchable-picker";
 import { VersionMarkerPanel } from "@/components/workspace/version-marker-panel";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
@@ -18,7 +19,7 @@ import {
 } from "@/lib/services/automation-repair";
 import { buildTestCaseVersionMarker } from "@/lib/integrations/runner/ingest-token";
 import { getImportedDraft } from "@/lib/services/imported-drafts";
-import { MAX_PAGE_SIZE } from "@/lib/services/list-query";
+import { PICKER_PAGE_SIZE } from "@/lib/services/list-query";
 import { listRequirements } from "@/lib/services/requirements";
 import {
   approveTestCase,
@@ -59,7 +60,7 @@ export default async function TestCaseDetailPage({
   const { notice } = await searchParams;
   const [detail, requirements, automationArtifacts, importedDraft] = await Promise.all([
     getTestCaseDetail({ orgSlug, projectId, testCaseId, allowArchived: true }),
-    listRequirements({ orgSlug, projectId, pageSize: MAX_PAGE_SIZE }),
+    listRequirements({ orgSlug, projectId, pageSize: PICKER_PAGE_SIZE }),
     listAutomationArtifacts({ orgSlug, projectId, testCaseId }),
     getImportedDraft({ orgSlug, projectId, testCaseId }),
   ]);
@@ -94,7 +95,26 @@ export default async function TestCaseDetailPage({
   const steps = readTestCaseList(testCase.steps);
   const expectedResults = readTestCaseList(testCase.expectedResults);
   const linkedIds = new Set(testCase.requirementLinks.map((link) => link.requirementId));
+  // Already-linked ones are dropped from the sample, but the count still
+  // speaks for the project: a page offering 24 of 300 should say 300.
   const availableRequirements = requirements.items.filter((requirement) => !linkedIds.has(requirement.id));
+
+  async function searchRequirements(query: string): Promise<PickerOption[]> {
+    "use server";
+    const found = await listRequirements({
+      orgSlug,
+      projectId,
+      search: query,
+      pageSize: PICKER_PAGE_SIZE,
+    });
+    return found.items
+      .filter((requirement) => !linkedIds.has(requirement.id))
+      .map((requirement) => ({
+        id: requirement.id,
+        label: requirement.title,
+        hint: requirement.status.replace("_", " "),
+      }));
+  }
   const isReviewComplete = Boolean(testCase.objective.trim() && steps.length && expectedResults.length);
   const automationBase = `/workspace/${orgSlug}/projects/${projectId}/automation`;
   // The version a CI result would attach to: the one this Test Case is on
@@ -383,7 +403,23 @@ export default async function TestCaseDetailPage({
       <section className="mt-8 rounded-2xl border border-violet-200 bg-violet-50/30 p-6 shadow-sm sm:p-8">
         <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-700">Traceability</p><h2 className="mt-2 text-lg font-semibold">Linked Requirements</h2><p className="mt-1 text-sm text-slate-600">Shows exactly which approved product intent this test helps verify.</p></div>
         <div className="mt-5 space-y-2">{testCase.requirementLinks.length ? testCase.requirementLinks.map((link) => <div key={link.requirementId} className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4"><Link href={`/workspace/${orgSlug}/projects/${projectId}/requirements/${link.requirement.id}`} className="text-sm font-semibold hover:text-violet-700">{link.requirement.title} <span className="ml-2 text-xs font-normal text-slate-400">v{link.requirement.currentVersionNumber} · {link.requirement.status.replace("_", " ")}</span></Link>{detail.canManageTraceability ? <form action={unlinkAction}><input type="hidden" name="requirementId" value={link.requirementId} /><button className="text-xs font-semibold text-slate-500 hover:text-red-700">Unlink</button></form> : null}</div>) : <p className="rounded-xl border border-dashed border-violet-200 bg-white p-4 text-sm text-slate-500">No Requirement linked yet.</p>}</div>
-        {detail.canManageTraceability && availableRequirements.length ? <form action={linkAction} className="mt-4 flex flex-col gap-2 sm:flex-row"><select name="requirementId" required className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm"><option value="">Select a Requirement</option>{availableRequirements.map((requirement) => <option key={requirement.id} value={requirement.id}>{requirement.title}</option>)}</select><button className="rounded-lg bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white">Link Requirement</button></form> : null}
+        {detail.canManageTraceability && requirements.total > testCase.requirementLinks.length ? (
+          <form action={linkAction} className="mt-4 grid gap-3">
+            <SearchablePicker
+              name="requirementId"
+              options={availableRequirements.map((requirement) => ({
+                id: requirement.id,
+                label: requirement.title,
+                hint: requirement.status.replace("_", " "),
+              }))}
+              total={requirements.total}
+              search={searchRequirements}
+              placeholder="Search requirements"
+              emptyLabel="Every requirement in this project is already linked."
+            />
+            <button className="justify-self-start rounded-lg bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white">Link Requirement</button>
+          </form>
+        ) : null}
       </section>
 
       <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">

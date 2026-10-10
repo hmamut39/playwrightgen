@@ -14,6 +14,24 @@ test suite (493 tests) passes.
 
 ## Shipped (most recent first)
 
+### Working at a real team's size
+- **A project's hundred-and-first requirement can be reached** (2026-10-10):
+  three pickers rendered a list capped at a hundred, ordered by what changed
+  most recently, with no search and nothing saying anything had been left out.
+  Past the cap a requirement could not be linked at all, and the page looked
+  exactly as it does when no such requirement exists. The Test Run form was
+  worse: it read a page of test cases and then kept the approved ones, so a
+  project whose hundred most recently changed test cases were drafts offered
+  nothing to run while approved ones sat just beyond the cap. That filter now
+  happens in the query, through a new `statuses` option on `listTestCases`.
+  All three use one `SearchablePicker`: a sample of 25, the true total stated
+  on the page, and a search that runs in the database rather than over
+  whatever happened to be fetched. Anything already chosen stays listed even
+  when a later search does not match it -- a selection that vanishes while you
+  look for the next one is how people submit half a form without noticing --
+  and the match count says so. It is a client component rather than a URL
+  parameter because two of the three pages are forms: a reload to search would
+  throw away everything typed so far.
 ### The audit trail
 - **The activity feed says what it knows, and can be taken away**
   (2026-10-10): every row already carried metadata -- which pipeline

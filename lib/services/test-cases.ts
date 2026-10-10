@@ -122,6 +122,15 @@ export async function listTestCases(
     projectId: string;
     orgSlug?: string;
     includeArchived?: boolean;
+    /**
+     * Narrow to these statuses in the query.
+     *
+     * The Test Run form used to read a page of test cases and then keep the
+     * approved ones, which is not a filter: a project whose hundred most
+     * recently changed test cases happen to be drafts offered nothing to run,
+     * with no sign that approved ones existed.
+     */
+    statuses?: readonly TestCaseStatus[];
   } & ListParams,
   dependencies?: TestCaseDependencies,
 ) {
@@ -134,7 +143,11 @@ export async function listTestCases(
   const where = {
     organizationId: context.organization.id,
     projectId,
-    ...(input.includeArchived ? {} : { status: { not: "ARCHIVED" as const } }),
+    ...(input.statuses?.length
+      ? { status: { in: [...input.statuses] } }
+      : input.includeArchived
+        ? {}
+        : { status: { not: "ARCHIVED" as const } }),
     ...(params.contains ? { title: params.contains } : {}),
   };
 
