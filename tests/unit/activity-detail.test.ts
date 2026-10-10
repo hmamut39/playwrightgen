@@ -23,6 +23,23 @@ describe("the line of detail behind an activity entry", () => {
     ).toBe("GitLab CI · release/2026-10 · 0 of 3 recorded");
   });
 
+  it("says why a delivery was turned away", () => {
+    expect(
+      activityDetail("CI_RESULTS_REJECTED", {
+        provider: "github_actions",
+        ref: "main",
+        reason: "stale_token",
+      }),
+    ).toBe("GitHub Actions · main · an old project token");
+
+    expect(
+      activityDetail("CI_RESULTS_REJECTED", {
+        provider: "jenkins",
+        reason: "connection_inactive",
+      }),
+    ).toBe("Jenkins · no active repository connection");
+  });
+
   it("names the attempt, its result and the commit", () => {
     expect(
       activityDetail("TEST_RUN_ATTEMPT_RECORDED", {

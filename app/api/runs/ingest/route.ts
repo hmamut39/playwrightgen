@@ -1,6 +1,6 @@
 import { after, NextRequest } from "next/server";
 
-import { deliveryNote } from "@/lib/ci/delivery-note";
+import { deliveryNote, rejectionNote } from "@/lib/ci/delivery-note";
 import { getPrismaClient } from "@/lib/db/prisma";
 import {
   EnvironmentValidationError,
@@ -11,6 +11,7 @@ import {
   verifyRunnerSignature,
 } from "@/lib/integrations/runner/ingest-token";
 import { analyzeReportedFailures } from "@/lib/operations/auto-failure-analysis";
+import { recordCiRejection } from "@/lib/services/ci-rejections";
 import {
   reserveRunIngest,
   RunIngestRateLimitError,
@@ -25,6 +26,17 @@ import {
 export const runtime = "nodejs";
 
 const MAX_INGEST_BYTES = 2_000_000;
+
+/**
+ * How many previous token versions a refused signature is checked against.
+ *
+ * Enough to recognise a pipeline that is still sending the token from before
+ * a rotation -- which is the common reason results stop arriving -- without
+ * accepting anything: an old token still fails. Rotations are rare, so a
+ * handful covers every realistic case, and each check is one HMAC on a body
+ * whose signature has already been found wanting.
+ */
+const STALE_TOKEN_LOOKBACK = 5;
 const SIGNATURE_HEADER = "x-playwrightgen-signature";
 
 type RunIngestRouteDependencies = {
@@ -33,8 +45,18 @@ type RunIngestRouteDependencies = {
   loadTokenVersion: (organizationId: string, projectId: string) => Promise<number | null>;
   reserve: typeof reserveRunIngest;
   ingest: typeof ingestPlaywrightResults;
+  recordRejection?: typeof recordCiRejection;
   analyzeFailures?: typeof analyzeReportedFailures;
 };
+
+/** The recent previous versions of a project token, newest first. */
+function recentVersions(current: number): number[] {
+  const versions: number[] = [];
+  for (let version = current - 1; version >= 1 && versions.length < STALE_TOKEN_LOOKBACK; version -= 1) {
+    versions.push(version);
+  }
+  return versions;
+}
 
 /**
  * Reads the project's current token version, which the derivation depends on so
@@ -58,6 +80,7 @@ const defaultDependencies: RunIngestRouteDependencies = {
   loadTokenVersion: loadProjectTokenVersion,
   reserve: reserveRunIngest,
   ingest: ingestPlaywrightResults,
+  recordRejection: recordCiRejection,
   analyzeFailures: analyzeReportedFailures,
 };
 
@@ -74,8 +97,11 @@ export async function handleRunIngestRequest(
   dependencies: RunIngestRouteDependencies = defaultDependencies,
 ) {
   const responder = createWebhookResponder("runs-ingest");
-  const errorResponse = (code: string, status: number) =>
-    responder.json({ status: "error", code }, { status, code });
+  const errorResponse = (code: string, status: number, message?: string) =>
+    responder.json(
+      message ? { status: "error", code, message } : { status: "error", code },
+      { status, code },
+    );
 
   let ingestSecret: string;
   try {
@@ -124,7 +150,43 @@ export async function handleRunIngestRequest(
     rawBody,
     signature: request.headers.get(SIGNATURE_HEADER),
   });
-  if (!verified) return errorResponse("invalid_signature", 401);
+  if (!verified) {
+    // A pipeline still holding the token from before a rotation is the
+    // common reason results stop arriving, and it looks identical to an
+    // attack from here. Checking the recent previous versions tells them
+    // apart. The delivery is refused either way -- an old token writes
+    // nothing -- but a holder of one gets told what to do about it, and the
+    // project gets a record that something arrived and was turned away.
+    const stale = recentVersions(tokenVersion).some((version) =>
+      dependencies.verifySignature({
+        token: dependencies.deriveToken({
+          secret: ingestSecret,
+          organizationId: payload.data.organizationId,
+          projectId: payload.data.projectId,
+          tokenVersion: version,
+        }),
+        rawBody,
+        signature: request.headers.get(SIGNATURE_HEADER),
+      }),
+    );
+    if (!stale) return errorResponse("invalid_signature", 401);
+
+    // Recording must never turn a refusal into a server error: the point is
+    // to explain the refusal, and the refusal stands regardless.
+    await (dependencies.recordRejection ?? recordCiRejection)({
+      organizationId: payload.data.organizationId,
+      projectId: payload.data.projectId,
+      reason: "stale_token",
+      provider: payload.data.run.provider,
+      externalId: payload.data.run.externalId,
+      url: payload.data.run.url,
+      ref: payload.data.run.ref,
+      commitSha: payload.data.run.commitSha,
+      total: payload.data.results.length,
+    }).catch(() => {});
+
+    return errorResponse("stale_token", 401, rejectionNote("stale_token"));
+  }
 
   // Quota is reserved only after the signature verifies, so an unauthenticated
   // caller cannot exhaust a tenant's allowance by posting garbage.
@@ -178,6 +240,24 @@ export async function handleRunIngestRequest(
     );
   } catch (error: unknown) {
     if (error instanceof RunIngestError) {
+      if (error.code === "repository_connection_inactive") {
+        await (dependencies.recordRejection ?? recordCiRejection)({
+          organizationId: payload.data.organizationId,
+          projectId: payload.data.projectId,
+          reason: "connection_inactive",
+          provider: payload.data.run.provider,
+          externalId: payload.data.run.externalId,
+          url: payload.data.run.url,
+          ref: payload.data.run.ref,
+          commitSha: payload.data.run.commitSha,
+          total: payload.data.results.length,
+        }).catch(() => {});
+        return errorResponse(
+          error.code,
+          error.status,
+          rejectionNote("connection_inactive"),
+        );
+      }
       return errorResponse(error.code, error.status);
     }
     return errorResponse("ingest_failed", 500);

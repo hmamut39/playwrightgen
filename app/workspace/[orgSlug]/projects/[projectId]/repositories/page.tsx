@@ -5,7 +5,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { CiSetupPanel } from "@/components/workspace/ci-setup-panel";
-import { providerName, readLastCiDelivery } from "@/lib/services/ci-deliveries";
+import {
+  providerName,
+  readLastCiDelivery,
+  readLastCiRejection,
+} from "@/lib/services/ci-deliveries";
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import {
@@ -154,12 +158,13 @@ export default async function ProjectRepositoriesPage({
 }) {
   const { orgSlug, projectId } = await params;
   const { github: githubResult } = await searchParams;
-  const [context, connections, lastDelivery] = await Promise.all([
+  const [context, connections, lastDelivery, lastRejection] = await Promise.all([
     requireWorkspaceContext({ orgSlug, projectId }),
     listRepositoryConnections({ orgSlug, projectId }),
     // Never a reason to fail the page: this answers a question about the
     // page, and a page that will not load answers nothing.
     readLastCiDelivery({ orgSlug, projectId }).catch(() => null),
+    readLastCiRejection({ orgSlug, projectId }).catch(() => null),
   ]);
   let setupConfigured = true;
   try {
@@ -613,6 +618,19 @@ export default async function ProjectRepositoriesPage({
                   unmatched: lastDelivery.unmatched,
                   total: lastDelivery.total,
                   note: lastDelivery.note,
+                }
+              : null
+          }
+          // Shown only while it is the latest word: a refusal that has since
+          // been fixed is history, and the activity trail is where history goes.
+          lastRejection={
+            lastRejection &&
+            (!lastDelivery || lastRejection.receivedAt > lastDelivery.receivedAt)
+              ? {
+                  receivedAt: lastRejection.receivedAt,
+                  providerName: providerName(lastRejection.provider),
+                  ref: lastRejection.ref,
+                  note: lastRejection.note,
                 }
               : null
           }

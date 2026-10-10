@@ -32,6 +32,23 @@ const plural = (count: number, word: string) => `${count} ${word}${count === 1 ?
  * It never implies the tests passed or failed: a delivery is evidence that the
  * pipeline reached here, and nothing more.
  */
+/**
+ * Why a delivery was turned away.
+ *
+ * A refusal is the one outcome a pipeline cannot diagnose for itself: the
+ * runner sees a 401 and the team sees an empty page. These are the refusals
+ * the product can attribute, so they are the ones it can explain.
+ */
+export type RejectionReason = "stale_token" | "connection_inactive";
+
+export function rejectionNote(reason: RejectionReason): string {
+  switch (reason) {
+    case "stale_token":
+      return 'This delivery was signed with a project token that is no longer current, so it was refused. The token was rotated here; update PLAYWRIGHTGEN_TOKEN in your CI with the current value and the next run will be recorded.';
+    case "connection_inactive":
+      return 'This delivery was signed with a valid token, but this project has no active repository connection, so there is nobody to attribute the evidence to. Reconnect the repository and the next run will be recorded.';
+  }
+}
 export function deliveryNote(counts: DeliveryCounts): string {
   const { recorded, duplicates, unmatched, total } = counts;
 

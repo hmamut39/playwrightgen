@@ -160,22 +160,23 @@ const response = await fetch(`${baseUrl}/api/runs/ingest`, {
 });
 
 const text = await response.text();
-if (!response.ok) {
-  // Reporting is observability, not a gate: a PlaywrightGen outage must not
-  // turn a green test suite red.
-  console.error(`PlaywrightGen: ingest returned ${response.status}: ${text}`);
-  process.exit(0);
-}
 
-// The endpoint explains the outcome in a sentence. A run that reports 400
-// results and records none of them is not an error, and three numbers do not
-// say why -- so print the sentence when there is one.
+// The endpoint explains both outcomes in a sentence: what a delivery
+// recorded, or why it was turned away. A status code and a blob of JSON do
+// not tell a build engineer that their token was rotated.
 let note = text;
 try {
   const parsed = JSON.parse(text);
   if (parsed && typeof parsed.message === "string") note = parsed.message;
 } catch {
   // Not JSON; print whatever came back.
+}
+
+if (!response.ok) {
+  // Reporting is observability, not a gate: a PlaywrightGen outage must not
+  // turn a green test suite red.
+  console.error(`PlaywrightGen: ${note}`);
+  process.exit(0);
 }
 
 console.log(`PlaywrightGen: ${note}`);

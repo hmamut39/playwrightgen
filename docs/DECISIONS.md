@@ -570,3 +570,27 @@ answer other than paging. The cap is stated on the page rather than hidden in
 the file: a reviewer who believes a truncated export is the whole history is
 worse off than one who has no export. Defensive metadata reads matter because
 these rows are permanent and the code that wrote them will change.
+
+## 041 — Explain a refused CI delivery, without becoming an oracle
+
+**Decision:** When a signature fails, the ingest route re-checks it against
+the five most recent previous project token versions. A match still returns
+401, but with the code `stale_token`, a sentence naming the fix, and an
+`Activity` row (`CI_RESULTS_REJECTED`, actor null) recording that a delivery
+arrived and was turned away. A valid token rejected for
+`repository_connection_inactive` is recorded the same way. Recording failures
+are swallowed. The Repositories tab shows the refusal above the last recorded
+delivery while it is more recent.
+
+**Reason:** A rotated token is the usual reason results stop arriving, and it
+was indistinguishable from a pipeline that never ran. The lookback is what
+separates a genuine holder of a past token from an attacker: producing any
+valid signature requires `RUNNER_INGEST_SECRET` plus the exact organization,
+project and version, so a caller who reaches this branch already holds a real
+credential and learns nothing new from being told it is stale. Every other
+signature failure returns the original `invalid_signature` and writes nothing,
+preserving the existing property that a missing project and a bad signature
+are indistinguishable. The actor is null rather than guessed: possession of a
+token is not knowledge of a person, and a guess does not belong in an
+append-only record. The lookback is bounded because rotations are rare and
+each check is one HMAC on a body already found wanting.

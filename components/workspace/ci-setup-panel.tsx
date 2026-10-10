@@ -84,6 +84,17 @@ export type CiSetupPanelProps = {
     total: number;
     note: string;
   } | null;
+  /**
+   * A delivery that arrived and was refused, when that happened more
+   * recently than the last one recorded. Shown first because it is the
+   * thing to fix: the pipeline is running and being turned away.
+   */
+  lastRejection?: {
+    receivedAt: Date | string;
+    providerName: string;
+    ref: string | null;
+    note: string;
+  } | null;
   rotateAction?: (formData: FormData) => void | Promise<void>;
 };
 
@@ -97,6 +108,7 @@ export function CiSetupPanel({
   orgSlug,
   appUrl,
   lastDelivery,
+  lastRejection,
   rotateAction,
 }: CiSetupPanelProps) {
   // Which pipeline the instructions below are written for. An IT department
@@ -229,6 +241,22 @@ export function CiSetupPanel({
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
               Last results delivery
             </p>
+            {lastRejection ? (
+              <div className="mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5">
+                <p className="text-xs font-semibold text-red-900">
+                  {lastRejection.providerName} was turned away{" "}
+                  <LocalTime value={lastRejection.receivedAt} />
+                  {lastRejection.ref ? (
+                    <>
+                      {" "}
+                      from <span className="font-medium">{lastRejection.ref}</span>
+                    </>
+                  ) : null}
+                  .
+                </p>
+                <p className="mt-1 text-xs leading-5 text-red-900">{lastRejection.note}</p>
+              </div>
+            ) : null}
             {lastDelivery ? (
               <>
                 <p className="mt-1.5 text-sm leading-6 text-slate-700">

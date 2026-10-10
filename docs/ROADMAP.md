@@ -34,6 +34,28 @@ test suite (493 tests) passes.
   be read as two different records of one event.
 
 ### Running tests in your own CI
+- **A delivery that is turned away is recorded, and says how to fix it**
+  (2026-10-10): accepted deliveries became visible earlier today, which left
+  the commoner failure dark. A project token is rotated here, the pipeline
+  keeps sending the old one, every request is refused and nothing is written,
+  so the page reads "no results have arrived" -- which sounds like "your CI
+  never ran" when the truth is "your CI is being turned away at the door".
+  A refused signature is now checked against the five most recent previous
+  token versions. The delivery is still refused -- an old token writes no
+  evidence, ever -- but a caller who proves possession of a real past token
+  gets `stale_token` and a sentence naming the fix, and the project gets an
+  Activity row saying something came and why it was turned away. The same
+  applies to a valid token with no active repository connection, where there
+  is nobody to attribute evidence to. The Repositories tab shows the refusal
+  above the last recorded delivery while it is the latest word.
+  The security line, held by two tests: a signature that was never valid is
+  refused exactly as before, with nothing written and nothing revealed, so an
+  unauthenticated caller can neither fill the table nor learn which projects
+  exist by watching what happens. Recording is also incapable of turning a
+  refusal into a 500 -- the refusal is the point and it stands either way.
+  Migration `20261010160000_v1_ci_delivery_rejected` adds one enum value.
+
+### Running tests in your own CI
 - **The marker is visible to a person, not only to an agent** (2026-10-10):
   having just told teams that their existing tests record nothing because they
   carry no `[pwg:...]` marker, the obvious next question was where to get one.

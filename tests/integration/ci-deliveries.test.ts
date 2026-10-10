@@ -4,7 +4,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { PrismaClient } from "@/generated/prisma/client";
 import { buildTestCaseVersionMarker } from "@/lib/integrations/runner/ingest-token";
-import { readLastCiDelivery } from "@/lib/services/ci-deliveries";
+import { readLastCiDelivery, readLastCiRejection } from "@/lib/services/ci-deliveries";
+import { recordCiRejection } from "@/lib/services/ci-rejections";
 import {
   ingestPlaywrightResults,
   type IngestPayload,
@@ -217,6 +218,53 @@ describe("what a delivery from CI leaves behind", () => {
 
     const delivery = await readLastCiDelivery({ projectId: space.project.id }, deps(space));
     expect(delivery).toMatchObject({ ref: "release/2026-10", total: 2 });
+  });
+
+  it("remembers a delivery it turned away, and what to do about it", async () => {
+    const space = await workspace();
+    await recordCiRejection(
+      {
+        organizationId: space.organization.id,
+        projectId: space.project.id,
+        reason: "stale_token",
+        provider: "github_actions",
+        externalId: "9001-1",
+        url: "https://github.com/acme/web/actions/runs/9001",
+        ref: "main",
+        commitSha: "a".repeat(40),
+        total: 4,
+      },
+      { prisma },
+    );
+
+    const rejection = await readLastCiRejection({ projectId: space.project.id }, deps(space));
+    expect(rejection).toMatchObject({ reason: "stale_token", provider: "github_actions", ref: "main" });
+    // The fix is named, not just the fault.
+    expect(rejection?.note).toContain("PLAYWRIGHTGEN_TOKEN");
+
+    // A refusal is not a delivery: it recorded nothing and must not appear
+    // as though a pipeline had reported results.
+    expect(await readLastCiDelivery({ projectId: space.project.id }, deps(space))).toBeNull();
+  });
+
+  it("stays quiet about a reason this version does not understand", async () => {
+    const space = await workspace();
+    await prisma.activity.create({
+      data: {
+        organizationId: space.organization.id,
+        projectId: space.project.id,
+        actorUserId: null,
+        source: "SYSTEM",
+        action: "CI_RESULTS_REJECTED",
+        targetType: "PROJECT",
+        targetId: space.project.id,
+        metadata: { reason: "something_invented_later" },
+      },
+    });
+
+    // These rows are permanent and outlive the code that wrote them. An
+    // explanation nobody can act on is worse than none.
+    expect(await readLastCiRejection({ projectId: space.project.id }, deps(space))).toBeNull();
   });
 
   it("keeps one workspace's deliveries out of another's", async () => {

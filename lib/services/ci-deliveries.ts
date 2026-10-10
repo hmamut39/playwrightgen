@@ -6,7 +6,12 @@ import {
   requireWorkspaceContext,
   type WorkspaceContextDependencies,
 } from "@/lib/auth/workspace-context";
-import { deliveryNote, type DeliveryCounts } from "@/lib/ci/delivery-note";
+import {
+  deliveryNote,
+  rejectionNote,
+  type DeliveryCounts,
+  type RejectionReason,
+} from "@/lib/ci/delivery-note";
 import { getPrismaClient } from "@/lib/db/prisma";
 
 /**
@@ -88,5 +93,60 @@ export async function readLastCiDelivery(
     ref: textFrom(metadata.ref),
     commitSha: textFrom(metadata.commitSha),
     note: deliveryNote(counts),
+  };
+}
+
+export type CiRejectionRecord = {
+  receivedAt: Date;
+  reason: RejectionReason;
+  provider: string;
+  ref: string | null;
+  /** What to do about it, in the same words the runner was given. */
+  note: string;
+};
+
+const REASONS = new Set<string>(["stale_token", "connection_inactive"]);
+
+/**
+ * The last delivery this project turned away.
+ *
+ * Read separately from the accepted one so the page can show which happened
+ * most recently. A refusal from an hour ago next to a recording from last
+ * week is the whole story; either on its own is half of it.
+ */
+export async function readLastCiRejection(
+  input: { orgSlug?: string; projectId: string },
+  dependencies?: WorkspaceContextDependencies,
+): Promise<CiRejectionRecord | null> {
+  const projectId = z.string().uuid().parse(input.projectId);
+  const workspace = await requireWorkspaceContext(
+    { orgSlug: input.orgSlug, projectId, permission: "project:read" },
+    dependencies,
+  );
+  const prisma = dependencies?.prisma ?? getPrismaClient();
+
+  const activity = await prisma.activity.findFirst({
+    where: {
+      organizationId: workspace.organization.id,
+      projectId,
+      action: "CI_RESULTS_REJECTED",
+    },
+    orderBy: { createdAt: "desc" },
+    select: { createdAt: true, metadata: true },
+  });
+  if (!activity) return null;
+
+  const metadata = (activity.metadata ?? {}) as Record<string, unknown>;
+  const reason = textFrom(metadata.reason);
+  // A reason this version does not know is not shown at all: an explanation
+  // nobody can act on is worse than the plain fact that nothing arrived.
+  if (!reason || !REASONS.has(reason)) return null;
+
+  return {
+    receivedAt: activity.createdAt,
+    reason: reason as RejectionReason,
+    provider: textFrom(metadata.provider) ?? "other",
+    ref: textFrom(metadata.ref),
+    note: rejectionNote(reason as RejectionReason),
   };
 }

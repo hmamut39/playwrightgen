@@ -45,6 +45,20 @@ export function activityDetail(
   const parts: string[] = [];
 
   switch (action) {
+    case "CI_RESULTS_REJECTED": {
+      const provider = text(data.provider);
+      if (provider) parts.push(PROVIDERS[provider] ?? "CI");
+      const ref = text(data.ref);
+      if (ref) parts.push(ref);
+      const reason = text(data.reason);
+      // The reason is the row: a refused delivery is only worth recording
+      // because the team cannot otherwise tell why it was refused.
+      if (reason === "stale_token") parts.push("an old project token");
+      else if (reason === "connection_inactive") parts.push("no active repository connection");
+      else if (reason) parts.push(words(reason));
+      break;
+    }
+
     case "CI_RESULTS_DELIVERED": {
       const provider = text(data.provider);
       if (provider) parts.push(PROVIDERS[provider] ?? "CI");
