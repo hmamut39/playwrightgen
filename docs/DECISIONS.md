@@ -552,3 +552,21 @@ an observable fact rather than an inference, and it is deliberately evidence
 of a delivery only -- it says what arrived and what became of it, never that
 anything passed. One shared sentence keeps the runner's log and the project
 page from drifting into two different explanations of the same number.
+
+## 040 — The activity trail shows its metadata and exports as CSV
+
+**Decision:** `activityDetail` turns an Activity row's metadata into one line
+of detail, read defensively so an unknown or missing field yields nothing
+rather than an empty-looking value. The feed renders it, and
+`exportProjectActivity` writes the same trail to CSV behind the page's own
+`project:read` check, newest first, capped at 5,000 rows, named for the
+project and the date range it covers. Both use one shared phrase per action.
+
+**Reason:** The record was already append-only and already what the evidence
+rests on, but the page showed only the verb and the trail could not leave the
+screen. A lead scanning a feed could not see that a delivery recorded nothing,
+and "show me everything that happened to this project last quarter" had no
+answer other than paging. The cap is stated on the page rather than hidden in
+the file: a reviewer who believes a truncated export is the whole history is
+worse off than one who has no export. Defensive metadata reads matter because
+these rows are permanent and the code that wrote them will change.

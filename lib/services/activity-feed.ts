@@ -6,6 +6,7 @@ import {
   type WorkspaceContextDependencies,
 } from "@/lib/auth/workspace-context";
 import { getPrismaClient } from "@/lib/db/prisma";
+import { activityDetail } from "@/lib/activity/detail";
 import { buildListResult, parseListParams, type ListParams } from "@/lib/services/list-query";
 
 /**
@@ -33,6 +34,11 @@ export type ActivityEntry = {
   createdAt: Date;
   /** Plain-language description of what happened. */
   summary: string;
+  /**
+   * The one thing worth knowing beyond the verb, when the row recorded one:
+   * which pipeline, which attempt, how many results were recorded.
+   */
+  detail: string | null;
   /** Where to go to see it, when the target has a page. */
   href: string | null;
 };
@@ -42,7 +48,7 @@ export type ActivityEntry = {
  * TEST_CASE_SUBMITTED_FOR_REVIEW reads like a log file; a feed of "submitted a
  * test case for review" reads like what a colleague did.
  */
-const actionSummary: Record<ActivityAction, string> = {
+export const actionSummary: Record<ActivityAction, string> = {
   ORGANIZATION_UPDATED: "updated the workspace",
   MEMBERSHIP_ROLE_CHANGED: "changed a member's role",
   MEMBERSHIP_REMOVED: "removed a member",
@@ -148,6 +154,7 @@ export async function listProjectActivity(
     actorName: row.actor?.displayName ?? null,
     createdAt: row.createdAt,
     summary: actionSummary[row.action],
+    detail: activityDetail(row.action, row.metadata),
     href: hrefFor(base, row.targetType, row.targetId),
   }));
 

@@ -163,6 +163,7 @@ describe("grouping activity by day", () => {
     actorName: "Owner",
     createdAt: new Date(iso),
     summary: "approved a requirement",
+    detail: null,
     href: null,
   });
 

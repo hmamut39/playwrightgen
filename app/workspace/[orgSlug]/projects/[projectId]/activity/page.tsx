@@ -68,6 +68,22 @@ export default async function ProjectActivityPage({
           first. This is the same record the audit trail is built from, so
           nothing here can be edited or removed.
         </p>
+        {activity.items.length > 0 ? (
+          <a
+            href={`${basePath}/download`}
+            download
+            className="mt-4 inline-block rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            Download the trail (CSV)
+          </a>
+        ) : null}
+        {activity.items.length > 0 ? (
+          // Said whether or not this project has that many, so nobody can
+          // read a truncated file as the whole history.
+          <p className="mt-2 text-xs leading-5 text-slate-400">
+            The newest 5,000 events, with the dates they cover in the file name.
+          </p>
+        ) : null}
       </header>
 
       {activity.items.length === 0 ? (
@@ -94,6 +110,11 @@ export default async function ProjectActivityPage({
                             {entry.actorName ? personName(entry.actorName) : "The system"}
                           </span>{" "}
                           {entry.summary}
+                          {entry.detail ? (
+                            // The row already knew this; the feed used to
+                            // drop it and print the verb alone.
+                            <span className="text-slate-500"> &middot; {entry.detail}</span>
+                          ) : null}
                         </p>
                         <span className="shrink-0 text-xs text-slate-400">
                           <LocalTime value={entry.createdAt} style="time" />

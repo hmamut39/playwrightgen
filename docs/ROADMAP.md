@@ -14,6 +14,25 @@ test suite (493 tests) passes.
 
 ## Shipped (most recent first)
 
+### The audit trail
+- **The activity feed says what it knows, and can be taken away**
+  (2026-10-10): every row already carried metadata -- which pipeline
+  delivered results and how many were recorded, which attempt failed on which
+  commit, which version of the automation was generated -- and the feed threw
+  all of it away and printed the verb. Eleven rows reading "received results
+  from CI" told a lead nothing while the rows underneath knew that ten of
+  those deliveries had recorded nothing. `activityDetail` now reads that
+  metadata defensively (these rows outlive the shape that wrote them, so an
+  unexpected field produces no detail rather than a confident blank) and the
+  feed shows one line of it.
+  And the trail can leave the screen: `GET .../activity/download` exports it
+  as CSV through the same `project:read` check as the page, newest first, with
+  the project and the dates it covers in the file name. Bounded at 5,000 rows
+  and the page says so whether or not the project has that many, because a
+  reviewer must never read a truncated file as the whole history. The export
+  and the page share one phrase per action, so the file and the screen cannot
+  be read as two different records of one event.
+
 ### Running tests in your own CI
 - **The marker is visible to a person, not only to an agent** (2026-10-10):
   having just told teams that their existing tests record nothing because they
