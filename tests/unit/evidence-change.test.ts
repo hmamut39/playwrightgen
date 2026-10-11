@@ -24,6 +24,7 @@ const report = (requirements: EvidenceRequirement[]): ReleaseEvidenceReport => (
   project: { id: "p", name: "Shop", slug: "shop" },
   organization: { name: "Acme", slug: "acme" },
   generatedAt: new Date("2026-09-20T10:00:00.000Z"),
+  coverage: { shown: requirements.length, total: requirements.length },
   requirements,
   totals: {
     verified: requirements.filter((item) => item.verdict === "VERIFIED").length,

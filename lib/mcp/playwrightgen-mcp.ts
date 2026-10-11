@@ -318,11 +318,18 @@ const tools: Tool[] = [
         : input.verdict
           ? `No requirement is ${input.verdict.toLowerCase()}.`
           : "This project has no approved requirements yet.";
+      // A capped report's totals are not the project's totals, and an agent
+      // repeating them to somebody has no page in front of it to notice.
+      const partial = report.truncated
+        ? ` These counts cover ${report.coverage.shown} of this project's ${report.coverage.total} requirements; a report is bounded so a large project produces one at all.`
+        : "";
       return text(
-        `${body}\n\n${report.totals.verified} verified, ${report.totals.failing} failing, ${report.totals.unverified} not verified.`,
+        `${body}\n\n${report.totals.verified} verified, ${report.totals.failing} failing, ${report.totals.unverified} not verified.${partial}`,
         {
           requirements,
           totals: report.totals,
+          coverage: report.coverage,
+          partial: report.truncated,
         },
       );
     },

@@ -14,6 +14,35 @@ test suite (493 tests) passes.
 
 ## Shipped (most recent first)
 
+### Saying how much a report covers
+- **A partial report says so at every exit** (2026-10-11): the evidence report
+  is bounded at five hundred requirements so a large project produces a report
+  rather than a timeout, and it already carried `truncated`. Two of its six
+  readers looked at it. The badge in a README read "480 of 500 verified" for a
+  project with nine hundred requirements; the shared proof link -- the page
+  sent to a customer, an auditor or a UAT stakeholder -- showed the same
+  counts as a project total; the weekly email kept `report.totals` and dropped
+  the caveat with the rest of the report; and the MCP tool repeated them to
+  whoever asked, with no page in front of it to notice.
+  The report now carries `coverage: { shown, total }` from a count beside the
+  capped read, so every surface can say how much is missing rather than that
+  something is. The badge says "480 of first 500 verified" and reports a
+  partial failure count as "2+ failing", because a failure count from part of
+  a project is a floor. The proof page, the kept file, the email and the agent
+  each say it in their own words. `tests/unit/partial-evidence.test.ts` holds
+  each exit separately, because careful wording on one page has never
+  travelled to the others on its own.
+  Found by the sweep this was scheduled for: state decided in two places.
+  Proven against the real database with the dev project seeded to 521
+  requirements, then the seed removed.
+- **A run form keeps the test it was opened for** (2026-10-11): yesterday's
+  picker work replaced a hundred-option list with a sample of twenty-five, and
+  the Test Run form checked whether the test case in the address was in that
+  sample before selecting it. Arriving from a Test Case that had not been
+  touched lately therefore opened the form with nothing chosen, on a page
+  reached from that very test. The preferred test case is now read directly
+  and pinned into the options whether or not the sample holds it, and one that
+  exists but is not approved says so instead of being silently ignored.
 ### Starting from a ticket
 - **A ticket can be fetched instead of pasted** (2026-10-10): the owner
   granted the GitHub App `issues: read` and accepted it on the installation,
@@ -1115,7 +1144,14 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. **Finish the sweep for state decided in two places.** Twice on 2026-10-10 a
+1. ~~**Finish the sweep for state decided in two places.**~~ Done 2026-10-11.
+   Four shapes were searched: a page filtering a service's items after the
+   fact, a hard `take:` in a service whose bound never reached the surfaces
+   reading it, a `slice` over a set, and a count drawn from a different query
+   than its list. Two real faults came out -- the Test Run form's preselect and
+   the evidence report's cap -- and the rest were string truncations or counts
+   taken from the same row. Original item, kept for context:
+   **Finish the sweep for state decided in two places.** Twice on 2026-10-10 a
    bug came from one place choosing rows and another filtering them: the Test
    Run form read a page of test cases and then kept the approved ones, and the
    permission gate demanded read-only while the App held the write the pull

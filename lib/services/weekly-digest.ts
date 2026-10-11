@@ -28,7 +28,19 @@ const MIN_INTERVAL_MS = 6 * 24 * 60 * 60_000;
  * forwarding it upward is asked "so where are we". Those are different
  * questions, and the second one is about requirements rather than tests.
  */
-export type CoverageLine = { verified: number; failing: number; unverified: number; stale: number };
+export type CoverageLine = {
+  verified: number;
+  failing: number;
+  unverified: number;
+  stale: number;
+  /**
+   * Whether these counts cover the whole project. A report is bounded so a
+   * large project produces one at all, and an email is read away from any
+   * page that could have said so.
+   */
+  partial?: boolean;
+  coverage?: { shown: number; total: number };
+};
 
 export function coverageText(coverage: CoverageLine) {
   const total = coverage.verified + coverage.failing + coverage.unverified;
@@ -39,7 +51,11 @@ export function coverageText(coverage: CoverageLine) {
   const stale = coverage.stale
     ? ` ${coverage.stale} of the verified ${coverage.stale === 1 ? "was" : "were"} last checked over a month ago.`
     : "";
-  return `${total} requirement${total === 1 ? "" : "s"}: ${parts.join(", ")}.${stale}`;
+  const bounded =
+    coverage.partial && coverage.coverage
+      ? ` Counted across ${coverage.coverage.shown} of the project's ${coverage.coverage.total} requirements.`
+      : "";
+  return `${total} requirement${total === 1 ? "" : "s"}: ${parts.join(", ")}.${stale}${bounded}`;
 }
 
 export type WeekAttempt = {
@@ -227,7 +243,13 @@ export async function sendWeeklyDigests(options: {
       now,
       prisma: options.prisma,
     })
-      .then((report) => report.totals)
+      // The caveat has to travel with the numbers: keeping only the totals
+      // is how a partial count becomes a whole one in somebody's inbox.
+      .then((report) => ({
+        ...report.totals,
+        partial: report.truncated,
+        coverage: report.coverage,
+      }))
       .catch(() => null);
     const standings = coverage ? coverageText(coverage) : null;
     const text = isQuietWeek(digest)

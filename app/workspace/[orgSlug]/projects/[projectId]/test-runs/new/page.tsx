@@ -5,7 +5,7 @@ import { SearchablePicker, type PickerOption } from "@/components/workspace/sear
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { getProject } from "@/lib/services/projects";
 import { PICKER_PAGE_SIZE } from "@/lib/services/list-query";
-import { listTestCases } from "@/lib/services/test-cases";
+import { getTestCaseDetail, listTestCases } from "@/lib/services/test-cases";
 import { createTestRun } from "@/lib/services/test-runs";
 
 export default async function NewTestRunPage({
@@ -32,6 +32,29 @@ export default async function NewTestRunPage({
     label: testCase.title,
     hint: `v${testCase.currentVersionNumber}`,
   });
+
+  // Arriving from a Test Case says which one this run is for, and a sample of
+  // twenty-five is no place to look for it: the page would quietly open with
+  // nothing selected, on a page reached from that very test. So it is read
+  // directly and pinned into the options, whether or not the sample holds it.
+  const preferred = preferredTestCaseId
+    ? await getTestCaseDetail({ orgSlug, projectId, testCaseId: preferredTestCaseId }).catch(
+        () => null,
+      )
+    : null;
+  const preferredApproved = preferred?.testCase.status === "APPROVED" ? preferred.testCase : null;
+  const options = [
+    ...(preferredApproved
+      ? [
+          {
+            id: preferredApproved.id,
+            label: preferredApproved.title,
+            hint: `v${preferredApproved.currentVersionNumber}`,
+          },
+        ]
+      : []),
+    ...approved.items.filter((item) => item.id !== preferredApproved?.id).map(asOption),
+  ];
 
   async function searchTestCases(query: string): Promise<PickerOption[]> {
     "use server";
@@ -81,21 +104,26 @@ export default async function NewTestRunPage({
         </section>
       ) : (
         <form action={createAction} className="mt-8 space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          {preferred && !preferredApproved ? (
+            <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+              <span className="font-semibold">{preferred.testCase.title}</span> is
+              {" "}
+              {preferred.testCase.status.replace("_", " ").toLowerCase()}, not approved, so a
+              run cannot be recorded against it. Approve it first, or choose another
+              test below.
+            </p>
+          ) : null}
           <div className="block text-sm font-medium">
             Approved Test Case
             <div className="mt-2 font-normal">
               <SearchablePicker
                 name="testCaseId"
-                options={approved.items.map(asOption)}
+                options={options}
                 total={approved.total}
                 search={searchTestCases}
                 placeholder="Search approved test cases"
                 emptyLabel="No approved test case yet."
-                defaultSelectedId={
-                  approved.items.some((item) => item.id === preferredTestCaseId)
-                    ? preferredTestCaseId
-                    : undefined
-                }
+                defaultSelectedId={preferredApproved?.id}
               />
             </div>
           </div>

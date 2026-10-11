@@ -144,6 +144,19 @@ export default async function ProofPage({
         ))}
       </section>
 
+      {report.truncated ? (
+        // The counts above are of what the report covers. Sending somebody a
+        // page of totals that silently describe part of a project is the
+        // overstatement this product exists to avoid, and this is the page
+        // that goes to people outside the team.
+        <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+          These counts cover {report.coverage.shown} of this project&rsquo;s{" "}
+          {report.coverage.total} requirements. A report is bounded so that a large
+          project produces one at all, so the figures above describe that first
+          portion and not the whole project.
+        </p>
+      ) : null}
+
       {report.totals.stale ? (
         <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
           {report.totals.stale} of the verified requirement{report.totals.stale === 1 ? " was" : "s were"} last checked

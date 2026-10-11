@@ -78,11 +78,22 @@ export function readBadgeToken(token: string, now: Date = new Date()): BadgeClai
   return claim.data;
 }
 
+/**
+ * Whether the counts describe the whole project.
+ *
+ * The report is capped so a large project produces a report rather than a
+ * timeout, and the badge was reading the capped totals as though they were
+ * the project: "480 of 500 verified" on a project with nine hundred
+ * requirements, in somebody's README. Carried on every counted state so no
+ * number can be read as more than it is.
+ */
+type Partial_ = { partial: boolean };
+
 export type BadgeState =
-  | { kind: "verified"; verified: number; total: number }
+  | ({ kind: "verified"; verified: number; total: number } & Partial_)
   /** Verified, but some of it by runs nobody has repeated in a month. */
-  | { kind: "stale"; verified: number; total: number; stale: number }
-  | { kind: "failing"; failing: number }
+  | ({ kind: "stale"; verified: number; total: number; stale: number } & Partial_)
+  | ({ kind: "failing"; failing: number } & Partial_)
   | { kind: "unverified" }
   | { kind: "empty" }
   | { kind: "unavailable" };
@@ -124,13 +135,17 @@ export async function readBadgeState(
 
   const { verified, failing, unverified, stale } = report.totals;
   const total = verified + failing + unverified;
+  // Every count below is of what the report covers, which is not always the
+  // project.
+  const partial = report.truncated;
   if (total === 0) return { kind: "empty" };
-  if (failing > 0) return { kind: "failing", failing };
-  if (verified === 0) return { kind: "unverified" };
+  if (failing > 0) return { kind: "failing", failing, partial };
+  if (verified === 0 && !partial) return { kind: "unverified" };
+  if (verified === 0) return { kind: "verified", verified, total, partial };
   // A badge saying "12 of 12 verified" on evidence nobody has repeated in a
   // month is the same lie the page used to tell. It says so instead.
-  if (stale > 0) return { kind: "stale", verified, total, stale };
-  return { kind: "verified", verified, total };
+  if (stale > 0) return { kind: "stale", verified, total, stale, partial };
+  return { kind: "verified", verified, total, partial };
 }
 
 const TONE = {
@@ -143,13 +158,18 @@ const TONE = {
 } as const;
 
 export function badgeMessage(state: BadgeState) {
+  // "of first N" rather than "of N": the denominator is what was read, and
+  // a reader should not have to know the cap to understand the fraction.
+  const counted = (state: { total: number; partial: boolean }) =>
+    state.partial ? `first ${state.total}` : `${state.total}`;
+
   switch (state.kind) {
     case "verified":
-      return `${state.verified} of ${state.total} verified`;
+      return `${state.verified} of ${counted(state)} verified`;
     case "stale":
-      return `${state.verified} of ${state.total} verified, ${state.stale} stale`;
+      return `${state.verified} of ${counted(state)} verified, ${state.stale} stale`;
     case "failing":
-      return `${state.failing} failing`;
+      return state.partial ? `${state.failing}+ failing` : `${state.failing} failing`;
     case "unverified":
       return "none verified";
     case "empty":

@@ -9,6 +9,7 @@ const report = (overrides: Partial<ReleaseEvidenceReport> = {}): ReleaseEvidence
   generatedAt: new Date("2026-09-20T14:30:00.000Z"),
   totals: { verified: 2, failing: 1, unverified: 0, stale: 0 },
   truncated: false,
+  coverage: { shown: 3, total: 3 },
   requirements: [
     {
       id: "r1",

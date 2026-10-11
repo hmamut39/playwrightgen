@@ -201,7 +201,7 @@ export function evidenceDocument(
       ? report.requirements.map(requirementSection).join("")
       : `<p class="none">This project has no approved requirements yet, so there is nothing to verify.</p>`
   }
-  ${report.truncated ? `<p class="none">Only the first requirements are shown; the project has more.</p>` : ""}
+  ${report.truncated ? `<p class="none">This report covers ${report.coverage.shown} of the project's ${report.coverage.total} requirements. It is bounded so that a large project produces a report at all, so every figure here describes that first portion and not the whole project.</p>` : ""}
 
   ${
     options.signatures?.length

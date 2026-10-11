@@ -658,3 +658,24 @@ stay out of the description, apply to fetched tickets without being
 reimplemented. The reference is taken from the address because which ticket
 was fetched is known, and a body that mentions a different ticket would
 otherwise put the wrong identity on the evidence.
+
+## 045 — A bounded report states its bound wherever it is read
+
+**Decision:** `ReleaseEvidenceReport` carries `coverage: { shown, total }`
+beside `truncated`, counted in the same query batch as the capped read. Every
+surface that presents its figures states the bound in its own words: the
+badge (`of first N`, and `N+ failing`), the shared proof page, the
+downloadable pack, the weekly digest line and the MCP tool's text and
+structured payload. `tests/unit/partial-evidence.test.ts` asserts each one
+separately.
+
+**Reason:** The cap exists so a large project produces a report at all, which
+is right, and `truncated` already recorded it. But a boolean that only two of
+six readers consult is not a disclosure: a badge in a README and a link sent
+to an auditor were presenting a partial count as a project total, which is
+the overstatement this product exists to avoid, on the surfaces furthest from
+anyone who could notice. `shown` and `total` rather than a boolean because
+"the project has more" leaves a reader to guess whether it is one more or four
+hundred. A partial failure count is reported as a floor, since more may fail
+beyond what was read. Each exit is asserted on its own because wording has
+never travelled between them by itself.

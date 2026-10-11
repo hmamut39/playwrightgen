@@ -118,6 +118,15 @@ export type ReleaseEvidenceReport = {
     stale: number;
   };
   truncated: boolean;
+  /**
+   * How many requirements this report describes, and how many the project
+   * has.
+   *
+   * `truncated` said that something was missing and nothing said how much,
+   * which left every surface either silent or vague. A reader deciding on a
+   * release needs the size of what they are not being shown.
+   */
+  coverage: { shown: number; total: number };
 };
 
 export async function getReleaseEvidenceReport(
@@ -158,7 +167,7 @@ export async function buildReleaseEvidenceReport(input: {
     where: { id: organizationId },
     select: { name: true, slug: true },
   });
-  const [project, requirements, attemptFacts, approvalActivity] = await Promise.all([
+  const [project, requirements, requirementTotal, attemptFacts, approvalActivity] = await Promise.all([
     prisma.project.findUniqueOrThrow({
       where: { organizationId_id: { organizationId, id: projectId } },
       select: { id: true, name: true, slug: true },
@@ -194,6 +203,12 @@ export async function buildReleaseEvidenceReport(input: {
           },
         },
       },
+    }),
+    // How many there really are. The report is capped so a large project
+    // produces a report rather than a timeout, and a reader deciding on a
+    // release needs the size of what they are not being shown.
+    prisma.requirement.count({
+      where: { organizationId, projectId, status: { not: "ARCHIVED" } },
     }),
     loadAttemptFacts(prisma, { organizationId, projectId }),
     // Who signed off each artifact. Append-only, so the newest entry per
@@ -320,5 +335,6 @@ export async function buildReleaseEvidenceReport(input: {
       unverified: evidence.filter((item) => item.verdict === "UNVERIFIED").length,
     },
     truncated: requirements.length > REQUIREMENT_CAP,
+    coverage: { shown: evidence.length, total: requirementTotal },
   };
 }

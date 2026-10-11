@@ -67,19 +67,39 @@ describe("a badge token", () => {
 
 describe("what the badge says", () => {
   it("counts verified requirements, and leads with failure when there is any", () => {
-    expect(badgeMessage({ kind: "verified", verified: 12, total: 12 })).toBe("12 of 12 verified");
-    expect(badgeMessage({ kind: "failing", failing: 2 })).toBe("2 failing");
+    expect(badgeMessage({ kind: "verified", verified: 12, total: 12, partial: false })).toBe(
+      "12 of 12 verified",
+    );
+    expect(badgeMessage({ kind: "failing", failing: 2, partial: false })).toBe("2 failing");
     // Green on month-old evidence would be the same lie the page used to tell.
-    expect(badgeMessage({ kind: "stale", verified: 8, total: 12, stale: 3 })).toBe("8 of 12 verified, 3 stale");
+    expect(
+      badgeMessage({ kind: "stale", verified: 8, total: 12, stale: 3, partial: false }),
+    ).toBe("8 of 12 verified, 3 stale");
     expect(badgeMessage({ kind: "unverified" })).toBe("none verified");
     expect(badgeMessage({ kind: "empty" })).toBe("no requirements");
     expect(badgeMessage({ kind: "unavailable" })).toBe("unavailable");
   });
 
+  it("never reads a capped report as the whole project", () => {
+    // The report is bounded so that a large project produces a report at all.
+    // A badge in a README reading "480 of 500 verified" for a project with
+    // nine hundred requirements is the same overstatement as green on stale
+    // evidence, in a place strangers read.
+    expect(
+      badgeMessage({ kind: "verified", verified: 480, total: 500, partial: true }),
+    ).toBe("480 of first 500 verified");
+    expect(
+      badgeMessage({ kind: "stale", verified: 480, total: 500, stale: 7, partial: true }),
+    ).toBe("480 of first 500 verified, 7 stale");
+    // At least this many: more may fail beyond what was read.
+    expect(badgeMessage({ kind: "failing", failing: 2, partial: true })).toBe("2+ failing");
+  });
+
   it("is an image whatever happened, so a README never shows a broken one", () => {
     for (const state of [
-      { kind: "verified", verified: 3, total: 4 },
-      { kind: "failing", failing: 1 },
+      { kind: "verified", verified: 3, total: 4, partial: false },
+      { kind: "verified", verified: 3, total: 4, partial: true },
+      { kind: "failing", failing: 1, partial: false },
       { kind: "unavailable" },
     ] as const) {
       const svg = badgeSvg(state);
@@ -90,15 +110,15 @@ describe("what the badge says", () => {
   });
 
   it("colours failure red and success green, so it reads at a glance", () => {
-    expect(badgeSvg({ kind: "failing", failing: 1 })).toContain("#dc2626");
-    expect(badgeSvg({ kind: "verified", verified: 1, total: 1 })).toContain("#16a34a");
+    expect(badgeSvg({ kind: "failing", failing: 1, partial: false })).toContain("#dc2626");
+    expect(badgeSvg({ kind: "verified", verified: 1, total: 1, partial: false })).toContain("#16a34a");
     expect(badgeSvg({ kind: "unavailable" })).toContain("#94a3b8");
-    expect(badgeSvg({ kind: "stale", verified: 1, total: 1, stale: 1 })).toContain("#b45309");
+    expect(badgeSvg({ kind: "stale", verified: 1, total: 1, stale: 1, partial: false })).toContain("#b45309");
   });
 
   it("grows with its text, so the message is never clipped", () => {
-    const narrow = badgeSvg({ kind: "failing", failing: 1 });
-    const wide = badgeSvg({ kind: "verified", verified: 100, total: 100 });
+    const narrow = badgeSvg({ kind: "failing", failing: 1, partial: false });
+    const wide = badgeSvg({ kind: "verified", verified: 100, total: 100, partial: false });
     const widthOf = (svg: string) => Number(/width="(\d+)"/.exec(svg)![1]);
     expect(widthOf(wide)).toBeGreaterThan(widthOf(narrow));
   });
