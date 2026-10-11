@@ -1239,7 +1239,51 @@ from one question -- where does the product know something and not say it --
 each narrower than the last. Keep that honest: hardening has falling returns
 against one real team using it.
 
-1. **Finish the cap sweep that 2026-10-11 started.** The evidence report's
+On 2026-10-11 the owner sent seven industry reference diagrams -- agent skill
+trees, the nine terms, the 2026 concepts list, the tooling cheatsheets -- and
+asked that the plan be built from them. Checked against the code rather than
+adopted wholesale, most of what they name is already here or does not apply:
+
+- **MCP, tool calling, structured output**: shipped. Sixteen tools.
+- **Guardrails**: shipped, and stronger than the diagrams describe. Approval
+  gates, a permission ceiling that fails closed, a refusal to repair a test
+  whose failure looks like a product defect, and an append-only Activity log
+  behind every action. "Least access, every action logged" is the caption; it
+  is also the code.
+- **Memory and state**: shipped. PostgreSQL is the long-term memory --
+  versions, attempts, approvals, acceptances -- and it is the product, not a
+  side effect.
+- **Observability**: largely shipped. Every AI run records model, prompt
+  version, schema version, token counts, failure code and timing.
+- **RAG**: deliberately not. Retrieval here is a structured read -- the
+  approved version, the live page's accessibility tree, the recorded failure
+  -- and each is exact. A vector store would add infrastructure without a
+  question it answers better, and an approximate match is the wrong shape for
+  evidence.
+- **Multi-agent, A2A, AI gateway, agent harness**: not this product.
+  PlaywrightGen is a system agents use through MCP, not a harness that runs
+  them. Spend here would be fashion.
+
+That leaves one real gap, and all three diagrams that list it agree:
+**evals**.
+
+1. **Build an eval suite for the eleven AI surfaces.** `lib/ai/` holds eleven
+   prompts and nothing measures any of them. The automation-generation prompt
+   was changed on 2026-10-11 with no way to know whether outputs got better
+   or worse; `PROMPT_VERSION` is recorded with every run and has never been
+   compared against anything. Build a fixed set of inputs -- a ticket, a
+   requirement with a page tree, a recorded failure -- and score outputs on
+   properties rather than exact strings, because the model varies and the
+   property is what matters: a drafted requirement states no acceptance
+   criterion the ticket did not contain; generated automation passes its own
+   validation; a failure that is a product defect is classified as one with
+   confidence at or above sixty. Every case needs a known-wrong variant that
+   must score badly, or the suite cannot fail and proves nothing -- the same
+   rule this product applies to a customer's tests. Run it on demand rather
+   than in the normal suite: it costs money and is not deterministic. Record
+   the score against the prompt version so a prompt change becomes a
+   measurement instead of a hope.
+2. **Finish the cap sweep that 2026-10-11 started.** The evidence report's
    500-requirement bound now reaches every surface that reads it. One known
    instance was left: `listEvidenceSignatures` takes 50 with no count and no
    caller saying so, so a project with more than fifty acceptances shows
@@ -1250,7 +1294,7 @@ against one real team using it.
    `release-proof` 20, `project-quality` 25. The question for each is not
    whether the bound is right but whether the surface reading it says the
    bound exists.
-2. **Make dogfooding produce a passing result.** The loop is live: the proof
+3. **Make dogfooding produce a passing result.** The loop is live: the proof
    repository reports into a real production project, CI is green, and
    PlaywrightGen records the attempt as BLOCKED because the test cannot run
    without card details the owner has deferred. Honest, but it means there is
@@ -1260,13 +1304,13 @@ against one real team using it.
    and a proof link worth sending a prospect. Preparing the spec and the
    workflow is doable here; creating and approving the Test Case needs the
    owner, because approval cannot be done on their behalf.
-3. **The bulk-adoption decision.** Still the owner's. A team with hundreds of
+4. **The bulk-adoption decision.** Still the owner's. A team with hundreds of
    existing Playwright tests adopts them one at a time by pasting a marker.
    Mass-creating Test Cases would manufacture approval records nobody
    reviewed, which would spend the one thing that makes this product
    different. Raised 2026-10-11; do not build either way without a decision.
 
-4. ~~**Finish the sweep for state decided in two places.**~~ Done 2026-10-11.
+5. ~~**Finish the sweep for state decided in two places.**~~ Done 2026-10-11.
    Four shapes were searched: a page filtering a service's items after the
    fact, a hard `take:` in a service whose bound never reached the surfaces
    reading it, a `slice` over a set, and a count drawn from a different query
@@ -1281,21 +1325,21 @@ against one real team using it.
    and detail pages asking the same question: does anything narrow, filter or
    validate a set after it has already been bounded somewhere else? Start with
    the pages that call a service and then use `.filter(` on its items.
-5. **Does production use a different GitHub App?** The owner granted
+6. **Does production use a different GitHub App?** The owner granted
    `issues: read` on `playwrightgen-development` on 2026-10-10 and it is
    verified working. If the production deployment points at another App, the
    ticket fetch there says "the App may not read issues in that repository
    yet" until the same grant is made. Degrades cleanly, so this is a question
    to ask rather than a fault to chase. `GITHUB_APP_SLUG` in Vercel answers it.
-6. **Fetch a ticket from Jira or Linear.** GitHub issues are done (2026-10-10).
+7. **Fetch a ticket from Jira or Linear.** GitHub issues are done (2026-10-10).
    Jira and Linear each need an OAuth app the owner would have to create, so
    ask only when somebody actually wants one.
-7. **MCP 2026-07-28.** The server speaks 2025-06-18. The new spec is a
+8. **MCP 2026-07-28.** The server speaks 2025-06-18. The new spec is a
    stateless rewrite (no initialize handshake, no session id, Mcp-Method
    routing, MRTR in place of server-initiated requests). Clients still
    negotiate older versions, so this is maintenance rather than a feature: do
    it when a client needs it, and keep 2025-06-18 working when it happens.
-8. **Verify the paid path end to end.** Stripe payment, then webhook, then
+9. **Verify the paid path end to end.** Stripe payment, then webhook, then
    entitlement, then the Team allowance. Needs the owner's account and a real
    card. They deferred it again on 2026-10-10 ("i am not gonna do this for
    now"), having deferred it on 2026-09-19 as well. Do not raise it; wait for
