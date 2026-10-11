@@ -159,17 +159,20 @@ export default async function ReleaseReadinessPage({
               that there are none &mdash; it means this page could not check.
             </p>
           </section>
-        ) : signatures.length ? (
+        ) : signatures.items.length ? (
           <section aria-label="Accepted evidence" className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
             <p className="text-sm font-semibold text-emerald-950">
-              {signatures.length} acceptance{signatures.length === 1 ? "" : "s"} recorded
+              {signatures.total} acceptance{signatures.total === 1 ? "" : "s"} recorded
+              {signatures.total > signatures.items.length
+                ? `, showing the ${signatures.items.length} most recent`
+                : ""}
             </p>
             <p className="mt-1 text-xs leading-5 text-emerald-900">
               Somebody outside the team read a shared link and accepted what it showed. PlaywrightGen records the name
               they gave; it does not check who they are.
             </p>
             <ul className="mt-3 space-y-2">
-              {signatures.map((signature) => {
+              {signatures.items.map((signature) => {
                 // The honest answer a reader needs later: is this still what
                 // the project says, or has it moved since they accepted it?
                 // Null here means the evidence could not be read, not that it

@@ -55,7 +55,7 @@ describe("a kept record and an unreadable one", () => {
   });
 
   it("stays silent when there genuinely are none", () => {
-    const html = evidenceDocument(report, { signatures: [] });
+    const html = evidenceDocument(report, { signatures: { items: [], total: 0 } });
 
     expect(html).not.toContain("could not be read");
     expect(html).not.toContain("Accepted by");
@@ -63,15 +63,18 @@ describe("a kept record and an unreadable one", () => {
 
   it("lists them when there are some", () => {
     const html = evidenceDocument(report, {
-      signatures: [
-        {
-          signedName: "Fox Mulder",
-          signedRole: "Head of QA",
-          signedAt: new Date("2026-10-10T12:00:00.000Z"),
-          evidenceHash: "abcdef0123456789",
-          note: null,
-        },
-      ],
+      signatures: {
+        total: 1,
+        items: [
+          {
+            signedName: "Fox Mulder",
+            signedRole: "Head of QA",
+            signedAt: new Date("2026-10-10T12:00:00.000Z"),
+            evidenceHash: "abcdef0123456789",
+            note: null,
+          },
+        ],
+      },
     });
 
     expect(html).toContain("Accepted by");

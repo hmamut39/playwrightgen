@@ -48,6 +48,13 @@ const report = (overrides: Partial<ReleaseEvidenceReport> = {}): ReleaseEvidence
   ...overrides,
 });
 
+const acceptance = (name: string) => ({
+  signedName: name,
+  signedRole: null,
+  note: null,
+  signedAt: new Date("2026-10-10T12:00:00.000Z"),
+  evidenceHash: "abcdef0123456789",
+});
 describe("a report that covers part of a project", () => {
   it("says so in the file somebody keeps", () => {
     const html = evidenceDocument(report());
@@ -64,6 +71,28 @@ describe("a report that covers part of a project", () => {
     );
 
     expect(html).not.toContain("not the whole project");
+  });
+
+  it("says when the acceptances listed are not all of them", () => {
+    // The same defect the requirement count had, in the same file somebody
+    // keeps: a listing bounded at fifty showed fifty and implied they were
+    // all of them. A compliance pack that under-reports who signed off is
+    // worse than one that lists none, because it looks complete.
+    const html = evidenceDocument(report({ truncated: false, coverage: { shown: 1, total: 1 } }), {
+      signatures: { items: [acceptance("Dana Scully")], total: 64 },
+    });
+
+    expect(html).toContain("64");
+    expect(html).toContain("not all of them");
+  });
+
+  it("stays quiet when every acceptance is listed", () => {
+    const html = evidenceDocument(report({ truncated: false, coverage: { shown: 1, total: 1 } }), {
+      signatures: { items: [acceptance("Dana Scully")], total: 1 },
+    });
+
+    expect(html).toContain("Dana Scully");
+    expect(html).not.toContain("not all of them");
   });
 
   it("says so in a badge, where the denominator is the claim", () => {

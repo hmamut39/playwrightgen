@@ -214,7 +214,7 @@ describe("the acceptance in the kept file", () => {
   };
 
   it("names who accepted it, when, and which evidence", () => {
-    const html = evidenceDocument(report(), { signatures: [signature] });
+    const html = evidenceDocument(report(), { signatures: { items: [signature], total: 1 } });
     expect(html).toContain("Accepted by");
     expect(html).toContain("Dana Okonkwo");
     expect(html).toContain("Product owner");
@@ -225,7 +225,7 @@ describe("the acceptance in the kept file", () => {
   });
 
   it("says plainly that the identity was not verified", () => {
-    const html = evidenceDocument(report(), { signatures: [signature] });
+    const html = evidenceDocument(report(), { signatures: { items: [signature], total: 1 } });
     expect(html).toContain("did not\n  verify their identity");
   });
 
@@ -235,7 +235,10 @@ describe("the acceptance in the kept file", () => {
 
   it("cannot have a signer's name write markup into the document", () => {
     const html = evidenceDocument(report(), {
-      signatures: [{ ...signature, signedName: '<img src=x onerror="alert(1)">', note: "5 > 3" }],
+      signatures: {
+        items: [{ ...signature, signedName: '<img src=x onerror="alert(1)">', note: "5 > 3" }],
+        total: 1,
+      },
     });
     expect(html).toContain("&lt;img src=x");
     expect(html).not.toContain("<img");

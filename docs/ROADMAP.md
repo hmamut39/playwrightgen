@@ -14,6 +14,18 @@ test suite (493 tests) passes.
 
 ## Shipped (most recent first)
 
+### Saying how much a report covers
+- **The acceptances say when they are not all of them** (2026-10-11): the
+  last known instance of the cap defect, and the one in the worst place.
+  `listEvidenceSignatures` took fifty with no count, so a project with more
+  sign-offs than that showed fifty in the compliance pack and implied they
+  were all of them. A pack that under-reports who accepted a release is worse
+  than one listing none, because it looks complete. The listing now returns
+  its page beside the true total, the pack names both when they differ, and
+  the Release page says it is showing the most recent.
+  The per-link listing was checked and left alone: signing refuses beyond
+  twenty on one link and the listing takes twenty, so it can never be a
+  truncated view of a longer list, and saying so costs no count query.
 ### Measuring the prompts
 - **The eval caught a bad fixture, once the archive could say why**
   (2026-10-11): the new `criteria-coverage` eval failed one case in about
@@ -1341,7 +1353,11 @@ change in classification can only be attributed to that field.
    today. Worth several runs to establish the real rate before changing
    anything, and worth resisting the urge to fix it by loosening the eval.
 
-3. **Finish the cap sweep that 2026-10-11 started.** The evidence report's
+3. ~~**Finish the cap sweep that 2026-10-11 started.**~~ Done 2026-10-11. The
+   known instance, `listEvidenceSignatures`, is fixed. The other hard `take:`
+   constants were listed to be asked the same question and still are:
+   `approval-policy` 20, `live-checks` 50, `page-coverage` 200,
+   `release-proof` 20, `project-quality` 25. Original item: The evidence report's
    500-requirement bound now reaches every surface that reads it. One known
    instance was left: `listEvidenceSignatures` takes 50 with no count and no
    caller saying so, so a project with more than fifty acceptances shows

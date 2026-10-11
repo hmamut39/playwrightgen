@@ -184,11 +184,14 @@ describe("accepting shared evidence", () => {
     await signEvidence(tokenOf(link.url), { signedName: "Dana", signedRole: "Product owner" }, { prisma });
 
     const listed = await listEvidenceSignatures({ projectId: area.project.id }, area.owned);
-    expect(listed).toHaveLength(1);
-    expect(listed[0]).toMatchObject({ signedName: "Dana", signedRole: "Product owner" });
+    expect(listed.items).toHaveLength(1);
+    // The total travels with the page so a reader is never shown a sample as
+    // though it were everything.
+    expect(listed.total).toBe(1);
+    expect(listed.items[0]).toMatchObject({ signedName: "Dana", signedRole: "Product owner" });
 
     const other = await space();
-    expect(await listEvidenceSignatures({ projectId: other.project.id }, other.owned)).toEqual([]);
+    expect(await listEvidenceSignatures({ projectId: other.project.id }, other.owned)).toMatchObject({ items: [], total: 0 });
     await expect(listEvidenceSignatures({ projectId: area.project.id }, other.owned)).rejects.toBeTruthy();
   });
 });

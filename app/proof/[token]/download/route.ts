@@ -30,8 +30,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
   // Null, not an empty list: a blip while this file is produced must not
   // turn into a record that reads as though nobody accepted anything.
   const signatures = await readLinkSignatures(decodeURIComponent(token)).catch(() => null);
+  // One link cannot hold more acceptances than signing allows on it, so the
+  // listing is never a truncated view of a longer list and the total is the
+  // number in hand. No count query is needed to say so honestly.
+  const accepted = signatures === null ? null : { items: signatures, total: signatures.length };
 
-  return new NextResponse(evidenceDocument(report, { frozen: Boolean(claim.snapshot), signatures }), {
+  return new NextResponse(evidenceDocument(report, { frozen: Boolean(claim.snapshot), signatures: accepted }), {
     headers: {
       "content-type": "text/html; charset=utf-8",
       "content-disposition": `attachment; filename="${evidenceFileName(report)}"`,

@@ -127,6 +127,17 @@ export async function readLinkSignatures(
 }
 
 /** Every acceptance recorded for this project, newest first. */
+/**
+ * How many acceptances a listing shows at once.
+ *
+ * Bounded so a long-running project returns a page rather than everything
+ * it ever recorded. The bound is only honest if whoever reads the list is
+ * told it exists: the compliance pack showed fifty and implied they were
+ * all of them, which is the same overstatement the evidence report was
+ * carrying until its own cap was surfaced.
+ */
+const SIGNATURE_PAGE = 50;
+
 export async function listEvidenceSignatures(
   input: { orgSlug?: string; projectId: string },
   dependencies?: WorkspaceContextDependencies & { prisma?: PrismaClient },
@@ -137,20 +148,28 @@ export async function listEvidenceSignatures(
     dependencies,
   );
   const prisma = dependencies?.prisma ?? getPrismaClient();
-  return prisma.evidenceSignature.findMany({
-    where: { organizationId: workspace.organization.id, projectId },
-    orderBy: { signedAt: "desc" },
-    select: {
-      id: true,
-      signedName: true,
-      signedRole: true,
-      note: true,
-      signedAt: true,
-      evidenceHash: true,
-      evidence: true,
-    },
-    take: 50,
-  });
+  const where = { organizationId: workspace.organization.id, projectId };
+  const [items, total] = await Promise.all([
+    prisma.evidenceSignature.findMany({
+      where,
+      orderBy: { signedAt: "desc" },
+      select: {
+        id: true,
+        signedName: true,
+        signedRole: true,
+        note: true,
+        signedAt: true,
+        evidenceHash: true,
+        evidence: true,
+      },
+      take: SIGNATURE_PAGE,
+    }),
+    prisma.evidenceSignature.count({ where }),
+  ]);
+
+  // The total travels with the page, so no surface has to know the cap to
+  // say whether it is holding all of them.
+  return { items, total };
 }
 
 /**

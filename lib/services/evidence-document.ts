@@ -127,7 +127,11 @@ export function evidenceDocument(
      * while this file was produced, which is not the same as nobody having
      * accepted it -- and this file is the one somebody keeps.
      */
-    signatures?: readonly DocumentSignature[] | null;
+    signatures?: {
+      items: readonly DocumentSignature[];
+      /** How many exist, which is not always how many are listed. */
+      total: number;
+    } | null;
   } = {},
 ) {
   const title = `Test evidence — ${report.project.name}`;
@@ -216,9 +220,9 @@ export function evidenceDocument(
       ? `<h2>Accepted by</h2>
   <p class="none">The record of who accepted this evidence could not be read while this file was
   produced. That is not a statement that nobody has accepted it.</p>`
-      : options.signatures?.length
+      : options.signatures?.items.length
       ? `<h2>Accepted by</h2>
-  ${options.signatures
+  ${options.signatures.items
     .map(
       (signature) => `<section class="requirement">
       <div class="head">
@@ -231,7 +235,12 @@ export function evidenceDocument(
     )
     .join("")}
   <p class="none">Each name above is what that person typed when they accepted the evidence. PlaywrightGen did not
-  verify their identity; it recorded that a named person accepted evidence with the reference shown.</p>`
+  verify their identity; it recorded that a named person accepted evidence with the reference shown.</p>
+  ${
+    options.signatures.total > options.signatures.items.length
+      ? `<p class="none">The ${options.signatures.items.length} most recent of this project's ${options.signatures.total} acceptances are listed. A listing is bounded so a long-running project produces a file at all, so these are not all of them.</p>`
+      : ""
+  }`
       : ""
   }
 
