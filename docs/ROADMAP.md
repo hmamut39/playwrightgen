@@ -1393,6 +1393,25 @@ test suite (493 tests) passes.
 
 ## Next
 
+Where 2026-10-11 stopped, so the next session starts without re-deriving it.
+The whole-company walkthrough reached the outside world -- lead creates a
+project, the product plans and proves on the live page, the BA drafts, the
+reviewer reviews, a signed-out client accepts, an auditor downloads the file
+-- and three legs are still unwalked:
+
+- **The developer's leg: a CI run and the comment it leaves on a pull
+  request.** Needs a push to `hmamut39/playwrightgen-ci-proof`, which was
+  last seen red for 34 days because of a test that could never run. Check
+  whether that is still true before anything else: the dogfood repo being red
+  is the product failing in public.
+- **The automation leg.** Generating code for an approved test, the
+  validation gate, and a person reviewing it. Partly seen on 2026-10-11 (an
+  artifact sat at "Validation passed", approved v--), never walked end to end.
+- **The AI legs a spent allowance blocked.** The refusal path is fixed and
+  verified; the success path is not: a ticket read into a draft, proposed
+  test cases, criteria gaps. The workspace allowance resets at midnight UTC,
+  so these run first in a fresh session.
+
 In priority order. Each item should end verified in a browser and shipped.
 
 A note before the list. On 2026-10-11 production held three users, two
