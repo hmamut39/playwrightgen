@@ -753,3 +753,25 @@ and names something belonging to a different project, or a version since
 removed -- so adding markers is the one thing that cannot help. A single
 counter could not tell them apart, so a single sentence had to guess, and it
 guessed wrong on PlaywrightGen's own delivery.
+
+## 050 — PlaywrightGen travels to the pull request rather than adding a page
+
+**Decision:** When a delivery records results against approved Test Cases,
+`notePullRequest` builds the project's evidence report, takes the
+requirements linked to the Test Cases that delivery recorded, and leaves one
+comment on each open pull request for that branch, edited in place on later
+pushes. It runs in `after()`, states what was recorded, links to the
+evidence, and explicitly says it is not a gate. The token it mints carries
+`pull_requests: write` alone.
+
+**Reason:** Three days of defects shared one shape: the product knew
+something and did not say it where the person was standing. The remedy each
+time was an exit, never a page -- the CI log, the badge, the shared link, the
+agent's reply, the downloadable pack. The pull request was the last exit
+missing, and it serves the one role the product did not reach at all. A
+fourteenth tab would have served nobody: the developer was never going to
+visit the thirteen. Gating was rejected deliberately. A required check that
+blocks a merge makes the tool the decider, and the entire design of this
+product is that it reports what it can show and leaves the judgement to a
+person; a note that is read and ignored is still honest, where a gate that
+is bypassed teaches people to bypass it.

@@ -11,6 +11,7 @@ import {
   verifyRunnerSignature,
 } from "@/lib/integrations/runner/ingest-token";
 import { analyzeReportedFailures } from "@/lib/operations/auto-failure-analysis";
+import { notePullRequest } from "@/lib/services/ci-pull-request-note";
 import { recordCiRejection } from "@/lib/services/ci-rejections";
 import {
   reserveRunIngest,
@@ -46,6 +47,7 @@ type RunIngestRouteDependencies = {
   reserve: typeof reserveRunIngest;
   ingest: typeof ingestPlaywrightResults;
   recordRejection?: typeof recordCiRejection;
+  notePullRequest?: typeof notePullRequest;
   analyzeFailures?: typeof analyzeReportedFailures;
 };
 
@@ -81,6 +83,7 @@ const defaultDependencies: RunIngestRouteDependencies = {
   reserve: reserveRunIngest,
   ingest: ingestPlaywrightResults,
   recordRejection: recordCiRejection,
+  notePullRequest,
   analyzeFailures: analyzeReportedFailures,
 };
 
@@ -215,6 +218,7 @@ export async function handleRunIngestRequest(
     // not turn a successful webhook into a 500. The evidence is already stored
     // by this point, and losing the response would make CI retry a delivery
     // that actually succeeded.
+
     const failures = summary.failures ?? [];
     if (failures.length > 0) {
       const analyze = dependencies.analyzeFailures ?? analyzeReportedFailures;
@@ -229,6 +233,24 @@ export async function handleRunIngestRequest(
       unmatched: summary.unmatched,
       unknownVersion: summary.unknownVersion,
     };
+    // Left on the pull request after the response, for the same reason the
+    // analysis is: the runner is waiting, and three GitHub round trips to
+    // tell a developer something they will read later is not worth holding
+    // the connection for. It states what was recorded and gates nothing.
+    if (summary.recordedTestCaseIds?.length) {
+      const note = dependencies.notePullRequest ?? notePullRequest;
+      after(() =>
+        note({
+          organizationId: summary.organizationId,
+          projectId: payload.data.projectId,
+          ref: payload.data.run.ref,
+          commitSha: payload.data.run.commitSha,
+          provider: payload.data.run.provider,
+          counts: { ...counts, total: payload.data.results.length },
+          recordedTestCaseIds: summary.recordedTestCaseIds,
+        }),
+      );
+    }
 
     // The same sentence the project page shows, so a build engineer reading
     // their CI log and a tester reading the page are told the same thing.

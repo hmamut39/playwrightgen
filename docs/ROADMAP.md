@@ -14,6 +14,28 @@ test suite (493 tests) passes.
 
 ## Shipped (most recent first)
 
+### Reaching the people who never open it
+- **A push is told what it did to the evidence, on its pull request**
+  (2026-10-11): the structural problem this product has is not missing
+  features, it is that everything it knows lives on its own pages. A
+  developer who broke a test never opens them -- their work is a pull
+  request, and that is where merging is decided. CI already lists which
+  tests failed, so repeating it would be noise. The sentence nothing else in
+  the pipeline can write is the one about requirements: that the test which
+  just started failing is the only thing verifying a behaviour, and the
+  behaviour is now unverified. That is assembled from the approval chain, the
+  version pinning and the run evidence, and no other tool holds all three.
+  One comment per pull request, edited in place rather than appended to,
+  because a comment per push turns a conversation into a log and the second
+  one is where people stop reading. It states and never gates: a product that
+  refuses to let somebody ship has claimed an authority this one spent its
+  design avoiding.
+  Needed no new permission. The App already holds `pull_requests: write` for
+  the branch-opening path, and the token minted here carries that alone --
+  not the `contents: write` that path also needs, because nothing here writes
+  a file. A blocked test reads as not verified rather than as fine, which is
+  the documented way a required check silently stops guarding anything.
+  No page was added. That was the constraint and it was the right one.
 ### Saying how much a report covers
 - **The acceptances say when they are not all of them** (2026-10-11): the
   last known instance of the cap defect, and the one in the worst place.

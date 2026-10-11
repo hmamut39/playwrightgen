@@ -178,6 +178,13 @@ export type IngestSummary = {
    * side-effect free with respect to the model provider.
    */
   failures: Array<{ testRunId: string; testRunAttemptId: string }>;
+  /**
+   * The Test Cases this delivery recorded against.
+   *
+   * Needed to say which requirements a push touched, which is the one thing
+   * about a failing test that a developer's own CI cannot tell them.
+   */
+  recordedTestCaseIds: string[];
   organizationId: string;
   actorUserId: string;
 };
@@ -224,6 +231,7 @@ export async function ingestPlaywrightResults(
     unmatched: 0,
     unknownVersion: 0,
     failures: [],
+    recordedTestCaseIds: [],
     organizationId,
     actorUserId,
   };
@@ -373,6 +381,9 @@ export async function ingestPlaywrightResults(
 
     if (recordedNow) {
       summary.recorded += 1;
+      if (!summary.recordedTestCaseIds.includes(version.testCaseId)) {
+        summary.recordedTestCaseIds.push(version.testCaseId);
+      }
       if (recordedNow.result !== "PASSED") {
         summary.failures.push({
           testRunId: recordedNow.testRunId,
