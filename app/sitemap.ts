@@ -9,6 +9,9 @@ const PUBLIC_PAGES: Array<{ path: string; priority: number }> = [
   { path: "/engineering-review", priority: 0.8 },
   { path: "/mcp", priority: 0.8 },
   { path: "/pricing", priority: 0.7 },
+  // Listed above sign-up: it is the page that answers who built this and
+  // what it is for, which is what somebody arriving from a search asks.
+  { path: "/about", priority: 0.6 },
   { path: "/sign-up", priority: 0.5 },
   { path: "/privacy", priority: 0.2 },
   { path: "/terms", priority: 0.2 },

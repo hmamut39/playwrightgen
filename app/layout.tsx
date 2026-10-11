@@ -3,8 +3,16 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { SiteNavigation } from "@/components/site-navigation";
+import { SiteStructuredData } from "@/components/site-structured-data";
 import { validatePublicClerkEnvironment } from "@/lib/env";
-import { SHARE_IMAGE, SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, siteUrl } from "@/lib/site";
+import {
+  SHARE_IMAGE,
+  SITE_AUTHOR,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_TAGLINE,
+  siteUrl,
+} from "@/lib/site";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -29,6 +37,12 @@ export const metadata: Metadata = {
   },
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
+  // Named here as well as in the structured data, because the two are read
+  // by different things and a page that says neither leaves the question to
+  // whatever else the web holds.
+  authors: [{ name: SITE_AUTHOR.name, url: SITE_AUTHOR.url }],
+  creator: SITE_AUTHOR.name,
+  publisher: SITE_AUTHOR.name,
   openGraph: {
     type: "website",
     siteName: SITE_NAME,
@@ -64,13 +78,17 @@ export default function RootLayout({
     >
       <html lang="en">
         <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+          <SiteStructuredData />
           <div className="min-h-screen bg-[#fafafa] text-black">
             <SiteNavigation />
 
             {children}
 
             <footer className="mt-20 border-t py-6 text-center text-sm text-gray-500">
-              <div className="flex justify-center gap-6">
+              <div className="flex flex-wrap justify-center gap-6">
+                <a href="/about" className="hover:text-black">
+                  About
+                </a>
                 <a href="/terms" className="hover:text-black">
                   Terms
                 </a>
@@ -78,6 +96,20 @@ export default function RootLayout({
                   Privacy
                 </a>
               </div>
+              {/* On every page, because the question is asked from every
+                  page and an About link alone answers it one click late. */}
+              <p className="mt-4 px-6 text-xs leading-5 text-gray-500">
+                {SITE_NAME} is built by{" "}
+                <a
+                  href={SITE_AUTHOR.url}
+                  rel="author noreferrer"
+                  target="_blank"
+                  className="font-medium text-gray-700 underline underline-offset-2 hover:text-black"
+                >
+                  {SITE_AUTHOR.name} ({SITE_AUTHOR.alternateName})
+                </a>
+                .
+              </p>
             </footer>
           </div>
         </body>
