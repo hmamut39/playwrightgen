@@ -699,3 +699,22 @@ amber "the evidence has changed since" badge is what a reader scans for, so
 its absence reads as reassurance rather than as ignorance. Proof links that
 could not be listed are left as they were: the implied claim there is "nobody
 has shared this", which costs a duplicate link rather than a false record.
+
+## 047 — Failure wording is an allowlist, checked against what can be thrown
+
+**Decision:** `lib/integrations/github/failure-reason.ts` maps provider and
+import error codes to a sentence naming the fix. The repository connect,
+public connect and import actions pass a recognised code back in the address;
+unrecognised ones keep the general message. A unit test extracts every code
+the GitHub and repository-import services construct and requires each to be
+either explained or named in a `DELIBERATELY_GENERAL` set.
+
+**Reason:** A generic failure is not neutral -- it directs attention, and it
+directed it at the repository, the token and the network, none of which were
+usually the problem. An allowlist rather than echoing the code keeps an
+arbitrary query value from being rendered as though the product said it, and
+keeps wording decisions in one reviewed place. The enumerating test exists
+because the failure mode here is silence: a code added later degrades to the
+general message with nothing failing, which is exactly how fifteen causes
+came to share one sentence. Sentences name a configuration to change and
+never a credential or another tenant.

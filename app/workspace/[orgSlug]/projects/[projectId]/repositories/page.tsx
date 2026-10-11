@@ -19,6 +19,10 @@ import {
 } from "@/lib/services/runner-setup";
 import { validateGitHubSetupEnvironment } from "@/lib/env";
 import {
+  githubFailureReason,
+  isKnownGitHubFailure,
+} from "@/lib/integrations/github/failure-reason";
+import {
   connectVerifiedPublicGitHubRepository,
   connectVerifiedGitHubRepository,
   importGitHubRepository,
@@ -60,6 +64,19 @@ async function rotateRunnerTokenAction(formData: FormData) {
   );
 }
 
+/**
+ * The cause to carry back, when it is one worth naming.
+ *
+ * Fifteen causes used to arrive at three sentences, none of which said what
+ * to do. Only codes this deployment is willing to explain are repeated into
+ * the address; anything else keeps the general message rather than being
+ * dressed up as advice.
+ */
+function failureParam(error: unknown, fallback: string): string {
+  const code = error instanceof Error ? (error as { code?: unknown }).code : undefined;
+  return typeof code === "string" && isKnownGitHubFailure(code) ? code : fallback;
+}
+
 async function connectRepositoryAction(formData: FormData) {
   "use server";
 
@@ -82,8 +99,8 @@ async function connectRepositoryAction(formData: FormData) {
         formData.get("externalRepositoryId") ?? "",
       ),
     });
-  } catch {
-    redirect(destination + "?github=connection_failed");
+  } catch (error: unknown) {
+    redirect(destination + `?github=${failureParam(error, "connection_failed")}`);
   }
   revalidatePath(destination);
   redirect(destination + "?github=repository_connected");
@@ -109,8 +126,8 @@ async function connectPublicRepositoryAction(formData: FormData) {
       ),
       repository: String(formData.get("repository") ?? ""),
     });
-  } catch {
-    redirect(destination + "?github=public_connection_failed");
+  } catch (error: unknown) {
+    redirect(destination + `?github=${failureParam(error, "public_connection_failed")}`);
   }
   revalidatePath(destination);
   redirect(destination + "?github=public_repository_connected");
@@ -139,8 +156,8 @@ async function importRepositoryAction(formData: FormData) {
       idempotencyKey: `workspace-import:${randomUUID()}`,
     });
     importFailed = imported.status === "FAILED";
-  } catch {
-    redirect(destination + "?github=import_failed");
+  } catch (error: unknown) {
+    redirect(destination + `?github=${failureParam(error, "import_failed")}`);
   }
   if (importFailed) {
     redirect(destination + "?github=import_failed");
@@ -158,6 +175,9 @@ export default async function ProjectRepositoriesPage({
 }) {
   const { orgSlug, projectId } = await params;
   const { github: githubResult } = await searchParams;
+  // A cause the deployment is willing to explain. Unknown values fall
+  // through to the general message below rather than being rendered.
+  const namedFailure = githubFailureReason(githubResult);
   const [context, connections, lastDelivery, lastRejection] = await Promise.all([
     requireWorkspaceContext({ orgSlug, projectId }),
     listRepositoryConnections({ orgSlug, projectId }),
@@ -238,14 +258,9 @@ export default async function ProjectRepositoriesPage({
           Repository evidence was imported and pinned to the resolved commit.
         </div>
       ) : null}
-      {githubResult === "permissions_failed" ? (
+      {namedFailure ? (
         <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-          <span className="font-semibold">The GitHub App&rsquo;s permissions do not match what this deployment allows.</span>{" "}
-          Nothing was connected and no Workspace record changed. This is a
-          setting on the App itself rather than anything about your repository:
-          an administrator can compare its repository permissions against the
-          ones PlaywrightGen requires, which are repository contents and pull
-          requests at write, metadata and issues at read, and nothing else.
+          {namedFailure} Nothing was connected and no Workspace record changed.
         </div>
       ) : null}
       {githubResult === "failed" ||

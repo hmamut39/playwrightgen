@@ -14,6 +14,27 @@ test suite (493 tests) passes.
 
 ## Shipped (most recent first)
 
+### Connecting a repository
+- **A failed connection names the cause** (2026-10-11): fifteen distinct
+  causes arrived at three sentences, none of which said what to do. A
+  suspended installation, a repository the App cannot reach, an address that
+  is not a public repository, an installation already connected to another
+  workspace, a repository renamed since it was connected -- each has a fix
+  that takes a minute once it is named, and each produced "GitHub access or
+  repository evidence could not be verified", which sends somebody to look at
+  their repository, their token and their network.
+  `githubFailureReason` is an allowlist of causes this deployment is willing
+  to explain; the three actions carry a known code back in the address and
+  anything else keeps the general message rather than being dressed up as
+  advice. A code arriving in a URL that is not on the list renders nothing of
+  its own, and no sentence names a token, a secret or an account the person
+  cannot already see -- the already-connected case says that another
+  workspace holds the installation without saying which.
+  The test that enumerates every code the services can throw and requires
+  each to be either explained or listed as deliberately general found three
+  the first time it ran, which is the reason it exists: a code added later
+  would otherwise fall back silently and for ever, which is how fifteen
+  causes came to share one sentence.
 ### Saying how much a report covers
 - **A read that failed is no longer shown as a fact** (2026-10-11): every
   surface on the evidence path caught a failed read and carried on with an
