@@ -15,6 +15,38 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **A spent AI allowance is a sentence with a time in it, not a crash**
+  (2026-10-11): continuing the walkthrough as the business analyst -- paste
+  the ticket, press Read the ticket -- produced a 500 page reading "This page
+  didn't load. If you just created your workspace, it may still be finishing
+  setup. Trying again usually works." The workspace was weeks old, the
+  failure was the day's AI allowance, and trying again would not have worked
+  for another 64 minutes, which the guard knew to the second. The pasted
+  ticket was gone too.
+  Looking for the same fact elsewhere found five surfaces answering it five
+  ways: that crash page, "It could not be read just now", "The model could
+  not be reached" (it was never asked), a branch testing
+  `organization_ai_rate_limited` -- a code nothing throws, so it could never
+  fire -- and one correct notice. They now all read it from one translator,
+  which keeps the wait, and the two limits get opposite advice: a burst limit
+  says press the same button again in a minute, a daily limit never invites a
+  retry it knows will fail. A refused ticket read comes back with what the
+  person pasted still in the box. Verified against a workspace that had
+  really spent its allowance: "This workspace has used today's AI requests.
+  Reading tickets works again in 54 min, at midnight UTC."
+- **The gaps panel reported in a sentence instead of killing the page**
+  (2026-10-11): pressing "Read the gaps" on a requirement with no approved
+  test took the whole requirement page down -- not the panel, the page, with
+  everything the reviewer was working on. `initialGapsState` was imported
+  into the server component from the `"use client"` module that declared it,
+  where the bundler replaces every export with a client reference, so
+  spreading it into the action's answer produced a state with no `criteria`
+  and the panel died on `state.criteria.filter`. Every failure it was written
+  to explain did this, including the commonest: no approved test linked yet.
+  The value moved to a plain module. Typecheck, lint and the build all passed
+  before and after, so a test now reads the repository and fails on any plain
+  value a server module takes from a client module; it proves itself against
+  the shape of this bug before trusting its verdict on the real tree.
 - **Coverage counts the app's controls, not the credit line in the footer**
   (2026-10-11): walking the product as a whole team -- lead creates a
   project, product reads the page, QA proves the plan -- produced six tests,

@@ -3,6 +3,8 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
+import { initialGapsState, type GapsState } from "@/lib/workspace/requirement-gaps-state";
+
 /**
  * What a requirement still needs, and where the reading belongs.
  *
@@ -14,19 +16,6 @@ import { useFormStatus } from "react-dom";
  * it was written down as fact.
  */
 
-export type GapsState = {
-  status: "idle" | "read" | "error";
-  criteria: Array<{ criterion: string; covered: boolean; coveredBy: string[]; reason: string }>;
-  notInTheRequirement: string[];
-  message: string;
-};
-
-export const initialGapsState: GapsState = {
-  status: "idle",
-  criteria: [],
-  notInTheRequirement: [],
-  message: "",
-};
 
 function Button() {
   const { pending } = useFormStatus();

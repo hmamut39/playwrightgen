@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import {
   listRequirementReviews,
@@ -15,10 +16,13 @@ import {
   updateRequirementDraft,
 } from "@/lib/services/requirements";
 import { personName } from "@/lib/format/person-name";
+import { aiAllowanceMessage } from "@/lib/operations/ai-allowance-message";
+import { AiAllowanceNotice, aiAllowanceNotice } from "@/components/workspace/ai-allowance-notice";
 import { CriteriaGapsError, readRequirementGaps } from "@/lib/services/criteria-gaps";
 import { proposeTestCasesForRequirement } from "@/lib/services/test-case-proposals";
 import { ProposeTestCases, type ProposalState } from "@/components/workspace/propose-test-cases";
-import { RequirementGaps, initialGapsState, type GapsState } from "@/components/workspace/requirement-gaps";
+import { RequirementGaps } from "@/components/workspace/requirement-gaps";
+import { initialGapsState, type GapsState } from "@/lib/workspace/requirement-gaps-state";
 import { PendingButton, PendingNotice } from "@/components/workspace/pending-button";
 import { ReviewTrailPanel } from "@/components/workspace/review-trail";
 import { NextStep } from "@/components/workspace/next-step";
@@ -33,14 +37,17 @@ const statusStyle = {
 
 export default async function RequirementDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{
     orgSlug: string;
     projectId: string;
     requirementId: string;
   }>;
+  searchParams: Promise<{ notice?: string }>;
 }) {
   const { orgSlug, projectId, requirementId } = await params;
+  const { notice } = await searchParams;
   const [detail, reviews] = await Promise.all([
     getRequirementDetail({
       orgSlug,
@@ -141,8 +148,11 @@ export default async function RequirementDetailPage({
         message: "",
       };
     } catch (error) {
-      const message =
-        error instanceof CriteriaGapsError
+      // The allowance is a fact with a time on it, not a failure to read.
+      const allowance = aiAllowanceMessage(error);
+      const message = allowance
+        ? `Nothing was read: ${allowance.charAt(0).toLowerCase()}${allowance.slice(1)}`
+        : error instanceof CriteriaGapsError
           ? error.code === "no_criteria"
             ? "This requirement lists no acceptance criteria, so there is nothing to compare against."
             : error.code === "no_tests"
@@ -179,13 +189,17 @@ export default async function RequirementDetailPage({
         typeof error === "object" && error !== null && "code" in error
           ? String((error as { code: unknown }).code)
           : "unknown_error";
+      // This branch used to test for "organization_ai_rate_limited", a code
+      // nothing throws, so a spent allowance was reported as a model that
+      // could not be reached -- it was never asked.
+      const allowance = aiAllowanceMessage(error);
       return {
         status: "error",
         created: [],
         openQuestions: [],
         message:
-          code === "organization_ai_rate_limited"
-            ? "This workspace has reached its AI request limit for now."
+          allowance
+            ? `Nothing was proposed. ${allowance}`
             : code === "requirement_not_approved"
               ? "Only an approved requirement can be used."
               : "The model could not be reached.",
@@ -195,7 +209,15 @@ export default async function RequirementDetailPage({
 
   async function runReviewAction() {
     "use server";
-    await runRequirementReview({ orgSlug, projectId, requirementId });
+    try {
+      await runRequirementReview({ orgSlug, projectId, requirementId });
+    } catch (error) {
+      // Without this the workspace's spent allowance replaced the whole
+      // requirement with a crash page telling the reviewer to try again.
+      const refused = aiAllowanceNotice(error);
+      if (refused) redirect(`${requirementPath}?notice=${refused}`);
+      throw error;
+    }
     revalidatePath(requirementPath);
   }
 
@@ -223,6 +245,8 @@ export default async function RequirementDetailPage({
       >
         ← Requirements
       </Link>
+
+      <AiAllowanceNotice notice={notice} orgSlug={orgSlug} what="The review did not run." />
 
       <header className="mt-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
         <div className="min-w-0">

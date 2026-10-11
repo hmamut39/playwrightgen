@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { PRO_PLAN } from "@/lib/plan";
+import { waitLabel } from "@/lib/wait-label";
 
 export type FreeToolLimit = {
   error: string;
@@ -22,12 +23,6 @@ export function readFreeToolLimit(status: number, body: unknown): FreeToolLimit 
     retryAfterSeconds: Number(value.retryAfterSeconds ?? 0),
     upgrade: Boolean(value.upgrade),
   };
-}
-
-function waitLabel(seconds: number) {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.max(1, Math.round((seconds % 3600) / 60));
-  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes} min`;
 }
 
 /**

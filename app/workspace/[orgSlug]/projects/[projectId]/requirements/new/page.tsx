@@ -3,13 +3,15 @@ import { redirect } from "next/navigation";
 
 import { PendingButton } from "@/components/workspace/pending-button";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
-import { fetchTicketFromGitHub, TicketFetchError } from "@/lib/services/ticket-fetch";
-import {
-  draftRequirementFromTicket,
-  RequirementDraftingError,
-} from "@/lib/services/requirement-drafting";
+import { fetchTicketFromGitHub } from "@/lib/services/ticket-fetch";
+import { draftRequirementFromTicket } from "@/lib/services/requirement-drafting";
 import { getProject } from "@/lib/services/projects";
+import { ticketReadFeedback } from "@/lib/services/ticket-read-feedback";
+import { waitLabel } from "@/lib/wait-label";
 import { createRequirement } from "@/lib/services/requirements";
+
+/** A pasted ticket this long or shorter comes back with the error. */
+const CARRIED_TICKET_LIMIT = 6_000;
 
 export default async function NewRequirementPage({
   params,
@@ -23,6 +25,9 @@ export default async function NewRequirementPage({
     externalReference?: string;
     assumptions?: string;
     read?: string;
+    ticket?: string;
+    ticketUrl?: string;
+    retryAfter?: string;
   }>;
 }) {
   const { orgSlug, projectId } = await params;
@@ -44,7 +49,21 @@ export default async function NewRequirementPage({
     "use server";
     const here = `/workspace/${orgSlug}/projects/${projectId}/requirements/new`;
     let ticket = String(formData.get("ticket") ?? "");
+    const pasted = ticket;
     const ticketUrl = String(formData.get("ticketUrl") ?? "").trim();
+
+    /**
+     * Comes back with the reason and with what the person typed. An error
+     * that empties the box sends them to the tracker to copy the ticket a
+     * second time, which is a poor thanks for a failure that was ours.
+     */
+    const cameBack = (failure: { code: string; retryAfterSeconds?: number }): never => {
+      const back = new URLSearchParams({ read: failure.code });
+      if (pasted && pasted.length <= CARRIED_TICKET_LIMIT) back.set("ticket", pasted);
+      if (ticketUrl) back.set("ticketUrl", ticketUrl);
+      if (failure.retryAfterSeconds) back.set("retryAfter", String(failure.retryAfterSeconds));
+      redirect(`${here}?${back.toString()}`);
+    };
     // Known rather than guessed. When a ticket is fetched, which ticket it
     // was is a fact; reading it back out of the text is a guess, and a body
     // mentioning another ticket would make that guess the wrong one.
@@ -55,7 +74,8 @@ export default async function NewRequirementPage({
         ticket = fetched.ticket;
         fetchedReference = fetched.reference;
       } catch (error) {
-        if (error instanceof TicketFetchError) redirect(`${here}?read=${error.code}`);
+        const failure = ticketReadFeedback(error);
+        if (failure) cameBack(failure);
         throw error;
       }
     }
@@ -68,7 +88,8 @@ export default async function NewRequirementPage({
         ticket,
       });
     } catch (error) {
-      if (error instanceof RequirementDraftingError) redirect(`${here}?read=${error.code}`);
+      const failure = ticketReadFeedback(error);
+      if (failure) cameBack(failure);
       throw error;
     }
     const carried = new URLSearchParams({
@@ -126,6 +147,7 @@ export default async function NewRequirementPage({
             <input
               type="url"
               name="ticketUrl"
+              defaultValue={filled.ticketUrl ?? ""}
               placeholder="https://github.com/owner/repository/issues/123"
               className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-cyan-600 focus-visible:ring-2 focus-visible:ring-cyan-500/60"
             />
@@ -137,6 +159,7 @@ export default async function NewRequirementPage({
           </p>
           <textarea
             name="ticket"
+            defaultValue={filled.ticket ?? ""}
             rows={5}
             minLength={20}
             maxLength={20_000}
@@ -153,7 +176,19 @@ export default async function NewRequirementPage({
           <span className="ml-3 text-xs text-slate-500">Uses one of the workspace&rsquo;s daily AI requests.</span>
         </form>
 
-        {filled.read === "not_behaviour" ? (
+        {filled.read === "daily_limit" ? (
+          <p role="alert" className="mt-3 text-xs font-semibold leading-5 text-amber-800">
+            This workspace has used today&rsquo;s AI requests. Reading tickets works again in{" "}
+            {waitLabel(Number(filled.retryAfter ?? 0))}, at midnight UTC. What you pasted is still in the box, and
+            writing the requirement by hand below works now and costs nothing.
+          </p>
+        ) : filled.read === "burst_limit" ? (
+          <p role="alert" className="mt-3 text-xs font-semibold leading-5 text-amber-800">
+            This workspace is making AI requests faster than its limit allows &mdash; usually several people at
+            once. Try the same button again in {waitLabel(Number(filled.retryAfter ?? 0))}; what you pasted is
+            still in the box.
+          </p>
+        ) : filled.read === "not_behaviour" ? (
           <p role="alert" className="mt-3 text-xs font-semibold text-amber-800">
             That ticket does not describe product behaviour a test could verify &mdash; it reads as work like an
             upgrade, a question or a bug report with no expected behaviour. Write the requirement yourself below.
