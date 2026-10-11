@@ -1283,6 +1283,26 @@ That leaves one real gap, and all three diagrams that list it agree:
    than in the normal suite: it costs money and is not deterministic. Record
    the score against the prompt version so a prompt change becomes a
    measurement instead of a hope.
+
+   **Build it here, in vitest, with no eval vendor.** The 2026 options were
+   looked at: Promptfoo is a free CI gate driven by YAML, Langfuse is the
+   self-hostable tracing platform with evals layered on, Braintrust is a
+   commercial workbench whose control plane is not self-hostable below
+   Enterprise. None of them is the right fit, for three reasons in
+   increasing order of importance.
+   One, the repository already has vitest, a test database and a habit of
+   asserting properties rather than strings; an eval case is that test with a
+   different runner mode, and Promptfoo would add YAML as a second vocabulary
+   beside TypeScript prompts.
+   Two, the tracing those platforms sell is largely already in Postgres --
+   model, prompt version, schema version, tokens, failure code, timing, per
+   run -- so a vendor would duplicate the store that is also the evidence.
+   Three, and this is the one that decides it: evaluating these prompts means
+   sending requirement text, page trees and test code to the evaluator. This
+   product's promise is that a customer's source never leaves their runner.
+   Shipping their requirements to a third party to grade our prompts would
+   contradict the sentence printed on the CI panel. Keep the inputs in the
+   repository, keep the scores in the repository, and keep the promise.
 2. **Finish the cap sweep that 2026-10-11 started.** The evidence report's
    500-requirement bound now reaches every surface that reads it. One known
    instance was left: `listEvidenceSignatures` takes 50 with no count and no
