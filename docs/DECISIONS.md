@@ -679,3 +679,23 @@ anyone who could notice. `shown` and `total` rather than a boolean because
 hundred. A partial failure count is reported as a floor, since more may fail
 beyond what was read. Each exit is asserted on its own because wording has
 never travelled between them by itself.
+
+## 046 — An unreadable record and an empty one are different values
+
+**Decision:** On the evidence path, a failed read resolves to `null` rather
+than an empty list, and every surface distinguishes the two.
+`evidenceDocument` takes `signatures?: readonly DocumentSignature[] | null`
+and prints an explicit sentence for `null`. The Release page, the shared
+proof page and both download routes pass the distinction through, and an
+acceptance whose evidence could not be re-read says so rather than showing no
+badge.
+
+**Reason:** `catch(() => [])` is convenient and quietly asserts something.
+An empty acceptance list renders identically to a project nobody signed off,
+and the downloadable pack is kept as the record of a release, so a transient
+failure could become a permanent claim that no sign-off happened. Rendering
+nothing for an uncheckable acceptance was the same mistake in miniature: the
+amber "the evidence has changed since" badge is what a reader scans for, so
+its absence reads as reassurance rather than as ignorance. Proof links that
+could not be listed are left as they were: the implied claim there is "nobody
+has shared this", which costs a duplicate link rather than a false record.

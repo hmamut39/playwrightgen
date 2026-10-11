@@ -15,6 +15,21 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Saying how much a report covers
+- **A read that failed is no longer shown as a fact** (2026-10-11): every
+  surface on the evidence path caught a failed read and carried on with an
+  empty list, which renders exactly like a project nobody has accepted. On a
+  page that is tolerable for a moment; in the compliance pack somebody keeps
+  as the record of a release it is a claim -- made by a database blip -- that
+  no sign-off happened. The acceptances are now read as `null` when they
+  cannot be read, and the pack prints an **Accepted by** heading followed by
+  "the record of who accepted this evidence could not be read while this file
+  was produced. That is not a statement that nobody has accepted it." The
+  Release page and the shared proof page say the same in their own words, and
+  an acceptance whose evidence could not be re-checked now says so instead of
+  rendering no badge at all, which read as reassurance.
+  Both branches were proven: the notice appears when the read is forced to
+  fail and stays away when it succeeds.
+### Saying how much a report covers
 - **A partial report says so at every exit** (2026-10-11): the evidence report
   is bounded at five hundred requirements so a large project produces a report
   rather than a timeout, and it already carried `truncated`. Two of its six

@@ -69,7 +69,9 @@ export default async function ReleaseReadinessPage({
     getReleaseReadiness({ orgSlug, projectId }),
     requireWorkspaceContext({ orgSlug, projectId }),
     listProofLinks({ orgSlug, projectId }).catch(() => []),
-    listEvidenceSignatures({ orgSlug, projectId }).catch(() => []),
+    // Null rather than an empty list, so a read that failed cannot be
+    // rendered as a project nobody has accepted.
+    listEvidenceSignatures({ orgSlug, projectId }).catch(() => null),
     getReleaseEvidenceReport({ orgSlug, projectId }).catch(() => null),
   ]);
 
@@ -150,7 +152,14 @@ export default async function ReleaseReadinessPage({
             ) : null}
           </div>
         ) : null}
-        {signatures.length ? (
+        {signatures === null ? (
+          <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-sm leading-6 text-slate-600">
+              The acceptances could not be read just now. That is not a statement
+              that there are none &mdash; it means this page could not check.
+            </p>
+          </section>
+        ) : signatures.length ? (
           <section aria-label="Accepted evidence" className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
             <p className="text-sm font-semibold text-emerald-950">
               {signatures.length} acceptance{signatures.length === 1 ? "" : "s"} recorded
@@ -163,13 +172,19 @@ export default async function ReleaseReadinessPage({
               {signatures.map((signature) => {
                 // The honest answer a reader needs later: is this still what
                 // the project says, or has it moved since they accepted it?
+                // Null here means the evidence could not be read, not that it
+                // is unchanged. Rendering nothing reads as reassurance.
                 const current = evidenceNow ? stillMatches(signature, evidenceNow) : null;
                 return (
                   <li key={signature.id} className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600">
                     <span className="font-semibold text-slate-900">{signature.signedName}</span>
                     {signature.signedRole ? `, ${signature.signedRole}` : ""} &middot;{" "}
                     <LocalTime value={signature.signedAt} />
-                    {current === null ? null : current ? (
+                    {current === null ? (
+                      <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
+                        could not check whether the evidence has changed
+                      </span>
+                    ) : current ? (
                       <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-800">
                         the evidence is unchanged since
                       </span>

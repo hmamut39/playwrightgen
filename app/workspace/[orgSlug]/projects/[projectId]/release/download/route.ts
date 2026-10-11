@@ -18,7 +18,9 @@ export async function GET(
 ) {
   const { orgSlug, projectId } = await params;
   const report = await getReleaseEvidenceReport({ orgSlug, projectId });
-  const signatures = await listEvidenceSignatures({ orgSlug, projectId }).catch(() => []);
+  // Null, not an empty list: a blip while this file is produced must not
+  // turn into a record that reads as though nobody accepted anything.
+  const signatures = await listEvidenceSignatures({ orgSlug, projectId }).catch(() => null);
   return new NextResponse(evidenceDocument(report, { signatures }), {
     headers: {
       "content-type": "text/html; charset=utf-8",

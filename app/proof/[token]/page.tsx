@@ -78,7 +78,9 @@ export default async function ProofPage({
     }).catch(() => null));
   if (!report) return <Expired />;
   const frozen = Boolean(claim.snapshot);
-  const signatures = await readLinkSignatures(decodeURIComponent(token)).catch(() => []);
+  // Null rather than an empty list: this page is read by somebody outside
+  // the team, and a failed read shown as no acceptances is a claim.
+  const signatures = await readLinkSignatures(decodeURIComponent(token)).catch(() => null);
 
   /**
    * The one thing a reader may write. It goes through the same check as
@@ -231,7 +233,12 @@ export default async function ProofPage({
           accepted.
         </p>
 
-        {signatures.length ? (
+        {signatures === null ? (
+          <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">
+            Whether anyone has already accepted this evidence could not be read
+            just now. That is not a statement that nobody has.
+          </p>
+        ) : signatures.length ? (
           <ul className="mt-4 space-y-2">
             {signatures.map((signature) => (
               <li key={signature.id} className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">

@@ -27,7 +27,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
 
   // Whoever accepted this evidence belongs in the file that is kept, not only
   // on the page that expires.
-  const signatures = await readLinkSignatures(decodeURIComponent(token)).catch(() => []);
+  // Null, not an empty list: a blip while this file is produced must not
+  // turn into a record that reads as though nobody accepted anything.
+  const signatures = await readLinkSignatures(decodeURIComponent(token)).catch(() => null);
 
   return new NextResponse(evidenceDocument(report, { frozen: Boolean(claim.snapshot), signatures }), {
     headers: {

@@ -120,7 +120,15 @@ export type DocumentSignature = {
 
 export function evidenceDocument(
   report: ReleaseEvidenceReport,
-  options: { frozen?: boolean; signatures?: readonly DocumentSignature[] } = {},
+  options: {
+    frozen?: boolean;
+    /**
+     * Who accepted this evidence. `null` means the record could not be read
+     * while this file was produced, which is not the same as nobody having
+     * accepted it -- and this file is the one somebody keeps.
+     */
+    signatures?: readonly DocumentSignature[] | null;
+  } = {},
 ) {
   const title = `Test evidence — ${report.project.name}`;
   // A reader holding this file and a reader looking at the page can compare
@@ -204,7 +212,11 @@ export function evidenceDocument(
   ${report.truncated ? `<p class="none">This report covers ${report.coverage.shown} of the project's ${report.coverage.total} requirements. It is bounded so that a large project produces a report at all, so every figure here describes that first portion and not the whole project.</p>` : ""}
 
   ${
-    options.signatures?.length
+    options.signatures === null
+      ? `<h2>Accepted by</h2>
+  <p class="none">The record of who accepted this evidence could not be read while this file was
+  produced. That is not a statement that nobody has accepted it.</p>`
+      : options.signatures?.length
       ? `<h2>Accepted by</h2>
   ${options.signatures
     .map(
