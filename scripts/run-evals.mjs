@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 /**
  * Runs the evals and keeps the score, so one run can be compared with the next.
@@ -28,10 +29,15 @@ mkdirSync(RESULTS, { recursive: true });
 
 const passthrough = process.argv.slice(2);
 
+// Vitest's own entry, run by this Node rather than through npx. A .cmd shim
+// cannot be spawned on Windows without a shell, and passing an args array
+// through a shell concatenates rather than escapes them.
+const vitest = fileURLToPath(new URL("../node_modules/vitest/vitest.mjs", import.meta.url));
+
 const child = spawn(
-  process.platform === "win32" ? "npx.cmd" : "npx",
+  process.execPath,
   [
-    "vitest",
+    vitest,
     "run",
     "--config",
     "vitest.evals.config.ts",
@@ -40,7 +46,10 @@ const child = spawn(
     "--reporter=json",
     `--outputFile.json=${RAW}`,
   ],
-  { stdio: "inherit", shell: process.platform === "win32" },
+  // npx.cmd is executable directly on Windows, so no shell is needed. Passing
+  // an args array through a shell concatenates rather than escapes them, which
+  // Node warns about and which there is no reason to accept here.
+  { stdio: "inherit" },
 );
 
 child.on("exit", (code) => {
@@ -60,6 +69,12 @@ child.on("exit", (code) => {
       name: test.fullName ?? test.title,
       status: test.status,
       ms: test.duration ?? null,
+      // Kept because these cases fail intermittently, and a run that says
+      // only "failed" cannot be diagnosed later: by the time anybody looks,
+      // the model has answered differently and the evidence is gone.
+      ...(test.status === "passed"
+        ? {}
+        : { failure: (test.failureMessages ?? []).join("\n").slice(0, 4_000) }),
     })),
   );
 
@@ -116,7 +131,10 @@ function report(run, previous) {
   );
   // Which cases changed side, rather than the delta: a score that holds while
   // two cases swap is not the same suite passing.
-  for (const entry of broke) console.log(`  now failing: ${entry.file} · ${entry.name}`);
+  for (const entry of broke) {
+    console.log(`  now failing: ${entry.file} · ${entry.name}`);
+    if (entry.failure) console.log(`    ${entry.failure.split("\n")[0]}`);
+  }
   for (const entry of fixed) console.log(`  now passing: ${entry.file} · ${entry.name}`);
   if (broke.length === 0 && fixed.length === 0) {
     console.log("  No case changed side.");

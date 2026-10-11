@@ -15,6 +15,22 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Measuring the prompts
+- **The eval caught a bad fixture, once the archive could say why**
+  (2026-10-11): the new `criteria-coverage` eval failed one case in about
+  five, and the run recorder kept only pass or fail, so by the time anybody
+  looked the model had answered differently and the evidence was gone.
+  Failure messages are now archived with the run. The very next failure
+  explained itself: the reading had reported "Signing in as the customer
+  before opening the payment step" as behaviour outside the requirement, and
+  it was right -- the test signs in and the requirement never mentions
+  signing in. The fixture meant to show tests staying inside the requirement
+  did not stay inside it. The eval caught my mistake, not the model's, which
+  is the second time in two days that reading the output beat changing the
+  assertion.
+  Also fixed while there: the runner spawned `npx.cmd` through a shell, which
+  Node warns about because an args array is concatenated rather than escaped
+  there. It now runs vitest's own entry with this Node, no shell involved.
+### Measuring the prompts
 - **An eval asserted the wrong thing, and four runs said so** (2026-10-11):
   the new `requirement-from-ticket` eval held the drafted description to the
   prompt's literal wording -- open questions belong "never in the description
@@ -1299,8 +1315,9 @@ change in classification can only be attributed to that field.
 1. **Evaluate the surfaces the suite does not reach.** `requirement-from-
    ticket` was covered on 2026-10-11, five cases, paired so a prompt that
    answered "behaviour" to everything or invented a ticket key would fail
-   half of them. Remaining: `requirement-review`, `criteria-coverage`,
-   `draft-repair`, `page-coverage-plan`. Previously covered:
+   half of them. `criteria-coverage` followed on the same day, six cases.
+   Remaining: `requirement-review`, `draft-repair`, `page-coverage-plan`.
+   Previously covered:
    automation-generation, coverage-review, failure-analysis, live-page,
    quick-generation, release-review, test-case-proposals. Not covered:
    `requirement-from-ticket`, `requirement-review`, `criteria-coverage`,
