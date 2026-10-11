@@ -718,3 +718,21 @@ because the failure mode here is silence: a code added later degrades to the
 general message with nothing failing, which is exactly how fifteen causes
 came to share one sentence. Sentences name a configuration to change and
 never a credential or another tenant.
+
+## 048 — Generation checks that a test could run, not only that it is well formed
+
+**Decision:** `validateAutomationGeneration` blocks a relative `page.goto`
+when the configuration sets no `baseURL`, naming the path, and warns when a
+`test.skip()` in a test body coexists with a `beforeEach`. The generation
+prompt states both rules.
+
+**Reason:** The existing rules checked shape -- an import, a test, an
+assertion, no `only`, no unsafe primitive -- and every one of them passed a
+test that could not execute anywhere. Runnability is a different question
+from well-formedness, and it is the question a reviewer is least able to
+answer by reading: a missing `baseURL` lives in a different file from the
+navigation that needs it. The skip rule is a warning rather than a block
+because the pattern is correct whenever the hook does not depend on what is
+missing, and a reviewer can see which case this is; blocking it would refuse
+working code. Both were found by reading PlaywrightGen's own recorded
+evidence about its own failing test.

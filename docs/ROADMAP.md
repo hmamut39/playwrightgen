@@ -14,6 +14,29 @@ test suite (493 tests) passes.
 
 ## Shipped (most recent first)
 
+### What the product found in itself
+- **A generated test that could not run anywhere** (2026-10-11): looking at
+  production to answer "is anybody using this" turned up the answer -- three
+  users, two projects, no proof links, nothing since 2026-09-22 -- and then
+  something better. The proof repository `playwrightgen-ci-proof` has been red
+  since 2026-09-07. The CI integration was working the whole time: results
+  were ingested, the failure was recorded, the job went red because the test
+  failed, exactly as designed.
+  The test was the problem. It navigated to `/cart` while its configuration
+  set no `baseURL`, so every run failed with "Cannot navigate to invalid
+  URL" before reaching an assertion. It could not have passed on any machine.
+  A person approved it, CI ran it three times over a fortnight, and the
+  product honestly recorded three failures of a test that was never able to
+  work. The same file guarded itself with `test.skip()` when card details
+  were absent -- sensible -- but put the navigation in `beforeEach`, which
+  runs first, so the guard could never fire.
+  Generation now blocks a relative navigation when nothing sets a `baseURL`,
+  naming the path, and warns when a `test.skip()` sits behind a hook. Both
+  run before a reviewer sees the code, which is the only place either is
+  cheap. The prompt says the same so the model is less likely to write it.
+  The failure detail came out of PlaywrightGen's own evidence, which is the
+  first time the product has been used to answer a real question about
+  itself.
 ### Connecting a repository
 - **A failed connection names the cause** (2026-10-11): fifteen distinct
   causes arrived at three sentences, none of which said what to do. A
