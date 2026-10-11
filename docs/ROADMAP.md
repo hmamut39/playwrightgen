@@ -1232,7 +1232,41 @@ test suite (493 tests) passes.
 
 In priority order. Each item should end verified in a browser and shipped.
 
-1. ~~**Finish the sweep for state decided in two places.**~~ Done 2026-10-11.
+A note before the list. On 2026-10-11 production held three users, two
+projects, no proof links and no acceptances, with nothing happening since
+2026-09-22. The code is ahead of the adoption, and five finds that day came
+from one question -- where does the product know something and not say it --
+each narrower than the last. Keep that honest: hardening has falling returns
+against one real team using it.
+
+1. **Finish the cap sweep that 2026-10-11 started.** The evidence report's
+   500-requirement bound now reaches every surface that reads it. One known
+   instance was left: `listEvidenceSignatures` takes 50 with no count and no
+   caller saying so, so a project with more than fifty acceptances shows
+   fifty in the compliance pack and claims nothing is missing -- the same
+   defect, in the same file somebody keeps. Verified present on 2026-10-11,
+   not fixed. While there, check the other hard `take:` constants the same
+   way: `approval-policy` 20, `live-checks` 50, `page-coverage` 200,
+   `release-proof` 20, `project-quality` 25. The question for each is not
+   whether the bound is right but whether the surface reading it says the
+   bound exists.
+2. **Make dogfooding produce a passing result.** The loop is live: the proof
+   repository reports into a real production project, CI is green, and
+   PlaywrightGen records the attempt as BLOCKED because the test cannot run
+   without card details the owner has deferred. Honest, but it means there is
+   still no verified requirement, no proof link and no acceptance anywhere in
+   production. A test of playwrightgen.com itself -- a public page, no
+   credentials -- would pass genuinely and give the first real evidence trail
+   and a proof link worth sending a prospect. Preparing the spec and the
+   workflow is doable here; creating and approving the Test Case needs the
+   owner, because approval cannot be done on their behalf.
+3. **The bulk-adoption decision.** Still the owner's. A team with hundreds of
+   existing Playwright tests adopts them one at a time by pasting a marker.
+   Mass-creating Test Cases would manufacture approval records nobody
+   reviewed, which would spend the one thing that makes this product
+   different. Raised 2026-10-11; do not build either way without a decision.
+
+4. ~~**Finish the sweep for state decided in two places.**~~ Done 2026-10-11.
    Four shapes were searched: a page filtering a service's items after the
    fact, a hard `take:` in a service whose bound never reached the surfaces
    reading it, a `slice` over a set, and a count drawn from a different query
@@ -1247,21 +1281,21 @@ In priority order. Each item should end verified in a browser and shipped.
    and detail pages asking the same question: does anything narrow, filter or
    validate a set after it has already been bounded somewhere else? Start with
    the pages that call a service and then use `.filter(` on its items.
-2. **Does production use a different GitHub App?** The owner granted
+5. **Does production use a different GitHub App?** The owner granted
    `issues: read` on `playwrightgen-development` on 2026-10-10 and it is
    verified working. If the production deployment points at another App, the
    ticket fetch there says "the App may not read issues in that repository
    yet" until the same grant is made. Degrades cleanly, so this is a question
    to ask rather than a fault to chase. `GITHUB_APP_SLUG` in Vercel answers it.
-3. **Fetch a ticket from Jira or Linear.** GitHub issues are done (2026-10-10).
+6. **Fetch a ticket from Jira or Linear.** GitHub issues are done (2026-10-10).
    Jira and Linear each need an OAuth app the owner would have to create, so
    ask only when somebody actually wants one.
-4. **MCP 2026-07-28.** The server speaks 2025-06-18. The new spec is a
+7. **MCP 2026-07-28.** The server speaks 2025-06-18. The new spec is a
    stateless rewrite (no initialize handshake, no session id, Mcp-Method
    routing, MRTR in place of server-initiated requests). Clients still
    negotiate older versions, so this is maintenance rather than a feature: do
    it when a client needs it, and keep 2025-06-18 working when it happens.
-5. **Verify the paid path end to end.** Stripe payment, then webhook, then
+8. **Verify the paid path end to end.** Stripe payment, then webhook, then
    entitlement, then the Team allowance. Needs the owner's account and a real
    card. They deferred it again on 2026-10-10 ("i am not gonna do this for
    now"), having deferred it on 2026-09-19 as well. Do not raise it; wait for
