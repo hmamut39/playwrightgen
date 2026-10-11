@@ -15,6 +15,26 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **The verdict accounts for the approved tests that never ran**
+  (2026-10-11): reading a shared link as the client -- no account, one link,
+  asked whether this is good enough to ship -- the requirement said "1
+  approved test last ran and did not pass." Beneath it sat three tests, two of
+  them "never run". The verdict was drawn only from the tests that had
+  executed, so the sentence a reviewer reads first was true and incomplete.
+  On a VERIFIED requirement the same silence is worse: one test passes, two
+  have never run, and the page reads as coverage nobody demonstrated. Both
+  verdicts now end with how many approved tests have never run, and the
+  shared page and the kept file inherit it from the same sentence. Live:
+  "1 approved test last ran and did not pass. 2 more approved tests have
+  never run."
+  Two smaller things from the same walk. The acceptance badge on the team's
+  release page read "the evidence is unchanged since" and stopped there --
+  now "unchanged since they accepted it". And the file downloaded from a
+  shared link knows that link's acceptances and no others, so with none of
+  them it left the section out entirely; a reader a year later takes that
+  silence for a project nobody signed off. It now says it can only speak for
+  the link it came from. The team's own copy stays silent, which an earlier
+  decision settled deliberately and this did not overturn.
 - **A spent AI allowance is a sentence with a time in it, not a crash**
   (2026-10-11): continuing the walkthrough as the business analyst -- paste
   the ticket, press Read the ticket -- produced a 500 page reading "This page

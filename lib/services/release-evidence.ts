@@ -273,14 +273,24 @@ export async function buildReleaseEvidenceReport(input: {
       const failing = executed.filter((testCase) => testCase.latestResult !== "PASSED");
       const passing = executed.filter((testCase) => testCase.latestResult === "PASSED");
 
+      // Approved coverage that has never executed. A verdict drawn from the
+      // tests that ran, with nothing said about the ones that did not, reads
+      // as the whole story to somebody outside the team -- and on a VERIFIED
+      // requirement it reads as reassurance it has not earned.
+      const neverRan = approved.length - executed.length;
+      const neverRanNote =
+        neverRan > 0
+          ? ` ${neverRan} more approved test${neverRan === 1 ? " has" : "s have"} never run.`
+          : "";
+
       let verdict: RequirementVerdict;
       let reason: string;
       if (failing.length > 0) {
         verdict = "FAILING";
-        reason = `${failing.length} approved test${failing.length === 1 ? "" : "s"} last ran and did not pass.`;
+        reason = `${failing.length} approved test${failing.length === 1 ? "" : "s"} last ran and did not pass.${neverRanNote}`;
       } else if (passing.length > 0) {
         verdict = "VERIFIED";
-        reason = `${passing.length} approved test${passing.length === 1 ? "" : "s"} last ran and passed.`;
+        reason = `${passing.length} approved test${passing.length === 1 ? "" : "s"} last ran and passed.${neverRanNote}`;
         // Said out loud rather than left for a reader to assume: one passing
         // test does not mean six criteria were each checked.
         if (criteriaCount > passing.length) {

@@ -35,13 +35,22 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
   // number in hand. No count query is needed to say so honestly.
   const accepted = signatures === null ? null : { items: signatures, total: signatures.length };
 
-  return new NextResponse(evidenceDocument(report, { frozen: Boolean(claim.snapshot), signatures: accepted }), {
-    headers: {
-      "content-type": "text/html; charset=utf-8",
-      "content-disposition": `attachment; filename="${evidenceFileName(report)}"`,
-      // A shared record should not be indexed or cached by anything in between.
-      "x-robots-tag": "noindex",
-      "cache-control": "no-store",
+  return new NextResponse(
+    evidenceDocument(report, {
+      frozen: Boolean(claim.snapshot),
+      signatures: accepted,
+      // This file knows this link's acceptances and no others, and says so
+      // rather than leaving a reader to read silence as nobody.
+      signatureScope: "link",
+    }),
+    {
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        "content-disposition": `attachment; filename="${evidenceFileName(report)}"`,
+        // A shared record should not be indexed or cached by anything between.
+        "x-robots-tag": "noindex",
+        "cache-control": "no-store",
+      },
     },
-  });
+  );
 }

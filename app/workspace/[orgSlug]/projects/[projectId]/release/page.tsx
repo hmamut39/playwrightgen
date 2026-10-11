@@ -189,11 +189,11 @@ export default async function ReleaseReadinessPage({
                       </span>
                     ) : current ? (
                       <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-800">
-                        the evidence is unchanged since
+                        unchanged since they accepted it
                       </span>
                     ) : (
                       <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-800">
-                        the evidence has changed since
+                        changed since they accepted it
                       </span>
                     )}
                     {signature.note ? (

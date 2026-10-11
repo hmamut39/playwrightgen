@@ -258,6 +258,39 @@ describe("release evidence report", () => {
     expect(report.requirements[0].reason).toBe("1 approved test last ran and passed.");
   });
 
+  it("counts the approved tests that never ran, beside the ones that did", async () => {
+    // Found by reading a shared link as the client would: one requirement,
+    // three approved tests, one of them failed and two had never run, and the
+    // page said only "1 approved test last ran and did not pass". The same
+    // silence on a passing verdict reads as coverage nobody demonstrated.
+    const space = await workspace();
+    const requirement = await approvedRequirement(space);
+    const ran = await linkedTestCase(space, requirement.id, true);
+    await linkedTestCase(space, requirement.id, true);
+    await linkedTestCase(space, requirement.id, true);
+    await recordAttempt(space, ran.id, "PASSED");
+
+    const verified = await getReleaseEvidenceReport({ projectId: space.project.id }, deps(space));
+    expect(verified.requirements[0].verdict).toBe("VERIFIED");
+    expect(verified.requirements[0].reason).toContain("1 approved test last ran and passed.");
+    expect(verified.requirements[0].reason).toContain("2 more approved tests have never run.");
+
+    await recordAttempt(space, ran.id, "FAILED");
+    const failing = await getReleaseEvidenceReport({ projectId: space.project.id }, deps(space));
+    expect(failing.requirements[0].verdict).toBe("FAILING");
+    expect(failing.requirements[0].reason).toContain("2 more approved tests have never run.");
+  });
+
+  it("says nothing about tests that never ran when every one of them has", async () => {
+    const space = await workspace();
+    const requirement = await approvedRequirement(space);
+    const testCase = await linkedTestCase(space, requirement.id, true);
+    await recordAttempt(space, testCase.id, "PASSED");
+
+    const report = await getReleaseEvidenceReport({ projectId: space.project.id }, deps(space));
+    expect(report.requirements[0].reason).not.toContain("never run");
+  });
+
   it("names who approved the requirement and the test, from the trail", async () => {
     const space = await workspace();
     const requirement = await approvedRequirement(space);

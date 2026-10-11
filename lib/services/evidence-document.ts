@@ -132,6 +132,13 @@ export function evidenceDocument(
       /** How many exist, which is not always how many are listed. */
       total: number;
     } | null;
+    /**
+     * Which acceptances this file could see. A file produced from a shared
+     * link knows only the acceptances made through that link, so with none of
+     * them an empty section would read as nobody having accepted anything —
+     * and this is the copy somebody keeps for a year.
+     */
+    signatureScope?: "project" | "link";
   } = {},
 ) {
   const title = `Test evidence — ${report.project.name}`;
@@ -241,6 +248,10 @@ export function evidenceDocument(
       ? `<p class="none">The ${options.signatures.items.length} most recent of this project's ${options.signatures.total} acceptances are listed. A listing is bounded so a long-running project produces a file at all, so these are not all of them.</p>`
       : ""
   }`
+      : options.signatures && options.signatureScope === "link"
+      ? `<h2>Accepted by</h2>
+  <p class="none">Nobody has accepted this evidence through the link this file came from. Another link to the same
+  evidence may carry acceptances of its own: this file can only speak for the one it was produced from.</p>`
       : ""
   }
 

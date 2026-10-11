@@ -229,8 +229,27 @@ describe("the acceptance in the kept file", () => {
     expect(html).toContain("did not\n  verify their identity");
   });
 
-  it("says nothing at all when nobody has accepted it", () => {
+  it("says nothing at all when nobody asked about acceptances", () => {
     expect(evidenceDocument(report())).not.toContain("Accepted by");
+  });
+
+  it("does not let an empty section read as nobody having accepted", () => {
+    // Found by downloading the file as the client: a file produced from a
+    // shared link knows that link's acceptances and no others, and with none
+    // of them it simply left the section out. A reader a year later takes
+    // that silence for a project nobody ever signed off.
+    const fromLink = evidenceDocument(report(), { signatures: { items: [], total: 0 }, signatureScope: "link" });
+    expect(fromLink).toContain("Accepted by");
+    expect(fromLink).toContain("link this file came from");
+    expect(fromLink).toContain("can only speak for the one it was produced from");
+  });
+
+  it("stays silent when the file can see every acceptance and there are none", () => {
+    // The team's own copy is read beside the project it came from, where
+    // nothing is hidden, so an empty section would be noise rather than a
+    // correction.
+    const whole = evidenceDocument(report(), { signatures: { items: [], total: 0 } });
+    expect(whole).not.toContain("Accepted by");
   });
 
   it("cannot have a signer's name write markup into the document", () => {
