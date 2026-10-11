@@ -46,3 +46,7 @@ next-env.d.ts
 
 # generated Prisma client (schema and migrations remain tracked)
 /generated/prisma/
+
+# Eval scores. A measurement from one model on one afternoon is not a fact
+# about the repository, and a file in version control invites reading it as one.
+/evals/results
