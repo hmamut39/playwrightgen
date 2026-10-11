@@ -14,6 +14,23 @@ test suite (493 tests) passes.
 
 ## Shipped (most recent first)
 
+### Measuring the prompts
+- **An eval asserted the wrong thing, and four runs said so** (2026-10-11):
+  the new `requirement-from-ticket` eval held the drafted description to the
+  prompt's literal wording -- open questions belong "never in the description
+  or the acceptance criteria" -- and failed. Before changing either side, the
+  draft was run four times and printed. Expiry reached the description once,
+  and the sentence was the ticket's own: "We have not decided what happens
+  when the saved card has expired." Repeating that decides nothing. Across
+  the same four runs no acceptance criterion mentioned expiry at all, which
+  is where an invented rule would become a testable claim and enter the
+  evidence chain.
+  So the criteria are asserted strictly and the description is not. That is
+  not an assertion relaxed to go green: the property worth protecting is
+  still held, and the one removed was measuring a rule stricter than the harm
+  it existed to prevent. The prompt was left alone -- its strictness is cheap
+  and mostly obeyed, and loosening it to match the eval would trade a real
+  guard for a tidier test.
 ### What the product found in itself
 - **A marker that points nowhere is not a missing marker** (2026-10-11):
   ingest counted two quite different outcomes as `unmatched` -- a result
@@ -1279,7 +1296,11 @@ deterministically against structured output rather than with a model judge,
 and holds every evidence field constant except the one under test, so a
 change in classification can only be attributed to that field.
 
-1. **Evaluate the surfaces the suite does not reach.** Covered today:
+1. **Evaluate the surfaces the suite does not reach.** `requirement-from-
+   ticket` was covered on 2026-10-11, five cases, paired so a prompt that
+   answered "behaviour" to everything or invented a ticket key would fail
+   half of them. Remaining: `requirement-review`, `criteria-coverage`,
+   `draft-repair`, `page-coverage-plan`. Previously covered:
    automation-generation, coverage-review, failure-analysis, live-page,
    quick-generation, release-review, test-case-proposals. Not covered:
    `requirement-from-ticket`, `requirement-review`, `criteria-coverage`,
