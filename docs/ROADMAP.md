@@ -15,6 +15,19 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### What the product found in itself
+- **The proof repository is green again, and says it has not been verified**
+  (2026-10-11): `playwrightgen-ci-proof` had failed every run since
+  2026-09-07. Fixed in that repository the way the new rules describe: the
+  configuration takes `baseURL` from `TEST_BASE_URL`, and the guard moved to
+  the top of `beforeEach`, where it runs before the navigation instead of
+  after it. Checked before pushing by running Playwright against both
+  versions -- one failed, one skipped, exit zero.
+  CI is now green and PlaywrightGen recorded attempt 4 as **BLOCKED** on
+  `main @ 0f2de60b`, which is the point worth keeping: a green pipeline did
+  not buy a verified requirement. The test did not run, so the evidence says
+  it did not run. It stays blocked until somebody supplies `TEST_BASE_URL`
+  and the card details, which is the paid-path work the owner has deferred.
+### What the product found in itself
 - **A generated test that could not run anywhere** (2026-10-11): looking at
   production to answer "is anybody using this" turned up the answer -- three
   users, two projects, no proof links, nothing since 2026-09-22 -- and then
