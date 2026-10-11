@@ -86,6 +86,8 @@ type LiveCoveragePage =
         total: number;
         mentioned: { role: string; name: string }[];
         unmentioned: { role: string; name: string }[];
+        /** Absent on reviews saved before off-site links were separated out. */
+        offSite?: { role: string; name: string }[];
       } | null;
     }
   | { status: "not_read"; reason: string };
@@ -500,9 +502,16 @@ function LiveCoveragePanel({ livePage }: { livePage: LiveCoveragePage }) {
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-800">Read from the live page</p>
           <h2 className="mt-1 truncate text-xl font-semibold text-slate-950">{livePage.title || livePage.url}</h2>
           <p className="mt-1 text-xs text-slate-500">
-            {livePage.controls} named controls: {livePage.counts.buttons} buttons, {livePage.counts.fields} fields,{" "}
+            {livePage.controls} named control{livePage.controls === 1 ? "" : "s"}: {livePage.counts.buttons} buttons,{" "}
+            {livePage.counts.fields} fields,{" "}
             {livePage.counts.links} links &middot; {livePage.signedIn ? "seen signed in with your test account" : "seen signed out"}
           </p>
+          {surface?.offSite?.length ? (
+            <p className="mt-1 text-xs text-slate-500">
+              {surface.offSite.length} link{surface.offSite.length === 1 ? "" : "s"} to another site left out of the
+              count &mdash; they lead away from the app you are testing.
+            </p>
+          ) : null}
         </div>
         {surface && surface.total > 0 ? (
           <span

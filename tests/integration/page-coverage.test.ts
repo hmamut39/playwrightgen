@@ -174,4 +174,20 @@ describe("cover a page: approving, pausing and counting what was reached", () =>
     expect(result.reached.map((control) => control.name)).toEqual(["Place  Order"]);
     expect(result.missed.map((control) => control.name)).toEqual(["Help"]);
   });
+
+  it("holds a link to another site outside the score", () => {
+    // Nobody should be asked to write a test for a credit line in the footer,
+    // and the total it is counted in decides whether they are asked.
+    const result = measureControls(
+      [
+        { role: "textbox", name: "What needs to be done?" },
+        { role: "link", name: "Remo H. Jansen", offSite: true },
+      ],
+      'await page.getByPlaceholder("What needs to be done?").fill("buy milk");',
+    );
+    expect(result.total).toBe(1);
+    expect(result.reached).toHaveLength(1);
+    expect(result.missed).toEqual([]);
+    expect(result.offSite).toEqual([{ role: "link", name: "Remo H. Jansen" }]);
+  });
 });

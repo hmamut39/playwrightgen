@@ -14,6 +14,31 @@ test suite (493 tests) passes.
 
 ## Shipped (most recent first)
 
+### Found by using the product as a team would
+- **Coverage counts the app's controls, not the credit line in the footer**
+  (2026-10-11): walking the product as a whole team -- lead creates a
+  project, product reads the page, QA proves the plan -- produced six tests,
+  five passing on the live page, and then a coverage line that read "the
+  proven tests reach 1 of the page's 4 named controls" and named the three it
+  had missed: `link "real TodoMVC app."`, `link "Remo H. Jansen"`,
+  `link "TodoMVC"`. All three are footer links to other websites. A team
+  reading that goes looking for three missing tests, two of which would
+  assert something about a stranger's GitHub profile. Under-reporting
+  coverage misleads exactly as badly as flattering it.
+  A link's address is the only thing that separates a control of this page
+  from a way off it, and the page snapshot was deleting addresses before
+  anything could look -- they are long and useless for writing a locator, so
+  they were stripped out of the tree handed to the model. They are now kept
+  beside it. Links leaving the site are held out of the total and the page
+  says so in a line of its own, because a number that quietly shrank is the
+  other way to mislead with a count. Proven on the live product after a
+  rebuild: the same page now reads 1 named control, with 3 off-site links
+  reported as not counted.
+  The first fix passed its unit tests and changed nothing in the product,
+  because the test fed the parser a raw snapshot and the product fed it a
+  stripped one. The regression test now strips the tree exactly as the
+  capture does.
+
 ### Reaching the people who never open it
 - **The evidence can be read for one release, without owning the release**
   (2026-10-11): a product owner arrives asking what the evidence says for

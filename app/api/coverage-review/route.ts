@@ -98,9 +98,9 @@ export async function POST(req: Request) {
                 title: snapshot.title,
                 counts: snapshot.counts,
                 signedIn: Boolean(snapshot.signedIn),
-                controls: readControls(snapshot.aria).length,
+                controls: readControls(snapshot.aria, { pageUrl: snapshot.finalUrl, linkTargets: snapshot.linkTargets }).length,
                 // Computed from the page and the pasted tests, not by the model.
-                surface: existingTests ? measureSurfaceCoverage(snapshot.aria, existingTests) : null,
+                surface: existingTests ? measureSurfaceCoverage(snapshot.aria, existingTests, { pageUrl: snapshot.finalUrl, linkTargets: snapshot.linkTargets }) : null,
               }
             : { status: "not_read", reason: snapshot.reason }
           : null,

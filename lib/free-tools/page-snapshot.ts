@@ -26,6 +26,7 @@ import { signInWithTestAccount, type TestAccount } from "@/lib/free-tools/sign-i
  */
 
 export { isPublicWebAddress } from "@/lib/free-tools/public-address";
+import { readLinkTargets, type LinkTarget } from "@/lib/free-tools/surface-coverage";
 
 export type PageSnapshot =
   | {
@@ -36,6 +37,8 @@ export type PageSnapshot =
       testIds: string[];
       /** Controls with a test attribute, e.g. button "Add to cart" [data-test="add-to-cart-backpack"]. */
       elementHints: string[];
+      /** Each link's address, kept out of the tree but not thrown away. */
+      linkTargets: LinkTarget[];
       truncated: boolean;
       /** Roles counted from the tree, for a one-line summary to the reader. */
       counts: { buttons: number; links: number; fields: number; headings: number };
@@ -116,7 +119,10 @@ export async function capturePageSnapshot(
         ),
         readElementHints(page),
       ]);
-      // Link targets are noise for writing locators and cost the most space.
+      // Link targets are noise for writing locators and cost the most space,
+      // so they come out of the tree. A link's address is still the only way
+      // to tell a control of this page from a way off it, so it is kept here.
+      const linkTargets = readLinkTargets(fullAria);
       const aria = fullAria.replace(/^\s*- \/url: .*$/gm, "").replace(/\n{2,}/g, "\n");
       return {
         ok: true,
@@ -125,6 +131,7 @@ export async function capturePageSnapshot(
         aria: aria.slice(0, MAX_ARIA_CHARS),
         testIds: [...new Set(testIds)].map((id) => id.slice(0, 100)),
         elementHints,
+        linkTargets,
         truncated: aria.length > MAX_ARIA_CHARS,
         counts: countRoles(aria),
         ...(signedIn ? { signedIn } : {}),

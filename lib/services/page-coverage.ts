@@ -18,7 +18,7 @@ import { executeLiveRun, prepareLiveRun } from "@/lib/free-tools/preview-run/run
 import { firstFailureOf, proveDraftOnLivePage } from "@/lib/free-tools/prove-loop";
 import { isPublicWebAddress } from "@/lib/free-tools/public-address";
 import { testAccountSchema, type TestAccount } from "@/lib/free-tools/sign-in";
-import { readControls, type SurfaceControl } from "@/lib/free-tools/surface-coverage";
+import { readSurface, type SurfaceControl } from "@/lib/free-tools/surface-coverage";
 import {
   OrganizationAiRateLimitError,
   readOrganizationAiAllowance,
@@ -215,7 +215,13 @@ async function completePageCoveragePlan(
     return;
   }
 
-  const controls = withTestIds(readControls(snapshot.aria), snapshot.elementHints);
+  // Links off the site are kept, flagged, so the page can say they were not
+  // counted rather than quietly shrinking the total.
+  const surface = readSurface(snapshot.aria, { pageUrl: snapshot.finalUrl, linkTargets: snapshot.linkTargets });
+  const controls: CoverageControl[] = [
+    ...withTestIds(surface.controls, snapshot.elementHints),
+    ...surface.offSite.map((link) => ({ ...link, offSite: true as const })),
+  ];
   await prisma.$transaction([
     prisma.pageCoverageItem.createMany({
       data: proposed.items.map((item, position) => ({
@@ -527,7 +533,7 @@ export function buildSuite(
   ].join("\n");
 }
 
-export type CoverageControl = SurfaceControl & { testIds?: string[] };
+export type CoverageControl = SurfaceControl & { testIds?: string[]; offSite?: boolean };
 
 const HINT_LINE = /^([a-z]+) "((?:[^"\\]|\\.)*)" \[(data-[a-z-]+)="([^"]*)"\]$/;
 
@@ -559,10 +565,15 @@ export function measureControls(controls: CoverageControl[], code: string) {
   const isReached = (control: CoverageControl) =>
     targeted.has(normalizeName(control.name)) ||
     (control.testIds ?? []).some((id) => code.includes(`"${id}"`) || code.includes(`'${id}'`));
+  const named = ({ role, name }: CoverageControl) => ({ role, name });
+  // A link to another website is not this page's to test, so it is counted
+  // nowhere in the total and named on its own.
+  const own = controls.filter((control) => !control.offSite);
   return {
-    total: controls.length,
-    reached: controls.filter(isReached).map(({ role, name }) => ({ role, name })),
-    missed: controls.filter((control) => !isReached(control)).map(({ role, name }) => ({ role, name })),
+    total: own.length,
+    reached: own.filter(isReached).map(named),
+    missed: own.filter((control) => !isReached(control)).map(named),
+    offSite: controls.filter((control) => control.offSite).map(named),
   };
 }
 
@@ -572,7 +583,14 @@ function readControlsJson(value: Prisma.JsonValue): CoverageControl[] {
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
     if (typeof entry.role !== "string" || typeof entry.name !== "string") return [];
     const testIds = Array.isArray(entry.testIds) ? entry.testIds.filter((id): id is string => typeof id === "string") : [];
-    return [{ role: entry.role, name: entry.name, ...(testIds.length ? { testIds } : {}) }];
+    return [
+      {
+        role: entry.role,
+        name: entry.name,
+        ...(testIds.length ? { testIds } : {}),
+        ...(entry.offSite === true ? { offSite: true } : {}),
+      },
+    ];
   });
 }
 

@@ -182,9 +182,16 @@ export default async function PageCoverageDetail({
           {coverage.total ? (
             <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="text-sm font-semibold text-slate-900">
-                The proven tests reach {coverage.reached.length} of the page&rsquo;s {coverage.total} named controls
+                The proven tests reach {coverage.reached.length} of the page&rsquo;s {coverage.total} named control
+                {coverage.total === 1 ? "" : "s"}
               </p>
               <p className="mt-1 text-xs text-slate-500">Counted from the page itself and the tests&rsquo; locators, by name &mdash; not the AI&rsquo;s opinion.</p>
+              {coverage.offSite.length ? (
+                <p className="mt-1 text-xs text-slate-500">
+                  {coverage.offSite.length} link{coverage.offSite.length === 1 ? "" : "s"} to another site{" "}
+                  {coverage.offSite.length === 1 ? "is" : "are"} not counted: they leave the app you are testing.
+                </p>
+              ) : null}
               {coverage.missed.length ? (
                 <p className="mt-3 text-xs leading-5 text-slate-600">
                   Not reached: {coverage.missed.slice(0, 20).map((control) => `${control.role} "${control.name}"`).join(", ")}
