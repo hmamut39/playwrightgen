@@ -2,6 +2,10 @@ import Link from "next/link";
 
 import { PrintButton } from "@/components/workspace/print-button";
 import { getReleaseEvidenceReport } from "@/lib/services/release-evidence";
+import {
+  listReleaseMilestones,
+  scopeReleaseToMilestone,
+} from "@/lib/services/release-scope";
 import { LocalTime } from "@/components/workspace/local-time";
 import { ageWord } from "@/lib/services/evidence-document";
 
@@ -37,12 +41,33 @@ function shortSha(sha: string | null) {
 
 export default async function ReleaseEvidenceReportPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ orgSlug: string; projectId: string }>;
+  searchParams: Promise<{ milestone?: string }>;
 }) {
   const { orgSlug, projectId } = await params;
+  const { milestone: wanted } = await searchParams;
   const report = await getReleaseEvidenceReport({ orgSlug, projectId });
   const base = `/workspace/${orgSlug}/projects/${projectId}`;
+
+  // The grouping comes from the tracker rather than from a release entity
+  // here, so a project with no connected repository simply has none to
+  // offer. That is an ordinary answer and must not fail the page.
+  const milestones = await listReleaseMilestones({ orgSlug, projectId }).catch(() => []);
+  const milestoneNumber = Number(wanted);
+  const scope =
+    Number.isSafeInteger(milestoneNumber) && milestoneNumber > 0
+      ? await scopeReleaseToMilestone({ orgSlug, projectId, milestoneNumber }, report).catch(
+          () => null,
+        )
+      : null;
+
+  // One reading of the project, shown whole or narrowed. The totals follow
+  // whichever is on screen, because a count that describes something other
+  // than the list under it is the oldest way to mislead with a report.
+  const requirements = scope ? scope.requirements : report.requirements;
+  const totals = scope ? scope.totals : report.totals;
 
   return (
     <div className="mx-auto max-w-5xl pb-16">
@@ -72,9 +97,9 @@ export default async function ReleaseEvidenceReportPage({
         <p className="mt-3 text-xs text-slate-500">
           Generated <LocalTime value={report.generatedAt} />
         </p>
-        {report.totals.stale ? (
+        {totals.stale ? (
           <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-            {report.totals.stale} of the verified requirement{report.totals.stale === 1 ? " was" : "s were"} last
+            {totals.stale} of the verified requirement{totals.stale === 1 ? " was" : "s were"} last
             checked more than a month ago. A verdict is only as current as the run behind it.
           </p>
         ) : null}
@@ -93,12 +118,61 @@ export default async function ReleaseEvidenceReportPage({
         </p>
       </header>
 
+      {milestones.length > 0 ? (
+        // A release is read from the tracker rather than kept here, so these
+        // are the team's own milestones and cannot drift from them.
+        <nav className="mt-6 flex flex-wrap items-center gap-2 print:hidden" aria-label="Release scope">
+          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Showing</span>
+          <Link
+            href={`${base}/release/report`}
+            className={
+              scope
+                ? "rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300"
+                : "rounded-xl border border-cyan-300 bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-800"
+            }
+          >
+            The whole project
+          </Link>
+          {milestones.map((entry) => (
+            <Link
+              key={entry.number}
+              href={`${base}/release/report?milestone=${entry.number}`}
+              className={
+                scope?.milestone.number === entry.number
+                  ? "rounded-xl border border-cyan-300 bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-800"
+                  : "rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300"
+              }
+            >
+              {entry.title}
+              <span className="ml-1.5 font-normal text-slate-400">{entry.issueCount}</span>
+            </Link>
+          ))}
+        </nav>
+      ) : null}
+
+      {scope ? (
+        <p className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-600">
+          The counts below describe the {scope.requirements.length} requirement
+          {scope.requirements.length === 1 ? "" : "s"} written up for{" "}
+          <span className="font-semibold text-slate-900">{scope.milestone.title}</span>, not the
+          whole project.
+          {scope.withoutRequirement > 0 ? (
+            <>
+              {" "}
+              {scope.withoutRequirement} issue
+              {scope.withoutRequirement === 1 ? " in it has" : "s in it have"} no requirement here, so
+              nothing on this page says anything about {scope.withoutRequirement === 1 ? "it" : "them"}.
+            </>
+          ) : null}
+        </p>
+      ) : null}
+
       <section className="mt-6 grid gap-3 sm:grid-cols-3">
         {(
           [
-            ["Verified", report.totals.verified, "border-emerald-200 bg-emerald-50 text-emerald-800"],
-            ["Failing", report.totals.failing, "border-red-200 bg-red-50 text-red-800"],
-            ["Unverified", report.totals.unverified, "border-slate-200 bg-slate-50 text-slate-700"],
+            ["Verified", totals.verified, "border-emerald-200 bg-emerald-50 text-emerald-800"],
+            ["Failing", totals.failing, "border-red-200 bg-red-50 text-red-800"],
+            ["Unverified", totals.unverified, "border-slate-200 bg-slate-50 text-slate-700"],
           ] as const
         ).map(([label, value, style]) => (
           <div key={label} className={`rounded-2xl border p-5 ${style}`}>
@@ -115,7 +189,7 @@ export default async function ReleaseEvidenceReportPage({
         </p>
       ) : (
         <section className="mt-8 space-y-5">
-          {report.requirements.map((requirement) => (
+          {requirements.map((requirement) => (
             <article
               key={requirement.id}
               className="break-inside-avoid rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"

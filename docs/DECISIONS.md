@@ -775,3 +775,22 @@ blocks a merge makes the tool the decider, and the entire design of this
 product is that it reports what it can show and leaves the judgement to a
 person; a note that is read and ignored is still honest, where a gate that
 is bypassed teaches people to bypass it.
+
+## 051 — The release is read from the tracker, never owned here
+
+**Decision:** Evidence can be scoped to a GitHub milestone. `listMilestones`
+and `listMilestoneReferences` read the team's own milestones under an
+`issues: read` token; `scopeReleaseToMilestone` filters a report already
+built, joining on `Requirement.externalReference`. The evidence report page
+gained a row of chips. No schema change, no sprint or release entity.
+
+**Reason:** The question is real -- what does the evidence say about what we
+are shipping -- and a project-wide report cannot answer it. But a release is
+a time-box, and a time-box is mutable and already maintained in the tracker.
+Owning a copy would mean two that disagree within a week, a page to maintain
+the disagreement on, and a fight with Jira that this product should not pick.
+The join already existed: a requirement drafted from a ticket carries its
+reference. What the approach cannot do is stated rather than hidden --
+requirements written by hand belong to no milestone, and issues with no
+requirement behind them are counted and named, because a release that looks
+smaller than it is also looks better verified than it is.

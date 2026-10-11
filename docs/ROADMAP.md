@@ -15,6 +15,25 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Reaching the people who never open it
+- **The evidence can be read for one release, without owning the release**
+  (2026-10-11): a product owner arrives asking what the evidence says for
+  what they are shipping, and the whole report cannot answer it -- a project
+  holds every requirement it ever had and a release is a handful of them.
+  Answered without a release entity. A sprint or a milestone is a time-box
+  that lives in the tracker where the team edits it daily; a copy here would
+  disagree with it inside a week and would need a page to disagree on. So the
+  grouping is read from GitHub milestones and the join is the reference a
+  requirement already carries from the ticket it was drafted from, which the
+  ticket fetch now fills in by itself. No new entity, no new page: a row of
+  chips on the evidence report that already existed.
+  The cost is stated rather than hidden. Requirements written by hand carry
+  no reference and belong to no milestone, and an issue in the milestone that
+  no requirement references is reported as exactly that -- work going out
+  with nothing saying anything about it, which is what a release review is
+  for. Totals follow whichever list is on screen, because a count describing
+  something other than the list beneath it is the oldest way to mislead with
+  a report.
+### Reaching the people who never open it
 - **A push is told what it did to the evidence, on its pull request**
   (2026-10-11): the structural problem this product has is not missing
   features, it is that everything it knows lives on its own pages. A
