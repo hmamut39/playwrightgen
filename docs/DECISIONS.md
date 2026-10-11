@@ -736,3 +736,20 @@ because the pattern is correct whenever the hook does not depend on what is
 missing, and a reviewer can see which case this is; blocking it would refuse
 working code. Both were found by reading PlaywrightGen's own recorded
 evidence about its own failing test.
+
+## 049 — Two causes of an unrecorded result are counted apart
+
+**Decision:** `IngestSummary` and `DeliveryCounts` separate `unmatched` (the
+title carried no marker) from `unknownVersion` (it carried one naming a
+version this project does not have). `deliveryNote` words each cause
+distinctly and emits both when a delivery carries some of each. The ingest
+response, the Activity metadata and `readLastCiDelivery` carry both numbers;
+metadata written before the split reads as zero.
+
+**Reason:** The counts were right and the sentence was wrong, which is worse
+than no sentence: the two causes need opposite advice. One says a marker is
+missing and should be added. The other means the marker is already present
+and names something belonging to a different project, or a version since
+removed -- so adding markers is the one thing that cannot help. A single
+counter could not tell them apart, so a single sentence had to guess, and it
+guessed wrong on PlaywrightGen's own delivery.

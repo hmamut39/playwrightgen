@@ -161,7 +161,16 @@ function toStepResult(status: z.infer<typeof resultStatusSchema>) {
 export type IngestSummary = {
   recorded: number;
   duplicates: number;
+  /** Results whose title carried no marker at all. */
   unmatched: number;
+  /**
+   * Results carrying a marker for a version this project does not have.
+   *
+   * Counted apart because the two need opposite advice: one says add a
+   * marker, the other says the marker is already there and points
+   * somewhere else.
+   */
+  unknownVersion: number;
   /**
    * Attempts recorded by this delivery that did not pass, so the caller can
    * analyze them without querying for what it just wrote. Returned rather than
@@ -213,6 +222,7 @@ export async function ingestPlaywrightResults(
     recorded: 0,
     duplicates: 0,
     unmatched: 0,
+    unknownVersion: 0,
     failures: [],
     organizationId,
     actorUserId,
@@ -230,7 +240,7 @@ export async function ingestPlaywrightResults(
       select: { id: true, testCaseId: true },
     });
     if (!version) {
-      summary.unmatched += 1;
+      summary.unknownVersion += 1;
       continue;
     }
 
@@ -401,6 +411,7 @@ export async function ingestPlaywrightResults(
         recorded: summary.recorded,
         duplicates: summary.duplicates,
         unmatched: summary.unmatched,
+        unknownVersion: summary.unknownVersion,
         total: payload.results.length,
       },
     },

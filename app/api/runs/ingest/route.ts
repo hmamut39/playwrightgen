@@ -227,6 +227,7 @@ export async function handleRunIngestRequest(
       recorded: summary.recorded,
       duplicates: summary.duplicates,
       unmatched: summary.unmatched,
+      unknownVersion: summary.unknownVersion,
     };
 
     // The same sentence the project page shows, so a build engineer reading

@@ -82,6 +82,9 @@ export async function readLastCiDelivery(
     recorded: countFrom(metadata.recorded),
     duplicates: countFrom(metadata.duplicates),
     unmatched: countFrom(metadata.unmatched),
+    // Absent on rows written before the two causes were told apart, which
+    // reads as zero and leaves the older wording untouched.
+    unknownVersion: countFrom(metadata.unknownVersion),
     total: countFrom(metadata.total),
   };
 

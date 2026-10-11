@@ -386,14 +386,22 @@ describe("Playwright result ingestion from customer CI", () => {
     expect(verdict?.detail).toContain("in the application");
   });
 
-  it("reports unmatched results instead of inventing evidence", async () => {
+  it("reports a marker for a version it does not have, without inventing evidence", async () => {
     const space = await workspace();
     await approvedVersion(space);
 
     const unknownVersion = `${buildTestCaseVersionMarker("55555555-5555-4555-8555-555555555555")} orphan`;
     const summary = await ingestPlaywrightResults(payload(space, unknownVersion), { prisma });
 
-    expect(summary).toMatchObject({ recorded: 0, duplicates: 0, unmatched: 1 });
+    // Counted apart from a result with no marker at all: the marker is
+    // there and names something this project does not have, which needs the
+    // opposite advice.
+    expect(summary).toMatchObject({
+      recorded: 0,
+      duplicates: 0,
+      unmatched: 0,
+      unknownVersion: 1,
+    });
     expect(await prisma.testRunAttempt.count()).toBe(0);
   });
 
@@ -402,6 +410,7 @@ describe("Playwright result ingestion from customer CI", () => {
     await approvedVersion(space);
 
     const summary = await ingestPlaywrightResults(payload(space, "some unrelated spec"), { prisma });
+    expect(summary).toMatchObject({ recorded: 0, unmatched: 1, unknownVersion: 0 });
 
     expect(summary).toMatchObject({ recorded: 0, duplicates: 0, unmatched: 1 });
     expect(await prisma.testRun.count()).toBe(0);

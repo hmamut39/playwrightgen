@@ -18,8 +18,17 @@ export type DeliveryCounts = {
   recorded: number;
   /** Results already recorded for this same run. */
   duplicates: number;
-  /** Results that carried no marker, or a marker for nothing in this project. */
+  /** Results whose title carried no marker at all. */
   unmatched: number;
+  /**
+   * Results that carried a marker for a version this project does not have.
+   *
+   * Counted apart from `unmatched` because the two need opposite advice, and
+   * telling somebody to add a marker that is already there sends them looking
+   * in the wrong place. PlaywrightGen's own delivery on 2026-09-22 was this
+   * case, and was told it carried no marker.
+   */
+  unknownVersion: number;
   /** Everything the pipeline reported. */
   total: number;
 };
@@ -49,15 +58,34 @@ export function rejectionNote(reason: RejectionReason): string {
       return 'This delivery was signed with a valid token, but this project has no active repository connection, so there is nobody to attribute the evidence to. Reconnect the repository and the next run will be recorded.';
   }
 }
+/** Why results with no marker were not recorded. */
+const NO_MARKER =
+  "A result is attached to an approved test by a [pwg:…] marker in its title, which PlaywrightGen puts there when it writes the test. Tests written elsewhere carry no marker, so they are not recorded here and nothing here claims to have checked them.";
+
+/**
+ * Why results with a marker were still not recorded.
+ *
+ * The opposite advice to the one above: adding a marker is exactly what this
+ * person must not go and do, because the marker is already there.
+ */
+const UNKNOWN_VERSION =
+  "The marker names a test version this project does not have, which usually means those tests belong to a different PlaywrightGen project, or the version they were written against has since been removed.";
+
 export function deliveryNote(counts: DeliveryCounts): string {
   const { recorded, duplicates, unmatched, total } = counts;
+  const unknownVersion = counts.unknownVersion ?? 0;
 
   if (total === 0) return "The pipeline reported no results at all.";
 
   if (recorded === 0 && duplicates === 0) {
     const nothing =
       total === 1 ? "The one result was not recorded." : `None of the ${total} results were recorded.`;
-    return `${nothing} A result is attached to an approved test by a [pwg:…] marker in its title, which PlaywrightGen puts there when it writes the test. Tests written elsewhere carry no marker, so they are not recorded here and nothing here claims to have checked them.`;
+    // Whichever cause actually applies. Both, when a delivery carries some of
+    // each, because sending somebody to fix the wrong one costs an afternoon.
+    const why = [unmatched > 0 ? NO_MARKER : null, unknownVersion > 0 ? UNKNOWN_VERSION : null]
+      .filter(Boolean)
+      .join(" ");
+    return `${nothing} ${why || NO_MARKER}`;
   }
 
   const parts = [`Recorded ${recorded} of ${plural(total, "result")}.`];
@@ -67,6 +95,11 @@ export function deliveryNote(counts: DeliveryCounts): string {
   if (unmatched > 0) {
     parts.push(
       `${plural(unmatched, "result")} carried no [pwg:…] marker, so ${unmatched === 1 ? "it belongs" : "they belong"} to tests PlaywrightGen does not know about.`,
+    );
+  }
+  if (unknownVersion > 0) {
+    parts.push(
+      `${plural(unknownVersion, "result")} carried a marker for a test version this project does not have.`,
     );
   }
   return parts.join(" ");

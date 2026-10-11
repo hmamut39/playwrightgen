@@ -201,6 +201,31 @@ describe("what a delivery from CI leaves behind", () => {
     expect(delivery?.note).toContain("Recorded 1 of 2 results.");
   });
 
+  it("tells a marker for another project apart from no marker at all", async () => {
+    const space = await workspace();
+    // A real uuid that is not a version in this project: what a result looks
+    // like when the tests belong to a different PlaywrightGen project, or the
+    // version they were written against has been removed.
+    const stranger = "11111111-1111-4111-8111-111111111111";
+
+    const summary = await ingestPlaywrightResults(
+      payload(space, [
+        `[pwg:${stranger}] a test from somewhere else`,
+        "a test with no marker at all",
+      ]),
+      { prisma },
+    );
+
+    expect(summary).toMatchObject({ recorded: 0, unmatched: 1, unknownVersion: 1 });
+
+    const delivery = await readLastCiDelivery({ projectId: space.project.id }, deps(space));
+    expect(delivery).toMatchObject({ unmatched: 1, unknownVersion: 1, total: 2 });
+    // Both causes named, because a delivery can carry some of each and the
+    // advice for them is opposite.
+    expect(delivery?.note).toContain("Tests written elsewhere carry no marker");
+    expect(delivery?.note).toContain("a test version this project does not have");
+  });
+
   it("says nothing has arrived when nothing has", async () => {
     const space = await workspace();
 

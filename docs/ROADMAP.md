@@ -15,6 +15,22 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### What the product found in itself
+- **A marker that points nowhere is not a missing marker** (2026-10-11):
+  ingest counted two quite different outcomes as `unmatched` -- a result
+  whose title carried no `[pwg:…]` marker, and one carrying a marker for a
+  version this project does not have -- and the delivery note told both of
+  them "carried no marker, so they belong to tests PlaywrightGen does not
+  know about". For the second that is false, and the advice is backwards: the
+  marker is already there, and the fix is to look at which project the tests
+  belong to, not to add something.
+  PlaywrightGen's own delivery on 2026-09-22 was exactly that case and was
+  told exactly the wrong thing -- found while checking whether a different
+  hypothesis about multiple tests per file was true. It was not; this was.
+  The two are now counted apart as `unmatched` and `unknownVersion`, and the
+  note says whichever applies, or both when a delivery carries some of each.
+  Rows written before the split read as zero, so older deliveries keep their
+  original wording rather than acquiring a claim nobody measured.
+### What the product found in itself
 - **The proof repository is green again, and says it has not been verified**
   (2026-10-11): `playwrightgen-ci-proof` had failed every run since
   2026-09-07. Fixed in that repository the way the new rules describe: the
