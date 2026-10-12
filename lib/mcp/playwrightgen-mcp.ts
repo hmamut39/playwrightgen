@@ -914,7 +914,7 @@ const tools: Tool[] = [
             round.verdict === "passed"
               ? `Run ${round.attempt}: passed, ${round.passed} checks.`
               : round.verdict === "partial"
-                ? `Run ${round.attempt}: nothing failed, ${round.skipped} steps could not run here.`
+                ? `Run ${round.attempt}: nothing failed, ${round.skipped} step${round.skipped === 1 ? "" : "s"} could not run here.`
                 : `Run ${round.attempt}: failed at "${round.failingStep ?? "a step"}" after ${round.passed} checks.`,
           ];
         }

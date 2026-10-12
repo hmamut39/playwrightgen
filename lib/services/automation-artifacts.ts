@@ -938,7 +938,7 @@ export function describeLiveRun(run: AutomationLiveRun) {
   const fixed = run.fixes ? ` after ${run.fixes} automatic fix${run.fixes === 1 ? "" : "es"}` : "";
   if (run.verdict === "passed") return `Passed on ${run.pageUrl}: ${run.passed} checks${fixed}.`;
   if (run.verdict === "partial") {
-    return `Ran on ${run.pageUrl}: ${run.passed} checks passed${fixed}, ${run.notRun} steps could not run there.`;
+    return `Ran on ${run.pageUrl}: ${run.passed} check${run.passed === 1 ? "" : "s"} passed${fixed}, ${run.notRun} step${run.notRun === 1 ? "" : "s"} could not run there.`;
   }
   return `Did not pass on ${run.pageUrl}${fixed}: ${run.failed} failed after ${run.passed} checks. Review the code before approving.`;
 }

@@ -328,7 +328,7 @@ export default async function AutomationArtifactPage({
                     Run on <span className="font-medium">{liveRun.pageUrl}</span> on{" "}
                     <LocalTime value={new Date(liveRun.ranAt)} />
                     {liveRun.fixes ? ` · ${liveRun.fixes} automatic fix${liveRun.fixes === 1 ? "" : "es"} before this result` : ""}
-                    {liveRun.notRun ? ` · ${liveRun.notRun} steps could not run there` : ""}
+                    {liveRun.notRun ? ` · ${liveRun.notRun} step${liveRun.notRun === 1 ? "" : "s"} could not run there` : ""}
                     . A person still reviews and approves it.
                   </p>
                 ) : null}
