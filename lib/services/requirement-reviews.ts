@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { Prisma } from "@/generated/prisma/client";
 import {
   reviewRequirementVersion,
-  validateRequirementReviewEvidence,
+  prepareRequirementReview,
   type RequirementReviewResult,
 } from "@/lib/ai/requirement-review";
 import {
@@ -174,7 +174,11 @@ export async function runRequirementReview(
   let result: RequirementReviewResult;
   try {
     result = await (dependencies?.reviewer ?? reviewRequirementVersion)(evidence);
-    validateRequirementReviewEvidence(result, evidence);
+    // Run for an injected reviewer too, and harmless for the real one: the
+    // provider has already dropped what it could not support, and dropping
+    // nothing a second time changes nothing.
+    const prepared = prepareRequirementReview(result, evidence);
+    result = { ...result, ...prepared.review };
   } catch (error) {
     const failureCode =
       error instanceof Error && /^[a-z_]+$/.test(error.message)
@@ -184,6 +188,12 @@ export async function runRequirementReview(
       where: { id: run.id },
       data: { status: "FAILED", failureCode, completedAt: new Date() },
     });
+    // The code reached a database column and nothing else, so a review that
+    // failed the same way every time looked like one unexplained crash page.
+    // A provider outage and a reading this product refused to store are not
+    // the same thing to whoever has to fix it. No requirement text is logged:
+    // the code and the run are enough to find the row.
+    console.error(`[requirement-review] ${failureCode} (ai run ${run.id})`);
     throw new RequirementReviewDomainError("requirement_review_failed", 502);
   }
 

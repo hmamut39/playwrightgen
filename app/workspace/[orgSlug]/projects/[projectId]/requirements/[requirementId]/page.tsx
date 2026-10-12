@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import {
   listRequirementReviews,
+  RequirementReviewDomainError,
   resolveAiSuggestion,
   runRequirementReview,
 } from "@/lib/services/requirement-reviews";
@@ -216,6 +217,13 @@ export default async function RequirementDetailPage({
       // requirement with a crash page telling the reviewer to try again.
       const refused = aiAllowanceNotice(error);
       if (refused) redirect(`${requirementPath}?notice=${refused}`);
+      // Any other refusal from the review is still not worth the page the
+      // reviewer is working on. The review saves nothing until it succeeds,
+      // so there is nothing to lose by saying so and leaving them where they
+      // were -- and submitting for review never depended on it.
+      if (error instanceof RequirementReviewDomainError) {
+        redirect(`${requirementPath}?notice=review-failed`);
+      }
       throw error;
     }
     revalidatePath(requirementPath);
@@ -247,6 +255,13 @@ export default async function RequirementDetailPage({
       </Link>
 
       <AiAllowanceNotice notice={notice} orgSlug={orgSlug} what="The review did not run." />
+      {notice === "review-failed" ? (
+        <div role="alert" className="mt-6 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
+          <span className="font-semibold">The AI review did not finish, so nothing was added.</span> Your requirement
+          is exactly as you left it, and submitting it for review never depended on this. Trying once more is worth
+          it; if it keeps failing, the words below are still what counts.
+        </div>
+      ) : null}
 
       <header className="mt-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
         <div className="min-w-0">

@@ -15,6 +15,31 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **The AI requirement review was refusing its own work, silently**
+  (2026-10-12): walking the reviewer's leg on a requirement drafted from a
+  pasted ticket, "Run AI review" replaced the page with "This page didn't
+  load" -- every time, and not because of the allowance. The reason reached a
+  database column and nothing else: one code, `invalid_output`, covering
+  three different faults, never logged, never shown. The reviewer saw a crash
+  and the operator saw nothing.
+  With the code logged and split, the fault was plain: the model had raised
+  an edge case without quoting the requirement, and the product throws away
+  the entire review when any suggestion cannot be supported. That rule is
+  right for a quote the requirement does not contain -- attributing words to
+  a customer who never wrote them is the one thing this product must never do
+  -- and wrong for a suggestion that quotes nothing, which attributes nothing.
+  Those are now treated apart: a fabricated quote still refuses the lot, a
+  suggestion citing nothing is dropped, and the summary says how many were
+  dropped and why. The review page also survives any other refusal with a
+  sentence instead of a crash.
+  Live afterwards, same requirement: the review succeeded, kept two
+  missing-criteria suggestions a reviewer can act on, and said "3 further
+  suggestions quoted nothing in this requirement and were left out".
+  Typographic punctuation is now flattened before an excerpt is compared, so
+  a curly apostrophe out of Jira cannot fail an honest quote. That was a
+  guess about the cause, not the cause; it is a real robustness fix and it
+  earned no credit for this one.
+
 - **A skipped test is an absence, not a failure** (2026-10-12): the first
   question of the day was whether the dogfood repository was still red. It
   was green -- and green for the wrong reason. Yesterday's fix there made an
