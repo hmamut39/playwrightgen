@@ -15,6 +15,28 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **The pull request says what the test needs before it can run**
+  (2026-10-12): trying to make the dogfood repository prove something
+  explained why it never had. PlaywrightGen writes tests that open `./`,
+  relative to Playwright's `baseURL`, and the only copy of the address they
+  were proven against lives in the configuration PlaywrightGen keeps. The
+  pull request carries the test file alone -- the repository's configuration
+  belongs to the team and this product does not rewrite it -- so the test
+  arrives somewhere with no address. That repository's own config takes its
+  base URL from an environment variable its pipeline never sets, and for
+  weeks the result was a skip that no page, comment or log explained.
+  The pull request now states it where the decision is made: what the test
+  opens, the address it was proven against, that only the test file is
+  included, and that without a `baseURL` the run reports a failure about the
+  missing address rather than about the application. When the test uses full
+  addresses it says nothing.
+  Fixing it also surfaced a test that had been red on main since the
+  validation rule for relative navigation landed: the fixture generated
+  `page.goto("./")` with `defineConfig({})`, so the rule correctly blocked an
+  artifact the test then tried to submit. The fixture was unrealistic, not
+  the rule; it now carries a baseURL. The miss was mine -- the rule shipped
+  without this file among the ones I ran.
+
 - **The AI requirement review was refusing its own work, silently**
   (2026-10-12): walking the reviewer's leg on a requirement drafted from a
   pasted ticket, "Run AI review" replaced the page with "This page didn't

@@ -58,6 +58,28 @@ export function pullRequestPaths(input: { name: string; versionNumber: number })
   };
 }
 
+/**
+ * The address a relatively-navigating test needs, read from the configuration
+ * PlaywrightGen holds for it.
+ *
+ * Only the spec file goes into the pull request: the repository's own
+ * Playwright configuration is the team's, and this product does not rewrite
+ * it. That leaves one thing the reviewer has to know, because nothing else
+ * will tell them -- a test opening `./` needs a `baseURL`, and the only copy
+ * of the address it was proven against stays behind in PlaywrightGen. The
+ * dogfood repository ran such a test for weeks and reported nothing but a
+ * skip: the configuration there takes its base URL from an environment
+ * variable that the pipeline never set, and no page, comment or log said so.
+ */
+export function navigationRequirement(input: { code: string; configuration: string }): string | null {
+  const relative = [...input.code.matchAll(/\.goto\s*\(\s*["'`]([^"'`]*)/g)]
+    .map((match) => match[1])
+    .find((target) => !/^[a-z][a-z0-9+.-]*:/i.test(target));
+  if (relative === undefined) return null;
+  const baseUrl = /baseURL\s*:\s*[^'"`\n]*["'`]([^'"`]+)["'`]/.exec(input.configuration)?.[1] ?? null;
+  return baseUrl ?? "";
+}
+
 /** What the reviewer in the repository reads before merging. */
 export function pullRequestBody(input: {
   testCaseTitle: string;
@@ -66,7 +88,14 @@ export function pullRequestBody(input: {
   summary: string;
   approvedBy: string | null;
   link: string;
+  /**
+   * The address this test navigates relative to, when it navigates relatively:
+   * a URL, "" when the configuration names none, or null when the test uses
+   * full addresses and needs nothing.
+   */
+  navigationBaseUrl?: string | null;
 }) {
+  const needsBaseUrl = input.navigationBaseUrl !== null && input.navigationBaseUrl !== undefined;
   return [
     `Approved Playwright automation from PlaywrightGen for **${input.testCaseTitle}**.`,
     "",
@@ -76,6 +105,12 @@ export function pullRequestBody(input: {
     `- Record: ${input.link}`,
     "",
     "The test title carries a `[pwg:…]` marker. Keep it: it is how a CI result attaches back to the approved version.",
+    needsBaseUrl ? "" : null,
+    needsBaseUrl
+      ? input.navigationBaseUrl
+        ? `**Before this can run here:** the test opens \`./\`, relative to Playwright's \`baseURL\`. It was proven against ${input.navigationBaseUrl}. Your \`playwright.config.ts\` has to supply that address -- PlaywrightGen does not change your configuration, and only the test file is in this pull request. Without it the run reports a skip or a failure that is about the missing address, not about your application.`
+        : "**Before this can run here:** the test navigates relative to Playwright's `baseURL`, and PlaywrightGen holds no address for it. Your `playwright.config.ts` has to set one, or the run will report a failure that is about the missing address rather than your application."
+      : null,
     "",
     "PlaywrightGen opened this pull request and cannot merge it.",
   ]
@@ -128,6 +163,7 @@ export async function openAutomationPullRequest(
     testCaseVersionNumber: artifact.testCaseVersion.versionNumber,
     summary: version.summary ?? "",
     approvedBy: artifact.approvedBy?.displayName ?? null,
+    navigationBaseUrl: navigationRequirement({ code: version.code, configuration: version.configuration ?? "" }),
     link: `${siteUrl()}/workspace/${workspace.organization.slug}/projects/${projectId}/automation/${automationArtifactId}`,
   });
 

@@ -96,7 +96,11 @@ describe("offering approved automation to the connected repository", () => {
         summary: "Passed on the live page: 8 checks.",
         plan: [{ title: "Add", intent: "Add a todo", expectedAssertion: "It is listed" }],
         code: CODE,
-        configuration: `import { defineConfig } from "@playwright/test";\nexport default defineConfig({});`,
+        // With a baseURL, because the code above navigates to "./" and
+        // validation blocks a relative navigation the configuration cannot
+        // resolve. Without one this fixture produced an artifact nobody could
+        // submit for review, which is exactly what that rule is for.
+        configuration: `import { defineConfig } from "@playwright/test";\nexport default defineConfig({ use: { baseURL: "https://demo.playwright.dev/todomvc/" } });`,
         dependencies: ["@playwright/test"],
         assumptions: [],
       }),
