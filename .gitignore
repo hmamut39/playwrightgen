@@ -50,3 +50,9 @@ next-env.d.ts
 # Eval scores. A measurement from one model on one afternoon is not a fact
 # about the repository, and a file in version control invites reading it as one.
 /evals/results
+
+# Browser profiles and screenshots from local walkthrough scripts. They are
+# written beside the repository by Playwright's launchPersistentContext and
+# have no business being committed; one `git add -A` on 2026-10-12 proved it.
+/shots/
+/scratchpad/
