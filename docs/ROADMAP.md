@@ -15,11 +15,13 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
-- **This repository's own CI had been red for a day and a half** (2026-10-12):
-  found by asking why production had stopped taking deployments. Every push
-  since 2026-10-11 21:56 failed at "Audit dependencies", including all of
-  yesterday's and today's work -- verified locally each time with typecheck,
-  lint, targeted tests and a build, and never once checked against the
+- **This repository's own CI has been red since 2026-09-23** (2026-10-12):
+  found by asking why production had stopped taking deployments, and worse
+  than first written here. The claim that it had been red "for a day and a
+  half" was about one step: the dependency audit began failing on 2026-10-11
+  21:56. The workflow as a whole has failed on all 58 runs since 2026-09-23.
+  Every commit yesterday and today was verified locally with typecheck, lint,
+  targeted tests and a production build, and not one was checked against the
   repository's own pipeline. Exactly the failure this product exists to
   prevent, in the repository that builds it.
   The advisories were real: a critical one in `next`, nine high, among them
@@ -1511,6 +1513,28 @@ test suite (493 tests) passes.
 - Billing page states the plan, the daily AI allowance and the trial date.
 
 ## Next
+
+First for 2026-10-13, in this order:
+
+1. **This repository's CI, red on every run since 2026-09-23.** The audit
+   gate is fixed and the failure moved to "Run unit and integration tests",
+   where three causes are visible in the log: tests that call the AI guard
+   and fail on `Invalid Upstash Redis environment configuration` because the
+   repository holds no Actions secrets at all; one test that needs
+   `RUNNER_INGEST_SECRET`; and six `reviewable_automation_required` failures,
+   the same unrealistic fixture fixed in `automation-pull-requests.test.ts`
+   on 2026-10-12 and still present elsewhere. The guard ones are the real
+   decision: either CI gets the two secrets, or those tests inject a guard
+   instead of reaching the real one. The second is better and is more work.
+2. **The owner's two steps on the proof repository**: merge
+   hmamut39/playwrightgen-ci-proof#1, and give that repository a `BASE_URL`
+   variable of `https://demo.playwright.dev/todomvc/` plus the updated
+   workflow and config from `examples/ci-proof`. Then its CI proves a real
+   test for the first time, and the delivery records a pass rather than a
+   skip.
+3. **The pull-request comment from a real delivery.** With #1 merged and a
+   passing run, the note PlaywrightGen leaves on a pull request can finally
+   be seen on a real one.
 
 Walked on 2026-10-12: the developer's CI leg, the automation leg, and the
 AI paths. The dogfood repository is green and the product now says what that
