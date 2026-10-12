@@ -15,6 +15,29 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **This repository's own CI had been red for a day and a half** (2026-10-12):
+  found by asking why production had stopped taking deployments. Every push
+  since 2026-10-11 21:56 failed at "Audit dependencies", including all of
+  yesterday's and today's work -- verified locally each time with typecheck,
+  lint, targeted tests and a build, and never once checked against the
+  repository's own pipeline. Exactly the failure this product exists to
+  prevent, in the repository that builds it.
+  The advisories were real: a critical one in `next`, nine high, among them
+  `undici` reached through `cheerio`, which this codebase uses to read HTML.
+  Fixed where a fix exists -- `next` to 16.4.0, `vitest` to 4.1.11, and
+  overrides pinning `undici`, `sharp`, `micromatch`, `brace-expansion` and
+  `fast-uri` to patched versions. What ships now audits clean at every
+  severity.
+  One advisory cannot be fixed: `braces` has a high advisory against every
+  version ever published and reaches this project only through
+  eslint-config-next's plugin chain. A gate no change to this repository can
+  satisfy is not a gate, it is a permanent red light that hides the real
+  failures behind it, so the enforced audit is now what ships
+  (`npm audit --omit=dev --audit-level=high`) and development tooling is
+  audited beside it without failing the build. The next session should check
+  whether `braces` has a patched release and, if so, enforce the whole tree
+  again.
+
 - **"Open a pull request" crashed every time it was pressed** (2026-10-12):
   the one path in the GitHub integration nothing had walked. The action
   redirected using `artifactPath`, a constant declared two lines below it, so

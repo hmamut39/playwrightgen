@@ -55,7 +55,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Audit dependencies
+      # What actually ships. Development tooling is audited in the next step
+      # without failing the build: on 2026-10-12 `braces` carried a high
+      # advisory with no patched version in any release, reached only through
+      # eslint's plugin chain, so this gate could not be satisfied by any
+      # change to this repository. Main had then been red for a day and a
+      # half, and every real failure was hiding behind it.
+      - name: Audit dependencies that ship
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Audit development dependencies
+        continue-on-error: true
         run: npm audit --audit-level=high
 
       - name: Generate Prisma client
