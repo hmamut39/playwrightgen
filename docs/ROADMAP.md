@@ -1440,6 +1440,27 @@ test suite (493 tests) passes.
 
 ## Next
 
+Walked on 2026-10-12: the developer's CI leg, the automation leg, and the
+AI paths. The dogfood repository is green and the product now says what that
+green means -- verified in its real CI log, from production: "Recorded 1 of 1
+result. It was skipped, so nothing here demonstrates the behaviour: a skipped
+test is usually waiting on something the run did not have, such as an address
+or a credential." The automation leg runs end to end: an approved test case
+generated code, ran on the live page (7 checks passed, 1 step could not run
+there), passed deterministic validation and waits for a person. Ticket into
+draft, approval, and proposing test cases all succeed; the AI requirement
+review was broken for every requirement whose review carried an unquoted
+suggestion and now works.
+
+Still unwalked: a pull-request comment from a real delivery (the proof
+repository pushes to main, so there has been no open pull request to comment
+on; opening one on it is the way to see that surface), and the proof
+repository still proves nothing, because its only test was written against a
+shop that does not exist. The honest fix there is a test from PlaywrightGen's
+own flow against a page that does exist -- the TodoMVC demo -- pushed to the
+repository by the product, which is also the one path in the GitHub
+integration never yet walked.
+
 Where 2026-10-11 stopped, so the next session starts without re-deriving it.
 The whole-company walkthrough reached the outside world -- lead creates a
 project, the product plans and proves on the live page, the BA drafts, the
