@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -18,7 +18,6 @@ beforeAll(() => {
 // private helper.
 function mint(claim: Record<string, unknown>, secret = SECRET) {
   const body = Buffer.from(JSON.stringify(claim)).toString("base64url");
-  const { createHmac } = require("node:crypto") as typeof import("node:crypto");
   return `pwgp1.${body}.${createHmac("sha256", secret).update(body).digest("base64url")}`;
 }
 

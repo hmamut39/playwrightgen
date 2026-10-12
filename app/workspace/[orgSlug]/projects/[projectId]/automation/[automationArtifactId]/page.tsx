@@ -64,6 +64,14 @@ export default async function AutomationArtifactPage({
     detail.canApprove &&
     (await hasConnectedRepository({ orgSlug, projectId }).catch(() => false));
 
+  // Declared before the actions that close over them. `pullRequestAction`
+  // sat above these two lines and every press of "Open a pull request" threw
+  // "artifactPath is not defined" and showed a crash page -- the one path in
+  // the GitHub integration nothing had walked since the refactor that moved
+  // them down here.
+  const base = `/workspace/${orgSlug}/projects/${projectId}`;
+  const artifactPath = `${base}/automation/${automationArtifactId}`;
+
   /**
    * Offers the approved code to the connected repository. PlaywrightGen opens
    * the pull request and stops; the repository's own review decides.
@@ -82,8 +90,6 @@ export default async function AutomationArtifactPage({
     revalidatePath(artifactPath);
     redirect(`${artifactPath}?pr=${encodeURIComponent(url)}`);
   }
-  const base = `/workspace/${orgSlug}/projects/${projectId}`;
-  const artifactPath = `${base}/automation/${automationArtifactId}`;
   const currentVersion = artifact.versions.find(
     (version) => version.versionNumber === artifact.currentVersionNumber,
   );

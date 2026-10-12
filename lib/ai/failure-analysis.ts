@@ -73,16 +73,6 @@ function normalize(value: string): string {
     .trim();
 }
 
-function isVerifiedQuote(
-  finding: { evidenceQuote: string; evidenceField: keyof FailureAnalysisEvidence },
-  evidence: FailureAnalysisEvidence,
-) {
-  const quote = normalize(finding.evidenceQuote);
-  const source = normalize(evidence[finding.evidenceField]);
-  if (!quote || !source.includes(quote)) return false;
-  return quote.length >= MIN_QUOTE_LENGTH || quote === source;
-}
-
 /**
  * The shortest quote that can carry meaning on its own.
  *
@@ -92,6 +82,16 @@ function isVerifiedQuote(
  * what it refers to is treated as no citation at all.
  */
 const MIN_QUOTE_LENGTH = 8;
+
+function isVerifiedQuote(
+  finding: { evidenceQuote: string; evidenceField: keyof FailureAnalysisEvidence },
+  evidence: FailureAnalysisEvidence,
+) {
+  const quote = normalize(finding.evidenceQuote);
+  const source = normalize(evidence[finding.evidenceField]);
+  if (!quote || !source.includes(quote)) return false;
+  return quote.length >= MIN_QUOTE_LENGTH || quote === source;
+}
 
 export function validateFailureAnalysisEvidence(
   analysis: z.infer<typeof failureAnalysisSchema>,

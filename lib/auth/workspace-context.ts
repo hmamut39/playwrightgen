@@ -132,6 +132,33 @@ function forbidden(
   throw new WorkspaceAuthorizationError(code, 403);
 }
 
+const CONTRIBUTOR_PERMISSIONS = new Set<WorkspacePermission>([
+  "testrun:create",
+  "testrun:record",
+  "failure:analyze",
+  "automation:generate",
+  "automation:submit",
+  "requirement:create",
+  "requirement:update",
+  "requirement:submit",
+  "testcase:create",
+  "testcase:update",
+  "testcase:submit",
+  "testcase:traceability",
+]);
+
+const LEAD_PERMISSIONS = new Set<WorkspacePermission>([
+  "project:update",
+  "requirement:approve",
+  "testcase:approve",
+  "automation:approve",
+  "testrun:cancel",
+  "failure:resolve",
+  "repository:connect",
+  "repository:import",
+  "repository:pull_request",
+]);
+
 function hasPermission(input: {
   permission: WorkspacePermission;
   organizationRole: Membership["role"];
@@ -194,33 +221,6 @@ function hasPermission(input: {
     input.projectRole === "PROJECT_LEAD"
   );
 }
-
-const CONTRIBUTOR_PERMISSIONS = new Set<WorkspacePermission>([
-  "testrun:create",
-  "testrun:record",
-  "failure:analyze",
-  "automation:generate",
-  "automation:submit",
-  "requirement:create",
-  "requirement:update",
-  "requirement:submit",
-  "testcase:create",
-  "testcase:update",
-  "testcase:submit",
-  "testcase:traceability",
-]);
-
-const LEAD_PERMISSIONS = new Set<WorkspacePermission>([
-  "project:update",
-  "requirement:approve",
-  "testcase:approve",
-  "automation:approve",
-  "testrun:cancel",
-  "failure:resolve",
-  "repository:connect",
-  "repository:import",
-  "repository:pull_request",
-]);
 
 async function defaultAuthenticate(): Promise<WorkspaceAuthState> {
   const authState = await auth();

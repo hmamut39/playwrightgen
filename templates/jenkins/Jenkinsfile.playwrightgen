@@ -82,6 +82,13 @@ pipeline {
       steps {
         // A failing run is evidence too, so reporting happens either way and
         // the build's own result is decided in the Report stage.
+        //
+        // Your application's address and any test credentials come from this
+        // job's environment or credentials binding. A test PlaywrightGen
+        // wrote opens './', relative to Playwright's baseURL, so a
+        // configuration that reads the address from the environment needs it
+        // set here -- otherwise the run reports a skip or a failure that is
+        // about the missing address rather than your application.
         script {
           env.PLAYWRIGHTGEN_OUTCOME = sh(
             script: 'npx playwright test --reporter=json > playwright-report.json',

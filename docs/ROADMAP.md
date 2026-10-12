@@ -15,6 +15,33 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **"Open a pull request" crashed every time it was pressed** (2026-10-12):
+  the one path in the GitHub integration nothing had walked. The action
+  redirected using `artifactPath`, a constant declared two lines below it, so
+  every press threw "artifactPath is not defined" and showed the crash page --
+  after the branch and the commit had already been written, which is how a
+  branch from September came to exist with no record of anyone succeeding.
+  Fixed by declaring the paths above the actions that close over them, and
+  `no-use-before-define` is now on for variables, which is what would have
+  caught it. Four other places tripped it; all four were safe (references
+  inside functions that run later), and three were reordered while the fourth
+  carries a comment saying why it stays.
+  Two more things the same walk found. The pull request now says what the test
+  needs before it can run -- it opens `./`, the address it was proven against,
+  and that only the test file is included -- because PlaywrightGen keeps the
+  configuration that holds the baseURL and the repository's own config belongs
+  to the team. And when a pull request for that branch already exists, its
+  description is refreshed instead of left at an earlier version's: the
+  dogfood repository's had sat there since September while the product pushed
+  new commits under it.
+  The pipeline template now passes `BASE_URL` from repository variables into
+  the test run, with the reason written beside it; the GitLab and Jenkins
+  templates already pass their whole environment through, so they say it
+  rather than change. The example repository's configuration reads that
+  variable, which it previously did not set at all.
+  Verified on the real pull request: hmamut39/playwrightgen-ci-proof#1 now
+  carries the current description and the sentence about the address.
+
 - **The pull request says what the test needs before it can run**
   (2026-10-12): trying to make the dogfood repository prove something
   explained why it never had. PlaywrightGen writes tests that open `./`,

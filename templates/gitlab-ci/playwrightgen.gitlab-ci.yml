@@ -49,6 +49,12 @@ playwrightgen:
     # Which environment this run exercised: LOCAL, DEVELOPMENT, STAGING,
     # PRODUCTION or OTHER. It is recorded with the evidence.
     PLAYWRIGHTGEN_ENVIRONMENT: DEVELOPMENT
+  # Your application's address and anything else your tests need come from
+  # this project's CI/CD variables, which GitLab already puts in the
+  # environment here. A test PlaywrightGen wrote opens './', relative to
+  # Playwright's baseURL, so a configuration that reads the address from the
+  # environment needs that variable set -- otherwise the run reports a skip or
+  # a failure that is about the missing address rather than your application.
   script:
     - npm ci
     - npx playwright install --with-deps chromium

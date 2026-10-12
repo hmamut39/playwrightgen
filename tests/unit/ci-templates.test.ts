@@ -78,6 +78,23 @@ describe("the pipeline files a team downloads", () => {
     }
   });
 
+  it("gives the test run a way to be told the application's address", () => {
+    // A test PlaywrightGen writes opens './', relative to Playwright's
+    // baseURL. The pipeline it hands a team passed nothing to the test run,
+    // so a configuration reading the address from the environment got
+    // nothing, and the dogfood repository reported a skip for weeks with no
+    // page, log or comment saying why.
+    const workflow = read("github-actions/playwrightgen.yml");
+    const testStep = workflow.slice(workflow.indexOf("name: Run Playwright"));
+    expect(testStep).toContain("BASE_URL: ${{ vars.BASE_URL }}");
+    expect(testStep).toContain("relative to Playwright's baseURL");
+    // Said where it is read: the other two pipelines already pass their
+    // whole environment through, so they are told, not changed.
+    for (const file of ["gitlab-ci/playwrightgen.gitlab-ci.yml", "jenkins/Jenkinsfile.playwrightgen"] as CiTemplateName[]) {
+      expect(read(file)).toContain("relative to");
+    }
+  });
+
   it("documents the token as a secret in every pipeline, and never its value", () => {
     for (const name of names) {
       const body = read(name);

@@ -42,6 +42,9 @@ function fakeGitHub(overrides: { branchExists?: boolean; fileExists?: boolean; o
     if (path.endsWith("/pulls") && method === "POST") {
       return json(201, { number: 12, html_url: "https://github.com/acme/web/pull/12", state: "open" });
     }
+    if (/\/pulls\/\d+$/.test(path) && method === "PATCH") {
+      return json(200, { number: 7, html_url: "https://github.com/acme/web/pull/7", state: "open" });
+    }
     return json(500, { message: "unexpected" });
   }) as unknown as typeof fetch;
   return { calls, fetcher };
@@ -88,6 +91,14 @@ describe("opening a pull request with approved automation", () => {
     expect(github.calls.some((call) => call.path.endsWith("/git/refs") && call.method === "POST")).toBe(false);
     expect((github.calls.find((call) => call.method === "PUT")?.body as { sha?: string }).sha).toBe("c".repeat(40));
     expect(github.calls.some((call) => call.path.endsWith("/pulls") && call.method === "POST")).toBe(false);
+    // The description on a pull request opened for an earlier version is
+    // last month's: a different version number, maybe a different approver,
+    // and none of what the new code needs to run. Found on the dogfood
+    // repository, whose pull request had sat there since September while the
+    // product pushed new commits under its original description.
+    const refreshed = github.calls.find((call) => call.method === "PATCH");
+    expect(refreshed?.path).toBe("/repos/acme/web/pulls/7");
+    expect(refreshed?.body).toEqual({ title: input.title, body: input.body });
   });
 
   it("says plainly when the app was never granted write access, and writes nothing", async () => {

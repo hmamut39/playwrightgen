@@ -205,6 +205,11 @@ export default function QuickGeneratePage() {
     setPageUrl(handedUrl);
     if (parameters.get("prove") === "1") {
       // The state set above is not visible to proveIt yet, so it is told.
+      // proveIt is defined further down and needs several of the handlers
+      // between here and there; this effect runs after the render that
+      // defines it, so the reference is safe. The rule that flags it caught a
+      // real crash elsewhere, so it stays on and this one case says why.
+      // eslint-disable-next-line no-use-before-define
       void proveIt({ request: handedRequest, pageUrl: handedUrl });
     }
     window.history.replaceState(null, "", window.location.pathname);

@@ -176,7 +176,18 @@ export async function openPullRequest(input: {
     pullListSchema,
   );
   if (open.ok && open.data.length > 0) {
-    return { url: open.data[0].html_url, number: open.data[0].number, branch: input.branch, created: false };
+    const existing = open.data[0];
+    // The commit above went onto a branch that already has a pull request, so
+    // the description on it belongs to an earlier version: a different
+    // version number, possibly a different approver, and none of what the new
+    // code needs in order to run. Leaving it is how a reviewer merges on last
+    // month's description. Failing to refresh it is not worth losing the
+    // commit over, so the pull request is still returned.
+    await request(fetcher, `${repo}/pulls/${existing.number}`, token, pullSchema, {
+      method: "PATCH",
+      body: JSON.stringify({ title: input.title, body: input.body }),
+    });
+    return { url: existing.html_url, number: existing.number, branch: input.branch, created: false };
   }
   const created = expect(
     await request(fetcher, `${repo}/pulls`, token, pullSchema, {
