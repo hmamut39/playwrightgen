@@ -29,6 +29,16 @@ export type DeliveryCounts = {
    * case, and was told it carried no marker.
    */
   unknownVersion: number;
+  /**
+   * Recorded results where the test did not run: skipped, or interrupted.
+   *
+   * A delivery of nothing but skips reported "Recorded 1 of 1 result." into a
+   * CI log on 2026-10-11, which reads as a pipeline that proved something.
+   * The product had stored the skip correctly and simply did not say it where
+   * the developer was standing. Absent on rows written before this, which
+   * reads as zero and leaves their wording as it was.
+   */
+  skipped?: number;
   /** Everything the pipeline reported. */
   total: number;
 };
@@ -88,7 +98,15 @@ export function deliveryNote(counts: DeliveryCounts): string {
     return `${nothing} ${why || NO_MARKER}`;
   }
 
+  const skipped = counts.skipped ?? 0;
   const parts = [`Recorded ${recorded} of ${plural(total, "result")}.`];
+  if (skipped > 0) {
+    parts.push(
+      skipped === recorded
+        ? `${recorded === 1 ? "It was skipped" : "All of them were skipped"}, so nothing here demonstrates the behaviour: a skipped test is usually waiting on something the run did not have, such as an address or a credential.`
+        : `${plural(skipped, "result")} ${skipped === 1 ? "was" : "were"} skipped rather than run, so ${skipped === 1 ? "it demonstrates" : "they demonstrate"} nothing.`,
+    );
+  }
   if (duplicates > 0) {
     parts.push(`${plural(duplicates, "result")} had already been recorded for this run.`);
   }

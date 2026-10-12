@@ -15,6 +15,28 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **A skipped test is an absence, not a failure** (2026-10-12): the first
+  question of the day was whether the dogfood repository was still red. It
+  was green -- and green for the wrong reason. Yesterday's fix there made an
+  unrunnable test skip before navigating instead of crashing, so the suite
+  passes with one test skipped and nothing proven: the pipeline has no base
+  URL and no card data, and never will have, because the test was written
+  against a shop that does not exist.
+  What the product then did with that skip was the real find, in three
+  places. The CI log read "Recorded 1 of 1 result." -- true, and it reads as
+  a pipeline that proved something. The requirement's verdict read FAILING,
+  "1 approved test last ran and did not pass", directly above a line saying
+  "could not run": the page contradicted itself, and the verdict sends a team
+  hunting a product defect that is really a missing secret. And every such
+  delivery queued a paid model call to explain why a test that never ran did
+  not pass.
+  All three now follow what was already stored. The verdict for a blocked
+  test is UNVERIFIED, saying nothing demonstrates the behaviour and that a
+  skip is usually waiting on an address or a credential; a real failure is
+  still FAILING and now also names what was skipped alongside it. The CI log
+  and the pull-request comment say the delivery proved nothing. Only a test
+  that ran and failed is analysed.
+
 - **The verdict accounts for the approved tests that never ran**
   (2026-10-11): reading a shared link as the client -- no account, one link,
   asked whether this is good enough to ship -- the requirement said "1

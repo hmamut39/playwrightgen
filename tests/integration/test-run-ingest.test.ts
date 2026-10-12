@@ -264,6 +264,35 @@ describe("Playwright result ingestion from customer CI", () => {
     expect(activity?.source).toBe("SYSTEM");
   });
 
+  it("does not call a skipped test a failure to be analysed", async () => {
+    // The dogfood repository went green on 2026-10-11 by skipping its only
+    // test: the pipeline had no base URL and no card data. The result is
+    // recorded -- a skip is worth knowing -- but it is not a failure, and
+    // every delivery was queueing a paid model call to explain why a test
+    // that never ran did not pass.
+    const space = await workspace();
+    const { versionId } = await approvedVersion(space);
+    const title = `${buildTestCaseVersionMarker(versionId)} checkout succeeds`;
+
+    const summary = await ingestPlaywrightResults(
+      payload(space, title, {
+        results: [{ title, status: "skipped", durationMs: 0, steps: [] }],
+      }),
+      { prisma },
+    );
+
+    expect(summary.recorded).toBe(1);
+    expect(summary.failures).toEqual([]);
+
+    const run = await prisma.testRun.findFirst({
+      where: { organizationId: space.organization.id, projectId: space.project.id },
+      include: { attempts: true },
+    });
+    // Still stored, and stored as what it was.
+    expect(run?.status).toBe("BLOCKED");
+    expect(run?.attempts[0]?.result).toBe("BLOCKED");
+  });
+
   it("treats a replayed workflow run as a duplicate rather than new evidence", async () => {
     const space = await workspace();
     const { versionId } = await approvedVersion(space);

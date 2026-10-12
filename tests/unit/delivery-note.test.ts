@@ -92,6 +92,35 @@ describe("what a delivery is told it did", () => {
     expect(note).toContain("1 result carried a marker for a test version this project does not have");
   });
 
+  it("does not let an all-skipped delivery read as a pipeline that proved something", () => {
+    // What the dogfood repository's CI log actually said on 2026-10-11, with
+    // its only test skipped for want of a base URL: "Recorded 1 of 1 result."
+    const note = deliveryNote({ recorded: 1, duplicates: 0, unmatched: 0, unknownVersion: 0, skipped: 1, total: 1 });
+
+    expect(note).toContain("Recorded 1 of 1 result.");
+    expect(note).toContain("It was skipped");
+    expect(note).toContain("nothing here demonstrates the behaviour");
+    expect(note).toContain("an address or a credential");
+  });
+
+  it("counts the skipped ones apart when the rest really ran", () => {
+    const note = deliveryNote({ recorded: 6, duplicates: 0, unmatched: 0, unknownVersion: 0, skipped: 2, total: 6 });
+
+    expect(note).toContain("Recorded 6 of 6 results.");
+    expect(note).toContain("2 results were skipped rather than run");
+    expect(note).not.toContain("All of them");
+  });
+
+  it("stays as it was for a delivery that skipped nothing", () => {
+    expect(deliveryNote({ recorded: 5, duplicates: 0, unmatched: 0, unknownVersion: 0, skipped: 0, total: 5 })).toBe(
+      "Recorded 5 of 5 results.",
+    );
+    // Rows written before skips were counted carry no field at all.
+    expect(deliveryNote({ recorded: 5, duplicates: 0, unmatched: 0, unknownVersion: 0, total: 5 })).toBe(
+      "Recorded 5 of 5 results.",
+    );
+  });
+
   it("says so when a pipeline reports nothing at all", () => {
     expect(deliveryNote({ recorded: 0, duplicates: 0, unmatched: 0, unknownVersion: 0, total: 0 })).toBe(
       "The pipeline reported no results at all.",

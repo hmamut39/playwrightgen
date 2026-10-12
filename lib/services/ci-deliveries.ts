@@ -85,6 +85,7 @@ export async function readLastCiDelivery(
     // Absent on rows written before the two causes were told apart, which
     // reads as zero and leaves the older wording untouched.
     unknownVersion: countFrom(metadata.unknownVersion),
+    skipped: countFrom(metadata.skipped),
     total: countFrom(metadata.total),
   };
 

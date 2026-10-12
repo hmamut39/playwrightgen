@@ -171,11 +171,16 @@ export type IngestSummary = {
    * somewhere else.
    */
   unknownVersion: number;
+  /** Recorded results where the test was skipped or interrupted. */
+  skipped: number;
   /**
-   * Attempts recorded by this delivery that did not pass, so the caller can
+   * Attempts recorded by this delivery that ran and failed, so the caller can
    * analyze them without querying for what it just wrote. Returned rather than
    * analyzed here: ingest answers a signed webhook and must stay fast and
    * side-effect free with respect to the model provider.
+   *
+   * A skipped test is not among them: it never reached the behaviour, and a
+   * paid analysis of why it failed would answer a question nobody asked.
    */
   failures: Array<{ testRunId: string; testRunAttemptId: string }>;
   /**
@@ -230,6 +235,7 @@ export async function ingestPlaywrightResults(
     duplicates: 0,
     unmatched: 0,
     unknownVersion: 0,
+    skipped: 0,
     failures: [],
     recordedTestCaseIds: [],
     organizationId,
@@ -384,7 +390,12 @@ export async function ingestPlaywrightResults(
       if (!summary.recordedTestCaseIds.includes(version.testCaseId)) {
         summary.recordedTestCaseIds.push(version.testCaseId);
       }
-      if (recordedNow.result !== "PASSED") {
+      // Only a test that ran and failed. A skipped or interrupted test is an
+      // absence, not a failure: asking the model why it failed spends a paid
+      // request to be told what the pipeline already said, and attaches an
+      // analysis of a failure to a test that never reached the behaviour.
+      if (recordedNow.result === "BLOCKED") summary.skipped += 1;
+      if (recordedNow.result === "FAILED") {
         summary.failures.push({
           testRunId: recordedNow.testRunId,
           testRunAttemptId: recordedNow.testRunAttemptId,
@@ -423,6 +434,7 @@ export async function ingestPlaywrightResults(
         duplicates: summary.duplicates,
         unmatched: summary.unmatched,
         unknownVersion: summary.unknownVersion,
+        skipped: summary.skipped,
         total: payload.results.length,
       },
     },

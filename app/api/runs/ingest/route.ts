@@ -232,6 +232,7 @@ export async function handleRunIngestRequest(
       duplicates: summary.duplicates,
       unmatched: summary.unmatched,
       unknownVersion: summary.unknownVersion,
+      skipped: summary.skipped ?? 0,
     };
     // Left on the pull request after the response, for the same reason the
     // analysis is: the runner is waiting, and three GitHub round trips to

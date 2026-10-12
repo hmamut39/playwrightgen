@@ -125,7 +125,7 @@ describe("release evidence report", () => {
   async function recordAttempt(
     space: Awaited<ReturnType<typeof workspace>>,
     testCaseId: string,
-    result: "PASSED" | "FAILED",
+    result: "PASSED" | "FAILED" | "BLOCKED",
   ) {
     const version = await prisma.testCaseVersion.findFirstOrThrow({
       where: { testCaseId }, orderBy: { versionNumber: "desc" },
@@ -289,6 +289,58 @@ describe("release evidence report", () => {
 
     const report = await getReleaseEvidenceReport({ projectId: space.project.id }, deps(space));
     expect(report.requirements[0].reason).not.toContain("never run");
+  });
+
+  it("does not call a skipped test a failure", async () => {
+    // The dogfood repository went green on 2026-10-11 by skipping its only
+    // test: no base URL and no card data in the pipeline. The test line said
+    // "could not run" and the verdict beside it said "did not pass", which
+    // sends a team hunting a product defect that is really a missing secret.
+    const space = await workspace();
+    const requirement = await approvedRequirement(space);
+    const testCase = await linkedTestCase(space, requirement.id, true);
+    await recordAttempt(space, testCase.id, "BLOCKED");
+
+    const report = await getReleaseEvidenceReport({ projectId: space.project.id }, deps(space));
+    const [entry] = report.requirements;
+
+    expect(entry.verdict).toBe("UNVERIFIED");
+    expect(entry.reason).toContain("was skipped or could not run");
+    expect(entry.reason).toContain("nothing demonstrates the behaviour");
+    expect(entry.reason).toContain("an address or a credential");
+    expect(entry.reason).not.toContain("did not pass");
+    expect(report.totals.failing).toBe(0);
+  });
+
+  it("keeps a real failure a failure, and still mentions what was skipped", async () => {
+    const space = await workspace();
+    const requirement = await approvedRequirement(space);
+    const failed = await linkedTestCase(space, requirement.id, true);
+    const skipped = await linkedTestCase(space, requirement.id, true);
+    await recordAttempt(space, failed.id, "FAILED");
+    // A skipped Playwright test is stored as BLOCKED: the attempt result has
+    // no SKIPPED of its own.
+    await recordAttempt(space, skipped.id, "BLOCKED");
+
+    const report = await getReleaseEvidenceReport({ projectId: space.project.id }, deps(space));
+    const [entry] = report.requirements;
+
+    expect(entry.verdict).toBe("FAILING");
+    expect(entry.reason).toContain("1 approved test last ran and did not pass.");
+    expect(entry.reason).toContain("1 approved test was skipped or could not run");
+  });
+
+  it("does not let a skipped test ride along with a passing one unmentioned", async () => {
+    const space = await workspace();
+    const requirement = await approvedRequirement(space);
+    const passed = await linkedTestCase(space, requirement.id, true);
+    const skipped = await linkedTestCase(space, requirement.id, true);
+    await recordAttempt(space, passed.id, "PASSED");
+    await recordAttempt(space, skipped.id, "BLOCKED");
+
+    const report = await getReleaseEvidenceReport({ projectId: space.project.id }, deps(space));
+    expect(report.requirements[0].verdict).toBe("VERIFIED");
+    expect(report.requirements[0].reason).toContain("1 approved test was skipped or could not run");
   });
 
   it("names who approved the requirement and the test, from the trail", async () => {

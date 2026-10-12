@@ -270,8 +270,16 @@ export async function buildReleaseEvidenceReport(input: {
         .filter(Boolean).length;
       const approved = testCases.filter((testCase) => testCase.status === "APPROVED");
       const executed = approved.filter((testCase) => testCase.latestResult !== null);
-      const failing = executed.filter((testCase) => testCase.latestResult !== "PASSED");
       const passing = executed.filter((testCase) => testCase.latestResult === "PASSED");
+      // A test that was skipped or blocked did not fail: it never got as far
+      // as the behaviour. Calling that "did not pass" sends a team looking
+      // for a product defect when what is missing is a URL or a secret in
+      // the pipeline -- and the line beneath it already says "could not run",
+      // so the page contradicted itself.
+      const blocked = executed.filter(
+        (testCase) => testCase.latestResult === "BLOCKED" || testCase.latestResult === "SKIPPED",
+      );
+      const failing = executed.filter((testCase) => testCase.latestResult === "FAILED");
 
       // Approved coverage that has never executed. A verdict drawn from the
       // tests that ran, with nothing said about the ones that did not, reads
@@ -282,20 +290,29 @@ export async function buildReleaseEvidenceReport(input: {
         neverRan > 0
           ? ` ${neverRan} more approved test${neverRan === 1 ? " has" : "s have"} never run.`
           : "";
+      const blockedNote =
+        blocked.length > 0
+          ? ` ${blocked.length} approved test${blocked.length === 1 ? " was skipped or could not run" : "s were skipped or could not run"} on the last attempt.`
+          : "";
 
       let verdict: RequirementVerdict;
       let reason: string;
       if (failing.length > 0) {
         verdict = "FAILING";
-        reason = `${failing.length} approved test${failing.length === 1 ? "" : "s"} last ran and did not pass.${neverRanNote}`;
+        reason = `${failing.length} approved test${failing.length === 1 ? "" : "s"} last ran and did not pass.${blockedNote}${neverRanNote}`;
       } else if (passing.length > 0) {
         verdict = "VERIFIED";
-        reason = `${passing.length} approved test${passing.length === 1 ? "" : "s"} last ran and passed.${neverRanNote}`;
+        reason = `${passing.length} approved test${passing.length === 1 ? "" : "s"} last ran and passed.${blockedNote}${neverRanNote}`;
         // Said out loud rather than left for a reader to assume: one passing
         // test does not mean six criteria were each checked.
         if (criteriaCount > passing.length) {
           reason += ` This requirement states ${criteriaCount} acceptance criteria, and the records do not say which of them those tests cover.`;
         }
+      } else if (blocked.length > 0) {
+        // The pipeline ran and proved nothing. That is not a failing
+        // requirement and it is certainly not a verified one.
+        verdict = "UNVERIFIED";
+        reason = `${blocked.length} approved test${blocked.length === 1 ? " was skipped or could not run" : "s were skipped or could not run"} on the last attempt, so nothing demonstrates the behaviour. A skipped test is usually waiting on something the run did not have, such as an address or a credential.${neverRanNote}`;
       } else if (approved.length > 0) {
         verdict = "UNVERIFIED";
         reason =
