@@ -1,0 +1,63 @@
+name: Evals
+
+# Not on every push. Each case calls a real model, so a gate on every commit
+# would spend money on typo fixes and would need a provider key on every pull
+# request from anywhere. Weekly catches a model or prompt drifting; the manual
+# run is for the change that deserves one.
+on:
+  workflow_dispatch:
+  schedule:
+    # Mondays, early. A drift found on Monday has a week to be dealt with.
+    - cron: "17 6 * * 1"
+
+jobs:
+  evals:
+    name: Measure the AI surfaces
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # Said plainly rather than failed. A repository without a provider key
+      # cannot measure anything, and a red light nobody can turn green is how
+      # the dependency audit came to hide every real failure behind it for
+      # three weeks.
+      - name: Check there is something to measure with
+        id: provider
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "No OPENAI_API_KEY is configured for this repository, so the evals cannot run."
+            echo "Add it as an Actions secret to measure the AI surfaces here."
+            echo "ready=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=yes" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Fails only when a case that the committed baseline expects to pass
+      # stops passing, or when a case in the baseline did not run at all. A
+      # case this suite expects to fail is a measurement of something the
+      # model does badly, and demanding green would be an invitation to
+      # delete it.
+      - name: Run the evals against the baseline
+        if: steps.provider.outputs.ready == 'yes'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: npm run evals
+
+      - name: Keep the scores for comparison
+        if: steps.provider.outputs.ready == 'yes'
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-scores
+          path: evals/results
+          retention-days: 90
+          if-no-files-found: ignore

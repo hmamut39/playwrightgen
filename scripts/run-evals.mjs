@@ -3,6 +3,8 @@ import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "nod
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { compareWithBaseline, gateReport } from "./eval-gate.mjs";
+
 /**
  * Runs the evals and keeps the score, so one run can be compared with the next.
  *
@@ -20,6 +22,14 @@ import { fileURLToPath } from "node:url";
  * Scores are not committed. A measurement from one model on one afternoon is
  * not a fact about the repository, and a file in version control invites
  * reading it as one.
+ *
+ * The exception is the baseline: what each case is expected to do, which is a
+ * decision rather than a measurement and is committed as one. `--accept`
+ * moves it, deliberately and by hand. Without it a run that breaks a case
+ * that was passing exits non-zero -- and a run where a known-failing case
+ * keeps failing does not, because this suite holds measurements of things the
+ * model does badly and deleting them to keep a green light would delete the
+ * only thing they know.
  */
 
 const RESULTS = join(process.cwd(), "evals", "results");
@@ -27,7 +37,10 @@ const RAW = join(RESULTS, ".raw.json");
 
 mkdirSync(RESULTS, { recursive: true });
 
-const passthrough = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const accept = argv.includes("--accept");
+const passthrough = argv.filter((argument) => argument !== "--accept");
+const BASELINE = join(RESULTS, "baseline.json");
 
 // Vitest's own entry, run by this Node rather than through npx. A .cmd shim
 // cannot be spawned on Windows without a shell, and passing an args array
@@ -90,8 +103,41 @@ child.on("exit", (code) => {
   writeFileSync(join(RESULTS, "latest.json"), JSON.stringify(run, null, 2));
 
   report(run, previous);
-  process.exit(code ?? 0);
+
+  const baseline = readBaseline();
+  if (accept || !baseline) {
+    writeFileSync(BASELINE, JSON.stringify({ blessedAt: run.ranAt, cases: run.cases.map(({ file, name, status }) => ({ file, name, status })) }, null, 2));
+    console.log(
+      baseline
+        ? "\nBaseline moved to this run, by hand. Every case here is now what is expected."
+        : "\nNo baseline existed. This run is now the baseline; check it reads the way you meant.",
+    );
+    process.exit(0);
+  }
+
+  const comparison = compareWithBaseline(run, baseline);
+  const gate = gateReport(comparison);
+  console.log(`\nAgainst the baseline blessed at ${baseline.blessedAt ?? "an unknown time"}:`);
+  console.log(gate.lines.length ? gate.lines.join("\n") : "  nothing changed against it.");
+  if (!gate.ok) {
+    console.log("\nThis run is worse than the baseline. Fix it, or move the baseline with --accept and say why.");
+    process.exit(1);
+  }
+  console.log("\nNo case did worse than the baseline.");
+  // Deliberately not vitest's code: a case this suite expects to fail is not
+  // a failure of the run, and a gate that cannot tell the two apart gates
+  // nothing.
+  process.exit(0);
 });
+
+/** What each case is expected to do, moved only by hand. */
+function readBaseline() {
+  try {
+    return JSON.parse(readFileSync(BASELINE, "utf8"));
+  } catch {
+    return null;
+  }
+}
 
 /** The most recent archived run, if there is one to compare against. */
 function readPrevious() {

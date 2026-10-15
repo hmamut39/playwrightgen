@@ -15,6 +15,30 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **The evals became a gate that cannot be satisfied by deleting them**
+  (2026-10-15): nine eval files measured the AI surfaces and nothing failed
+  when one regressed. Worse, the runner compared each run with the one before
+  it, which ratchets: a case breaks, the run is archived, the next run
+  compares against the broken one and reports nothing wrong. A regression
+  became the new normal without anybody deciding it should.
+  The comparison is now against a baseline that moves only by hand
+  (`npm run evals -- --accept`), committed because what a case is expected to
+  do is a decision somebody can argue with, while a score from one afternoon
+  is not. The gate fails on two things and no others: a case that was passing
+  has stopped, or a case in the baseline did not run at all -- renaming a
+  case looks exactly like deleting one, and a suite that quietly stops
+  measuring leaves somebody trusting a check that is not happening. A case
+  this suite expects to fail, like the live-page generator passing about one
+  run in three or the review inventing a missing criterion, keeps failing
+  without gating anything. A gate that demanded all green would be satisfied
+  by deleting the measurements, which are the only things that know.
+  It runs weekly and on demand rather than on every push: each case calls a
+  real model, and a gate on every commit would spend money on typo fixes.
+  Without a provider key the workflow says so and stops, rather than standing
+  red where nobody can fix it -- which is what the dependency audit did for
+  three weeks while hiding every real failure behind it. **The owner must add
+  `OPENAI_API_KEY` as an Actions secret before it measures anything.**
+
 - **"This workspace has used today's AI requests" -- on what?**
   (2026-10-15): the product could not say. The allowance was a single counter
   in Redis; token counts lived in an AiRun row for reviews, an automation
