@@ -57,11 +57,17 @@ export async function draftRequirementFromTicket(
     { orgSlug: input.orgSlug, projectId, permission: "requirement:create" },
     dependencies,
   );
-  // Reading a ticket costs a request, like every other AI surface.
-  await reserveOrganizationAiRequest({
-    organizationId: workspace.organization.id,
-    surface: "requirement-drafting",
-  });
+  // Reading a ticket costs a request, like every other AI surface -- when a
+  // request is really made. A caller supplying its own reader is not spending
+  // the workspace's allowance, and reserving anyway made these tests demand
+  // live Upstash credentials from any machine that ran them, which is how
+  // this repository's own CI came to fail on them for weeks.
+  if (!dependencies?.read) {
+    await reserveOrganizationAiRequest({
+      organizationId: workspace.organization.id,
+      surface: "requirement-drafting",
+    });
+  }
 
   let read: RequirementFromTicket;
   try {

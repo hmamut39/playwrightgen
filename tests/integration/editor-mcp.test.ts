@@ -34,12 +34,25 @@ const SECRET = "editor-token-test-secret-with-enough-length";
 describe("editor connection over MCP", () => {
   let prisma: PrismaClient;
 
+  // The receipt secret is this test's own. It signs a receipt and the code
+  // under test verifies it with the same key, so nothing is proven by using
+  // the real one -- while demanding it made the test unrunnable anywhere it
+  // was not configured, which is where this repository's CI stood.
+  const originalReceiptSecret = process.env.RUNNER_INGEST_SECRET;
+
   beforeAll(async () => {
+    // Empty counts as missing: a machine can have the variable set to
+    // nothing, and `??` would keep that nothing.
+    process.env.RUNNER_INGEST_SECRET = originalReceiptSecret?.trim()
+      ? originalReceiptSecret
+      : `test-${randomUUID()}`;
     prisma = createTestPrismaClient();
     await connectTestDatabase(prisma);
   });
   beforeEach(async () => cleanPhase1ATables(prisma));
   afterAll(async () => {
+    if (originalReceiptSecret === undefined) delete process.env.RUNNER_INGEST_SECRET;
+    else process.env.RUNNER_INGEST_SECRET = originalReceiptSecret;
     if (prisma) {
       await cleanPhase1ATables(prisma);
       await disconnectTestDatabase(prisma);

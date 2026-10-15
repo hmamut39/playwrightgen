@@ -88,10 +88,15 @@ export async function readRequirementGaps(
     }));
   if (tests.length === 0) throw new CriteriaGapsError("no_tests");
 
-  await reserveOrganizationAiRequest({
-    organizationId: workspace.organization.id,
-    surface: "criteria-coverage",
-  });
+  // Only when a request is really made: a caller that supplies its own
+  // reader spends nothing, and reserving anyway demanded live Upstash
+  // credentials of every machine that ran these tests.
+  if (!dependencies?.read) {
+    await reserveOrganizationAiRequest({
+      organizationId: workspace.organization.id,
+      surface: "criteria-coverage",
+    });
+  }
 
   let coverage: CriteriaCoverage;
   try {

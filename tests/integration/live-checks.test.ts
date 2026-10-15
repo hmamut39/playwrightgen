@@ -92,7 +92,12 @@ describe("daily live checks of approved automation", () => {
         summary: "Checks it.",
         plan: [{ title: "It", intent: "Do it", expectedAssertion: "It happens" }],
         code,
-        configuration: `import { defineConfig } from "@playwright/test";\nexport default defineConfig({});`,
+        // With a baseURL, because both fixtures above navigate relative to
+        // one. Validation blocks a relative navigation the configuration
+        // cannot resolve, so without this the artifact could never be
+        // submitted and every test in this file failed on
+        // reviewable_automation_required.
+        configuration: `import { defineConfig } from "@playwright/test";\nexport default defineConfig({ use: { baseURL: "https://demo.playwright.dev/" } });`,
         dependencies: ["@playwright/test"],
         assumptions: [],
       }),
