@@ -15,6 +15,31 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **Measuring the requirement review found it throwing good reviews away**
+  (2026-10-15): the surface that was wholly broken on 2026-10-12 had no eval,
+  which is why nothing noticed. Writing one found two more ways it discarded
+  work nobody could get back.
+  The product demands that every suggestion quote the requirement, and
+  refuses the whole review when one cannot. Right for invented words. Wrong
+  twice over: the model quoted an acceptance criterion exactly and labelled
+  it DESCRIPTION, and it quoted a sentence as far as "without a reload" and
+  closed the quotation with a full stop. Both were the customer's own words.
+  Both threw away a complete review of a well-written requirement, and the
+  reviewer saw only "the AI review did not finish". A quote found in another
+  field is now kept and its label corrected; a quotation that stops
+  mid-sentence is accepted; a quote found in no field at all still refuses
+  the lot, because that is the rule worth having.
+  The strict validator that disagreed with this was dead in production and
+  alive only in its own tests, so it is gone rather than left to mislead.
+  Severity is now defined in the prompt -- HIGH means a defect could ship or
+  the requirement cannot be tested as written -- because a sound requirement
+  was coming back with four HIGH suggestions including "verification of no
+  page reload", and a review where everything is urgent says nothing about
+  where to look first. That halved it. The eval stands at 3 of 4 and the
+  fourth is left failing: on a complete requirement this model still claims a
+  criterion is missing that the requirement contains. The score is the
+  measurement.
+
 - **A hidden instruction would have had somewhere to go** (2026-10-15):
   every AI surface's prompt says to treat the page, the ticket and the run
   output as untrusted data and never as instructions, and nothing anywhere

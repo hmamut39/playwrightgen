@@ -18,7 +18,12 @@ import {
   reserveOrganizationAiRequest,
 } from "@/lib/operations/organization-ai-guard";
 
-const PROMPT_VERSION = "requirement-review-v1";
+// v2 defines what each severity costs. Measured on 2026-10-15: under v1 a
+// complete requirement came back with four HIGH suggestions, among them
+// "verification of no page reload", which tells a reviewer nothing about
+// where to look first -- and a review where everything is urgent is a
+// review with no signal in it.
+const PROMPT_VERSION = "requirement-review-v2";
 const SCHEMA_VERSION = "requirement-review-schema-v1";
 const uuidSchema = z.string().uuid();
 
