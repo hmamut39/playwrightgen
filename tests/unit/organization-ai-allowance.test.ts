@@ -20,7 +20,10 @@ describe("reading what is left of today's AI allowance", () => {
       },
     });
 
-    expect(allowance).toEqual({ dailyLimit: 20, dailyUsed: 7, dailyRemaining: 13 });
+    // bySurface is empty because this caller asked only for the total: a
+    // reader supplied here must not be joined by a connection nobody asked
+    // for. The figure that is enforced is the same either way.
+    expect(allowance).toEqual({ dailyLimit: 20, dailyUsed: 7, dailyRemaining: 13, bySurface: [] });
     // The same key the reservation script increments, and only a read.
     expect(reads).toEqual([`playwrightgen:organization-ai:${organizationId}:day:2026-09-23`]);
   });
@@ -46,5 +49,24 @@ describe("reading what is left of today's AI allowance", () => {
       read: async () => 44,
     });
     expect(overspent).toMatchObject({ dailyUsed: 44, dailyRemaining: 0 });
+  });
+  it("reads the tally beside the total when it is asked for", async () => {
+    const keys: string[] = [];
+    const allowance = await readOrganizationAiAllowance({
+      organizationId,
+      now: new Date("2026-09-23T11:00:00Z"),
+      resolveLimits: limits as never,
+      read: async () => "9",
+      readSurfaces: async (key) => {
+        keys.push(key);
+        return { "page-coverage": 6, "requirement-review": 3 };
+      },
+    });
+
+    expect(keys).toEqual([`playwrightgen:organization-ai:${organizationId}:surfaces:2026-09-23`]);
+    expect(allowance.bySurface).toEqual([
+      { surface: "page-coverage", used: 6 },
+      { surface: "requirement-review", used: 3 },
+    ]);
   });
 });

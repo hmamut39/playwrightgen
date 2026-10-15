@@ -187,16 +187,23 @@ export async function readOrganizationAiAllowance(input: {
       return redis.get<number | string | null>(dayKey);
     });
   const surfacesKey = `playwrightgen:organization-ai:${organizationId}:surfaces:${now.toISOString().slice(0, 10)}`;
+  // A caller that supplied its own reader and said nothing about the tally
+  // gets no tally, rather than a connection it never asked for. The total is
+  // the number that is enforced; the breakdown is an answer to a question,
+  // and reaching for a network behind a caller's back to answer it is not a
+  // trade worth making.
   const readSurfaces =
     input.readSurfaces ??
-    (async (hashKey: string) => {
-      const redisConfig = validateRedisEnvironment(source);
-      const redis = new Redis({
-        url: redisConfig.UPSTASH_REDIS_REST_URL,
-        token: redisConfig.UPSTASH_REDIS_REST_TOKEN,
-      });
-      return redis.hgetall<Record<string, unknown>>(hashKey);
-    });
+    (input.read
+      ? async () => null
+      : async (hashKey: string) => {
+          const redisConfig = validateRedisEnvironment(source);
+          const redis = new Redis({
+            url: redisConfig.UPSTASH_REDIS_REST_URL,
+            token: redisConfig.UPSTASH_REDIS_REST_TOKEN,
+          });
+          return redis.hgetall<Record<string, unknown>>(hashKey);
+        });
 
   const raw = await read(key);
   const dailyUsed = Math.max(0, Number(raw ?? 0) || 0);
