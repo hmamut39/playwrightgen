@@ -113,11 +113,79 @@ export function validateAutomationGeneration(
   if (/\b(?:eval\s*\(|new\s+Function\s*\(|process\.exit\s*\()/.test(code)) {
     block("unsafe_execution", "Generated code contains an unsafe execution primitive.");
   }
-  if (/from\s+["'](?:node:)?(?:child_process|fs|net|tls|worker_threads)["']/.test(code)) {
+  // Static imports, and the two spellings that reach the same modules without
+  // one. A rule that only reads `import ... from` is satisfied by
+  // `await import("node:child_process")`, which is exactly what an instruction
+  // hidden in a page or a ticket would write.
+  if (
+    /from\s+["'](?:node:)?(?:child_process|fs|net|tls|worker_threads|http|https|dns)["']/.test(code) ||
+    /\b(?:import|require)\s*\(\s*["'](?:node:)?(?:child_process|fs|net|tls|worker_threads|http|https|dns)["']\s*\)/.test(code)
+  ) {
     block("unsafe_node_module", "Generated code imports a disallowed Node.js capability.");
   }
   if (/console\.(?:log|info|debug)\s*\([^\n]*(?:process\.env|token|secret|password)/i.test(code)) {
     block("secret_logging", "Generated code may log credentials or environment secrets.");
+  }
+
+  /*
+   * Where a hidden instruction would actually go.
+   *
+   * Everything this product reads is somebody else's text: a live page it
+   * opens, a ticket pasted from a tracker, the output of a failing run. The
+   * prompts say to treat all of it as data, and nothing checked that they
+   * were obeyed. The attack does not need `eval`: it needs one line in a
+   * sixty-line test that a reviewer, reading for whether the test is right,
+   * skims past -- and that line then runs in the customer's own pipeline,
+   * with the customer's secrets in the environment.
+   *
+   * So the check is on the shape of the code rather than on the model's good
+   * behaviour. A test may talk to the application it is testing; it may not
+   * carry what it finds to somewhere else.
+   */
+  const configuredBaseUrl = /baseURL\s*:\s*[^'"`\n]*["'`]([^'"`]+)["'`]/.exec(output.configuration)?.[1];
+  const siteOf = (value: string) => {
+    try {
+      return new URL(value).hostname.replace(/^www\./i, "").toLowerCase();
+    } catch {
+      return null;
+    }
+  };
+  const ownSite = configuredBaseUrl ? siteOf(configuredBaseUrl) : null;
+  // Absolute addresses this code sends a request to, as opposed to navigates.
+  const requested = [
+    ...code.matchAll(/\.(?:get|post|put|patch|delete|fetch|head)\s*\(\s*["'`](https?:\/\/[^"'`]+)["'`]/gi),
+  ].map((match) => match[1]);
+  const foreign = requested.find((target) => {
+    const site = siteOf(target);
+    return site !== null && site !== ownSite;
+  });
+  if (foreign !== undefined) {
+    block(
+      "request_to_another_site",
+      `This sends a request to ${JSON.stringify(foreign)}, which is not the application under test. A test may talk to the application; carrying anything to another address is how data leaves a pipeline.`,
+    );
+  }
+
+  // Inside the page, where Playwright's own fixtures are not involved and a
+  // single line reaches both the browser's credentials and the network.
+  const insidePage = [...code.matchAll(/\.(?:evaluate|evaluateHandle|addInitScript)\s*\(([\s\S]{0,600}?)\)\s*;/g)]
+    .map((match) => match[1])
+    .join("\n");
+  if (/\b(?:fetch|XMLHttpRequest|sendBeacon|WebSocket|EventSource)\b/.test(insidePage)) {
+    block(
+      "network_call_inside_the_page",
+      "This runs a network call inside the page, where it is neither recorded as a step nor visible in a trace. Use Playwright's request fixture against the application instead.",
+    );
+  }
+  // What an exfiltration carries, wherever it is carried from.
+  if (
+    /(?:document\.cookie|localStorage|sessionStorage|context\.cookies\s*\(|storageState\s*\(\s*\))[\s\S]{0,200}?\.(?:post|put|send|fetch)\s*\(/i.test(code) ||
+    /\.(?:post|put|fetch)\s*\([^)]{0,200}process\.env/i.test(code)
+  ) {
+    block(
+      "sends_credentials_or_storage",
+      "This takes cookies, stored state or environment values and sends them somewhere. Nothing a test learns about the session should leave the run.",
+    );
   }
   // A relative navigation needs something to be relative to. PlaywrightGen's
   // own proof repository ran a generated test three times over two weeks, each

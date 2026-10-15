@@ -15,6 +15,27 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **A hidden instruction would have had somewhere to go** (2026-10-15):
+  every AI surface's prompt says to treat the page, the ticket and the run
+  output as untrusted data and never as instructions, and nothing anywhere
+  checked that it held. A prompt is a request; a validator is a rule. The
+  threat is specific rather than theoretical: generated code is approved by
+  somebody reading for whether the test is right, and then runs in the
+  customer's own pipeline with the customer's secrets in the environment.
+  One line in sixty is a reasonable thing to miss.
+  None of the attacks needed `eval`, a shell or an import worth noticing. A
+  request to another site, a `fetch` inside `page.evaluate` carrying
+  `document.cookie`, cookies or `storageState` posted somewhere, and
+  `await import("node:child_process")` -- which walked straight past a rule
+  that only read `import ... from`. All four are now blocked by shape rather
+  than by the model's good behaviour, and the finding names the address so
+  the line can be found.
+  The corpus is the point: ten cases, written the way a model that had been
+  talked into it would write them, half of them legitimate tests that must
+  keep passing -- the application's own API by three spellings, a
+  `page.evaluate` that reads the page, an ordinary browser test. A rule that
+  stops an attack and also stops real work is not a rule anybody keeps.
+
 - **This repository's own CI has been red since 2026-09-23** (2026-10-12):
   found by asking why production had stopped taking deployments, and worse
   than first written here. The claim that it had been red "for a day and a
