@@ -65,6 +65,48 @@ export function aiAllowanceSentence(limit: AiAllowanceLimit): string {
     : "This workspace is making AI requests faster than its limit allows. The same button works again in a moment.";
 }
 
+/**
+ * What each surface is called where a person meets it.
+ *
+ * The guard counts by slug because that is what the code passes it. A person
+ * refused at four in the afternoon is owed the answer in their own words, not
+ * "page-coverage: 12".
+ */
+const SURFACE_NAMES: Record<string, string> = {
+  "page-coverage": "planning a page’s tests",
+  "automation-generation": "writing automation",
+  "automation-repair": "repairing a failing test",
+  "requirement-review": "reviewing requirements",
+  "requirement-drafting": "reading tickets into requirements",
+  "criteria-coverage": "reading criteria gaps",
+  "test-case-proposals": "proposing test cases",
+  "failure-analysis": "explaining failures",
+  "free-tools": "the free tools",
+};
+
+/**
+ * "Today's requests went to planning a page's tests (12) and writing
+ * automation (6)", or null when nothing is known.
+ *
+ * Listed largest first and cut at three, because the question behind it is
+ * "what used it all", and a tail of ones answers nothing. A surface this
+ * product does not have a name for is shown by its own name rather than
+ * dropped: a silent omission in a tally is how a total stops adding up.
+ */
+export function spentOnSentence(spend: ReadonlyArray<{ surface: string; used: number }>): string | null {
+  if (spend.length === 0) return null;
+  const named = spend.map((entry) => `${SURFACE_NAMES[entry.surface] ?? entry.surface} (${entry.used})`);
+  const shown = named.slice(0, 3);
+  const rest = spend.slice(3).reduce((total, entry) => total + entry.used, 0);
+  const list =
+    shown.length === 1
+      ? shown[0]
+      : `${shown.slice(0, -1).join(", ")} and ${shown[shown.length - 1]}`;
+  return rest > 0
+    ? `Today’s requests went to ${list}, with ${rest} elsewhere.`
+    : `Today’s requests went to ${list}.`;
+}
+
 /** The sentence for an error, or null when the failure was something else. */
 export function aiAllowanceMessage(error: unknown): string | null {
   const limit = readAiAllowanceLimit(error);

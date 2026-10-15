@@ -6,6 +6,7 @@ import { after } from "next/server";
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
 import { SetupChecklist } from "@/components/workspace/setup-checklist";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
+import { spendBehindNotice } from "@/lib/services/ai-spend";
 import {
   archiveProject,
   getProjectOverview,
@@ -46,6 +47,8 @@ export default async function ProjectOverviewPage({
     requireWorkspaceContext({ orgSlug, projectId }),
   ]);
   const { project } = overview;
+  // Only when somebody was refused: every other render pays nothing for it.
+  const spentOn = await spendBehindNotice(notice, { organizationId: context.organization.id });
   const liveSummary = readLiveChecksSummary(project.liveChecksLastSummary);
   const webhookLabel = describeWebhook(project.liveChecksWebhookUrl);
   const overviewPath = `/workspace/${orgSlug}/projects/${projectId}/overview`;
@@ -213,7 +216,7 @@ export default async function ProjectOverviewPage({
 
         {project.liveUrl ? (
           <div id="live-checks" className="mt-6 scroll-mt-6 border-t border-cyan-200 pt-5">
-            <AiAllowanceNotice notice={notice} orgSlug={orgSlug} />
+            <AiAllowanceNotice notice={notice} orgSlug={orgSlug} spentOn={spentOn} />
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
               <div>
                 <p className="text-sm font-semibold text-slate-900">

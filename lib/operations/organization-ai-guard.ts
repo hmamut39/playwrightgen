@@ -33,6 +33,14 @@ minute_count = redis.call("INCR", KEYS[1])
 daily_count = redis.call("INCR", KEYS[2])
 if minute_count == 1 then redis.call("EXPIRE", KEYS[1], tonumber(ARGV[3])) end
 if daily_count == 1 then redis.call("EXPIRE", KEYS[2], tonumber(ARGV[4])) end
+
+-- Which surface spent it. Counted here rather than anywhere else because
+-- this is the one place every AI request in the product passes through, and
+-- counted inside the same script so the breakdown can never disagree with
+-- the total it breaks down. It expires with the day it describes.
+local surface_total = redis.call("HINCRBY", KEYS[3], ARGV[5], 1)
+if surface_total == 1 then redis.call("EXPIRE", KEYS[3], tonumber(ARGV[4])) end
+
 return {1, minute_count, daily_count, 0}
 `.trim();
 
@@ -91,15 +99,14 @@ export async function reserveOrganizationAiRequest(input: {
   const minuteLimit = limits.aiMinuteLimit;
   const dailyLimit = limits.aiDailyLimit;
   const prefix = `playwrightgen:organization-ai:${organizationId}`;
-  const keys = [
-    `${prefix}:minute`,
-    `${prefix}:day:${now.toISOString().slice(0, 10)}`,
-  ];
+  const day = now.toISOString().slice(0, 10);
+  const keys = [`${prefix}:minute`, `${prefix}:day:${day}`, `${prefix}:surfaces:${day}`];
   const args = [
     String(minuteLimit),
     String(dailyLimit),
     "60",
     String(secondsUntilUtcDayEnd(now)),
+    input.surface,
   ];
   const execute =
     input.execute ??
@@ -138,13 +145,32 @@ export async function reserveOrganizationAiRequest(input: {
  * it. Reads the same counter the reservation increments, so the number shown
  * is the number that will be enforced.
  */
+/** What one surface spent today, for the question "spent on what?". */
+export type AiSurfaceSpend = { surface: string; used: number };
+
 export async function readOrganizationAiAllowance(input: {
   organizationId: string;
   source?: EnvironmentSource;
   now?: Date;
   read?: (key: string) => Promise<unknown>;
+  /** The per-surface tally, kept beside the total the reservation increments. */
+  readSurfaces?: (key: string) => Promise<Record<string, unknown> | null>;
   resolveLimits?: typeof getOrganizationLimits;
-}): Promise<{ dailyLimit: number; dailyUsed: number; dailyRemaining: number }> {
+}): Promise<{
+  dailyLimit: number;
+  dailyUsed: number;
+  dailyRemaining: number;
+  /**
+   * Where today's requests went, largest first.
+   *
+   * A workspace told "today's AI requests are used" could not find out what
+   * had used them: the counter was one number and the token figures lived in
+   * three different tables and a console log. Empty when the tally cannot be
+   * read, which is not the same as nothing having been spent -- the total
+   * above is the figure that is enforced either way.
+   */
+  bySurface: AiSurfaceSpend[];
+}> {
   const organizationId = uuid.parse(input.organizationId);
   const source = input.source ?? process.env;
   const now = input.now ?? new Date();
@@ -160,11 +186,36 @@ export async function readOrganizationAiAllowance(input: {
       });
       return redis.get<number | string | null>(dayKey);
     });
+  const surfacesKey = `playwrightgen:organization-ai:${organizationId}:surfaces:${now.toISOString().slice(0, 10)}`;
+  const readSurfaces =
+    input.readSurfaces ??
+    (async (hashKey: string) => {
+      const redisConfig = validateRedisEnvironment(source);
+      const redis = new Redis({
+        url: redisConfig.UPSTASH_REDIS_REST_URL,
+        token: redisConfig.UPSTASH_REDIS_REST_TOKEN,
+      });
+      return redis.hgetall<Record<string, unknown>>(hashKey);
+    });
+
   const raw = await read(key);
   const dailyUsed = Math.max(0, Number(raw ?? 0) || 0);
+  // Never at the cost of the number that matters: the allowance is enforced
+  // on the total, and a tally that cannot be read must not take the page down
+  // with it.
+  const tally = await readSurfaces(surfacesKey).catch((error: unknown) => {
+    console.error("[organization-ai] the per-surface tally could not be read", error);
+    return null;
+  });
+  const bySurface = Object.entries(tally ?? {})
+    .map(([surface, used]) => ({ surface, used: Math.max(0, Number(used ?? 0) || 0) }))
+    .filter((entry) => entry.used > 0)
+    .sort((left, right) => right.used - left.used || left.surface.localeCompare(right.surface));
+
   return {
     dailyLimit: limits.aiDailyLimit,
     dailyUsed,
     dailyRemaining: Math.max(0, limits.aiDailyLimit - dailyUsed),
+    bySurface,
   };
 }

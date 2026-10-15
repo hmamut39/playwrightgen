@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache";
+import { spendBehindNotice } from "@/lib/services/ai-spend";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import Link from "next/link";
@@ -180,7 +181,7 @@ export default async function AutomationArtifactPage({
       >
         ← Automation
       </Link>
-      <AiAllowanceNotice notice={notice} orgSlug={orgSlug} />
+      <AiAllowanceNotice notice={notice} orgSlug={orgSlug} spentOn={await spendBehindNotice(notice, { orgSlug, projectId })} />
       {pr ? (
         <p role="status" className="mt-6 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
           <span className="font-semibold">Pull request open.</span>{" "}

@@ -1,6 +1,10 @@
 import Link from "next/link";
 
-import { aiAllowanceSentence, readAiAllowanceLimit } from "@/lib/operations/ai-allowance-message";
+import {
+  aiAllowanceSentence,
+  readAiAllowanceLimit,
+  spentOnSentence,
+} from "@/lib/operations/ai-allowance-message";
 
 /**
  * Which notice an action refused by the workspace's AI allowance should
@@ -23,11 +27,18 @@ export function AiAllowanceNotice({
   notice,
   orgSlug,
   what = "Nothing was generated.",
+  spentOn = [],
 }: {
   notice: string | undefined;
   orgSlug: string;
   /** What this surface did not do, which only it knows. */
   what?: string;
+  /**
+   * Where today's requests went. The question anybody refused at four in the
+   * afternoon asks next, and the product could not answer it: the allowance
+   * was one number and the token counts lived in three tables and a log.
+   */
+  spentOn?: ReadonlyArray<{ surface: string; used: number }>;
 }) {
   const [name, seconds] = (notice ?? "").split(":");
   if (name !== "ai-daily" && name !== "ai-burst") return null;
@@ -39,6 +50,9 @@ export function AiAllowanceNotice({
   return (
     <div role="alert" className="mt-6 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
       <span className="font-semibold">{what}</span> {sentence}
+      {name === "ai-daily" && spentOnSentence(spentOn) ? (
+        <> {spentOnSentence(spentOn)}</>
+      ) : null}
       {name === "ai-daily" ? (
         <>
           {" "}

@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
+import { spendBehindNotice } from "@/lib/services/ai-spend";
 import { redirect } from "next/navigation";
 
 import {
@@ -254,7 +255,7 @@ export default async function RequirementDetailPage({
         ← Requirements
       </Link>
 
-      <AiAllowanceNotice notice={notice} orgSlug={orgSlug} what="The review did not run." />
+      <AiAllowanceNotice notice={notice} orgSlug={orgSlug} what="The review did not run." spentOn={await spendBehindNotice(notice, { orgSlug, projectId })} />
       {notice === "review-failed" ? (
         <div role="alert" className="mt-6 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
           <span className="font-semibold">The AI review did not finish, so nothing was added.</span> Your requirement

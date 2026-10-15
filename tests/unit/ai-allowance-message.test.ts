@@ -4,6 +4,7 @@ import { aiAllowanceNotice } from "@/components/workspace/ai-allowance-notice";
 import {
   aiAllowanceMessage,
   readAiAllowanceLimit,
+  spentOnSentence,
 } from "@/lib/operations/ai-allowance-message";
 import { OrganizationAiRateLimitError } from "@/lib/operations/organization-ai-guard";
 import { AutomationArtifactDomainError } from "@/lib/services/automation-artifacts";
@@ -59,5 +60,42 @@ describe("what a spent AI allowance tells the person", () => {
     expect(aiAllowanceNotice(new OrganizationAiRateLimitError("organization_daily_limit", 600))).toBe("ai-daily:600");
     expect(aiAllowanceNotice(new AutomationArtifactDomainError("organization_burst_limit", 429))).toBe("ai-burst");
     expect(aiAllowanceNotice(new Error("nope"))).toBeNull();
+  });
+});
+
+describe("what today's requests were spent on", () => {
+  it("names the surfaces in a person's words, largest first", () => {
+    // The guard counts by slug because that is what the code passes it.
+    // Somebody refused at four in the afternoon is owed their own words.
+    expect(
+      spentOnSentence([
+        { surface: "page-coverage", used: 12 },
+        { surface: "automation-generation", used: 6 },
+      ]),
+    ).toBe("Today’s requests went to planning a page’s tests (12) and writing automation (6).");
+  });
+
+  it("stops at three and totals the rest, because a tail of ones answers nothing", () => {
+    const sentence = spentOnSentence([
+      { surface: "page-coverage", used: 9 },
+      { surface: "automation-generation", used: 4 },
+      { surface: "requirement-review", used: 3 },
+      { surface: "failure-analysis", used: 2 },
+      { surface: "free-tools", used: 1 },
+    ]);
+
+    expect(sentence).toContain("planning a page’s tests (9), writing automation (4) and reviewing requirements (3)");
+    expect(sentence).toContain("with 3 elsewhere");
+  });
+
+  it("shows a surface it has no name for rather than dropping it", () => {
+    // A silent omission in a tally is how a total stops adding up.
+    expect(spentOnSentence([{ surface: "something-new", used: 5 }])).toBe(
+      "Today’s requests went to something-new (5).",
+    );
+  });
+
+  it("says nothing when nothing is known", () => {
+    expect(spentOnSentence([])).toBeNull();
   });
 });

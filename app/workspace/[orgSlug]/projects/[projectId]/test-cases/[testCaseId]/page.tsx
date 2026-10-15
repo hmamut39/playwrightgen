@@ -1,4 +1,5 @@
 import { AiAllowanceNotice, aiAllowanceNotice } from "@/components/workspace/ai-allowance-notice";
+import { spendBehindNotice } from "@/lib/services/ai-spend";
 import { StickyReviewBar } from "@/components/workspace/sticky-review-bar";
 import { SearchablePicker, type PickerOption } from "@/components/workspace/searchable-picker";
 import { VersionMarkerPanel } from "@/components/workspace/version-marker-panel";
@@ -238,7 +239,7 @@ export default async function TestCaseDetailPage({
   return (
     <div className="mx-auto max-w-5xl">
       <Link href={listPath} className="text-sm font-medium text-violet-700 hover:text-violet-900">← Test Cases</Link>
-      <AiAllowanceNotice notice={notice} orgSlug={orgSlug} />
+      <AiAllowanceNotice notice={notice} orgSlug={orgSlug} spentOn={await spendBehindNotice(notice, { orgSlug, projectId })} />
       <header className="mt-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">

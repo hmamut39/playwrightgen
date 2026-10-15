@@ -15,6 +15,26 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **"This workspace has used today's AI requests" -- on what?**
+  (2026-10-15): the product could not say. The allowance was a single counter
+  in Redis; token counts lived in an AiRun row for reviews, an automation
+  version row for generation, a third table for failure analysis, and a
+  console line for the free tools. Nobody could answer the only question
+  that follows being refused.
+  Every AI request in the product passes through one function, with the
+  surface already named in the call. The reservation script now counts by
+  surface in the same atomic step as the spend, so the breakdown cannot
+  disagree with the total it breaks down, and it expires with the day it
+  describes. No table, no migration, no new page.
+  The answer appears where the refusal does: "Today's requests went to
+  planning a page's tests (12) and writing automation (6)." Three surfaces at
+  most, largest first, with the remainder totalled -- a tail of ones answers
+  nothing -- and a surface the product has no name for is shown by its slug
+  rather than dropped, because a silent omission is how a tally stops adding
+  up. Read only when somebody was refused the daily allowance, so every other
+  render pays nothing, and a tally that cannot be read leaves the figure that
+  is actually enforced untouched.
+
 - **Measuring the requirement review found it throwing good reviews away**
   (2026-10-15): the surface that was wholly broken on 2026-10-12 had no eval,
   which is why nothing noticed. Writing one found two more ways it discarded
