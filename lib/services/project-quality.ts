@@ -107,11 +107,22 @@ export async function getProjectQualityIntelligence(
   );
   const organizationId = context.organization.id;
   const prisma = client(dependencies);
-  const recentFailureCutoff = new Date(
+  /** Failures listed as examples beside the count of all of them. */
+const RECENT_FAILURE_PAGE = 25;
+
+const recentFailureCutoff = new Date(
     now.getTime() - RECENT_FAILURE_DAYS * 86_400_000,
   );
 
-  const [project, requirements, testCases, recentFailedAttempts, recentAttemptEvidence, openFailureFindings] =
+  const [
+    project,
+    requirements,
+    testCases,
+    recentFailedAttempts,
+    recentAttemptEvidence,
+    openFailureFindings,
+    recentFailedCount,
+  ] =
     await Promise.all([
       prisma.project.findUniqueOrThrow({
         where: { organizationId_id: { organizationId, id: projectId } },
@@ -155,6 +166,10 @@ export async function getProjectQualityIntelligence(
         },
       }),
       prisma.testRunAttempt.findMany({
+        // The twenty-five most recent, which is a page of examples for the
+        // reader. How many there are is counted separately below, because a
+        // tile reading "25 of 200 recent attempts failed" on a project with
+        // sixty failures understates the thing the page exists to show.
         where: {
           organizationId,
           projectId,
@@ -162,7 +177,7 @@ export async function getProjectQualityIntelligence(
           executedAt: { gte: recentFailureCutoff },
         },
         orderBy: [{ executedAt: "desc" }, { id: "asc" }],
-        take: 25,
+        take: RECENT_FAILURE_PAGE,
         select: {
           id: true,
           testRunId: true,
@@ -193,6 +208,17 @@ export async function getProjectQualityIntelligence(
       }),
       prisma.failureFinding.count({
         where: { organizationId, projectId, status: "OPEN" },
+      }),
+      // How many there really are. The list above is a page of the most
+      // recent; counting its rows told a project with sixty recent failures
+      // that it had twenty-five, on the page called Quality.
+      prisma.testRunAttempt.count({
+        where: {
+          organizationId,
+          projectId,
+          result: { in: ["FAILED", "BLOCKED"] },
+          executedAt: { gte: recentFailureCutoff },
+        },
       }),
     ]);
 
@@ -302,7 +328,7 @@ export async function getProjectQualityIntelligence(
       testCasesWithCurrentAutomation:
         testCases.length - testCasesWithoutCurrentAutomation.length,
       recentAttempts: recentAttemptEvidence._count.id,
-      recentFailedAttempts: recentFailedAttempts.length,
+      recentFailedAttempts: recentFailedCount,
       openFailureFindings,
     },
     evidence: {

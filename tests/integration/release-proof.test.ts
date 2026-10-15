@@ -65,13 +65,16 @@ describe("stopping a shared proof link", () => {
     expect(await resolveProofLink(token, { prisma })).toMatchObject({ projectId: area.project.id });
     // Reading it is recorded, so a team can see whether anyone opened it.
     const listed = await listProofLinks({ projectId: area.project.id }, area.owned);
-    expect(listed).toHaveLength(1);
-    expect(listed[0].lastViewedAt).not.toBeNull();
-    expect(listed[0].createdBy.displayName).toBe("Lead");
+    expect(listed.items).toHaveLength(1);
+    // The count is the project's, not the page's: a page that counted its own
+    // rows told a team with more links than fit that it had twenty.
+    expect(listed.total).toBe(1);
+    expect(listed.items[0].lastViewedAt).not.toBeNull();
+    expect(listed.items[0].createdBy.displayName).toBe("Lead");
 
-    await revokeProofLink({ projectId: area.project.id, proofLinkId: listed[0].id }, area.owned);
+    await revokeProofLink({ projectId: area.project.id, proofLinkId: listed.items[0].id }, area.owned);
     expect(await resolveProofLink(token, { prisma })).toBeNull();
-    expect(await listProofLinks({ projectId: area.project.id }, area.owned)).toEqual([]);
+    expect(await listProofLinks({ projectId: area.project.id }, area.owned)).toEqual({ items: [], total: 0 });
   });
 
   it("a snapshot holds what was true when it was shared; a live link follows the project", async () => {

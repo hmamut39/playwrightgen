@@ -15,6 +15,34 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **The cap sweep: four counts that were counting the page, not the thing**
+  (2026-10-15): the question for each hard `take:` was never whether the
+  bound is right but whether the surface reading it says the bound exists.
+  Three of the four said nothing, and each was wrong in the direction nobody
+  would question.
+  The release page counted the rows it had been handed: a project with more
+  than twenty live proof links was told "20 shared links can read this
+  evidence", which is the worst possible answer to "who can see our
+  evidence". It now counts them and says when the list is not all of them.
+  The Quality page read "{failed} of {total} recent attempts failed", with
+  the total from a real count and the failures counted from a list capped at
+  twenty-five. Sixty failures showed as twenty-five, understating failure on
+  the page called Quality. Counted properly now, with the list beside it
+  named as the twenty-five most recent.
+  The cron reported "50 due, 50 ran", which reads as a finished round whether
+  fifty projects were waiting or two hundred. It now reports what was due,
+  what this invocation took, and what ran.
+  The fourth was not a count. The review trail looked for a submission among
+  the twenty newest events for a record; a record argued over long enough
+  pushed its own submission out of that window, and the page then dropped the
+  submitter's name and offered an Approve button to the person who had
+  submitted it. The rule itself held -- `checkSelfApproval` asks for the
+  submission directly and refuses the click -- but a page offering something
+  the product will refuse has told somebody a lie about what they may do. The
+  trail now reads the same fact the rule reads.
+  Each fix carries a test proven to fail against the old code: 25 where 30
+  was true, and "expected undefined to be 'Author'".
+
 - **The evals became a gate that cannot be satisfied by deleting them**
   (2026-10-15): nine eval files measured the AI surfaces and nothing failed
   when one regressed. Worse, the runner compared each run with the one before

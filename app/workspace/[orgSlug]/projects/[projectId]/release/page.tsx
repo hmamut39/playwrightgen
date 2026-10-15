@@ -68,7 +68,7 @@ export default async function ReleaseReadinessPage({
   const [readiness, context, proofLinks, signatures, evidenceNow] = await Promise.all([
     getReleaseReadiness({ orgSlug, projectId }),
     requireWorkspaceContext({ orgSlug, projectId }),
-    listProofLinks({ orgSlug, projectId }).catch(() => []),
+    listProofLinks({ orgSlug, projectId }).catch(() => ({ items: [] as never[], total: 0 })),
     // Null rather than an empty list, so a read that failed cannot be
     // rendered as a project nobody has accepted.
     listEvidenceSignatures({ orgSlug, projectId }).catch(() => null),
@@ -205,13 +205,19 @@ export default async function ReleaseReadinessPage({
             </ul>
           </section>
         ) : null}
-        {proofLinks.length ? (
+        {proofLinks.items.length ? (
           <section aria-label="Shared evidence links" className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 print:hidden">
             <p className="text-sm font-semibold text-slate-900">
-              {proofLinks.length} shared link{proofLinks.length === 1 ? "" : "s"} can read this evidence
+              {proofLinks.total} shared link{proofLinks.total === 1 ? "" : "s"} can read this evidence
             </p>
+            {proofLinks.total > proofLinks.items.length ? (
+              <p className="mt-1 text-xs text-slate-500">
+                The {proofLinks.items.length} most recent are listed. Stopping a link that is not here means letting
+                one of these expire first, or asking for it by name.
+              </p>
+            ) : null}
             <ul className="mt-3 space-y-2">
-              {proofLinks.map((link) => (
+              {proofLinks.items.map((link) => (
                 <li key={link.id} className="flex flex-col justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600 sm:flex-row sm:items-center">
                   <span>
                     {link.snapshot ? "Snapshot" : "Live"} &middot; shared by {link.createdBy.displayName || "a lead"}{" "}

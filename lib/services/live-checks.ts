@@ -673,24 +673,36 @@ async function recordAttempt(
  * The scheduled round: projects with checks on whose last round is at least
  * most of a day old, oldest first, until the time budget runs out.
  */
+/** Projects one invocation will take, however many are waiting. */
+const LIVE_CHECK_BATCH = 50;
+
 export async function runDueLiveChecks(options: { budgetMs: number; prisma?: PrismaClient; runner?: Runner; post?: Poster }) {
   const prisma = client(options);
   const deadline = Date.now() + options.budgetMs;
-  const due = await prisma.project.findMany({
-    where: {
-      status: "ACTIVE",
-      liveChecksEnabled: true,
-      liveUrl: { not: null },
-      OR: [{ liveChecksLastRunAt: null }, { liveChecksLastRunAt: { lt: new Date(Date.now() - MIN_INTERVAL_MS) } }],
-    },
-    orderBy: { liveChecksLastRunAt: { sort: "asc", nulls: "first" } },
-    select: { id: true },
-    take: 50,
-  });
+  const dueWhere = {
+    status: "ACTIVE" as const,
+    liveChecksEnabled: true,
+    liveUrl: { not: null },
+    OR: [{ liveChecksLastRunAt: null }, { liveChecksLastRunAt: { lt: new Date(Date.now() - MIN_INTERVAL_MS) } }],
+  };
+  // Oldest first, so a project cannot starve while others are checked twice.
+  // The batch is bounded by what one invocation can finish; how many were due
+  // is counted rather than inferred from the batch, because "50 due, 50 ran"
+  // reads as finished to whoever is watching the cron, and a hundred projects
+  // waiting would look exactly the same.
+  const [due, dueTotal] = await Promise.all([
+    prisma.project.findMany({
+      where: dueWhere,
+      orderBy: { liveChecksLastRunAt: { sort: "asc", nulls: "first" } },
+      select: { id: true },
+      take: LIVE_CHECK_BATCH,
+    }),
+    prisma.project.count({ where: dueWhere }),
+  ]);
   const rounds: Array<{ projectId: string; summary: LiveChecksSummary | null }> = [];
   for (const project of due) {
     if (Date.now() > deadline) break;
     rounds.push({ projectId: project.id, summary: await runLiveChecksForProject(project.id, { deadline, prisma, runner: options.runner, post: options.post }) });
   }
-  return { due: due.length, ran: rounds.length, rounds };
+  return { due: dueTotal, taken: due.length, ran: rounds.length, rounds };
 }

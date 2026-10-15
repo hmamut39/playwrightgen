@@ -199,7 +199,18 @@ export async function resolveProofLink(
   return { ...claim, snapshot: readSnapshot(record.snapshot) };
 }
 
-/** Links a team can still stop, newest first. */
+/** The most recent live links shown at once. */
+const PROOF_LINK_PAGE = 20;
+
+/**
+ * Links a team can still stop, newest first, and how many there are.
+ *
+ * The count travels with the page because the page reading it was counting
+ * the rows it had been handed: a project with more live links than fit said
+ * "20 shared links can read this evidence", which is both false and false in
+ * the direction that matters to whoever is asking who can see their evidence.
+ * The same defect was fixed for acceptances on 2026-10-11, one file over.
+ */
 export async function listProofLinks(
   input: { orgSlug?: string; projectId: string },
   dependencies?: Dependencies,
@@ -209,20 +220,31 @@ export async function listProofLinks(
     { orgSlug: input.orgSlug, projectId, permission: "testrun:read" },
     dependencies,
   );
-  return client(dependencies).proofLink.findMany({
-    where: { organizationId: workspace.organization.id, projectId, revokedAt: null, expiresAt: { gt: new Date() } },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-    select: {
-      id: true,
-      createdAt: true,
-      expiresAt: true,
-      lastViewedAt: true,
-      snapshot: true,
-      createdBy: { select: { displayName: true } },
-    },
-  });
+  const where = {
+    organizationId: workspace.organization.id,
+    projectId,
+    revokedAt: null,
+    expiresAt: { gt: new Date() },
+  };
+  const [items, total] = await Promise.all([
+    client(dependencies).proofLink.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: PROOF_LINK_PAGE,
+      select: {
+        id: true,
+        createdAt: true,
+        expiresAt: true,
+        lastViewedAt: true,
+        snapshot: true,
+        createdBy: { select: { displayName: true } },
+      },
+    }),
+    client(dependencies).proofLink.count({ where }),
+  ]);
+  return { items, total };
 }
+
 
 /**
  * One kept snapshot, for a team that wants to compare the project against it.

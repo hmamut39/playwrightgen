@@ -33,6 +33,9 @@ export async function GET(request: Request) {
   return NextResponse.json(
     {
       due: outcome.due,
+      // What this invocation took of them, so a backlog is visible rather
+      // than looking like a finished round.
+      taken: outcome.taken,
       ran: outcome.ran,
       checked: outcome.rounds.reduce((total, round) => total + (round.summary?.checked ?? 0), 0),
     },

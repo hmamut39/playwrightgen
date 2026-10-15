@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { PrismaClient } from "@/generated/prisma/client";
-import { checkSelfApproval } from "@/lib/services/approval-policy";
+import { checkSelfApproval, describeReviewTrail } from "@/lib/services/approval-policy";
 import {
   cleanPhase1ATables,
   connectTestDatabase,
@@ -67,6 +67,32 @@ describe("self-approval rule", () => {
         targetId,
       },
     });
+    const trail = (viewerUserId: string) =>
+      describeReviewTrail(prisma, {
+        organizationId: organization.id,
+        projectId: project.id,
+        targetType: "TEST_CASE",
+        targetId,
+        actions: {
+          submitted: "TEST_CASE_SUBMITTED_FOR_REVIEW",
+          approved: "TEST_CASE_APPROVED",
+          changesRequested: "TEST_CASE_CHANGES_REQUESTED",
+        },
+        viewerUserId,
+        inReview: true,
+      });
+    const changesRequested = (actorUserId: string) =>
+      prisma.activity.create({
+        data: {
+          organizationId: organization.id,
+          projectId: project.id,
+          actorUserId,
+          source: "USER",
+          action: "TEST_CASE_CHANGES_REQUESTED",
+          targetType: "TEST_CASE",
+          targetId,
+        },
+      });
     const check = (approverUserId: string) =>
       checkSelfApproval(prisma, {
         organizationId: organization.id,
@@ -76,7 +102,7 @@ describe("self-approval rule", () => {
         submittedAction: "TEST_CASE_SUBMITTED_FOR_REVIEW",
         approverUserId,
       });
-    return { author, organization, project, check };
+    return { author, organization, project, check, trail, changesRequested };
   }
 
   async function addColleague(
@@ -116,6 +142,27 @@ describe("self-approval rule", () => {
     }
     return user;
   }
+
+  it("still knows who submitted it after a long argument about it", async () => {
+    // The trail read the twenty newest events and looked for the submission
+    // among them. A record argued over for long enough pushed its own
+    // submission out of that window, and the page then stopped believing it
+    // had ever been submitted: no submitter named, and an Approve button
+    // offered to the person who submitted it. The rule refused the click, so
+    // the page was offering something the product would not do.
+    const area = await setup();
+    const colleague = await addColleague(area.organization.id, { role: "ADMIN" });
+    for (let round = 0; round < 25; round += 1) {
+      await area.changesRequested(colleague.id);
+    }
+
+    const trail = await area.trail(area.author.id);
+
+    expect(trail.submitted?.by).toBe("Author");
+    expect(trail.awaitingAnotherApprover, "the submitter was offered their own approval").toBe(true);
+    expect(trail.otherApprovers).toContain("Colleague");
+    expect(trail.decision?.kind).toBe("changes_requested");
+  });
 
   it("lets the only possible approver approve their own submission", async () => {
     const { author, check } = await setup();

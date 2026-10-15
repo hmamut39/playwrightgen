@@ -214,7 +214,11 @@ export default async function ProjectQualityPage({
 
             <GapGroup
               eyebrow="Failure review"
-              title="Recent failed attempts without reviewed analysis"
+              title={
+                intelligence.counts.recentFailedAttempts > 25
+                  ? "Unreviewed, among the 25 most recent failed attempts"
+                  : "Recent failed attempts without reviewed analysis"
+              }
               count={intelligence.gaps.unreviewedFailedAttempts.length}
               tone="red"
             >

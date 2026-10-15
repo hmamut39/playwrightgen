@@ -296,6 +296,58 @@ describe("project quality intelligence", () => {
     });
   });
 
+  it("counts every recent failure, not the page of them it lists", async () => {
+    // The tile reads "{failed} of {total} recent attempts failed", with the
+    // total from a real count and the failures counted from a list capped at
+    // twenty-five. A project with more failures than that was told it had
+    // twenty-five, on the page called Quality, in the one direction nobody
+    // would question.
+    const workspace = await createWorkspace();
+    const testCase = await createApprovedTestCase(workspace, "Checkout fails under load");
+    const run = await prisma.testRun.create({
+      data: {
+        organizationId: workspace.organization.id,
+        projectId: workspace.project.id,
+        testCaseId: testCase.testCase.id,
+        testCaseVersionId: testCase.versions[0].id,
+        name: "Nightly",
+        status: "FAILED",
+        latestAttemptNumber: 30,
+        createdByUserId: workspace.user.id,
+      },
+    });
+    for (let attempt = 1; attempt <= 30; attempt += 1) {
+      await prisma.testRunAttempt.create({
+        data: {
+          organizationId: workspace.organization.id,
+          projectId: workspace.project.id,
+          testRunId: run.id,
+          attemptNumber: attempt,
+          result: "FAILED",
+          mode: "MANUAL",
+          environment: "STAGING",
+          browser: "NONE",
+          summary: `Attempt ${attempt}`,
+          failureDetails: "It did not pass.",
+          stepResults: [],
+          evidence: [],
+          executedByUserId: workspace.user.id,
+          executedAt: new Date(`2026-08-${String((attempt % 28) + 1).padStart(2, "0")}T10:00:00.000Z`),
+        },
+      });
+    }
+
+    const intelligence = await getProjectQualityIntelligence(
+      { projectId: workspace.project.id, now: new Date("2026-08-30T10:00:00.000Z") },
+      dependencies(workspace),
+    );
+
+    expect(intelligence.counts.recentFailedAttempts).toBe(30);
+    expect(intelligence.counts.recentAttempts).toBe(30);
+    // The list beside it stays a page of examples, and the page says so.
+    expect(intelligence.gaps.unreviewedFailedAttempts).toHaveLength(25);
+  });
+
   it("does not include records belonging to another tenant", async () => {
     const workspace = await createWorkspace();
     const foreign = await createWorkspace();

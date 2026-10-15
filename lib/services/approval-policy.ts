@@ -136,39 +136,44 @@ export async function describeReviewTrail(
     inReview: boolean;
   },
 ): Promise<ReviewTrail> {
-  const events = await reader.activity.findMany({
+  /*
+   * The latest submission, asked for directly rather than found in a window.
+   *
+   * This read the twenty newest events for the record and looked for a
+   * submission among them. Twenty is almost always plenty -- and when it is
+   * not, the page stops believing the record was ever submitted, drops the
+   * line saying who submitted it, and offers an Approve button to the person
+   * who submitted it. The rule itself holds: `checkSelfApproval` asks for the
+   * submission directly and refuses the click. But a page that offers
+   * something the product then refuses has told somebody a lie about what
+   * they may do, and the fix is to read the same fact the rule reads.
+   */
+  const submission = await reader.activity.findFirst({
     where: {
       organizationId: input.organizationId,
       projectId: input.projectId,
       targetType: input.targetType,
       targetId: input.targetId,
-      action: {
-        in: [
-          input.actions.submitted,
-          input.actions.approved,
-          input.actions.changesRequested,
-        ],
-      },
+      action: input.actions.submitted,
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    take: 20,
-    select: {
-      action: true,
-      createdAt: true,
-      actorUserId: true,
-      actor: { select: { displayName: true } },
-    },
+    select: { createdAt: true, actorUserId: true, actor: { select: { displayName: true } } },
   });
 
-  const submissionIndex = events.findIndex(
-    (event) => event.action === input.actions.submitted,
-  );
-  const submission = submissionIndex >= 0 ? events[submissionIndex] : null;
-  // Events are newest first, so anything before the submission is newer.
-  const decisionEvent = (submissionIndex >= 0
-    ? events.slice(0, submissionIndex)
-    : events
-  ).find((event) => event.action !== input.actions.submitted);
+  // The decision that followed it, which is the only one that still describes
+  // this version: anything older belongs to a round that has been superseded.
+  const decisionEvent = await reader.activity.findFirst({
+    where: {
+      organizationId: input.organizationId,
+      projectId: input.projectId,
+      targetType: input.targetType,
+      targetId: input.targetId,
+      action: { in: [input.actions.approved, input.actions.changesRequested] },
+      ...(submission ? { createdAt: { gte: submission.createdAt } } : {}),
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    select: { action: true, createdAt: true, actor: { select: { displayName: true } } },
+  });
 
   let awaitingAnotherApprover = false;
   let otherApprovers: string[] = [];
