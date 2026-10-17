@@ -31,6 +31,7 @@ import { checkSelfApproval, describeReviewTrail } from "@/lib/services/approval-
 import { importedDraftSourceLabel, readRunEvidence } from "@/lib/services/imported-drafts";
 import { planPreviewRun } from "@/lib/free-tools/preview-run/plan";
 import { repairDraft } from "@/lib/ai/draft-repair";
+import { reserveWaitingOutBurst } from "@/lib/operations/reserve-waiting";
 import { weakeningFindings } from "@/lib/ai/repair-weakening";
 import { executeLiveRun, prepareLiveRun } from "@/lib/free-tools/preview-run/run-draft";
 import { runVerdict } from "@/lib/free-tools/preview-run/receipt";
@@ -588,7 +589,11 @@ async function proveGeneratedCode(
         },
         fix: async (current, failure) => {
           try {
-            await reserveOrganizationAiRequest({ organizationId: pending.organizationId, surface: "automation-generation" });
+            // A minute is a wait, not a refusal: a fix part-way through a
+            // proving loop should not hand the job back over one.
+            await reserveWaitingOutBurst(() =>
+              reserveOrganizationAiRequest({ organizationId: pending.organizationId, surface: "automation-generation" }),
+            );
           } catch {
             return { ok: false as const, limit: true, message: "The workspace's AI allowance is used up." };
           }

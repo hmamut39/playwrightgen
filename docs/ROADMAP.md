@@ -15,6 +15,30 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **A newcomer's first proof stopped half way and asked them to resume it**
+  (2026-10-17): signed up a brand-new account and took the four steps the
+  empty workspace promises. Most of it is good: onboarding is one step, the
+  empty workspace says "From nothing to tests that prove your app works" and
+  names the four, the project and its page are one short form, step one took
+  38 seconds, and the plan arrived with five tests to tick.
+  Then the first press of "Prove the ticked tests" stopped after two of them:
+  "Too many AI requests in a minute; it carries on in a moment", with a
+  "Carry on" button to press. Proving one test spends several requests in
+  quick succession -- write it, run it, fix it -- so a free workspace reaches
+  its per-minute limit during a single press of a single button. The product
+  handed back a job it had been asked to finish, thirty seconds into
+  somebody's first use of it.
+  A minute is a wait, not a refusal. The reservation now waits that minute
+  out and carries on by itself, once, and never longer than a minute: a
+  retry-after larger than that is not a minute limit behaving normally, and
+  parking somebody's run on that figure is how a page sits saying "proving"
+  for an hour. The daily allowance still stops the run and says so, because
+  it returns at midnight and nobody should sit in front of a page for that.
+  The same flaw was in the automation generator and the repair loop, so the
+  policy lives in one place and all three use it. Afterwards the newcomer's
+  run went from paused to covered on a single press: two tests passed on the
+  live page with 15 and 9 checks, two partly run, one needing a person.
+
 - **The free tool contradicted itself in front of every visitor**
   (2026-10-17): walked the public surface as a stranger, which nobody had
   done this week and which is the first thing a new user meets. The journey

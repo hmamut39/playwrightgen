@@ -7,6 +7,7 @@ import {
   type WorkspaceContextDependencies,
 } from "@/lib/auth/workspace-context";
 import { repairDraft } from "@/lib/ai/draft-repair";
+import { reserveWaitingOutBurst } from "@/lib/operations/reserve-waiting";
 import { weakeningFindings } from "@/lib/ai/repair-weakening";
 import { getPrismaClient } from "@/lib/db/prisma";
 import { executeLiveRun, prepareLiveRun } from "@/lib/free-tools/preview-run/run-draft";
@@ -248,11 +249,15 @@ export async function proposeAutomationRepair(
         };
       },
       fix: async (current, failure) => {
-        // Only a fix costs a request; a run that passes spends nothing.
-        await reserveOrganizationAiRequest({
-          organizationId: workspace.organization.id,
-          surface: "automation-repair",
-        });
+        // Only a fix costs a request; a run that passes spends nothing. A
+        // per-minute limit is waited out rather than handed back: the person
+        // asked for one thing and a minute is not a refusal.
+        await reserveWaitingOutBurst(() =>
+          reserveOrganizationAiRequest({
+            organizationId: workspace.organization.id,
+            surface: "automation-repair",
+          }),
+        );
         const repaired = await repairDraft({
           code: current,
           pageUrl,

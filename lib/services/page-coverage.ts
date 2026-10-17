@@ -19,6 +19,7 @@ import { firstFailureOf, proveDraftOnLivePage } from "@/lib/free-tools/prove-loo
 import { isPublicWebAddress } from "@/lib/free-tools/public-address";
 import { testAccountSchema, type TestAccount } from "@/lib/free-tools/sign-in";
 import { readSurface, type SurfaceControl } from "@/lib/free-tools/surface-coverage";
+import { reserveWaitingOutBurst } from "@/lib/operations/reserve-waiting";
 import {
   OrganizationAiRateLimitError,
   readOrganizationAiAllowance,
@@ -82,9 +83,17 @@ async function workspaceFor(input: { orgSlug?: string; projectId: string }, depe
   return { workspace, projectId };
 }
 
-async function reserve(organizationId: string) {
+/**
+ * One AI request for this run, waiting out a burst limit rather than stopping
+ * on it. A minute is a wait; the daily allowance is a refusal, and that one
+ * still pauses the run and says so.
+ */
+async function reserve(organizationId: string, wait?: (ms: number) => Promise<void>) {
   try {
-    return await reserveOrganizationAiRequest({ organizationId, surface: "page-coverage" });
+    return await reserveWaitingOutBurst(
+      () => reserveOrganizationAiRequest({ organizationId, surface: "page-coverage" }),
+      wait ? { wait } : {},
+    );
   } catch (error) {
     if (error instanceof OrganizationAiRateLimitError) {
       throw new PageCoverageError(
