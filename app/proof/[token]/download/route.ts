@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { evidenceDocument, evidenceFileName } from "@/lib/services/evidence-document";
 import { readLinkSignatures } from "@/lib/services/evidence-signature";
 import { buildReleaseEvidenceReport } from "@/lib/services/release-evidence";
-import { resolveProofLink } from "@/lib/services/release-proof";
+import { EXAMPLE_PROOF_TOKEN, exampleProofClaim, resolveProofLink } from "@/lib/services/release-proof";
 
 /**
  * The shared evidence as a file the reader can keep.
@@ -14,7 +14,10 @@ import { resolveProofLink } from "@/lib/services/release-proof";
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const claim = await resolveProofLink(decodeURIComponent(token));
+  // The published example downloads like any other evidence: a reader who
+  // would keep the file is the reader this page is for.
+  const example = token === EXAMPLE_PROOF_TOKEN ? exampleProofClaim() : null;
+  const claim = example ? { ...example, snapshot: null } : await resolveProofLink(decodeURIComponent(token));
   if (!claim) return new NextResponse("This link is no longer valid.", { status: 404 });
 
   const report =
@@ -29,7 +32,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
   // on the page that expires.
   // Null, not an empty list: a blip while this file is produced must not
   // turn into a record that reads as though nobody accepted anything.
-  const signatures = await readLinkSignatures(decodeURIComponent(token)).catch(() => null);
+  const signatures = example ? [] : await readLinkSignatures(decodeURIComponent(token)).catch(() => null);
   // One link cannot hold more acceptances than signing allows on it, so the
   // listing is never a truncated view of a longer list and the total is the
   // number in hand. No count query is needed to say so honestly.

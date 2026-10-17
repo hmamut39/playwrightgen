@@ -14,6 +14,31 @@ test suite (493 tests) passes.
 
 ## Shipped (most recent first)
 
+### Reaching the people who never open it
+- **One project's evidence, published, so a stranger sees the point first**
+  (2026-10-17): the thing that makes this product different is a page
+  somebody outside the team can read -- and a visitor had to create an
+  account, make a project, prove tests and share a link before they ever saw
+  one. The order was backwards.
+  The owner can now name one project whose evidence is public, and the same
+  proof page serves it at `/proof/example`: no second view to drift from the
+  first, no token to expire, and a word no real token can be (they are
+  `pwgp1.<payload>.<signature>`). It is read live from a real project rather
+  than staged or frozen, so a visitor may well meet a failing requirement --
+  which is the point, and the first thing most tools would hide.
+  Two sentences that are true of a shared link are not true of this page, so
+  it stops saying them: nothing here expires and nobody can retire it. The
+  acceptance form is replaced by what it would do on a team's own evidence,
+  because a stranger signing the example would record nothing and mean
+  nothing. The download works, because a reader who would keep the file is
+  exactly the reader this page is for.
+  Published only when both ids are set, with no default and no guessing: a
+  project becomes public because somebody decided it should. The front page
+  is prerendered, so the variables are read when the site is built -- set
+  them before the deploy that should show the link. **EXAMPLE_EVIDENCE_ORG_ID
+  and EXAMPLE_EVIDENCE_PROJECT_ID are the owner's to set in production**,
+  naming whichever project they are happy for the world to read.
+
 ### Found by using the product as a team would
 - **The free tool ran weaker safety rules than the workspace** (2026-10-17):
   an audit of every generating surface, one row per promise. Three gaps, and

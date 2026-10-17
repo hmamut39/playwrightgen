@@ -179,6 +179,41 @@ export function readSnapshot(value: unknown): ReleaseEvidenceReport | null {
  * A signature alone is not enough any more: a link the team stopped, or one
  * whose record was never written, opens nothing.
  */
+/** The path a visitor can read without an account or a link of their own. */
+export const EXAMPLE_PROOF_TOKEN = "example";
+
+/**
+ * One project's evidence, published deliberately as the example.
+ *
+ * A stranger has to create an account, make a project, prove tests and share
+ * a link before they ever see the thing this product is for: a page somebody
+ * outside the team can read. That is backwards, so the owner may name one
+ * project whose evidence is public, and the same page serves it at
+ * /proof/example.
+ *
+ * Read live rather than frozen, and from a real project. An example that is
+ * staged, or that silently ages into a picture of last quarter, would be the
+ * one dishonest page in a product whose whole claim is that its numbers are
+ * true -- and a visitor meeting failing requirements here is seeing exactly
+ * what this is for.
+ *
+ * Nothing is published unless both ids are set: no default, no guessing.
+ */
+export function exampleProofClaim(
+  source: Readonly<Record<string, string | undefined>> = process.env,
+): { organizationId: string; projectId: string } | null {
+  const organizationId = source.EXAMPLE_EVIDENCE_ORG_ID?.trim();
+  const projectId = source.EXAMPLE_EVIDENCE_PROJECT_ID?.trim();
+  if (!organizationId || !projectId) return null;
+  const valid = z.object({ organizationId: z.string().uuid(), projectId: z.string().uuid() });
+  const parsed = valid.safeParse({ organizationId, projectId });
+  if (!parsed.success) {
+    console.error("[release-proof] the example evidence ids are not both uuids; nothing is published");
+    return null;
+  }
+  return parsed.data;
+}
+
 export async function resolveProofLink(
   token: string,
   options: { prisma?: PrismaClient; now?: Date } = {},

@@ -13,7 +13,7 @@ import {
 } from "@/lib/services/evidence-signature";
 import { ageWord } from "@/lib/services/evidence-document";
 import { buildReleaseEvidenceReport } from "@/lib/services/release-evidence";
-import { resolveProofLink } from "@/lib/services/release-proof";
+import { EXAMPLE_PROOF_TOKEN, exampleProofClaim, resolveProofLink } from "@/lib/services/release-proof";
 
 /**
  * What a shared proof link shows: the evidence, and nothing else.
@@ -66,7 +66,13 @@ export default async function ProofPage({
 }) {
   const { token } = await params;
   const { signed } = await searchParams;
-  const claim = await resolveProofLink(decodeURIComponent(token));
+  // The published example is the same page, reading a project the owner named
+  // rather than a link somebody was sent. A real token is pwgp1.<payload>.
+  // <signature>, so the word cannot collide with one.
+  const example = token === EXAMPLE_PROOF_TOKEN ? exampleProofClaim() : null;
+  const claim = example
+    ? { ...example, snapshot: null }
+    : await resolveProofLink(decodeURIComponent(token));
   if (!claim) return <Expired />;
 
   // A frozen link answers from what was kept; a live one reads the project.
@@ -80,7 +86,7 @@ export default async function ProofPage({
   const frozen = Boolean(claim.snapshot);
   // Null rather than an empty list: this page is read by somebody outside
   // the team, and a failed read shown as no acceptances is a claim.
-  const signatures = await readLinkSignatures(decodeURIComponent(token)).catch(() => null);
+  const signatures = example ? [] : await readLinkSignatures(decodeURIComponent(token)).catch(() => null);
 
   /**
    * The one thing a reader may write. It goes through the same check as
@@ -105,6 +111,18 @@ export default async function ProofPage({
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-14">
+      {example ? (
+        <div className="mb-6 rounded-2xl border border-cyan-300 bg-cyan-50 px-5 py-4 text-sm leading-6 text-cyan-950">
+          <span className="font-semibold">This is a real project&rsquo;s evidence, read live.</span> It is what a
+          manager, a customer or an auditor sees when a team shares theirs: every requirement, the approved tests that
+          verify it, and how those tests last ran. Nothing here is staged, so some of it may be failing &mdash; that is
+          what it is for.{" "}
+          <Link href="/" className="font-semibold underline">
+            How a team gets one
+          </Link>
+          .
+        </div>
+      ) : null}
       <header>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">Test evidence</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">{report.project.name}</h1>
@@ -129,7 +147,7 @@ export default async function ProofPage({
           Download this evidence
         </a>
         <p className="mt-2 text-xs leading-5 text-slate-500">
-          One page you can keep, print or attach to a record. This link expires; the file does not.
+          One page you can keep, print or attach to a record.{example ? "" : " This link expires; the file does not."}
         </p>
       </header>
 
@@ -273,6 +291,12 @@ export default async function ProofPage({
           </p>
         ) : null}
 
+        {example ? (
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600">
+            On a team&rsquo;s own evidence this is where somebody outside it puts their name, and their answer is
+            kept with a copy of exactly what this page showed them. Nothing is recorded from the example.
+          </p>
+        ) : (
         <form action={signAction} className="mt-4 grid gap-3 sm:max-w-xl">
           <label className="grid gap-1 text-sm font-medium text-slate-700">
             Your name
@@ -309,6 +333,7 @@ export default async function ProofPage({
             Accept this evidence
           </PendingButton>
         </form>
+        )}
         <p className="mt-3 text-xs leading-5 text-slate-500">
           PlaywrightGen records the name you type. It does not check who you are, and says so wherever this is shown:
           the record is that a named person accepted this evidence, not that their identity was verified.
@@ -317,7 +342,7 @@ export default async function ProofPage({
 
       <footer className="mt-10 border-t border-slate-200 pt-6 text-xs leading-5 text-slate-500">
         Shared from PlaywrightGen, which keeps each approval and each run as a record that cannot be edited after the
-        fact. This link expires, and whoever shared it can retire it sooner.{" "}
+        fact.{example ? "" : " This link expires, and whoever shared it can retire it sooner."}{" "}
         <Link href="/" className="font-semibold text-cyan-800 underline">
           playwrightgen.com
         </Link>

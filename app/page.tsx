@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { exampleProofClaim } from "@/lib/services/release-proof";
+
 const evidenceFlow = [
   {
     step: "01",
@@ -181,6 +183,12 @@ function CheckIcon() {
 }
 
 export default function Home() {
+  // Read when the site is built, because this page is prerendered: set
+  // EXAMPLE_EVIDENCE_ORG_ID and EXAMPLE_EVIDENCE_PROJECT_ID before the deploy
+  // that should show the link. /proof/example itself reads them per request,
+  // so it works the moment they are set either way.
+  const publishedExample = exampleProofClaim() !== null;
+
   return (
     <main className="overflow-hidden bg-slate-50 text-slate-950">
       <section className="relative isolate border-b border-slate-200 bg-slate-950 px-4 py-16 text-white sm:px-6 sm:py-20 lg:px-8 lg:py-24">
@@ -248,6 +256,22 @@ export default function Home() {
                 {" "}&middot;{" "}
                 <Link href="/workspace" className="font-semibold text-cyan-200 hover:text-cyan-100">open your Workspace</Link>
               </p>
+              {/*
+                * Shown only when a project has actually been published as the
+                * example. A visitor otherwise has to sign up, make a project
+                * and prove tests before they ever see the thing this product
+                * is for -- a page somebody outside their team can read -- and
+                * a dead link to it would be worse than none.
+                */}
+              {publishedExample ? (
+                <p className="mt-2 text-xs text-slate-400">
+                  Or see what the people who never log in see:{" "}
+                  <Link href="/proof/example" className="font-semibold text-cyan-200 hover:text-cyan-100">
+                    a real project&rsquo;s evidence
+                  </Link>
+                  , read live.
+                </p>
+              ) : null}
             </form>
 
             <div className="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-400">
