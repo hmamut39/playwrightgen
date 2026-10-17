@@ -2087,7 +2087,13 @@ change in classification can only be attributed to that field.
   test files it touches plus typecheck, lint and a build, and say plainly in
   the report that the full suite was not run. Never start a second vitest
   process while one is running: they share one test database and destroy each
-  other's fixtures.
+  other's fixtures. Stopping a background shell does not necessarily stop
+  vitest -- on 2026-10-17 a stopped run was still going twenty minutes later
+  while a second one waited on the same database, and neither finished. Check
+  with `Get-CimInstance Win32_Process -Filter "Name='node.exe'"` and kill the
+  vitest process itself before starting another. The full suite takes about
+  eighteen minutes (117 files, 856 tests), and its default reporter prints
+  nothing until the end when the output is piped, so silence is not a hang.
 
 - Local development: `npx next dev -p 3000`. The dev database may need
   `db:migrate:verified` with `EXPECTED_NEON_BRANCH_ID=br-restless-dawn-axyqbc68`
