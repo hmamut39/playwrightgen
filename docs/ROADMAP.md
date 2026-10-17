@@ -10,9 +10,39 @@ Last updated: 2026-10-17.
 
 Live at https://playwrightgen.com (Vercel, Clerk production, Stripe live,
 Neon Postgres). Every item below was verified in a real browser, and the full
-test suite (862 tests) passes.
+test suite (870 tests) passes.
 
 ## Shipped (most recent first)
+
+### Found by using the product as a team would
+- **"3 steps could not run there", beside an Approve button** (2026-10-17):
+  the thread the live-page eval left behind. A generated test is replayed in
+  the preview rather than executed as code -- it is read into operations the
+  sandbox can perform, and anything it cannot is refused *with a reason*: a
+  value it cannot evaluate, a locator built from something that is not a
+  literal, an API it does not implement, a credential it does not have.
+  Those reasons were shown in the free tool, which renders every line with
+  its own reason, and thrown away everywhere else. The workspace kept the
+  count. So the artifact page said "7 checks passed, 3 steps could not run
+  there" next to the button that approves it, and the only way to find out
+  which three was to read the code and work out which lines a sandbox would
+  refuse.
+  The reasons differ in exactly the way the reviewer's decision turns on.
+  "needs E2E_PASSWORD from your environment" is a step that will run in the
+  team's own pipeline, and the artifact is as good as it looks. "page.route()
+  is not run in the preview" is a step that has been exercised nowhere, and
+  the check it carries is unproven. One count covered both.
+  The lines and their reasons are now kept with the version's run record and
+  shown under it, on the page where the approving happens; the same under a
+  partly-run item in a page-coverage plan; and in the MCP reply, where an
+  agent is the one caller that can act on them immediately. Old versions have
+  a count and no lines, which reads as "no detail kept" rather than "nothing
+  was skipped" -- so the record's absence is undefined, never an empty list.
+  Left alone, for the reason: the import note for code brought in with a
+  signed receipt says how many steps did not run and cannot say which, because
+  the receipt is a signature over the code and the counts. Putting the lines
+  inside it would change what is signed, which is not worth doing for a
+  sentence.
 
 ### Measuring the prompts
 - **The first run on a real page: 4 in 10, then 10 in 10** (2026-10-17): the
@@ -53,10 +83,8 @@ test suite (862 tests) passes.
   evals config no longer intercepts console output.
   `live-page` stays out of the blessed baseline on purpose: it depends on a
   third-party demo page and a remote browser, so a red light there would mean
-  "the page changed" as often as "the prompt got worse". The remaining thing
-  to look at is the workspace path's PARTIAL verdicts -- nothing fails, but
-  some steps do not run in the preview sandbox, and a person approving that
-  artifact sees so.
+  "the page changed" as often as "the prompt got worse". The workspace path's PARTIAL verdicts
+  were the thread this left behind, and the entry above follows it.
 
 ### The surface nobody had walked
 - **The approval came out of the log; the log has a window** (2026-10-17):

@@ -35,7 +35,7 @@ import { reserveWaitingOutBurst } from "@/lib/operations/reserve-waiting";
 import { weakeningFindings } from "@/lib/ai/repair-weakening";
 import { executeLiveRun, prepareLiveRun } from "@/lib/free-tools/preview-run/run-draft";
 import { runVerdict } from "@/lib/free-tools/preview-run/receipt";
-import { firstFailureOf, proveDraftOnLivePage } from "@/lib/free-tools/prove-loop";
+import { firstFailureOf, linesNotRun, proveDraftOnLivePage, type LineNotRun } from "@/lib/free-tools/prove-loop";
 import { capturePageSnapshot } from "@/lib/free-tools/page-snapshot";
 import { alignContainerNames, alignTestIdLocators, siteTestIdAttribute } from "@/lib/free-tools/test-id-attribute";
 import { alignRootNavigation } from "@/lib/free-tools/navigation";
@@ -531,6 +531,17 @@ export type AutomationLiveRun = {
   passed: number;
   failed: number;
   notRun: number;
+  /**
+   * Which lines did not run, and the reason the preview gave.
+   *
+   * The count alone sits beside an Approve button and says that something is
+   * missing without saying what, so a reviewer had to read the code and work
+   * out which lines a sandbox would refuse. The reasons differ in kind and
+   * that is the whole decision: a step that needs a credential will run in
+   * their own pipeline, and a step the preview does not implement has never
+   * been exercised anywhere.
+   */
+  notRunLines?: LineNotRun[];
   fixes: number;
   pageUrl: string;
   ranAt: string;
@@ -547,6 +558,14 @@ export function readAutomationLiveRun(value: Prisma.JsonValue | null): Automatio
     passed: run.passed,
     failed: typeof run.failed === "number" ? run.failed : 0,
     notRun: typeof run.notRun === "number" ? run.notRun : 0,
+    // Absent on every version recorded before this was kept, which reads as
+    // "no detail" rather than "nothing was skipped".
+    notRunLines: Array.isArray(run.notRunLines)
+      ? run.notRunLines
+          .filter((entry): entry is { line: string; reason: string } =>
+            Boolean(entry) && typeof entry === "object" && typeof (entry as { line?: unknown }).line === "string")
+          .map((entry) => ({ line: entry.line, reason: typeof entry.reason === "string" ? entry.reason : "" }))
+      : undefined,
     fixes: typeof run.fixes === "number" ? run.fixes : 0,
     pageUrl: typeof run.pageUrl === "string" ? run.pageUrl : "",
     ranAt: run.ranAt,
@@ -619,7 +638,9 @@ async function proveGeneratedCode(
       { maxFixes: 1 },
     );
     if (!outcome.verdict || !outcome.code) return null;
-    const lastRun = outcome.lastRun as { counts?: { passed: number; failed: number; skipped: number; notReached: number } } | null;
+    const lastRun = outcome.lastRun as
+      | ({ counts?: { passed: number; failed: number; skipped: number; notReached: number } } & Parameters<typeof linesNotRun>[0])
+      | null;
     const counts = lastRun?.counts ?? { passed: 0, failed: 0, skipped: 0, notReached: 0 };
     return {
       // The pinned version marker survives a fix, but is re-applied in case the
@@ -630,6 +651,7 @@ async function proveGeneratedCode(
         passed: counts.passed,
         failed: counts.failed,
         notRun: counts.skipped + counts.notReached,
+        notRunLines: lastRun ? linesNotRun(lastRun as never) : [],
         fixes: outcome.fixesUsed,
         pageUrl: pending.liveUrl,
         ranAt: new Date().toISOString(),

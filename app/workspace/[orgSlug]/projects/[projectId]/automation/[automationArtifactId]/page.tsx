@@ -339,6 +339,29 @@ export default async function AutomationArtifactPage({
                     . A person still reviews and approves it.
                   </p>
                 ) : null}
+                {/*
+                  Which lines did not run, beside the Approve button. The count
+                  on its own says something is missing without saying what, and
+                  the reasons differ in exactly the way the decision turns on: a
+                  step that needs a credential will run in the team's own
+                  pipeline, and a step the preview does not implement has never
+                  been exercised anywhere.
+                */}
+                {liveRun?.notRunLines?.length ? (
+                  <details className="mt-2 text-xs text-slate-600">
+                    <summary className="cursor-pointer font-medium text-slate-700">
+                      What did not run on the live page
+                    </summary>
+                    <ul className="mt-2 space-y-1.5">
+                      {liveRun.notRunLines.map((entry) => (
+                        <li key={entry.line} className="break-words">
+                          <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px]">{entry.line}</code>
+                          {entry.reason ? <span className="ml-1 text-slate-500">— {entry.reason}</span> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ) : null}
               </div>
               <div className="flex flex-wrap gap-2 text-xs font-semibold">
                 {liveRun ? (

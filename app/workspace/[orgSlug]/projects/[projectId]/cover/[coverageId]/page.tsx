@@ -213,7 +213,26 @@ export default async function PageCoverageDetail({
                       {item.status === "PASSED" && item.checks ? ` · ${item.checks} checks` : ""}
                     </span>
                   </div>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">{item.detail ?? item.objective}</p>
+                  {/*
+                    The detail can carry the lines the preview refused under
+                    its first sentence, the way the plan's own message carries
+                    what it left out. One paragraph would run them together.
+                  */}
+                  {(() => {
+                    const [first, ...rest] = (item.detail ?? item.objective).split("\n");
+                    return (
+                      <>
+                        <p className="mt-1 text-sm leading-6 text-slate-600">{first}</p>
+                        {rest.length ? (
+                          <ul className="mt-1 space-y-1 text-xs leading-5 text-slate-500">
+                            {rest.map((line) => (
+                              <li key={line} className="break-words font-mono">{line}</li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </>
+                    );
+                  })()}
                   {item.fixes ? <p className="mt-1 text-xs text-slate-500">{item.fixes} automatic fix{item.fixes === 1 ? "" : "es"} along the way.</p> : null}
                   {item.testCaseId ? (
                     <Link href={`${base}/test-cases/${item.testCaseId}`} className="mt-2 inline-block text-sm font-semibold text-cyan-800 hover:text-cyan-950">

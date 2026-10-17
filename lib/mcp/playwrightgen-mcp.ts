@@ -10,6 +10,7 @@ import { capturePageSnapshot, isPublicWebAddress } from "@/lib/free-tools/page-s
 import { runVerdict } from "@/lib/free-tools/preview-run/receipt";
 import {
   firstFailureOf,
+  linesNotRun,
   proveDraftOnLivePage,
   type ProveRound,
 } from "@/lib/free-tools/prove-loop";
@@ -966,8 +967,17 @@ const tools: Tool[] = [
 
       const failureDetail =
         outcome.verdict === "failed" && lastRun ? firstFailureOf(lastRun as never) : null;
+      // "Some steps could not run" and nothing else leaves an agent to guess
+      // which ones. The preview recorded a reason for each, and an agent is
+      // the one caller that can act on it immediately: a line that needs a
+      // credential stays, a line the preview cannot replay can often be
+      // written another way.
+      const notRun = outcome.verdict === "partial" && lastRun ? linesNotRun(lastRun as never) : [];
       const body = [
         verdictLine,
+        notRun.length
+          ? ["", "Did not run here:", ...notRun.map((entry) => `- ${entry.line}${entry.reason ? ` — ${entry.reason}` : ""}`)].join("\n")
+          : null,
         "",
         ...history,
         "",

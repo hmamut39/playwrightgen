@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   assertsErrorPage,
+  linesNotRun,
   proveDraftOnLivePage,
   type ProveFailure,
   type ProveRound,
@@ -151,5 +152,87 @@ describe("a fix that expects an error page", () => {
     expect(assertsErrorPage("await page.goto('/404-help');")).toBe(false);
     expect(assertsErrorPage("await expect(page.getByText('Epic sadface: Username is required')).toBeVisible();")).toBe(false);
     expect(assertsErrorPage("await expect(page.getByText('1 item left')).toBeVisible();")).toBe(false);
+  });
+});
+
+describe("what did not run, and why", () => {
+  /**
+   * A reviewer facing "3 steps could not run there" beside an Approve button
+   * is told that something is missing and not what. The preview recorded a
+   * reason for every line it refused; the workspace threw them away and kept
+   * the count. The reasons differ in exactly the way the decision turns on:
+   * a step that needs a credential will run in the team's own pipeline, and
+   * a step the preview cannot replay has been exercised nowhere.
+   */
+  const run = {
+    tests: [
+      {
+        steps: [
+          {
+            name: "Sign in",
+            operations: [
+              { source: "await page.goto('./')", status: "passed" },
+              {
+                source: "await page.getByLabel('Password').fill(process.env.E2E_PASSWORD)",
+                status: "skipped",
+                detail: "needs E2E_PASSWORD from your environment",
+              },
+            ],
+          },
+          {
+            name: "Intercept the order call",
+            operations: [
+              { source: "await page.route('**/api/orders', route => route.fulfill())", status: "skipped", detail: "page.route() is not run in the preview" },
+              { source: "await expect(page.getByText('Thanks')).toBeVisible()", status: "not_reached" },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  it("names each line the preview refused, with its reason", () => {
+    expect(linesNotRun(run)).toEqual([
+      {
+        line: "await page.getByLabel('Password').fill(process.env.E2E_PASSWORD)",
+        reason: "needs E2E_PASSWORD from your environment",
+      },
+      {
+        line: "await page.route('**/api/orders', route => route.fulfill())",
+        reason: "page.route() is not run in the preview",
+      },
+    ]);
+  });
+
+  it("leaves out the lines a failure stopped, and repeats nothing", () => {
+    // "not reached" is a consequence of the failure, not a reason of its own,
+    // and the same line refused in two tests is one thing to tell somebody.
+    const twice = { tests: [run.tests[0], run.tests[0]] };
+    expect(linesNotRun(twice)).toHaveLength(2);
+    expect(linesNotRun(run).map((entry) => entry.line)).not.toContain(
+      "await expect(page.getByText('Thanks')).toBeVisible()",
+    );
+    expect(linesNotRun({ tests: [] })).toEqual([]);
+  });
+
+  it("stops at a readable number, because this sits inside a review", () => {
+    const many = {
+      tests: [
+        {
+          steps: [
+            {
+              name: "Many",
+              operations: Array.from({ length: 30 }, (_, index) => ({
+                source: `await page.route('**/api/${index}', r => r.abort())`,
+                status: "skipped",
+                detail: "page.route() is not run in the preview",
+              })),
+            },
+          ],
+        },
+      ],
+    };
+    expect(linesNotRun(many)).toHaveLength(6);
+    expect(linesNotRun(many, 2)).toHaveLength(2);
   });
 });

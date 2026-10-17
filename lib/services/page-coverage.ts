@@ -15,7 +15,7 @@ import { extractLocatorNames, normalizeName } from "@/lib/free-tools/locator-nam
 import { capturePageSnapshot } from "@/lib/free-tools/page-snapshot";
 import { runVerdict } from "@/lib/free-tools/preview-run/receipt";
 import { executeLiveRun, prepareLiveRun } from "@/lib/free-tools/preview-run/run-draft";
-import { firstFailureOf, proveDraftOnLivePage } from "@/lib/free-tools/prove-loop";
+import { firstFailureOf, linesNotRun, proveDraftOnLivePage } from "@/lib/free-tools/prove-loop";
 import { isPublicWebAddress } from "@/lib/free-tools/public-address";
 import { testAccountSchema, type TestAccount } from "@/lib/free-tools/sign-in";
 import { readSurface, type SurfaceControl } from "@/lib/free-tools/surface-coverage";
@@ -467,12 +467,28 @@ export async function proveNextPageCoverageItem(
 
     code = outcome.code;
     receipt = outcome.verdict === "failed" ? null : outcome.receipt;
-    const lastRun = outcome.lastRun as { counts?: { passed: number } } | null;
+    const lastRun = outcome.lastRun as
+      | ({ counts?: { passed: number } } & Parameters<typeof linesNotRun>[0])
+      | null;
     const checks = lastRun?.counts?.passed ?? 0;
+    // Which lines the preview refused, not only that it refused some. The
+    // reasons differ in the way the reader's decision turns on: a step that
+    // needs a credential will run in their pipeline, a step the preview
+    // cannot replay has been exercised nowhere. Four is as many as a row in
+    // a list can carry; the free tool's panel shows every one.
+    const notRun = lastRun ? linesNotRun(lastRun, 4) : [];
     summary = outcome.verdict === "passed"
       ? { status: "PASSED", checks, fixes: outcome.fixesUsed, detail: `Passed on the live page: ${checks} checks.` }
       : outcome.verdict === "partial"
-        ? { status: "PARTIAL", checks, fixes: outcome.fixesUsed, detail: "Nothing failed, but some steps could not run in the preview." }
+        ? {
+            status: "PARTIAL",
+            checks,
+            fixes: outcome.fixesUsed,
+            detail: [
+              "Nothing failed, but some steps could not run in the preview.",
+              ...notRun.map((entry) => `- ${entry.line}${entry.reason ? ` -- ${entry.reason}` : ""}`),
+            ].join("\n"),
+          }
         : outcome.verdict === "failed"
           ? { status: "FAILED", checks, fixes: outcome.fixesUsed, detail: outcome.stopped === "limit" ? "Stopped when the AI allowance ran out." : "Still failing after the automatic fixes; the code is kept for a person to finish." }
           : { status: "ERROR", checks: 0, fixes: 0, detail: outcome.message ?? "It could not be run." };

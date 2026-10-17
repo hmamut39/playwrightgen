@@ -70,6 +70,43 @@ export type RunLike = {
   }>;
 };
 
+/** A line the preview could not run, with the reason it gave for not running it. */
+export type LineNotRun = { line: string; reason: string };
+
+/**
+ * What did not run, and why, for a run where nothing failed.
+ *
+ * The preview reads a test into operations it can replay and refuses the rest,
+ * recording a reason for each: a value it cannot evaluate, a locator built
+ * from something that is not a literal, an API it does not implement. Those
+ * reasons were shown in the free tool and nowhere else. The workspace said
+ * "3 steps could not run there" beside an Approve button, which tells a
+ * reviewer that something is missing and not what, so the only way to find
+ * out was to read the code and work out which lines a sandbox would refuse.
+ *
+ * A reviewer deciding whether a partial run is good enough needs the reason,
+ * because the reasons differ in kind: "needs E2E_PASSWORD from your
+ * environment" is a step that will run in their pipeline, and "page.route()
+ * is not run in the preview" is a step that has never been exercised
+ * anywhere.
+ */
+export function linesNotRun(result: RunLike, limit = 6): LineNotRun[] {
+  const seen = new Map<string, string>();
+  for (const test of result.tests) {
+    for (const step of test.steps) {
+      for (const operation of step.operations) {
+        // "not reached" means the run stopped before this line, which is a
+        // consequence of the failure rather than a reason of its own.
+        if (operation.status !== "skipped") continue;
+        const line = operation.source.trim().slice(0, 200);
+        if (!line || seen.has(line)) continue;
+        seen.set(line, (operation.detail ?? "").trim().slice(0, 200));
+      }
+    }
+  }
+  return [...seen].slice(0, limit).map(([line, reason]) => ({ line, reason }));
+}
+
 /**
  * The first failing step, with the page as it was and the earlier lines that
  * could not run, which is everything a fix needs.
