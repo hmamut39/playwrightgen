@@ -35,13 +35,26 @@ export function compareWithBaseline(run, baseline) {
     if (was !== "passed" && entry.status === "passed") recoveries.push(entry);
   }
 
-  // A case in the baseline that this run did not report at all. Renaming a
-  // case looks exactly like deleting one from here, and a suite that quietly
-  // stops running a measurement is the thing this file exists to catch.
+  // A case the baseline expects from a file this run did report, which did
+  // not appear. Renaming a case looks exactly like deleting one from here,
+  // and a suite that quietly stops running a measurement is the thing this
+  // file exists to catch.
+  //
+  // Bounded to the files that ran, because running one file on purpose is
+  // ordinary -- and a gate that calls every other file "not run" is a false
+  // alarm, which is how a gate teaches people to ignore it.
   const ran = new Set(run.cases.map(key));
-  const missing = (baseline?.cases ?? []).filter((entry) => !ran.has(key(entry)));
+  const filesRun = new Set(run.cases.map((entry) => entry.file));
+  const missing = (baseline?.cases ?? []).filter(
+    (entry) => filesRun.has(entry.file) && !ran.has(key(entry)),
+  );
 
-  return { regressions, recoveries, unseen, missing };
+  // A run that reported nothing at all, against a baseline that expects
+  // something. Narrowing "missing" to the files that ran would otherwise let
+  // a suite that failed to start pass quietly, which is the worst of both.
+  const ranNothing = run.cases.length === 0 && (baseline?.cases ?? []).length > 0;
+
+  return { regressions, recoveries, unseen, missing, ranNothing };
 }
 
 /** One line per thing worth knowing, and whether the gate holds. */
@@ -58,10 +71,16 @@ export function gateReport(comparison) {
   for (const entry of comparison.missing) {
     lines.push(`  NOT RUN    ${entry.file} · ${entry.name} — in the baseline, absent from this run`);
   }
+  if (comparison.ranNothing) {
+    lines.push("  NOTHING RAN  the baseline expects cases and this run reported none.");
+  }
   return {
     lines,
     // A measurement that stopped running is as bad as one that broke: both
     // leave somebody believing in a check that is not happening.
-    ok: comparison.regressions.length === 0 && comparison.missing.length === 0,
+    ok:
+      comparison.regressions.length === 0 &&
+      comparison.missing.length === 0 &&
+      !comparison.ranNothing,
   };
 }

@@ -67,6 +67,62 @@ const INSTRUCTIONS = [
   "Skip anything already covered by existingTitles. Return at most maxItems items, highest value first. Steps are short imperative actions; expected results are observable outcomes a test can assert.",
 ].join(" ");
 
+/**
+ * Steps that would destroy the thing being tested.
+ *
+ * Measured on 2026-10-17 against a settings page with a danger zone: the
+ * planner proposed "Clicking Delete this workspace opens a confirmation",
+ * with the single step `click the button "Delete this workspace"`. It had
+ * listed the actual deletion as out of scope, so it meant well -- but the
+ * tree showed no confirmation dialog, and the planner cannot know there is
+ * one. If there is not, the test deletes the workspace it is running
+ * against, once, irreversibly, and everything after it fails for a reason
+ * nobody will understand.
+ *
+ * Deliberately narrow: the target has to be the account itself. "Remove from
+ * team" is ordinary behaviour a team wants tested, and a rule that swallowed
+ * it would be a rule that stopped the product doing its job.
+ */
+const DESTROYS_THE_ACCOUNT =
+  /\b(?:delete|destroy|wipe|purge)\b[^"]{0,30}\b(?:workspace|account|organisation|organization|project|tenant|everything|all data)\b|\b(?:close|deactivate|terminate)\b[^"]{0,20}\b(?:account|subscription|organisation|organization)\b/i;
+
+/** The control a step operates, if it names one. */
+const operatedControls = (step: string) =>
+  [
+    ...step.matchAll(
+      /\b(?:button|link|menuitem|tab|checkbox|option)\s+["“]([^"”]{2,80})["”]/gi,
+    ),
+  ].map((match) => match[1]);
+
+/**
+ * The plan with any such item set aside, and said out loud.
+ *
+ * Moved into outOfScope rather than dropped, because a plan that quietly
+ * returns five items where it meant six is a plan that has lied about what
+ * the page needs.
+ */
+export function setAsideDestructiveItems(plan: PageCoveragePlan): PageCoveragePlan {
+  const destructive = plan.items.filter((item) =>
+    item.steps.some((step) => operatedControls(step).some((control) => DESTROYS_THE_ACCOUNT.test(control))),
+  );
+  if (destructive.length === 0) return plan;
+
+  return {
+    ...plan,
+    items: plan.items.filter((item) => !destructive.includes(item)),
+    outOfScope: [
+      ...plan.outOfScope,
+      ...destructive.map(
+        (item) =>
+          `${item.title} — left out: it operates a control that would destroy the account this test runs against, and nothing on the page shows a confirmation step to stop it.`.slice(
+            0,
+            500,
+          ),
+      ),
+    ].slice(0, 10),
+  };
+}
+
 export async function planPageCoverage(
   input: PageCoveragePlanInput,
   options: { requestId?: string } = {},
@@ -109,10 +165,11 @@ export async function planPageCoverage(
   if (!response.output_parsed) throw new PageCoveragePlanError("invalid_output");
 
   const existing = new Set(input.existingTitles.map((title) => title.trim().toLowerCase()));
+  const safe = setAsideDestructiveItems(response.output_parsed);
   return {
-    ...response.output_parsed,
+    ...safe,
     // The model is told to skip existing titles; this makes sure of it.
-    items: response.output_parsed.items
+    items: safe.items
       .filter((item) => !existing.has(item.title.trim().toLowerCase()))
       .slice(0, input.maxItems),
     model,

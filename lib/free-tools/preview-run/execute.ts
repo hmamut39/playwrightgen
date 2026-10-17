@@ -55,7 +55,10 @@ class StepFailure extends Error {}
 function cleanError(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error);
   return text
-    .replace(/\[[0-9;]*m/g, "")
+    // Playwright's colour codes, written as the escape rather than the byte:
+    // the raw character is invisible in review and survives no tool that
+    // touches control characters.
+    .replace(/\u001b\[[0-9;]*m/g, "")
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line && !line.startsWith("at ") && !line.startsWith("="))

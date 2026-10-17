@@ -142,7 +142,10 @@ function readBaseline() {
 /** The most recent archived run, if there is one to compare against. */
 function readPrevious() {
   const archived = readdirSync(RESULTS)
-    .filter((name) => name.endsWith(".json") && name !== "latest.json")
+    // Not the baseline, which lives here too and carries no score: reading
+    // it as a previous run crashed the reporter, and would have taken the
+    // weekly job down on its first real run.
+    .filter((name) => name.endsWith(".json") && name !== "latest.json" && name !== "baseline.json")
     .sort();
   const last = archived.at(-1);
   if (!last) return null;

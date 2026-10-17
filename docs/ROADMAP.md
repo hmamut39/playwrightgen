@@ -15,6 +15,41 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **The planner proposed clicking "Delete this workspace"** (2026-10-17):
+  the last AI surface with no eval, measured against a settings page with a
+  danger zone. It planned "Clicking Delete this workspace opens a
+  confirmation", one step: click that button. It had listed the actual
+  deletion as out of scope, so it meant well -- but the page's tree showed no
+  confirmation dialog, and a planner cannot know there is one. If there is
+  not, the test deletes the workspace it runs against, once, and everything
+  after it fails for a reason nobody will understand.
+  Such an item is now set aside and moved into outOfScope rather than
+  dropped, because a plan that quietly returns five items where it meant six
+  has lied about what the page needs. The rule is narrow on purpose: the
+  target must be the account itself. "Remove from team", "Delete draft" and
+  "Clear completed" are ordinary behaviours teams want tested, and a guard
+  that swallowed them would be switched off.
+  Two of the eval's four failures were the eval being wrong, which is worth
+  as much as the one that was real. It called test data an invented control
+  (`type 'not-an-email' into the textbox`), and called "Invite fails with
+  invalid email format" a repeat of "An admin invites a new member by email"
+  -- the validation case the instructions ask for once the happy path is
+  covered. Both assertions were fixed by reading what the planner actually
+  produced rather than trusting the failure.
+- **A rule that could never match, three times in one day** (2026-10-17): a
+  tool wrote `` into regular expressions as the byte it escapes, 0x08, so
+  `/(?:delete|destroy)/` became `/<backspace>(?:delete|destroy)/` and
+  matched nothing. It happened in the repair guard, in the destructive-plan
+  guard, and once more inside the fix for it. Present, readable, and
+  silently inert is the worst way for a rule to be wrong: typecheck says
+  nothing, lint says nothing, and a reader sees `` because an editor
+  renders the byte as its escape.
+  A test now reads the bytes of every source file and fails on any raw
+  control character, and proves it can fail. It found a third instance
+  nobody had noticed: the ANSI colour stripper in the preview runner carried
+  a raw escape, which worked and was invisible to every reader and every
+  tool that touches control characters. Written as `` now.
+
 - **A repair may no longer pass by checking less** (2026-10-17): the prove
   loop rewrites a failing test until it passes, which makes it the one place
   in this product where "it passes now" can mean "it stopped checking".

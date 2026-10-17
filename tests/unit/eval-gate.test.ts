@@ -68,16 +68,54 @@ describe("what an eval run is allowed to be", () => {
     expect(gate.lines.join(" ")).toContain("new");
   });
 
-  it("fails when a case in the baseline did not run at all", () => {
-    // Renaming a case looks exactly like deleting one from here, and a suite
-    // that quietly stops running a measurement leaves somebody believing in a
-    // check that is not happening.
+  it("fails when a run reports nothing at all", () => {
+    // A suite that failed to start leaves somebody believing in checks that
+    // are not happening, and it must not pass just because no file ran.
     const gate = gateReport(
       compareWithBaseline(run([]), run([{ name: "quotes the requirement", status: "passed" }])),
     );
 
     expect(gate.ok).toBe(false);
-    expect(gate.lines.join(" ")).toContain("NOT RUN");
+    expect(gate.lines.join(" ")).toContain("NOTHING RAN");
+  });
+
+  it("does not call a file nobody ran a file that stopped running", () => {
+    // Running one eval file on purpose is ordinary. A gate that calls every
+    // other file "not run" is a false alarm, and a gate that cries wolf is a
+    // gate people learn to ignore.
+    const current = {
+      ranAt: "now",
+      score: { passed: 1, total: 1 },
+      cases: [{ file: "review.eval.ts", name: "quotes the requirement", status: "passed" }],
+    };
+    const baseline = {
+      cases: [
+        { file: "review.eval.ts", name: "quotes the requirement", status: "passed" },
+        { file: "live-page.eval.ts", name: "writes a passing test", status: "failed" },
+      ],
+    };
+
+    const gate = gateReport(compareWithBaseline(current, baseline));
+    expect(gate.ok).toBe(true);
+    expect(gate.lines.join(" ")).not.toContain("NOT RUN");
+  });
+
+  it("still catches a case that vanished from a file that did run", () => {
+    const current = {
+      ranAt: "now",
+      score: { passed: 1, total: 1 },
+      cases: [{ file: "review.eval.ts", name: "quotes the requirement", status: "passed" }],
+    };
+    const baseline = {
+      cases: [
+        { file: "review.eval.ts", name: "quotes the requirement", status: "passed" },
+        { file: "review.eval.ts", name: "refuses an invented quote", status: "passed" },
+      ],
+    };
+
+    const gate = gateReport(compareWithBaseline(current, baseline));
+    expect(gate.ok).toBe(false);
+    expect(gate.lines.join(" ")).toContain("refuses an invented quote");
   });
 
   it("holds across files with the same case name", () => {
