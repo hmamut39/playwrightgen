@@ -821,3 +821,32 @@ change silently.
 
 A prompt is a request and a validator is a rule, applied to ourselves: the
 server states a boundary, so the boundary is a rule.
+
+## 053 — The record owns the approval; the trail only names who
+
+**Decision:** Evidence takes an artifact's approval and its date from the
+artifact's own row (`approvedAt`, set on approval and cleared when it is sent
+back for changes) and only the approver's name from the append-only Activity
+trail. A name is never reported without a standing approval, and an approval
+whose name cannot be found is still reported: "approved on 18 September (the
+trail no longer names who)". The same rule applies to a bounded read of any
+kind -- the bound may cost a detail, never a fact.
+
+**Reason:** Reading the whole sign-off out of the trail looked right, because
+the trail is append-only and a sign-off should be immutable. It was wrong in
+three ways at once. The trail is read through a window, and the renderer
+decided *on the name* whether to mention the approval at all, so a project
+with more approval events than the window exported its oldest approved
+requirements as though nobody had ever approved them. The trail also keeps an
+approval that has since been withdrawn, so a requirement a reviewer reopened
+read "DRAFT · approved by Priya". And an activity row's actor is nullable, so
+the same silence could arrive with no window involved.
+
+The record and the trail answer different questions. Whether this artifact
+stands approved right now is current state, and PostgreSQL owns current
+state. Who did it and when they did it is history, and the append-only trail
+owns history. Taking the current answer from the history was the error.
+
+Stating a weaker fact beats stating none: an unnamed approval is a poorer
+record than a named one and a far better one than a blank, because a reader
+counts a blank as "never approved" and is not wrong to.

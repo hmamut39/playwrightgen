@@ -7,6 +7,7 @@ import { getReleaseEvidenceReport } from "@/lib/services/release-evidence";
 import {
   approveRequirement,
   createRequirement,
+  requestRequirementChanges,
   submitRequirementForReview,
 } from "@/lib/services/requirements";
 import {
@@ -357,6 +358,31 @@ describe("release evidence report", () => {
     expect(report.requirements[0].approvedAt).toBeInstanceOf(Date);
     expect(report.requirements[0].testCases[0].approvedBy).toBe("Owner");
     expect(report.requirements[0].testCases[0].approvedAt).toBeInstanceOf(Date);
+  });
+
+  it("stops claiming an approval once the requirement goes back for changes", async () => {
+    const space = await workspace();
+    const requirement = await approvedRequirement(space);
+    const testCase = await linkedTestCase(space, requirement.id, true);
+    await recordAttempt(space, testCase.id, "PASSED");
+
+    // Intent changed, so a reviewer reopened it. The approval activity stays
+    // in the trail -- it happened -- but the requirement is a draft again,
+    // and a report that read the approval out of the trail went on saying
+    // "approved by Owner" beside the word DRAFT. The approval now comes from
+    // the record, where reopening clears it.
+    await requestRequirementChanges(
+      { projectId: space.project.id, requirementId: requirement.id },
+      deps(space),
+    );
+
+    const report = await getReleaseEvidenceReport({ projectId: space.project.id }, deps(space));
+    expect(report.requirements[0].status).toBe("DRAFT");
+    expect(report.requirements[0].approvedAt).toBeNull();
+    expect(report.requirements[0].approvedBy).toBeNull();
+    // The test case was not reopened, so its own approval still stands.
+    expect(report.requirements[0].testCases[0].approvedAt).toBeInstanceOf(Date);
+    expect(report.requirements[0].testCases[0].approvedBy).toBe("Owner");
   });
 
   it("reports a failing test as failing rather than as coverage", async () => {

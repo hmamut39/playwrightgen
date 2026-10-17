@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { coverageText, digestText, isQuietWeek, summariseWeek, type WeekAttempt } from "@/lib/services/weekly-digest";
+import { coverageText, digestText, isQuietWeek, quietText, summariseWeek, type WeekAttempt } from "@/lib/services/weekly-digest";
 
 const day = (index: number, minutes = 0) =>
   new Date(Date.UTC(2026, 8, 14 + index, 6, minutes));
@@ -82,6 +82,55 @@ describe("a week of daily checks, in one message", () => {
     expect(text).not.toContain("Passing again");
     // No standings were passed, so none are invented.
     expect(text).not.toContain("requirements:");
+  });
+
+  it("says when it only read part of the week", () => {
+    // A project checking a few hundred tests a day produces more attempts in
+    // a week than one summary reads. The read keeps the most recent, since a
+    // week in review is about how the week ended -- and it has to say so,
+    // because this message is read away from any page that could add it.
+    const week = summariseWeek(
+      [attempt("a", "Sign in works", "PASSED", day(0))],
+      { read: 2_000, total: 2_540 },
+    );
+    const text = digestText({
+      projectName: "Checkout web app",
+      liveUrl: "https://shop.example.com/",
+      link: "https://playwrightgen.com/workspace/acme/projects/1/health",
+      digest: week,
+    });
+
+    expect(text).toContain("From the most recent 2,000 of 2,540 checks this week");
+    // A week that was read whole says nothing at all about bounds.
+    expect(
+      digestText({
+        projectName: "Checkout web app",
+        liveUrl: "https://shop.example.com/",
+        link: "https://playwrightgen.com/workspace/acme/projects/1/health",
+        digest: summariseWeek([attempt("a", "Sign in works", "PASSED", day(0))]),
+      }),
+    ).not.toContain("most recent");
+  });
+
+  it("does not call a week quiet on the strength of part of it", () => {
+    // "Everything passed, every day" is a claim about the whole week. A
+    // project checking a few hundred tests a day produces more attempts than
+    // one summary reads, and a failure in the days it could not see would
+    // have gone out as a quiet week.
+    const whole = quietText({
+      projectName: "Checkout web app",
+      liveUrl: "https://shop.example.com/",
+      digest: summariseWeek([attempt("a", "Sign in works", "PASSED", day(0))]),
+    });
+    expect(whole).toContain("All 1 test passed every day this week.");
+
+    const part = quietText({
+      projectName: "Checkout web app",
+      liveUrl: "https://shop.example.com/",
+      digest: summariseWeek([attempt("a", "Sign in works", "PASSED", day(0))], { read: 2_000, total: 2_540 }),
+    });
+    expect(part).toContain("No failures in the most recent 2,000 of 2,540 checks this week, across 1 test.");
+    expect(part).not.toContain("every day");
   });
 
   it("says where the project stands, not only what moved", () => {

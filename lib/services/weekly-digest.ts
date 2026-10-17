@@ -16,6 +16,18 @@ import { siteUrl } from "@/lib/site";
  */
 
 const WEEK_MS = 7 * 24 * 60 * 60_000;
+/**
+ * The most attempts one week's summary reads.
+ *
+ * A project checking three hundred tests a day produces more than this in a
+ * week. The read was also ordered oldest-first, so the window it kept was the
+ * start of the week: a digest headed "week in review" could describe Monday
+ * and Tuesday and say nothing about the days a reader cares about most. It now
+ * keeps the most recent attempts and says when it could not read them all.
+ */
+const WEEK_ATTEMPT_LIMIT = 2_000;
+/** Projects one invocation will post to, however many are waiting. */
+const DIGEST_BATCH = 100;
 /** Two attempts this close together are one round: a failure and its retry. */
 const SAME_ROUND_MS = 30 * 60_000;
 /** A digest is not sent again inside this window, however often the job runs. */
@@ -77,10 +89,18 @@ export type WeeklyDigest = {
   /** Passed every time it ran. */
   steady: number;
   checked: number;
+  /**
+   * Null when the whole week was read. Otherwise how many attempts were read
+   * and how many the week holds, so no surface has to be silent about it.
+   */
+  partial: { read: number; total: number } | null;
 };
 
 /** The week's attempts, grouped into what a person would say about them. */
-export function summariseWeek(attempts: readonly WeekAttempt[]): WeeklyDigest {
+export function summariseWeek(
+  attempts: readonly WeekAttempt[],
+  partial: { read: number; total: number } | null = null,
+): WeeklyDigest {
   const byTestCase = new Map<string, WeekAttempt[]>();
   for (const attempt of attempts) {
     const bucket = byTestCase.get(attempt.testCaseId);
@@ -88,7 +108,9 @@ export function summariseWeek(attempts: readonly WeekAttempt[]): WeeklyDigest {
     else byTestCase.set(attempt.testCaseId, [attempt]);
   }
 
-  const digest: WeeklyDigest = { broke: [], recovered: [], flaky: [], stillFailing: [], steady: 0, checked: byTestCase.size };
+  const digest: WeeklyDigest = {
+    broke: [], recovered: [], flaky: [], stillFailing: [], steady: 0, checked: byTestCase.size, partial,
+  };
   for (const bucket of byTestCase.values()) {
     const ordered = [...bucket].sort((a, b) => a.executedAt.getTime() - b.executedAt.getTime());
     const title = ordered[ordered.length - 1].title;
@@ -123,6 +145,33 @@ export function isQuietWeek(digest: WeeklyDigest) {
   return digest.broke.length === 0 && digest.recovered.length === 0 && digest.flaky.length === 0 && digest.stillFailing.length === 0;
 }
 
+/**
+ * The message for a week in which nothing moved.
+ *
+ * Separate from `digestText` because the claim is different and stronger:
+ * "everything passed, every day" is about the whole week, and a summary that
+ * read only part of one cannot make it. A failure in the days this summary
+ * could not see would otherwise have been posted as a quiet week.
+ */
+export function quietText(input: {
+  projectName: string;
+  liveUrl: string;
+  digest: WeeklyDigest;
+  coverage?: CoverageLine | null;
+}) {
+  const { digest } = input;
+  const tests = `${digest.checked} test${digest.checked === 1 ? "" : "s"}`;
+  return [
+    `PlaywrightGen week in review -- ${input.projectName} (${input.liveUrl})`,
+    digest.partial
+      ? `No failures in the most recent ${digest.partial.read.toLocaleString("en-GB")} of ${digest.partial.total.toLocaleString("en-GB")} checks this week, across ${tests}.`
+      : `All ${tests} passed every day this week.`,
+    input.coverage ? coverageText(input.coverage) : null,
+  ]
+    .filter((line) => line !== null)
+    .join("\n");
+}
+
 export function digestText(input: {
   projectName: string;
   liveUrl: string;
@@ -136,6 +185,11 @@ export function digestText(input: {
   return [
     `PlaywrightGen week in review -- ${input.projectName} (${input.liveUrl})`,
     `${digest.checked} test${digest.checked === 1 ? "" : "s"} checked daily; ${digest.steady} passed every time.`,
+    // A summary of part of a week is still useful; one that does not say so
+    // is not, and this message is read away from any page that could add it.
+    digest.partial
+      ? `From the most recent ${digest.partial.read.toLocaleString("en-GB")} of ${digest.partial.total.toLocaleString("en-GB")} checks this week; the earliest are not counted.`
+      : null,
     input.coverage ? coverageText(input.coverage) : null,
     ...list("Broke this week", digest.broke),
     ...list("Still failing", digest.stillFailing),
@@ -151,28 +205,51 @@ function client(dependencies?: { prisma?: PrismaClient }) {
   return dependencies?.prisma ?? getPrismaClient();
 }
 
-/** The week's live-check attempts for one project, newest last. */
+/** A week of attempts, oldest first, and whether that is all of them. */
+export type WeekRead = {
+  attempts: WeekAttempt[];
+  partial: { read: number; total: number } | null;
+};
+
+/**
+ * The week's live-check attempts for one project, oldest last read first.
+ *
+ * The most recent are kept when there are more than the limit, because a week
+ * in review is about how the week ended, and the count is then read so the
+ * summary can say what it did not see.
+ */
 export async function readWeek(
   projectId: string,
   options: { prisma?: PrismaClient; now?: Date } = {},
-): Promise<WeekAttempt[]> {
+): Promise<WeekRead> {
+  const prisma = client(options);
   const since = new Date((options.now?.getTime() ?? Date.now()) - WEEK_MS);
-  const attempts = await client(options).testRunAttempt.findMany({
-    where: { projectId, sourceRef: "live-check", executedAt: { gte: since } },
-    orderBy: { executedAt: "asc" },
+  const where = { projectId, sourceRef: "live-check", executedAt: { gte: since } };
+  const newestFirst = await prisma.testRunAttempt.findMany({
+    where,
+    orderBy: { executedAt: "desc" },
     select: {
       result: true,
       executedAt: true,
       testRun: { select: { testCaseId: true, testCase: { select: { title: true } } } },
     },
-    take: 2_000,
+    take: WEEK_ATTEMPT_LIMIT,
   });
-  return attempts.map((attempt) => ({
-    testCaseId: attempt.testRun.testCaseId,
-    title: attempt.testRun.testCase.title,
-    result: attempt.result,
-    executedAt: attempt.executedAt,
-  }));
+  // Only when the window came back full: a count query on every digest would
+  // cost something to learn nothing.
+  const total =
+    newestFirst.length < WEEK_ATTEMPT_LIMIT ? newestFirst.length : await prisma.testRunAttempt.count({ where });
+  return {
+    attempts: newestFirst
+      .map((attempt) => ({
+        testCaseId: attempt.testRun.testCaseId,
+        title: attempt.testRun.testCase.title,
+        result: attempt.result,
+        executedAt: attempt.executedAt,
+      }))
+      .reverse(),
+    partial: total > newestFirst.length ? { read: newestFirst.length, total } : null,
+  };
 }
 
 type Poster = (url: string, body: string) => Promise<boolean>;
@@ -204,34 +281,42 @@ export async function sendWeeklyDigests(options: {
   const prisma = client(options);
   const now = options.now ?? new Date();
   const deadline = now.getTime() + options.budgetMs;
-  const due = await prisma.project.findMany({
-    where: {
-      status: "ACTIVE",
-      liveChecksEnabled: true,
-      liveChecksWebhookUrl: { not: null },
-      OR: [
-        { liveChecksLastDigestAt: null },
-        { liveChecksLastDigestAt: { lt: new Date(now.getTime() - MIN_INTERVAL_MS) } },
-      ],
-    },
-    orderBy: { liveChecksLastDigestAt: { sort: "asc", nulls: "first" } },
-    select: {
-      id: true,
-      name: true,
-      organizationId: true,
-      liveUrl: true,
-      liveChecksWebhookUrl: true,
-      organization: { select: { slug: true } },
-    },
-    take: 100,
-  });
+  // How many are waiting, counted rather than inferred from the batch: the
+  // daily round learned the same lesson, because "100 due, 100 sent" reads as
+  // finished to whoever watches the cron and three hundred projects waiting
+  // would look exactly the same.
+  const dueWhere = {
+    status: "ACTIVE" as const,
+    liveChecksEnabled: true,
+    liveChecksWebhookUrl: { not: null },
+    OR: [
+      { liveChecksLastDigestAt: null },
+      { liveChecksLastDigestAt: { lt: new Date(now.getTime() - MIN_INTERVAL_MS) } },
+    ],
+  };
+  const [due, dueTotal] = await Promise.all([
+    prisma.project.findMany({
+      where: dueWhere,
+      orderBy: { liveChecksLastDigestAt: { sort: "asc", nulls: "first" } },
+      select: {
+        id: true,
+        name: true,
+        organizationId: true,
+        liveUrl: true,
+        liveChecksWebhookUrl: true,
+        organization: { select: { slug: true } },
+      },
+      take: DIGEST_BATCH,
+    }),
+    prisma.project.count({ where: dueWhere }),
+  ]);
 
   let sent = 0;
   let quiet = 0;
   for (const project of due) {
     if (Date.now() > deadline) break;
     const week = await readWeek(project.id, { prisma, now });
-    const digest = summariseWeek(week);
+    const digest = summariseWeek(week.attempts, week.partial);
     // Nothing ran at all: the project is not being checked, so there is nothing
     // to report and nothing to record either.
     if (digest.checked === 0) continue;
@@ -251,15 +336,13 @@ export async function sendWeeklyDigests(options: {
         coverage: report.coverage,
       }))
       .catch(() => null);
-    const standings = coverage ? coverageText(coverage) : null;
     const text = isQuietWeek(digest)
-      ? [
-          `PlaywrightGen week in review -- ${project.name} (${project.liveUrl ?? ""})`,
-          `All ${digest.checked} test${digest.checked === 1 ? "" : "s"} passed every day this week.`,
-          standings,
-        ]
-          .filter((line) => line !== null)
-          .join("\n")
+      ? quietText({
+          projectName: project.name,
+          liveUrl: project.liveUrl ?? "",
+          digest,
+          coverage,
+        })
       : digestText({
           projectName: project.name,
           liveUrl: project.liveUrl ?? "",
@@ -283,5 +366,5 @@ export async function sendWeeklyDigests(options: {
       await prisma.project.update({ where: { id: project.id }, data: { liveChecksLastDigestAt: now } });
     }
   }
-  return { due: due.length, sent, quiet };
+  return { due: due.length, dueTotal, sent, quiet };
 }

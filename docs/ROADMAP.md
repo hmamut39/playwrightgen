@@ -10,9 +10,50 @@ Last updated: 2026-10-17.
 
 Live at https://playwrightgen.com (Vercel, Clerk production, Stripe live,
 Neon Postgres). Every item below was verified in a real browser, and the full
-test suite (856 tests) passes.
+test suite (860 tests) passes.
 
 ## Shipped (most recent first)
+
+### The surface nobody had walked
+- **The approval came out of the log; the log has a window** (2026-10-17):
+  finishing the cap sweep, by asking of each bounded read the one question
+  that matters -- does the surface reading it say the bound exists.
+  The evidence report read "approved by" out of the append-only activity
+  trail through a window of two thousand events. Three things were wrong with
+  that, and only the first is about size. A project with more approval events
+  than the window lost the oldest names, and the document decided *on the
+  name* whether to mention the approval at all -- so an approved requirement
+  whose name had scrolled out exported as though nobody had ever approved it.
+  The trail also keeps an approval after a reviewer reopens the artifact, so a
+  requirement sent back for changes read "DRAFT &middot; approved by Priya".
+  And the actor on an activity row is nullable, so the same silence could
+  arrive without any window at all.
+  The fact now comes from the record, where approving sets `approvedAt` and
+  reopening clears it, and only the name comes from the trail. A name is never
+  reported without a standing approval, and an approval without a name says
+  "approved on 18 September (the trail no longer names who)" rather than
+  nothing. The window costs a name now, never the approval.
+  The weekly digest read a week of checks oldest-first, two thousand of them.
+  A project checking a few hundred tests a day produces more than that, so the
+  window it kept was the *start* of the week: a message headed "week in
+  review" could describe Monday and Tuesday and say nothing about the days a
+  reader cares about. Worse, a week read in part could come out as "all 300
+  tests passed every day this week" while a failure sat in the days it never
+  read. It keeps the most recent checks now, counts the week only when the
+  window came back full, and says so on both surfaces -- the Health card and
+  the message. A quiet week read in part says "no failures in the most recent
+  2,000 of 2,540 checks this week" and does not use the word "every".
+  The digest round also reported the size of its own batch as the number of
+  projects waiting. The daily round learned that in September ("50 due, 50
+  ran" reads as finished); the weekly one now counts the same way.
+  Checked and left alone, with the reason: `live-checks` and `project-quality`
+  already count past their bound and say so; `release-proof` returns a total
+  beside its page; `approval-policy` names up to three people to ask, which is
+  a suggestion and not a claim of completeness. `page-coverage` compares a new
+  plan against the 200 most recently updated test cases, so a project past 200
+  could be proposed a duplicate of an old one -- the cost is a proposal a
+  reviewer sees and rejects, not a false statement, and no project is near it.
+  Written down rather than plumbed through the planner for nobody.
 
 ### The surface nobody had walked
 - **What an agent can and cannot do, written down instead of merely true**
@@ -2001,11 +2042,19 @@ change in classification can only be attributed to that field.
    today. Worth several runs to establish the real rate before changing
    anything, and worth resisting the urge to fix it by loosening the eval.
 
-3. ~~**Finish the cap sweep that 2026-10-11 started.**~~ Done 2026-10-11. The
-   known instance, `listEvidenceSignatures`, is fixed. The other hard `take:`
-   constants were listed to be asked the same question and still are:
-   `approval-policy` 20, `live-checks` 50, `page-coverage` 200,
-   `release-proof` 20, `project-quality` 25. Original item: The evidence report's
+3. ~~**Finish the cap sweep that 2026-10-11 started.**~~ Closed 2026-10-17.
+   Every remaining bounded read was asked the question. Two were lying by
+   silence and are fixed: the evidence report's approval window (it decided on
+   a *name* whether to state an approval at all) and the weekly digest's week
+   of checks (oldest-first, so a partial read described the start of the week
+   and could post "passed every day"). The digest round also reported its own
+   batch size as the number of projects waiting. `live-checks`,
+   `project-quality` and `release-proof` already count past their bound;
+   `approval-policy` names up to three people to ask, which is a suggestion;
+   `page-coverage` compares against 200 test cases, where the cost is a
+   duplicate proposal a reviewer rejects rather than a false statement. The
+   earlier state of this item, for context -- known instance
+   `listEvidenceSignatures` fixed 2026-10-11, the rest still open then: The evidence report's
    500-requirement bound now reaches every surface that reads it. One known
    instance was left: `listEvidenceSignatures` takes 50 with no count and no
    caller saying so, so a project with more than fifty acceptances shows

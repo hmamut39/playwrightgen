@@ -48,9 +48,15 @@ export type EvidenceTestCase = {
    *
    * The chain already said who proposed a test and that it ran and passed.
    * The part a reviewing body actually asks for was missing: the sign-off
-   * record naming who accepted each artifact and when. It is held in the
-   * activity trail rather than on the record, so it has to be read back --
-   * which is the right way round, since the trail is append-only.
+   * record naming who accepted each artifact and when.
+   *
+   * The two come from different places, deliberately. The time is on the
+   * record, where approving sets it and sending the artifact back to review
+   * clears it, so it is the approval that stands rather than the last one
+   * that ever happened. The name is read back from the append-only trail,
+   * which is the only place it is kept -- and it can be missing when the
+   * name is older than the window read, so a reader is told that an artifact
+   * was approved even when nobody can be named for it.
    */
   approvedBy: string | null;
   approvedAt: Date | null;
@@ -183,6 +189,9 @@ export async function buildReleaseEvidenceReport(input: {
         currentVersionNumber: true,
         acceptanceCriteria: true,
         externalReference: true,
+        // Set when it was approved and cleared when it goes back to review,
+        // so this is the approval that stands.
+        approvedAt: true,
         testCaseLinks: {
           select: {
             testCase: {
@@ -191,6 +200,7 @@ export async function buildReleaseEvidenceReport(input: {
                 title: true,
                 status: true,
                 currentVersionNumber: true,
+                approvedAt: true,
                 // Version 1 is the proposal: who wrote it does not change when
                 // the Test Case is edited later.
                 versions: {
@@ -211,8 +221,13 @@ export async function buildReleaseEvidenceReport(input: {
       where: { organizationId, projectId, status: { not: "ARCHIVED" } },
     }),
     loadAttemptFacts(prisma, { organizationId, projectId }),
-    // Who signed off each artifact. Append-only, so the newest entry per
-    // target is the approval that stands.
+    // The name behind each sign-off. The fact and its time come from the
+    // artifact itself; this trail is the only place the person is recorded,
+    // and it is read newest-first so the entry kept per artifact is the most
+    // recent one. A project with more approval events than this window holds
+    // loses the oldest names -- which now costs a name and not the approval,
+    // because an artifact that says nothing about who approved it still says
+    // that it was approved and when.
     prisma.activity.findMany({
       where: {
         organizationId,
@@ -224,10 +239,10 @@ export async function buildReleaseEvidenceReport(input: {
       take: 2_000,
     }),
   ]);
-  const approvals = new Map<string, { by: string | null; at: Date }>();
+  const approvedByName = new Map<string, string | null>();
   for (const approval of approvalActivity) {
-    if (!approvals.has(approval.targetId)) {
-      approvals.set(approval.targetId, { by: approval.actor?.displayName ?? null, at: approval.createdAt });
+    if (!approvedByName.has(approval.targetId)) {
+      approvedByName.set(approval.targetId, approval.actor?.displayName ?? null);
     }
   }
 
@@ -257,8 +272,10 @@ export async function buildReleaseEvidenceReport(input: {
           latestResult: latest?.result ?? null,
           latestExecutedAt: latest?.executedAt ?? null,
           latestCommitSha: latest?.commitSha ?? null,
-          approvedBy: approvals.get(link.testCase.id)?.by ?? null,
-          approvedAt: approvals.get(link.testCase.id)?.at ?? null,
+          // A name without a standing approval is a contradiction, and the
+          // next surface to read it would state it.
+          approvedBy: link.testCase.approvedAt ? approvedByName.get(link.testCase.id) ?? null : null,
+          approvedAt: link.testCase.approvedAt,
           authoredByAgent: link.testCase.versions[0]?.authoredByAgent ?? null,
           signal: latest ? (signals.get(latest.testRunId)?.signal ?? null) : null,
         };
@@ -343,8 +360,8 @@ export async function buildReleaseEvidenceReport(input: {
         lastVerifiedAt,
         ageDays: age.ageDays,
         freshness: age.freshness,
-        approvedBy: approvals.get(requirement.id)?.by ?? null,
-        approvedAt: approvals.get(requirement.id)?.at ?? null,
+        approvedBy: requirement.approvedAt ? approvedByName.get(requirement.id) ?? null : null,
+        approvedAt: requirement.approvedAt,
         criteriaCount,
         testCases,
       };

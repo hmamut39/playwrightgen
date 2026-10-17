@@ -64,7 +64,8 @@ export default async function ProjectHealthPage({
   const base = `/workspace/${orgSlug}/projects/${projectId}`;
   const live = project.liveChecksEnabled ? readLiveChecksSummary(project.liveChecksLastSummary) : null;
   // The same week the digest posts, for a team without a channel.
-  const week = project.liveChecksEnabled ? summariseWeek(await readWeek(projectId)) : null;
+  const weekRead = project.liveChecksEnabled ? await readWeek(projectId) : null;
+  const week = weekRead ? summariseWeek(weekRead.attempts, weekRead.partial) : null;
   // Sharing evidence lives on the Release page; this is where people look first.
   const shared = await listProofLinks({ orgSlug, projectId }).catch(() => ({ items: [] as never[], total: 0 }));
   const health = projectHealthVerdict({ readiness, live });
@@ -266,6 +267,13 @@ export default async function ProjectHealthPage({
               {week.stillFailing.length ? <p className="mt-1 break-words text-red-800">Still failing: {week.stillFailing.slice(0, 3).join(", ")}</p> : null}
               {week.recovered.length ? <p className="mt-1 break-words text-emerald-800">Passing again: {week.recovered.slice(0, 3).join(", ")}</p> : null}
               {week.flaky.length ? <p className="mt-1 break-words text-amber-800">Flaky: {week.flaky.slice(0, 3).join(", ")}</p> : null}
+              {/* A card summarising part of a week has to say so. */}
+              {week.partial ? (
+                <p className="mt-1 text-xs text-slate-500">
+                  From the most recent {week.partial.read.toLocaleString("en-GB")} of{" "}
+                  {week.partial.total.toLocaleString("en-GB")} checks this week.
+                </p>
+              ) : null}
             </>
           )}
         </Card>

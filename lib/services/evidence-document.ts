@@ -55,15 +55,31 @@ export function evidenceFileName(report: ReleaseEvidenceReport) {
   return `${slug}-test-evidence-${report.generatedAt.toISOString().slice(0, 10)}.html`;
 }
 
+/**
+ * The sign-off, in as much detail as the records really hold.
+ *
+ * The approval and its time are on the artifact; the name is read back from
+ * the activity trail and can be older than the window that was read. It used
+ * to be the name that decided whether this line appeared at all, so an
+ * approved artifact whose name had scrolled out of that window exported as
+ * though nobody had ever approved it. An unnamed approval is a weaker record
+ * than a named one and a far better one than silence.
+ */
+function approvalLine(artifact: { approvedBy: string | null; approvedAt: Date | null }) {
+  if (!artifact.approvedAt) return null;
+  const when = stamp(artifact.approvedAt);
+  return artifact.approvedBy
+    ? `approved by ${escape(artifact.approvedBy)} on ${when}`
+    : `approved on ${when} (the trail no longer names who)`;
+}
+
 function requirementSection(requirement: ReleaseEvidenceReport["requirements"][number]) {
   const meta = [
     `Version ${requirement.versionNumber}`,
     requirement.externalReference ? escape(requirement.externalReference) : null,
     // The sign-off record a reviewing body asks for: who accepted this, and
     // when. Said here rather than left in an activity log nobody exports.
-    requirement.approvedBy
-      ? `approved by ${escape(requirement.approvedBy)}${requirement.approvedAt ? ` on ${stamp(requirement.approvedAt)}` : ""}`
-      : null,
+    approvalLine(requirement),
     requirement.criteriaCount
       ? `${requirement.criteriaCount} acceptance criteri${requirement.criteriaCount === 1 ? "on" : "a"}`
       : null,
@@ -82,7 +98,7 @@ function requirementSection(requirement: ReleaseEvidenceReport["requirements"][n
                 ? RESULT_WORD[testCase.latestResult] ?? testCase.latestResult.toLowerCase()
                 : "never run";
               return `<tr>
-                <td>${escape(testCase.title)}${testCase.approvedBy ? `<br><span class="who">approved by ${escape(testCase.approvedBy)}${testCase.approvedAt ? ` on ${stamp(testCase.approvedAt)}` : ""}</span>` : ""}</td>
+                <td>${escape(testCase.title)}${approvalLine(testCase) ? `<br><span class="who">${approvalLine(testCase)}</span>` : ""}</td>
                 <td>${testCase.authoredByAgent ? escape(testCase.authoredByAgent) : "a person"}</td>
                 <td class="num">${testCase.versionNumber}</td>
                 <td class="${testCase.latestResult === "FAILED" ? "bad" : testCase.latestResult === "PASSED" ? "good" : ""}">${result}</td>

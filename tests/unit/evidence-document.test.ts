@@ -290,6 +290,31 @@ describe("who approved it", () => {
     expect(html).not.toContain("approved by");
   });
 
+  it("still records the approval when the trail no longer names who made it", () => {
+    // The approval and its time are on the artifact; the name is read back
+    // from the activity trail, newest first, through a window. A project with
+    // more approval events than that window holds loses the oldest names --
+    // and the document used to decide on the name whether to mention the
+    // approval at all, so an approved requirement exported as though nobody
+    // had ever approved it. Weaker than a name, far better than silence.
+    const base = report();
+    const html = evidenceDocument(
+      report({
+        requirements: [
+          {
+            ...base.requirements[0],
+            approvedBy: null,
+            testCases: [{ ...base.requirements[0].testCases[0], approvedBy: null }],
+          },
+        ],
+      }),
+    );
+    expect(html).toContain("approved on 2026-09-18");
+    expect(html).toContain("approved on 2026-09-19");
+    expect(html).toContain("the trail no longer names who");
+    expect(html).not.toContain("approved by");
+  });
+
   it("cannot have an approver's name write markup into the document", () => {
     const base = report();
     const html = evidenceDocument(

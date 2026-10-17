@@ -137,7 +137,11 @@ describe("the weekly digest a project's channel receives", () => {
       return true;
     };
 
-    expect(await sendWeeklyDigests({ budgetMs: 30_000, prisma, post })).toMatchObject({ due: 1, sent: 1, quiet: 0 });
+    // dueTotal, not only the batch: "100 due, 100 sent" reads as finished to
+    // whoever watches the cron, and three hundred waiting would look the same.
+    expect(await sendWeeklyDigests({ budgetMs: 30_000, prisma, post })).toMatchObject({
+      due: 1, dueTotal: 1, sent: 1, quiet: 0,
+    });
     expect(posts).toHaveLength(1);
     expect(posts[0].url).toBe(SLACK);
     const text = JSON.parse(posts[0].body).text as string;

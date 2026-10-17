@@ -198,7 +198,14 @@ export default async function ProofPage({
                   <p className="mt-1 text-xs text-slate-400">
                     Version {requirement.versionNumber}
                     {requirement.externalReference ? ` · ${requirement.externalReference}` : ""}
-                    {requirement.approvedBy ? ` · approved by ${requirement.approvedBy}` : ""}
+                    {/* The approval is on the record; the name is read back from
+                        the trail and can be older than the window read, so a
+                        missing name must not read as "never approved". */}
+                    {requirement.approvedAt
+                      ? requirement.approvedBy
+                        ? ` · approved by ${requirement.approvedBy}`
+                        : " · approved"
+                      : ""}
                     {requirement.criteriaCount
                       ? ` · ${requirement.criteriaCount} acceptance criteri${requirement.criteriaCount === 1 ? "on" : "a"}`
                       : ""}
