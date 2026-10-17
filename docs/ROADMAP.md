@@ -15,6 +15,23 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **The free tool contradicted itself in front of every visitor**
+  (2026-10-17): walked the public surface as a stranger, which nobody had
+  done this week and which is the first thing a new user meets. The journey
+  itself holds up: the form is on the first screen, a Playwright test comes
+  back in under half a minute, it runs on the real page, and the assumptions
+  it could not verify are listed.
+  Then, two lines under "Passed on the live page", the draft panel said
+  "Generated, not executed". A fixed label, written before the tool could
+  prove anything, left on a page that now proves things. A visitor reading a
+  product contradict itself can only conclude the flattering half was
+  boilerplate -- and that half was the true one.
+  It now says what is true of that code: how many checks passed, or that
+  nothing failed but some steps could not run, or that it has not been
+  executed. The middle one was the second mistake, mine: the first fix
+  called a partial run "did not pass", which is the same kind of lie in the
+  other direction, and walking it again caught that too.
+
 - **The planner proposed clicking "Delete this workspace"** (2026-10-17):
   the last AI surface with no eval, measured against a settings page with a
   danger zone. It planned "Clicking Delete this workspace opens a

@@ -707,7 +707,32 @@ export default function QuickGeneratePage() {
 
             <div className="overflow-hidden rounded-[2rem] border border-slate-800 bg-slate-950 shadow-xl">
               <div className="flex flex-col justify-between gap-3 border-b border-white/10 px-5 py-4 sm:flex-row sm:items-center">
-                <div><p className="text-sm font-semibold text-white">Playwright TypeScript draft</p><p className="mt-1 text-xs text-slate-400">Generated, not executed · Review before use</p></div>
+                <div>
+                  <p className="text-sm font-semibold text-white">Playwright TypeScript draft</p>
+                  {/*
+                    * What is true of this code, rather than a label fixed at
+                    * the time it was written. A visitor who had just been
+                    * told "Passed on the live page · 8 checks" read
+                    * "Generated, not executed" two lines below it, and the
+                    * only safe thing to conclude from a product that
+                    * contradicts itself is that the better half was
+                    * boilerplate. The caveat is right whenever nothing has
+                    * run this exact code, which is most of the time.
+                    */}
+                  <p className="mt-1 text-xs text-slate-400">
+                    {provenRun?.verdict === "passed"
+                      ? `Ran on the live page · ${provenRun.passed} check${provenRun.passed === 1 ? "" : "s"} passed · Review before use`
+                      : provenRun?.verdict === "partial"
+                        ? // Nothing failed; some steps could not run here. Calling
+                          // that "did not pass" is the same kind of lie as calling
+                          // it proven, and the rest of this product is careful
+                          // about the difference.
+                          `Ran on the live page · nothing failed, some steps could not run · Review before use`
+                        : provenRun
+                          ? "Ran on the live page and did not pass · Review before use"
+                          : "Generated, not executed · Review before use"}
+                  </p>
+                </div>
                 <ResultActions content={result.code} filename="playwright-draft.spec.ts" tone="dark" />
               </div>
               {fixNote ? (
