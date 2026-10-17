@@ -10,9 +10,43 @@ Last updated: 2026-10-17.
 
 Live at https://playwrightgen.com (Vercel, Clerk production, Stripe live,
 Neon Postgres). Every item below was verified in a real browser, and the full
-test suite (876 tests) passes.
+test suite is 882 tests. The last full run on 2026-10-17 had one failure,
+`project-team.test.ts > lets an invited person in on their first request`,
+which passes on its own and passes beside the file added that day: a
+cross-file flake under the full suite's load against the remote test
+database, of the kind this file already warns about, and not a defect anyone
+has reproduced in isolation. Everything else passed.
 
 ## Shipped (most recent first)
+
+### The surface nobody had walked
+- **The seam a customer's first push lands on had no test either side of it**
+  (2026-10-17): `playwrightgen-report.mjs` is plain Node that runs on somebody
+  else's runner; the ingest route is TypeScript here. Both were tested and the
+  seam between them was not -- nothing checked that the payload one builds is
+  the payload the other accepts. A renamed field, a changed signature scheme
+  or a stricter schema would have been discovered by a stranger whose first
+  push silently recorded nothing, at the one moment a new team decides whether
+  this product works.
+  It is covered now by running the shipped file the way a pipeline does: a
+  Playwright JSON report on disk, the environment variables the workflow sets,
+  a child process, and a real HTTP request over a loopback socket to the real
+  handler. Only what would reach outside the test is injected -- the rate
+  limiter, the pull-request note, the failure analysis. Six cases: a marked
+  result recorded against its approved version with the duration rounded
+  rather than dropped, a failure's message and steps carried through, the
+  provider recorded on the trail, an unmarked test explained rather than
+  counted, a wrong token refused without failing the pipeline, and a first
+  push with no tests sending nothing at all.
+  Two mistakes of my own worth keeping. The first version used a synchronous
+  child process, which blocks the event loop that has to serve it: both sides
+  waited and five tests hung for thirty seconds each. And three of six
+  assertions were wrong where the product was right -- the step shape it
+  stores, where the provider is recorded, and the delivery note's wording,
+  which explains the silence ("A result is attached to an approved test by a
+  [pwg:...] marker in its title") where mine would have reported a zero.
+  Reading what the product does before asserting what it should do is a
+  lesson this session has now learned twice.
 
 ### Reaching the people who never open it
 - **The repository's front door described a different product** (2026-10-17):
