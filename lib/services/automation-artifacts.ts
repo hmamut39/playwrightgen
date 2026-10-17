@@ -31,6 +31,7 @@ import { checkSelfApproval, describeReviewTrail } from "@/lib/services/approval-
 import { importedDraftSourceLabel, readRunEvidence } from "@/lib/services/imported-drafts";
 import { planPreviewRun } from "@/lib/free-tools/preview-run/plan";
 import { repairDraft } from "@/lib/ai/draft-repair";
+import { weakeningFindings } from "@/lib/ai/repair-weakening";
 import { executeLiveRun, prepareLiveRun } from "@/lib/free-tools/preview-run/run-draft";
 import { runVerdict } from "@/lib/free-tools/preview-run/receipt";
 import { firstFailureOf, proveDraftOnLivePage } from "@/lib/free-tools/prove-loop";
@@ -598,6 +599,15 @@ async function proveGeneratedCode(
             pageTreeAtFailure: failure.pageTree,
             ...(failure.skippedEarlier.length ? { skippedEarlier: failure.skippedEarlier } : {}),
           });
+          // A repair that passes because it stopped checking is not a
+          // repair. Compared with the code it was given, because every other
+          // check here sees the new code alone, where a missing assertion
+          // looks exactly like a test that never had one.
+          const weakened = weakeningFindings(current, repaired.code);
+          if (weakened.length > 0) {
+            // Not a limit: nothing is exhausted, the fix was refused.
+            return { ok: false as const, limit: false, message: weakened[0].message };
+          }
           return { ok: true as const, code: repaired.code, explanation: repaired.explanation, payload: repaired };
         },
       },

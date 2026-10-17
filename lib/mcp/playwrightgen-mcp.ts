@@ -3,6 +3,7 @@ import "server-only";
 import { z } from "zod";
 
 import { repairDraft } from "@/lib/ai/draft-repair";
+import { weakeningFindings } from "@/lib/ai/repair-weakening";
 import { generateQuickDraft } from "@/lib/ai/quick-generation";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { capturePageSnapshot, isPublicWebAddress } from "@/lib/free-tools/page-snapshot";
@@ -901,6 +902,13 @@ const tools: Tool[] = [
               ...(pageTreeAtStart ? { pageTreeAtStart } : {}),
               ...(failure.skippedEarlier.length ? { skippedEarlier: failure.skippedEarlier } : {}),
             });
+            // Refused for the same reason here as everywhere else: an agent
+            // driving this loop is even less likely than a person to notice
+            // that the test stopped checking something.
+            const weakened = weakeningFindings(code, repaired.code);
+            if (weakened.length > 0) {
+              return { ok: false as const, limit: false, message: weakened[0].message };
+            }
             return { ok: true as const, code: repaired.code, explanation: repaired.explanation, payload: repaired };
           },
         },

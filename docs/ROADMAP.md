@@ -15,6 +15,32 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **A repair may no longer pass by checking less** (2026-10-17): the prove
+  loop rewrites a failing test until it passes, which makes it the one place
+  in this product where "it passes now" can mean "it stopped checking".
+  Everything else is read by a person meeting new work; a fix arrives as a
+  small diff on a test they already approved, after a loop that ran until the
+  red went away, and the quickest way to make a failing assertion pass is to
+  delete it.
+  The prompt forbade that in words -- keep the structure, keep the
+  assertions' intent, say so rather than weakening it -- and nothing checked.
+  Every validation run on a repair looks at the new code alone, where a
+  missing assertion is invisible: three assertions are well-formed whether
+  the test began with three or with four. Nothing compared the fix with what
+  it was given.
+  Now something does, at all three places a repair is taken: the automation
+  generator, the repair service, and the MCP loop an agent drives. A fix is
+  refused when it checks fewer things, turns an assertion into its opposite,
+  makes the test skip itself, swallows the failure in a catch or an
+  expect.soft, or waits instead of asserting. The rules are about shape, not
+  meaning -- they cannot tell a better assertion from a worse one, and they
+  do not try.
+  Half the tests are repairs that must keep working, because a guard that
+  stopped the loop doing its job would be switched off within a week: a
+  locator corrected against the page that really loaded, an address fixed, a
+  fixed wait replaced by an assertion, a test rewritten with the same number
+  of checks.
+
 - **A delivery says which project the markers really belong to**
   (2026-10-17): the owner merged the pull request and the dogfood repository
   ran a real test for the first time -- one passed on the live page in 1.4
