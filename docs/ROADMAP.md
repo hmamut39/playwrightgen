@@ -1715,7 +1715,23 @@ test suite (493 tests) passes.
 
 ## Next
 
-First for 2026-10-13, in this order:
+All three of the 2026-10-13 items are done: this repository's CI is green
+again, the owner merged the proof repository's pull request and gave it a
+BASE_URL, and the pull-request comment has now been seen on a real pull
+request (hmamut39/playwrightgen-ci-proof#3, 2026-10-17): "GitHub Actions
+reported 1 result for `bbbbbbbb`. Recorded 1 of 1 result. None of the tests
+recorded here are linked to a requirement yet." A second delivery updated
+that comment rather than adding another, which is the promise it makes.
+
+What is left is no longer a list of defects. Every AI surface is measured,
+every count says what it counts, the repair loop cannot weaken a test and the
+generated code cannot carry anything out of a run. The next real constraint
+is use: as of 2026-10-11 production held three users, two projects, no proof
+links and no activity since 2026-09-22. One pass through the chain in
+production, by the owner, would be worth more than another week of
+hardening -- it is the only thing that says what a real team meets next.
+
+The original 2026-10-13 list, now closed:
 
 1. **This repository's CI, red on every run since 2026-09-23.** The audit
    gate is fixed and the failure moved to "Run unit and integration tests",
