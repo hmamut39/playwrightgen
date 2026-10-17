@@ -10,9 +10,53 @@ Last updated: 2026-10-17.
 
 Live at https://playwrightgen.com (Vercel, Clerk production, Stripe live,
 Neon Postgres). Every item below was verified in a real browser, and the full
-test suite (860 tests) passes.
+test suite (862 tests) passes.
 
 ## Shipped (most recent first)
+
+### Measuring the prompts
+- **The first run on a real page: 4 in 10, then 10 in 10** (2026-10-17): the
+  live-page eval generates a test from the TodoMVC demo and runs it in the
+  remote browser, and the first run's verdict is the grade. It was recorded on
+  2026-10-11 as passing about one run in three, with nobody able to say why.
+  Five runs, ten cases, before touching anything: 4 of 10 passed on the first
+  run, and Quick Generate failed 5 times out of 5. Every failure was the same
+  line -- an assertion on the "1 item left" counter, timing out on
+  `getByRole('status', { name: '1 item left' })`.
+  Two causes, and the page settled both. The first: a role that takes no name
+  from its text matches nothing when given one, which a deterministic rewrite
+  already fixed for list items and did not cover for live regions. It covers
+  status, alert, log, timer, note, figure, blockquote, paragraph and row now,
+  and deliberately not landmarks or large containers -- a text filter over
+  `main` matches the whole region that happens to contain the text, which
+  would turn a test that correctly fails into one that passes while checking
+  almost nothing.
+  That alone changed nothing, which is the more interesting half. Reading the
+  page showed why: TodoMVC's list is empty on arrival, so the counter is not
+  in the captured tree at all, and the prompt told the model that anything
+  missing from the tree should get "your best role-based locator" -- an
+  instruction to invent a role for an element nobody had seen. The expected
+  result already contains the one fact that is certainly true of it: the words
+  it shows. Both generators now prefer `getByText('1 item left')` for an
+  element the tree does not have and whose text the requirement names, and
+  invent a role only when there is no text to go on.
+  After: ten runs, every case passed on the first run, Quick Generate 5 of 5
+  outright. The sample is small and a model's rate is noisy, but the failure
+  had one identified cause and the fix addresses that cause. The two evals
+  whose prompts changed still pass (quick-generation 7 cases,
+  automation-generation 4 of 4).
+  One flaw in the eval itself, found while measuring it: Vitest keeps a
+  passing test's console output to itself, and the per-case verdicts are
+  printed there. Four green runs in a row were unreadable -- "2 passed" with
+  no way to see that three of them were partial rather than clean. A
+  measurement you can only read when it fails is not a measurement, so the
+  evals config no longer intercepts console output.
+  `live-page` stays out of the blessed baseline on purpose: it depends on a
+  third-party demo page and a remote browser, so a red light there would mean
+  "the page changed" as often as "the prompt got worse". The remaining thing
+  to look at is the workspace path's PARTIAL verdicts -- nothing fails, but
+  some steps do not run in the preview sandbox, and a person approving that
+  artifact sees so.
 
 ### The surface nobody had walked
 - **The approval came out of the log; the log has a window** (2026-10-17):
@@ -2031,7 +2075,12 @@ change in classification can only be attributed to that field.
    answer, graded deterministically, every case paired with one that must
    come out differently.
 
-2. **The live-page eval passes about one run in three.** Measured on
+2. ~~**The live-page eval passes about one run in three.**~~ Measured and
+   fixed 2026-10-17: 4 of 10 cases on the first run before, 10 of 10 after,
+   with one cause (an invented role for the counter, which is not in the tree
+   because the list starts empty) and two fixes (live regions in the
+   container-name rewrite; prefer the text the requirement names over a
+   guessed role). Details in Shipped. Original item: Measured on
    2026-10-11 across three runs of `evals/live-page.eval.ts`: 1/2, 0/2, then
    2/2. The page is not at fault -- a hand-written test adds a todo and sees
    it, 4/4, and the `getByRole('listitem').filter(...)` locator the prompt

@@ -26,6 +26,16 @@ export default defineConfig({
     fileParallelism: false,
     setupFiles: ["./evals/setup.ts"],
     include: ["evals/**/*.eval.ts"],
+    /**
+     * What an eval prints is the measurement, so it is never swallowed.
+     *
+     * Vitest keeps a passing test's console output to itself, which is
+     * exactly backwards here: the live-page eval prints each case's verdict,
+     * how many checks passed and whether the model wrote goto('/'), and on a
+     * green run all of that disappeared. Four runs were recorded as "passed"
+     * with no way to see that two of them had been partial.
+     */
+    disableConsoleIntercept: true,
     // A provider round trip is far slower than a unit test.
     testTimeout: 120_000,
     hookTimeout: 120_000,

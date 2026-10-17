@@ -41,9 +41,23 @@ export function hintsFromFailureTree(tree: string): string[] {
  * shows "Buy milk" is still an unnamed listitem, so getByRole('listitem',
  * { name: 'Buy milk' }) never matches. Written as a text filter it does. Left
  * alone when the page's tree shows that exact role and name (an aria-label).
+ *
+ * The live regions were added on 2026-10-17, from a measured failure rather
+ * than a reading of the spec: the live-page eval's generated test asserted
+ * `getByRole('status', { name: '1 item left' })` against TodoMVC's counter,
+ * which the accessibility tree shows as `status: 1 item left` -- text, not a
+ * name. The locator could not match on any page, and that is the whole first
+ * run lost to a mistake a rewrite already knew how to fix for list items.
+ *
+ * What is deliberately not here: landmarks and large containers (main,
+ * navigation, region, table, listbox, menu). They take no name from content
+ * either, but a text filter over one matches the whole region that happens to
+ * contain the text, so the rewrite would turn a test that correctly fails
+ * into one that passes while checking almost nothing. A locator that matches
+ * nothing is a bad test; a locator that matches everything is a worse one.
  */
 const CONTAINER_NAME =
-  /\.getByRole\(\s*(['"])(listitem|article|group|list)\1\s*,\s*\{\s*name:\s*(?:(['"])((?:(?!\3)[^\\\n])*)\3|([A-Za-z_$][\w$]*))\s*(?:,\s*exact:\s*(?:true|false)\s*)?\}\s*\)/g;
+  /\.getByRole\(\s*(['"])(listitem|article|group|list|status|alert|log|timer|note|figure|blockquote|paragraph|row)\1\s*,\s*\{\s*name:\s*(?:(['"])((?:(?!\3)[^\\\n])*)\3|([A-Za-z_$][\w$]*))\s*(?:,\s*exact:\s*(?:true|false)\s*)?\}\s*\)/g;
 
 export function alignContainerNames(code: string, aria = ""): { code: string; rewritten: number } {
   let rewritten = 0;

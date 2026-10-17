@@ -32,4 +32,38 @@ describe("naming list items by their text", () => {
     expect(alignContainerNames(code, '- listitem "Buy milk"').rewritten).toBe(1);
     expect(alignContainerNames("page.getByRole('listitem', { name: todo1 })").code).toBe("page.getByRole('listitem').filter({ hasText: todo1 })");
   });
+  it("does the same for a live region, which is where a real run was lost", () => {
+    // Measured, not deduced. The live-page eval generated
+    // `getByRole('status', { name: '1 item left' })` for TodoMVC's counter,
+    // which the tree shows as `status: 1 item left`. The locator cannot match
+    // on any page, and the whole first run was lost to a mistake the rewrite
+    // already fixed for list items.
+    expect(
+      alignContainerNames("await expect(page.getByRole('status', { name: '1 item left' })).toBeVisible();"),
+    ).toEqual({
+      code: "await expect(page.getByRole('status').filter({ hasText: '1 item left' })).toBeVisible();",
+      rewritten: 1,
+    });
+    // An aria-label the page really has is left alone, live region or not.
+    expect(
+      alignContainerNames(
+        "page.getByRole('status', { name: 'Items left' })",
+        '- status "Items left": 1 item left',
+      ).rewritten,
+    ).toBe(0);
+    expect(alignContainerNames("page.getByRole('alert', { name: 'Card declined' })").rewritten).toBe(1);
+    expect(alignContainerNames("page.getByRole('row', { name: 'SAVE10' })").rewritten).toBe(1);
+  });
+
+  it("leaves a landmark alone, because a text filter there checks almost nothing", () => {
+    // These take no name from their content either, and rewriting them would
+    // match the whole region that happens to contain the text: a locator that
+    // matches everything is a worse test than one that matches nothing.
+    for (const role of ["main", "navigation", "region", "table", "listbox", "menu"]) {
+      expect(alignContainerNames(`page.getByRole('${role}', { name: 'Buy milk' })`).rewritten, role).toBe(0);
+    }
+    // And a role that really does take its name from its text is untouched.
+    expect(alignContainerNames("page.getByRole('heading', { name: 'todos' })").rewritten).toBe(0);
+    expect(alignContainerNames("page.getByRole('link', { name: 'All' })").rewritten).toBe(0);
+  });
 });
