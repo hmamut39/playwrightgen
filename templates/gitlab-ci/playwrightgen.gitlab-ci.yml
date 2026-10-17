@@ -61,7 +61,11 @@ playwrightgen:
     # A failing run is evidence too, so reporting happens either way and the
     # job's own result is decided at the end.
     - |
-      if npx playwright test --reporter=json > playwright-report.json; then
+      # --pass-with-no-tests: a repository has no tests until the first
+      # generated one is pasted in, and Playwright treats finding none as an
+      # error, so the first pipeline would fail before there was anything to
+      # run. The reporting step says that nothing was recorded and why.
+      if npx playwright test --pass-with-no-tests --reporter=json > playwright-report.json; then
         echo "passed" > .playwrightgen-outcome
       else
         echo "failed" > .playwrightgen-outcome

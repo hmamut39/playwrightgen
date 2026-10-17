@@ -1,0 +1,7 @@
+# A run leaves these behind. The workflow uploads them as artifacts, so they
+# never belong in the repository -- and a trace or a video of a failing test
+# can carry whatever was on the page, including a signed-in session.
+node_modules/
+test-results/
+playwright-report/
+playwright-report.json

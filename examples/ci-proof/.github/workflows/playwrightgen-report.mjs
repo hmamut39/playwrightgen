@@ -7,7 +7,25 @@
 // it. No source, environment variables, or artifacts leave your runner.
 
 import { createHmac } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
+
+/**
+ * One line on the run's own page, so the answer is where somebody is looking.
+ *
+ * Everything this script says otherwise is in a collapsed step log, three
+ * clicks from the run. What a person wants to know after a push -- did
+ * anything get recorded, and if not why -- belongs on the summary GitHub
+ * shows first. Writing it is best effort: a missing or unwritable summary
+ * file must never affect the report itself.
+ */
+const summarise = (line) => {
+  console.log(`PlaywrightGen: ${line}`);
+  const file = process.env.GITHUB_STEP_SUMMARY;
+  if (!file) return;
+  try {
+    appendFileSync(file, `**PlaywrightGen** — ${line}\n`);
+  } catch {}
+};
 
 const REPORT_PATH = "playwright-report.json";
 
@@ -103,7 +121,11 @@ const results = [];
 for (const suite of report.suites ?? []) collect(suite, results);
 
 if (results.length === 0) {
-  console.log("PlaywrightGen: no test results found; nothing to report.");
+  // Nothing ran at all, which on a first push means the tests have not been
+  // written yet. Said as that rather than as an error: the workflow worked.
+  summarise(
+    "no tests ran, so nothing was reported. Paste the test PlaywrightGen generated into tests/ -- keep its [pwg:...] title marker, which is what ties a result to the approved version.",
+  );
   process.exit(0);
 }
 
@@ -151,8 +173,8 @@ const text = await response.text();
 if (!response.ok) {
   // Reporting is observability, not a gate: a PlaywrightGen outage must not
   // turn a green test suite red.
-  console.error(`PlaywrightGen: ingest returned ${response.status}: ${text}`);
+  summarise(`could not record this run (${response.status}): ${text.slice(0, 300)}`);
   process.exit(0);
 }
 
-console.log(`PlaywrightGen: ${text}`);
+summarise(text.slice(0, 500));

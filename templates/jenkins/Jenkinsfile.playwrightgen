@@ -91,7 +91,11 @@ pipeline {
         // about the missing address rather than your application.
         script {
           env.PLAYWRIGHTGEN_OUTCOME = sh(
-            script: 'npx playwright test --reporter=json > playwright-report.json',
+            // --pass-with-no-tests: a repository has no tests until the
+            // first generated one is pasted in, and Playwright treats
+            // finding none as an error, so the first build would fail with
+            // nothing to run. The reporting step says so instead.
+            script: 'npx playwright test --pass-with-no-tests --reporter=json > playwright-report.json',
             returnStatus: true,
           ) == 0 ? 'passed' : 'failed'
         }

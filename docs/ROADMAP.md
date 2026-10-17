@@ -10,9 +10,44 @@ Last updated: 2026-10-17.
 
 Live at https://playwrightgen.com (Vercel, Clerk production, Stripe live,
 Neon Postgres). Every item below was verified in a real browser, and the full
-test suite (870 tests) passes.
+test suite (874 tests) passes.
 
 ## Shipped (most recent first)
+
+### Found by using the product as a team would
+- **The first push of the CI example failed, before anything existed to run**
+  (2026-10-17): working towards a dogfood run that genuinely passes, the
+  example's own configuration was run against its own empty tests folder.
+  Playwright treats finding no tests as an error, so `npx playwright test`
+  exits 1 -- the workflow reports nothing, the last step fails the job, and
+  the one artifact whose whole purpose is to show the loop working is red on
+  arrival, before a single test has been generated. It reads as "this does
+  not work" when the truth is "there is nothing to run yet".
+  All four pipeline files pass with no tests now -- the three downloadable
+  templates and the standalone example -- and each still decides its own
+  result from the tests that did run, so passing with none has not become
+  passing with failures.
+  The other half: the answer to "did my push record anything" was a line in
+  a collapsed step log, several clicks from the run. Both reporters now write
+  one line where the pipeline shows it first (GitHub's run summary; the
+  console on GitLab and Jenkins, which have no equivalent), saying what was
+  recorded, or that no tests ran and what to paste in, or that the run could
+  not be recorded and why. Writing it is best effort: a summary file that
+  cannot be written must never change what is reported.
+  A test now holds all of this, because nothing else in the suite runs these
+  files: they execute on somebody else's runner days later, and a mistake is
+  discovered by a stranger whose first impression of this product is a red
+  pipeline. Two copies exist on purpose -- the templates and the example --
+  which is exactly the shape that drifts, so both are checked.
+  The example also had no `.gitignore`, so anyone following its README
+  committed `test-results/` on their second push. A trace or a video can
+  carry whatever was on the page, including a signed-in session.
+  Verified along the way, with the product pointed at itself: Quick Generate
+  wrote a test for playwrightgen.com's own home page and it passed on the
+  first run, 8 checks, no fixes. That proven test is what the dogfood
+  repository needs in order to report a result that passed rather than one
+  that was skipped; tying it to an approved version needs the owner, because
+  approval cannot be done on their behalf.
 
 ### Found by using the product as a team would
 - **"3 steps could not run there", beside an Approve button** (2026-10-17):
@@ -2085,7 +2120,13 @@ deterministically against structured output rather than with a model judge,
 and holds every evidence field constant except the one under test, so a
 change in classification can only be attributed to that field.
 
-1. **Evaluate the surfaces the suite does not reach.** `requirement-from-
+1. ~~**Evaluate the surfaces the suite does not reach.**~~ Closed 2026-10-17:
+   every surface in `lib/ai/` that calls a model has an eval file, twelve in
+   all. The two that do not are `generated-code-safety` and
+   `repair-weakening`, which are deterministic validators rather than prompts
+   and are covered by unit tests. Original item, which named three that have
+   since been written:
+   **Evaluate the surfaces the suite does not reach.** `requirement-from-
    ticket` was covered on 2026-10-11, five cases, paired so a prompt that
    answered "behaviour" to everything or invented a ticket key would fail
    half of them. `criteria-coverage` followed on the same day, six cases.
@@ -2142,7 +2183,15 @@ change in classification can only be attributed to that field.
    `release-proof` 20, `project-quality` 25. The question for each is not
    whether the bound is right but whether the surface reading it says the
    bound exists.
-4. **Make dogfooding produce a passing result.** The loop is live: the proof
+4. **Make dogfooding produce a passing result.** Half of this is prepared as
+   of 2026-10-17: the product wrote a test for playwrightgen.com's own home
+   page through Quick Generate and it passed on the live page first time, 8
+   checks, no fixes (the code is reproducible by running the same request
+   against the home page). What is left needs the owner, because approval
+   cannot be done on their behalf: approve a Test Case for it in production,
+   then put the generated code -- with its `[pwg:...]` marker -- in the proof
+   repository, whose BASE_URL would become https://playwrightgen.com.
+   Original item: The loop is live: the proof
    repository reports into a real production project, CI is green, and
    PlaywrightGen records the attempt as BLOCKED because the test cannot run
    without card details the owner has deferred. Honest, but it means there is

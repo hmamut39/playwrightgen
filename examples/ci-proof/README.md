@@ -34,6 +34,12 @@ Copy the generated code into `tests/generated.spec.ts` in this repository.
 evidence for. Remove it and the run is reported but matched to nothing, which
 shows up in your workspace as an unmatched result rather than an error.
 
+You can push before you have any of this. `tests/` starts empty, the workflow
+passes with no tests rather than treating an empty repository as a failure,
+and the run's summary says that nothing was recorded and what to paste in.
+That first push proves the half of the chain that does not depend on your
+tests: the workflow runs, and this repository can reach your project.
+
 ## 3. Create the GitHub repository
 
 Create a new empty repository on GitHub, then from this folder:
