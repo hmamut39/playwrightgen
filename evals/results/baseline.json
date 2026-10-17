@@ -1,6 +1,26 @@
 {
-  "blessedAt": "2026-10-17T14:11:01.471Z",
+  "blessedAt": "2026-10-17T16:11:37.267Z",
   "cases": [
+    {
+      "file": "draft-repair.eval.ts",
+      "name": "fixing a test that failed on the live page takes the real name from the tree, and keeps every check",
+      "status": "passed"
+    },
+    {
+      "file": "draft-repair.eval.ts",
+      "name": "fixing a test that failed on the live page keeps the assertion when the behaviour is simply not there",
+      "status": "passed"
+    },
+    {
+      "file": "draft-repair.eval.ts",
+      "name": "fixing a test that failed on the live page never turns a credential from the environment into a literal",
+      "status": "passed"
+    },
+    {
+      "file": "draft-repair.eval.ts",
+      "name": "fixing a test that failed on the live page treats an error page as the wrong address, not something to assert",
+      "status": "passed"
+    },
     {
       "file": "page-coverage-plan.eval.ts",
       "name": "planning the tests one page needs names only controls the page actually has",
@@ -9,7 +29,7 @@
     {
       "file": "page-coverage-plan.eval.ts",
       "name": "planning the tests one page needs plans no test whose only outcome is that something is on the screen",
-      "status": "passed"
+      "status": "failed"
     },
     {
       "file": "page-coverage-plan.eval.ts",

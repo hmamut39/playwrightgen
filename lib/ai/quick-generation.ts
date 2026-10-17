@@ -4,6 +4,8 @@ import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 
+import { generatedCodeSafetyFindings } from "@/lib/ai/generated-code-safety";
+
 import { extractLocatorNames, normalizeName } from "@/lib/free-tools/locator-names";
 import { alignContainerNames, alignTestIdLocators, siteTestIdAttribute } from "@/lib/free-tools/test-id-attribute";
 import { alignRootNavigation } from "@/lib/free-tools/navigation";
@@ -91,7 +93,21 @@ export class QuickGenerationProviderError extends Error {
   }
 }
 
-export function validateQuickGeneration(code: string): QuickGenerationResult["validation"] {
+/**
+ * The checks shown beside a draft, for anybody who runs this tool.
+ *
+ * `against` is the page or API the code is meant for, and the mode it was
+ * asked for. Both were missing until 2026-10-17, so this -- the public tool a
+ * stranger pastes into -- ran weaker rules than the workspace generator: a
+ * dynamic `import("node:child_process")` walked past it, a request to another
+ * site was nobody's business, and an API draft that drove a browser was never
+ * questioned. Both are optional so every existing caller keeps working and
+ * simply gets the checks it can.
+ */
+export function validateQuickGeneration(
+  code: string,
+  against: { mode?: QuickGenerationInput["mode"]; pageUrl?: string | null } = {},
+): QuickGenerationResult["validation"] {
   const findings: QuickGenerationResult["validation"]["findings"] = [];
   const block = (codeValue: string, message: string) =>
     findings.push({ severity: "BLOCKING", code: codeValue, message });
@@ -108,8 +124,24 @@ export function validateQuickGeneration(code: string): QuickGenerationResult["va
   if (/\b(?:eval\s*\(|new\s+Function\s*\(|process\.exit\s*\()/.test(code)) {
     block("unsafe_execution", "Generated code contains an unsafe execution primitive.");
   }
-  if (/from\s+["'](?:node:)?(?:child_process|fs|net|tls|worker_threads)["']/.test(code)) {
-    block("unsafe_node_module", "Generated code imports a disallowed Node.js capability.");
+  // The same rules the workspace generator runs, from one place, so neither
+  // copy can drift from the other.
+  for (const finding of generatedCodeSafetyFindings(code, against.pageUrl ?? null)) {
+    findings.push(finding);
+  }
+
+  // What the chosen shape means in code. An API draft that drives a browser
+  // is not the thing that was asked for, and a browser draft with no page
+  // fixture cannot be one either.
+  if (against.mode === "API") {
+    if (!/\brequest\b/.test(code)) {
+      block("missing_request_fixture", "An API draft must use Playwright's request fixture, not a browser page.");
+    }
+    if (/\(\s*\{[^}]*\bpage\b[^}]*\}\s*\)/.test(code)) {
+      warn("browser_in_api_draft", "This drives a browser in an API draft; keep it to request unless the check needs a page.");
+    }
+  } else if (against.mode && !/\(\s*\{[^}]*\bpage\b[^}]*\}\s*\)/.test(code)) {
+    block("missing_page_fixture", "A browser draft must take the page fixture and drive the page.");
   }
   if (/\.waitForTimeout\s*\(/.test(code)) warn("hard_wait", "Replace fixed waits with event-based waiting or web-first assertions.");
   if (/\.locator\s*\(\s*["'](?:css=|xpath=|\/\/|#[\w-]+\s*>)/.test(code)) {
@@ -244,7 +276,7 @@ export async function generateQuickDraft(
       outputTokens: response.usage?.output_tokens ?? null,
       totalTokens: response.usage?.total_tokens ?? null,
     },
-    validation: validateQuickGeneration(output.code),
+    validation: validateQuickGeneration(output.code, { mode: input.mode, pageUrl: input.pageUrl ?? null }),
     locatorCheck: input.pageSnapshot
       ? checkLocatorsAgainstPage(output.code, input.pageSnapshot.aria)
       : null,

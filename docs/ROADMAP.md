@@ -15,6 +15,31 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **The free tool ran weaker safety rules than the workspace** (2026-10-17):
+  an audit of every generating surface, one row per promise. Three gaps, and
+  the worst of them had it exactly backwards.
+  The red-team rules shipped that morning -- a request to another site, a
+  fetch inside page.evaluate carrying cookies, storage or environment values
+  posted somewhere, a Node capability reached through `await import(...)` --
+  were in the workspace generator alone. The public tool is the one a
+  stranger pastes markup into and then copies the result into their own
+  repository, and it still carried the old rule that only read
+  `import ... from`. Both now run one set of rules from one module, so
+  neither copy can drift.
+  The public tool also judged every draft the same way whatever shape was
+  asked for. An API draft that drove a browser, or a browser draft with no
+  page fixture, was nobody's business; the workspace generator had checked
+  exactly that for months. It knows the mode now.
+  And `release-review`, the free tool a stranger pastes a change description
+  into, was the only surface whose prompt never said its input was untrusted
+  data rather than instructions. Every other one says it. Now it does too.
+  `draft-repair` was the last surface with no eval -- the loop that rewrites
+  a failing test, where the cheapest way to pass is to delete what failed.
+  Four cases, 4 of 4: it takes the real name from the page's tree, it keeps
+  the assertion and says the behaviour is absent rather than weakening it, it
+  never turns a credential into a literal, and it treats a 404 as the wrong
+  address rather than something to assert. Every AI surface is now measured.
+
 - **A newcomer's first proof stopped half way and asked them to resume it**
   (2026-10-17): signed up a brand-new account and took the four steps the
   empty workspace promises. Most of it is good: onboarding is one step, the
