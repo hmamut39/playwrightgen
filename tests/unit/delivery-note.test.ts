@@ -121,6 +121,56 @@ describe("what a delivery is told it did", () => {
     );
   });
 
+  it("names the project the foreign markers really belong to", () => {
+    // PlaywrightGen's own proof repository, 2026-10-17: a test that passed
+    // could not be recorded, because the pipeline reported to one project
+    // while the test had been written in another. The message said those
+    // tests "belong to a different PlaywrightGen project" and left nowhere
+    // to go.
+    const note = deliveryNote({
+      recorded: 1,
+      duplicates: 0,
+      unmatched: 0,
+      unknownVersion: 1,
+      unknownVersionProjects: ["Checkout web app"],
+      skipped: 1,
+      total: 2,
+    });
+
+    expect(note).toContain('That version belongs to "Checkout web app" in this workspace');
+    expect(note).toContain("reporting to a different project than the one those tests were written in");
+    expect(note).toContain("PLAYWRIGHTGEN_PROJECT_ID");
+  });
+
+  it("names two projects without pretending to know a third", () => {
+    const note = deliveryNote({
+      recorded: 0,
+      duplicates: 0,
+      unmatched: 0,
+      unknownVersion: 9,
+      unknownVersionProjects: ["Checkout web app", "Mobile app"],
+      total: 9,
+    });
+
+    expect(note).toContain('"Checkout web app" and "Mobile app"');
+  });
+
+  it("stays as it was when it cannot say where they belong", () => {
+    // A version owned by no project in this workspace may be another
+    // tenant's, and nothing here may say a word about that.
+    const note = deliveryNote({
+      recorded: 2,
+      duplicates: 0,
+      unmatched: 0,
+      unknownVersion: 1,
+      unknownVersionProjects: [],
+      total: 3,
+    });
+
+    expect(note).toContain("carried a marker for a test version this project does not have.");
+    expect(note).not.toContain("in this workspace");
+  });
+
   it("says so when a pipeline reports nothing at all", () => {
     expect(deliveryNote({ recorded: 0, duplicates: 0, unmatched: 0, unknownVersion: 0, total: 0 })).toBe(
       "The pipeline reported no results at all.",

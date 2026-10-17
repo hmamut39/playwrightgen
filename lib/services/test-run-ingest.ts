@@ -171,6 +171,15 @@ export type IngestSummary = {
    * somewhere else.
    */
   unknownVersion: number;
+  /**
+   * Projects in this same workspace that do own those versions, named so the
+   * delivery can say what is actually wrong.
+   *
+   * Scoped to the delivering organization and nowhere wider: which projects a
+   * workspace has is that workspace's business, and no delivery may learn
+   * anything about another tenant.
+   */
+  unknownVersionProjects: string[];
   /** Recorded results where the test was skipped or interrupted. */
   skipped: number;
   /**
@@ -235,12 +244,17 @@ export async function ingestPlaywrightResults(
     duplicates: 0,
     unmatched: 0,
     unknownVersion: 0,
+    unknownVersionProjects: [],
     skipped: 0,
     failures: [],
     recordedTestCaseIds: [],
     organizationId,
     actorUserId,
   };
+
+  /** Foreign markers looked up, at most. */
+  const UNKNOWN_VERSION_LOOKUPS = 3;
+  const unknownVersionIds = new Set<string>();
 
   for (const entry of payload.results) {
     const testCaseVersionId = readTestCaseVersionMarker(entry.title);
@@ -255,6 +269,11 @@ export async function ingestPlaywrightResults(
     });
     if (!version) {
       summary.unknownVersion += 1;
+      // Where it does live, which turns "those tests belong to a different
+      // project" into something somebody can act on. Bounded: a suite whose
+      // every marker is foreign asks the same question once, not two hundred
+      // times, and three names answer it.
+      if (unknownVersionIds.size < UNKNOWN_VERSION_LOOKUPS) unknownVersionIds.add(testCaseVersionId);
       continue;
     }
 
@@ -414,6 +433,29 @@ export async function ingestPlaywrightResults(
   //
   // It claims nothing about whether anything passed. It says a pipeline
   // reached here, when, from where, and what became of what it sent.
+  /*
+   * Which project in this workspace owns the foreign markers.
+   *
+   * One query, scoped to the delivering organization, because the answer the
+   * pipeline needs is "you are reporting to a different project than the one
+   * these tests were written in" -- and the product knew that and said only
+   * that they "belong to a different PlaywrightGen project". The dogfood
+   * repository hit exactly this on 2026-10-17 and the message left nowhere to
+   * go. A version that belongs to no project in this workspace is simply not
+   * named: it may be another tenant's, and nothing here may say so.
+   */
+  if (unknownVersionIds.size > 0) {
+    const owners = await prisma.testCaseVersion.findMany({
+      where: { organizationId, id: { in: [...unknownVersionIds] } },
+      select: { projectId: true },
+    });
+    const owningProjects = await prisma.project.findMany({
+      where: { organizationId, id: { in: [...new Set(owners.map((owner) => owner.projectId))] } },
+      select: { name: true },
+    });
+    summary.unknownVersionProjects = [...new Set(owningProjects.map((project) => project.name))];
+  }
+
   await prisma.activity.create({
     data: {
       organizationId,
@@ -434,6 +476,7 @@ export async function ingestPlaywrightResults(
         duplicates: summary.duplicates,
         unmatched: summary.unmatched,
         unknownVersion: summary.unknownVersion,
+        unknownVersionProjects: summary.unknownVersionProjects,
         skipped: summary.skipped,
         total: payload.results.length,
       },

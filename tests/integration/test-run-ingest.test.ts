@@ -455,6 +455,44 @@ describe("Playwright result ingestion from customer CI", () => {
     ).rejects.toMatchObject({ code: "repository_connection_inactive", status: 403 });
   });
 
+  it("names the sibling project a foreign marker belongs to", async () => {
+    // The pipeline is reporting to one project while the tests were written
+    // in another. The product knew which, and said only that they "belong to
+    // a different PlaywrightGen project", which leaves nowhere to go. Its own
+    // proof repository hit exactly this on 2026-10-17.
+    const space = await workspace();
+    const sibling = await prisma.project.create({
+      data: {
+        organizationId: space.organization.id,
+        name: "Mobile app",
+        slug: unique("mobile"),
+        createdByUserId: space.owner.id,
+      },
+    });
+    const elsewhere = await approvedVersion({ ...space, project: sibling });
+    const title = `${buildTestCaseVersionMarker(elsewhere.versionId)} a visitor adds a todo`;
+
+    const summary = await ingestPlaywrightResults(payload(space, title), { prisma });
+
+    expect(summary.unknownVersion).toBe(1);
+    expect(summary.unknownVersionProjects).toEqual(["Mobile app"]);
+    expect(await prisma.testRunAttempt.count()).toBe(0);
+  });
+
+  it("never names a project belonging to another tenant", async () => {
+    // The whole value of the sentence above depends on this: which projects a
+    // workspace has is that workspace's business.
+    const space = await workspace();
+    const foreign = await workspace();
+    const { versionId } = await approvedVersion(foreign);
+    const title = `${buildTestCaseVersionMarker(versionId)} checkout succeeds`;
+
+    const summary = await ingestPlaywrightResults(payload(space, title), { prisma });
+
+    expect(summary.unknownVersion).toBe(1);
+    expect(summary.unknownVersionProjects).toEqual([]);
+  });
+
   it("cannot write evidence into another tenant's project", async () => {
     const space = await workspace();
     const foreign = await workspace();

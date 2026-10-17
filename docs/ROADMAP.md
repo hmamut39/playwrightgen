@@ -15,6 +15,28 @@ test suite (493 tests) passes.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **A delivery says which project the markers really belong to**
+  (2026-10-17): the owner merged the pull request and the dogfood repository
+  ran a real test for the first time -- one passed on the live page in 1.4
+  seconds. And the pass could not be recorded. Its marker named a version in
+  the project it had been written in, while the pipeline reports to another,
+  so production received a passing test it had never heard of and said: those
+  tests "belong to a different PlaywrightGen project". True, and nowhere to
+  go from.
+  The product knew which project. The miss was scoped to organization and
+  project, so a second lookup scoped to the organization alone -- and never
+  wider, because which projects a workspace has is that workspace's business
+  -- names it: "That version belongs to 'Checkout web app' in this workspace:
+  this pipeline is reporting to a different project than the one those tests
+  were written in. Point PLAYWRIGHTGEN_PROJECT_ID at that project, or write
+  the tests in this one."
+  Said in both shapes of the failure, including the likelier one where
+  nothing was recorded at all, which a test caught because the first version
+  of the fix only spoke in the other. Bounded to three lookups: a suite whose
+  every marker is foreign asks one question, not two hundred. A version
+  owned by no project in this workspace is not named at all -- it may be
+  another tenant's, and a test holds that line.
+
 - **The cap sweep: four counts that were counting the page, not the thing**
   (2026-10-15): the question for each hard `take:` was never whether the
   bound is right but whether the surface reading it says the bound exists.

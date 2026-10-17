@@ -232,6 +232,7 @@ export async function handleRunIngestRequest(
       duplicates: summary.duplicates,
       unmatched: summary.unmatched,
       unknownVersion: summary.unknownVersion,
+      unknownVersionProjects: summary.unknownVersionProjects ?? [],
       skipped: summary.skipped ?? 0,
     };
     // Left on the pull request after the response, for the same reason the

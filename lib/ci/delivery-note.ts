@@ -39,6 +39,16 @@ export type DeliveryCounts = {
    * reads as zero and leaves their wording as it was.
    */
   skipped?: number;
+  /**
+   * Projects in this same workspace that do own those markers.
+   *
+   * "Those tests belong to a different PlaywrightGen project" is true and
+   * leaves nowhere to go. PlaywrightGen's own proof repository hit this on
+   * 2026-10-17: a test that passed could not be recorded because the
+   * pipeline reported to one project while the test had been written in
+   * another, and nothing said which. Absent on rows written before that.
+   */
+  unknownVersionProjects?: string[];
   /** Everything the pipeline reported. */
   total: number;
 };
@@ -81,6 +91,21 @@ const NO_MARKER =
 const UNKNOWN_VERSION =
   "The marker names a test version this project does not have, which usually means those tests belong to a different PlaywrightGen project, or the version they were written against has since been removed.";
 
+/**
+ * Where those markers really belong, when this workspace can say.
+ *
+ * "They belong to a different PlaywrightGen project" is true and leaves
+ * nowhere to go. A version owned by no project here may be another tenant's,
+ * and in that case nothing is said at all.
+ */
+function owningProjects(counts: DeliveryCounts): string {
+  const owners = counts.unknownVersionProjects ?? [];
+  if (owners.length === 0) return "";
+  const named = owners.map((name) => JSON.stringify(name));
+  const list = named.length === 1 ? named[0] : `${named.slice(0, -1).join(", ")} and ${named[named.length - 1]}`;
+  return ` ${named.length === 1 ? "That version belongs" : "Those versions belong"} to ${list} in this workspace: this pipeline is reporting to a different project than the one those tests were written in. Point PLAYWRIGHTGEN_PROJECT_ID at that project, or write the tests in this one.`;
+}
+
 export function deliveryNote(counts: DeliveryCounts): string {
   const { recorded, duplicates, unmatched, total } = counts;
   const unknownVersion = counts.unknownVersion ?? 0;
@@ -95,7 +120,10 @@ export function deliveryNote(counts: DeliveryCounts): string {
     const why = [unmatched > 0 ? NO_MARKER : null, unknownVersion > 0 ? UNKNOWN_VERSION : null]
       .filter(Boolean)
       .join(" ");
-    return `${nothing} ${why || NO_MARKER}`;
+    // The likeliest shape of this failure is a whole suite reporting to the
+    // wrong project, so the answer belongs here most of all.
+    const where = unknownVersion > 0 ? owningProjects(counts) : "";
+    return `${nothing} ${why || NO_MARKER}${where}`;
   }
 
   const skipped = counts.skipped ?? 0;
@@ -117,7 +145,7 @@ export function deliveryNote(counts: DeliveryCounts): string {
   }
   if (unknownVersion > 0) {
     parts.push(
-      `${plural(unknownVersion, "result")} carried a marker for a test version this project does not have.`,
+      `${plural(unknownVersion, "result")} carried a marker for a test version this project does not have.${owningProjects(counts)}`,
     );
   }
   return parts.join(" ");

@@ -85,6 +85,11 @@ export async function readLastCiDelivery(
     // Absent on rows written before the two causes were told apart, which
     // reads as zero and leaves the older wording untouched.
     unknownVersion: countFrom(metadata.unknownVersion),
+    // Absent on rows written before a delivery could say where the markers
+    // really belong, which reads as "it could not say" rather than "nowhere".
+    unknownVersionProjects: Array.isArray(metadata.unknownVersionProjects)
+      ? metadata.unknownVersionProjects.filter((name): name is string => typeof name === "string")
+      : [],
     skipped: countFrom(metadata.skipped),
     total: countFrom(metadata.total),
   };
