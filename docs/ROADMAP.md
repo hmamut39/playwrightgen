@@ -32,12 +32,17 @@ test suite (493 tests) passes.
   because a stranger signing the example would record nothing and mean
   nothing. The download works, because a reader who would keep the file is
   exactly the reader this page is for.
-  Published only when both ids are set, with no default and no guessing: a
-  project becomes public because somebody decided it should. The front page
-  is prerendered, so the variables are read when the site is built -- set
-  them before the deploy that should show the link. **EXAMPLE_EVIDENCE_ORG_ID
-  and EXAMPLE_EVIDENCE_PROJECT_ID are the owner's to set in production**,
-  naming whichever project they are happy for the world to read.
+  One setting, and it is the one value the owner can see: the project id out
+  of the address bar. The first version also wanted the organization's id,
+  which appears nowhere in the product -- an id nobody can find is a setting
+  nobody sets, and the database already knows which workspace owns a project.
+  Nothing is published without it, an id that is not an id publishes nothing,
+  and a project that has been archived or deleted publishes nothing either.
+  The front page is prerendered, so whether it carries the link is decided
+  when the site is built; the example page resolves the project per request
+  and works the moment the variable exists. **EXAMPLE_EVIDENCE_PROJECT_ID is
+  the owner's to set in production**, naming whichever project they are happy
+  for the world to read.
 
 ### Found by using the product as a team would
 - **The free tool ran weaker safety rules than the workspace** (2026-10-17):

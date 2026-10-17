@@ -16,7 +16,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
   const { token } = await params;
   // The published example downloads like any other evidence: a reader who
   // would keep the file is the reader this page is for.
-  const example = token === EXAMPLE_PROOF_TOKEN ? exampleProofClaim() : null;
+  const example = token === EXAMPLE_PROOF_TOKEN ? await exampleProofClaim() : null;
   const claim = example ? { ...example, snapshot: null } : await resolveProofLink(decodeURIComponent(token));
   if (!claim) return new NextResponse("This link is no longer valid.", { status: 404 });
 

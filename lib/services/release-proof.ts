@@ -199,20 +199,47 @@ export const EXAMPLE_PROOF_TOKEN = "example";
  *
  * Nothing is published unless both ids are set: no default, no guessing.
  */
-export function exampleProofClaim(
+export function examplePublished(
   source: Readonly<Record<string, string | undefined>> = process.env,
-): { organizationId: string; projectId: string } | null {
-  const organizationId = source.EXAMPLE_EVIDENCE_ORG_ID?.trim();
-  const projectId = source.EXAMPLE_EVIDENCE_PROJECT_ID?.trim();
-  if (!organizationId || !projectId) return null;
-  const valid = z.object({ organizationId: z.string().uuid(), projectId: z.string().uuid() });
-  const parsed = valid.safeParse({ organizationId, projectId });
+): boolean {
+  return Boolean(source.EXAMPLE_EVIDENCE_PROJECT_ID?.trim());
+}
+
+/**
+ * The project whose evidence is published, with the workspace that owns it.
+ *
+ * Only the project id is asked for, because that is the one value the owner
+ * can see: it is in the address of every page of the project. The
+ * organization is then looked up rather than configured -- a fact the
+ * database already holds is a worse thing to ask somebody to retype than to
+ * read, and an id nobody can find is a setting nobody sets.
+ *
+ * Returns null when nothing is published, when the id is not an id, or when
+ * no such project exists, and the page then says what it says to any link it
+ * cannot honour.
+ */
+export async function exampleProofClaim(
+  options: { source?: Readonly<Record<string, string | undefined>>; prisma?: PrismaClient } = {},
+): Promise<{ organizationId: string; projectId: string } | null> {
+  const source = options.source ?? process.env;
+  const configured = source.EXAMPLE_EVIDENCE_PROJECT_ID?.trim();
+  if (!configured) return null;
+  const parsed = z.string().uuid().safeParse(configured);
   if (!parsed.success) {
-    console.error("[release-proof] the example evidence ids are not both uuids; nothing is published");
+    console.error("[release-proof] EXAMPLE_EVIDENCE_PROJECT_ID is not a project id; nothing is published");
     return null;
   }
-  return parsed.data;
+  const prisma = options.prisma ?? getPrismaClient();
+  const project = await prisma.project
+    .findFirst({ where: { id: parsed.data, status: "ACTIVE" }, select: { organizationId: true, id: true } })
+    .catch((error: unknown) => {
+      console.error("[release-proof] the published example could not be read", error);
+      return null;
+    });
+  if (!project) return null;
+  return { organizationId: project.organizationId, projectId: project.id };
 }
+
 
 export async function resolveProofLink(
   token: string,

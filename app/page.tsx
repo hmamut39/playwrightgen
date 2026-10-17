@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { exampleProofClaim } from "@/lib/services/release-proof";
+import { examplePublished } from "@/lib/services/release-proof";
 
 const evidenceFlow = [
   {
@@ -183,11 +183,13 @@ function CheckIcon() {
 }
 
 export default function Home() {
-  // Read when the site is built, because this page is prerendered: set
-  // EXAMPLE_EVIDENCE_ORG_ID and EXAMPLE_EVIDENCE_PROJECT_ID before the deploy
-  // that should show the link. /proof/example itself reads them per request,
-  // so it works the moment they are set either way.
-  const publishedExample = exampleProofClaim() !== null;
+  // Whether anything is published, which is a reading of configuration and
+  // not of the database: this page is prerendered, and a build that had to
+  // reach Postgres to decide whether to show a link would be a build that
+  // fails when Postgres is busy. The example page itself resolves the project
+  // per request. Set EXAMPLE_EVIDENCE_PROJECT_ID before the deploy that
+  // should carry the link.
+  const publishedExample = examplePublished();
 
   return (
     <main className="overflow-hidden bg-slate-50 text-slate-950">

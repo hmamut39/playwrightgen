@@ -69,7 +69,7 @@ export default async function ProofPage({
   // The published example is the same page, reading a project the owner named
   // rather than a link somebody was sent. A real token is pwgp1.<payload>.
   // <signature>, so the word cannot collide with one.
-  const example = token === EXAMPLE_PROOF_TOKEN ? exampleProofClaim() : null;
+  const example = token === EXAMPLE_PROOF_TOKEN ? await exampleProofClaim() : null;
   const claim = example
     ? { ...example, snapshot: null }
     : await resolveProofLink(decodeURIComponent(token));
