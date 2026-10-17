@@ -107,7 +107,11 @@ export async function repairDraft(input: DraftRepairInput, options: { requestId?
   return {
     ...response.output_parsed,
     code,
-    validation: validateQuickGeneration(code),
+    // Against the page the test is for, like the first draft was. Without the
+    // address the origin rules are skipped, so a repair was the one step where
+    // a request to another site went unexamined -- and a repair is a rewrite
+    // of the whole file, not a patch.
+    validation: validateQuickGeneration(code, { pageUrl: input.pageUrl }),
     locatorCheck: checkLocatorsAgainstPage(code, trees),
     provider: {
       requestId: response._request_id ?? null,

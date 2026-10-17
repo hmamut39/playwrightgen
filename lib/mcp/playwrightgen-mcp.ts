@@ -23,6 +23,7 @@ import {
   OrganizationAiRateLimitError,
   reserveOrganizationAiRequest,
 } from "@/lib/operations/organization-ai-guard";
+import { reserveWaitingOutBurst, waitRoomMs } from "@/lib/operations/reserve-waiting";
 import { slugify } from "@/lib/format/slug";
 import { buildTestCaseVersionMarker } from "@/lib/integrations/runner/ingest-token";
 import {
@@ -197,17 +198,37 @@ async function describeCoverage(session: EditorSession, coverageId: string, lead
   });
 }
 
+/** The MCP route's own limit (app/api/mcp/route.ts). No wait may outlive it. */
+const CALL_LIMIT_MS = 300_000;
+/** Room kept after a wait for the work the wait was for: a draft and a run. */
+const WORK_AFTER_WAIT_MS = 120_000;
+
 /**
  * The free tools over MCP draw on the connected workspace's daily AI allowance
  * -- the same one its members use in the web app -- rather than a per-address
  * limit, since the caller is a known person in a known workspace.
+ *
+ * A per-minute limit is waited out rather than returned, for the reason it is
+ * waited out in the web app: proving one test spends three requests in a row
+ * and a free workspace allows four a minute, so the loop stopped half-way and
+ * handed an agent a job it had been asked to finish. An agent cannot be told
+ * to come back in a minute -- it either gives up or starts again from the
+ * beginning and spends the allowance twice.
+ *
+ * It only waits while the call has room for the wait and the work after it,
+ * because a wait that runs the route out of time returns nothing at all,
+ * which is worse than saying the limit was reached. The daily allowance is
+ * still a refusal, immediately.
  */
-async function reserveWorkspaceAllowance(session: EditorSession) {
+async function reserveWorkspaceAllowance(session: EditorSession, startedAt = Date.now()) {
   const context = await requireWorkspaceContext(
     { orgSlug: session.orgSlug, projectId: session.projectId, permission: "testcase:create" },
     session.dependencies,
   );
-  return reserveOrganizationAiRequest({ organizationId: context.organization.id, surface: "free-tools" });
+  return reserveWaitingOutBurst(
+    () => reserveOrganizationAiRequest({ organizationId: context.organization.id, surface: "free-tools" }),
+    { ceilingMs: waitRoomMs({ startedAt, callLimitMs: CALL_LIMIT_MS, workAfterWaitMs: WORK_AFTER_WAIT_MS }) },
+  );
 }
 
 const uuidArg = z.string().uuid();
@@ -840,8 +861,12 @@ const tools: Tool[] = [
       }
 
       // One request for the draft; each fix costs another. Runs are bounded by
-      // the loop itself, so they are not charged separately here.
-      const allowance = await reserveWorkspaceAllowance(session);
+      // the loop itself, so they are not charged separately here. A fix two
+      // rounds in is the reservation most likely to meet the minute limit and
+      // the one with least of the call left, so each waits against the time
+      // this call began rather than its own.
+      const startedAt = Date.now();
+      const allowance = await reserveWorkspaceAllowance(session, startedAt);
       const rounds: ProveRound[] = [];
       let pageRead = false;
       let pageTreeAtStart: string | undefined;
@@ -887,7 +912,7 @@ const tools: Tool[] = [
           },
           fix: async (code, failure) => {
             try {
-              await reserveWorkspaceAllowance(session);
+              await reserveWorkspaceAllowance(session, startedAt);
             } catch (error) {
               if (error instanceof OrganizationAiRateLimitError) {
                 return { ok: false as const, limit: true, message: describeToolFailure(error) };

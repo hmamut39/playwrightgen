@@ -4,15 +4,49 @@ The working plan, kept in the repository so any session can pick up where the
 last one stopped. Update the "Shipped" and "Next" sections at the end of every
 work session.
 
-Last updated: 2026-10-10.
+Last updated: 2026-10-17.
 
 ## Where the product is
 
 Live at https://playwrightgen.com (Vercel, Clerk production, Stripe live,
 Neon Postgres). Every item below was verified in a real browser, and the full
-test suite (493 tests) passes.
+test suite (856 tests) passes.
 
 ## Shipped (most recent first)
+
+### The surface nobody had walked
+- **What an agent can and cannot do, written down instead of merely true**
+  (2026-10-17): an audit of the MCP server, the one surface where the
+  customer is another AI. Sixteen tools, and the server tells each client
+  that connects: "You can propose and send code, but not approve: a person
+  reviews everything in PlaywrightGen before it counts."
+  That sentence was true for a reason nothing recorded -- there is no approve
+  tool, no accept, share or delete tool. The boundary was held by absence,
+  which is the one thing a review of a diff that *adds* a tool will not
+  notice: the new tool reads fine on its own and the promise it breaks is in
+  a string nine hundred lines above it. The boundary is now a test that reads
+  the import graph: no module an agent can reach may take in a capability
+  that approves, accepts, shares or deletes. Proved both ways -- it passes
+  today, and it names the file and the import the moment an approval is
+  wired in. The same rule pointed at the page where a reviewer approves a
+  test case does find the capability, so it is measuring something.
+  Two gaps behind that promise, both the same shape as bugs fixed earlier
+  this week on the surfaces people use:
+  Proving a test over MCP spends three AI requests in a row -- write, run,
+  fix -- and a free workspace allows four a minute. The web app learned in
+  the morning that a minute is a wait, not a refusal; the agent surface had
+  not, so a loop stopped half-way and handed back a job it had been asked to
+  finish. An agent cannot be told to come back in a minute: it gives up, or
+  starts again and spends the allowance twice. It now waits the minute out,
+  but only while the call still has room for the wait and the work after it,
+  because a wait that runs the route out of time returns nothing at all.
+  The safety rules that refuse a test carrying cookies to another address
+  need the address of the application to compare against; without it they are
+  skipped, and the validation still reads PASSED. A repair -- which rewrites
+  the whole file, not a patch -- passed no address, and code an agent sent
+  over MCP was checked before the project was read, so the project's own live
+  address was never used. Both are checked against their page now, and a test
+  reads the call sites so a future caller cannot quietly stop.
 
 ### Reaching the people who never open it
 - **One project's evidence, published, so a stranger sees the point first**

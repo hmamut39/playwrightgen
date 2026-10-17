@@ -794,3 +794,30 @@ reference. What the approach cannot do is stated rather than hidden --
 requirements written by hand belong to no milestone, and issues with no
 requirement behind them are counted and named, because a release that looks
 smaller than it is also looks better verified than it is.
+
+## 052 — An agent's limits are a test, not a sentence in a prompt
+
+**Decision:** The MCP server's promise to every client -- "You can propose and
+send code, but not approve" -- is enforced by a test that reads the import
+graph from `lib/mcp/playwrightgen-mcp.ts`. No module an agent can reach may
+import a capability that approves, accepts, shares or deletes, matched by the
+shape of the name rather than a list, so a capability written next month is
+covered the day it is written. A namespace import of our own code counts as an
+offence, because what it reaches cannot be read off the import. The same rule
+pointed at the page where a reviewer approves a test case does find the
+capability, which is how the rule proves it measures something.
+
+**Reason:** The boundary was real and recorded nowhere. There is no approve
+tool, so the promise held -- by absence, which is the one thing a review of a
+diff that *adds* a tool does not notice. The new tool reads correctly on its
+own; the sentence it falsifies is nine hundred lines above it in a string, and
+nothing in typecheck, lint or a build has an opinion. Agents are the customer
+here, and they cannot inspect the product to find out whether what it told
+them is still true: a client that is assured a person reviews everything is
+entitled to have that checked by something other than good intentions. The
+tests in the integration suite pin which tools exist and which of them write;
+this pins what the writing ones can reach, which is the part a new tool would
+change silently.
+
+A prompt is a request and a validator is a rule, applied to ourselves: the
+server states a boundary, so the boundary is a rule.

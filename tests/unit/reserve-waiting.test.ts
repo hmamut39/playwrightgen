@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { OrganizationAiRateLimitError } from "@/lib/operations/organization-ai-guard";
-import { reserveWaitingOutBurst } from "@/lib/operations/reserve-waiting";
+import { reserveWaitingOutBurst, waitRoomMs } from "@/lib/operations/reserve-waiting";
 
 /**
  * Found by signing up as a new account and pressing the first button the
@@ -80,5 +80,37 @@ describe("one AI request, through a minute limit", () => {
     await reserveWaitingOutBurst(reserve, { wait: async () => {}, onWait });
 
     expect(onWait).toHaveBeenCalledWith(11_000);
+  });
+});
+
+/**
+ * The same wait, inside a caller that owes somebody an answer.
+ *
+ * An agent over MCP gets one HTTP response for the whole loop -- write, run,
+ * fix, run -- against the route's five minutes. Waiting out a minute limit on
+ * the first reservation is free; waiting one out on a fix four minutes in
+ * spends the response itself, and the agent is left with no code, no run and
+ * nothing said. These are the MCP route's own figures.
+ */
+describe("whether a call still has room to wait", () => {
+  const room = (elapsedMs: number) =>
+    waitRoomMs({ startedAt: 0, now: elapsedMs, callLimitMs: 300_000, workAfterWaitMs: 120_000 });
+
+  it("allows the full wait at the start of a call", () => {
+    expect(room(0)).toBe(65_000);
+  });
+
+  it("gives up the wait once the work would not fit after it", () => {
+    // Three minutes in, the route's remaining two minutes are exactly what a
+    // draft and a run need. There is nothing left to wait with.
+    expect(room(180_000)).toBe(0);
+    expect(room(290_000)).toBe(0);
+  });
+
+  it("shortens the wait as the call runs on, rather than ending it early", () => {
+    // 300s - 120s of work - 150s elapsed leaves 30s: still worth waiting if
+    // the minute window turns over inside it, and refused by the ceiling
+    // check if the limit asks for longer.
+    expect(room(150_000)).toBe(30_000);
   });
 });

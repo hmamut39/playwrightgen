@@ -70,13 +70,6 @@ export async function attachEditorCode(
   const projectId = z.string().uuid().parse(input.projectId);
   const testCaseId = z.string().uuid().parse(input.testCaseId);
   const code = z.string().min(1).max(100_000).parse(input.code);
-  const validation = validateQuickGeneration(code);
-  if (validation.status === "BLOCKED") {
-    throw new ImportedDraftError(
-      "invalid_playwright_code",
-      validation.findings.filter((finding) => finding.severity === "BLOCKING").map((finding) => finding.message).join(" "),
-    );
-  }
   const workspace = await requireWorkspaceContext(
     { orgSlug: input.orgSlug, projectId, permission: "testcase:update" },
     dependencies,
@@ -84,14 +77,32 @@ export async function attachEditorCode(
   const prisma = dependencies?.prisma ?? getPrismaClient();
   const testCase = await prisma.testCase.findUnique({
     where: { organizationId_projectId_id: { organizationId: workspace.organization.id, projectId, id: testCaseId } },
-    select: { status: true },
+    select: { status: true, project: { select: { liveUrl: true } } },
   });
   if (!testCase) throw new ImportedDraftError("test_case_not_found");
   if (testCase.status === "ARCHIVED") throw new ImportedDraftError("test_case_archived");
 
-  const key = { organizationId_projectId_testCaseId: { organizationId: workspace.organization.id, projectId, testCaseId } };
   // A receipt from run_playwright_test counts only for this exact code.
   const evidence = input.runReceipt && secret ? verifyRunReceipt(input.runReceipt, code, secret) : null;
+
+  // Checked against an address, which is why the check waits until the
+  // project has been read: the rule that matters most for code an agent wrote
+  // elsewhere is the one about where a request goes, and without an address
+  // it is skipped and the validation still reads PASSED. The page a proven
+  // run actually used is preferred over the project's own address, because it
+  // is the page this code was written against. The code is still refused
+  // before anything is written.
+  const validation = validateQuickGeneration(code, {
+    pageUrl: evidence?.pageUrl ?? testCase.project.liveUrl,
+  });
+  if (validation.status === "BLOCKED") {
+    throw new ImportedDraftError(
+      "invalid_playwright_code",
+      validation.findings.filter((finding) => finding.severity === "BLOCKING").map((finding) => finding.message).join(" "),
+    );
+  }
+
+  const key = { organizationId_projectId_testCaseId: { organizationId: workspace.organization.id, projectId, testCaseId } };
   const fields = {
     source: "editor",
     authoredByAgent: input.authoredByAgent?.slice(0, 120) || null,

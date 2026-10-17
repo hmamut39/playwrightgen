@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { validateAutomationGeneration } from "@/lib/ai/automation-generation";
@@ -203,5 +206,89 @@ test("the cart API answers", async ({ request }) => {
     // Each shape, judged as itself, passes.
     expect(validateQuickGeneration(apiDraft, { mode: "API" }).findings.filter((f) => f.severity === "BLOCKING")).toEqual([]);
     expect(validateQuickGeneration(browserDraft, { mode: "FLOW" }).findings.filter((f) => f.severity === "BLOCKING")).toEqual([]);
+  });
+});
+
+/**
+ * The strongest rule here only runs when the caller says what the code is for.
+ *
+ * `generatedCodeSafetyFindings` skips the origin checks without an address,
+ * deliberately -- a rule that fires on everything is turned off within a week.
+ * The cost is that a caller which forgets the address loses the one rule that
+ * matters most, and loses it silently: the validation still returns PASSED.
+ *
+ * Two callers had. A repair rewrites the whole file from a page whose address
+ * it was given, and checked the rewrite against nothing. Code an agent sent
+ * over MCP was checked before the project was read, so its live address was
+ * never used. Both are checked against their page now, and this reads the
+ * call sites so neither can quietly stop.
+ */
+const repositoryRoot = resolve(__dirname, "..", "..");
+
+function sourcesUnder(directory: string): string[] {
+  const here = join(repositoryRoot, directory);
+  let entries: string[];
+  try {
+    entries = readdirSync(here);
+  } catch {
+    return [];
+  }
+  return entries.flatMap((entry) => {
+    const path = join(here, entry);
+    if (statSync(path).isDirectory()) return sourcesUnder(`${directory}/${entry}`);
+    return /\.(ts|tsx)$/.test(entry) && !entry.endsWith(".d.ts") ? [`${directory}/${entry}`] : [];
+  });
+}
+
+/** The argument text of every call to a function, read to its closing bracket. */
+export function callArgumentsOf(source: string, callee: string): string[] {
+  const calls: string[] = [];
+  const opening = new RegExp("\\b" + callee + "\\s*\\(", "g");
+  for (const match of source.matchAll(opening)) {
+    // A declaration is not a call, and its parameters would read as arguments.
+    const before = source.slice(Math.max(0, match.index - 30), match.index);
+    if (/\b(?:function|typeof)\s*$/.test(before)) continue;
+    const from = match.index + match[0].length;
+    let depth = 1;
+    let index = from;
+    for (; index < source.length && depth > 0; index += 1) {
+      if (source[index] === "(") depth += 1;
+      else if (source[index] === ")") depth -= 1;
+    }
+    calls.push(source.slice(from, index - 1));
+  }
+  return calls;
+}
+
+const everyCall = () =>
+  ["lib", "app"].flatMap(sourcesUnder).flatMap((file) =>
+    callArgumentsOf(readFileSync(join(repositoryRoot, file), "utf8"), "validateQuickGeneration").map(
+      (argumentText) => ({ file, argumentText }),
+    ),
+  );
+
+describe("every caller says what the generated code is for", () => {
+  it("reads a call and leaves a declaration alone", () => {
+    const source = [
+      "export function validateQuickGeneration(code: string, against = {}) {}",
+      "const a = validateQuickGeneration(code, { pageUrl: input.pageUrl });",
+      "const b = validateQuickGeneration(code);",
+      "type R = ReturnType<typeof validateQuickGeneration>;",
+    ].join("\n");
+    expect(callArgumentsOf(source, "validateQuickGeneration")).toEqual([
+      "code, { pageUrl: input.pageUrl }",
+      "code",
+    ]);
+  });
+
+  it("holds for this repository", () => {
+    const calls = everyCall();
+    const offences = calls
+      .filter(({ argumentText }) => !/\bpageUrl\b|\bmode\b/.test(argumentText))
+      .map(({ file, argumentText }) => `${file}: validateQuickGeneration(${argumentText.replace(/\s+/g, " ").trim()})`);
+
+    expect(offences).toEqual([]);
+    // A scan that found no call sites would pass whatever the code did.
+    expect(calls.length).toBeGreaterThanOrEqual(3);
   });
 });
