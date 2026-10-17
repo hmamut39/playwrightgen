@@ -333,7 +333,12 @@ export async function verifyGitHubUserInstallationAccess(input: {
  * refuses a token asking for more than the App was granted, so a missing
  * permission surfaces as a plain error at the point of use.
  */
-const PERMISSION_CEILING: Record<string, ReadonlyArray<string>> = {
+/**
+ * Exported so the README's description of it is checked rather than trusted.
+ * A security claim in documentation that is more generous to us than the code
+ * is the one kind of staleness that is not harmless.
+ */
+export const GITHUB_PERMISSION_CEILING: Record<string, ReadonlyArray<string>> = {
   metadata: ["read"],
   contents: ["read", "write"],
   pull_requests: ["read", "write"],
@@ -367,7 +372,7 @@ export async function getVerifiedGitHubInstallation(input: {
   if (
     !installation.permissions.contents ||
     permissions.some(
-      ([name, level]) => !PERMISSION_CEILING[name]?.includes(level),
+      ([name, level]) => !GITHUB_PERMISSION_CEILING[name]?.includes(level),
     )
   ) {
     throw new GitHubProviderError("github_permissions_not_least_privilege");

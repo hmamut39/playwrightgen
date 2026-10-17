@@ -10,9 +10,31 @@ Last updated: 2026-10-17.
 
 Live at https://playwrightgen.com (Vercel, Clerk production, Stripe live,
 Neon Postgres). Every item below was verified in a real browser, and the full
-test suite (874 tests) passes.
+test suite (876 tests) passes.
 
 ## Shipped (most recent first)
+
+### Reaching the people who never open it
+- **The repository's front door described a different product** (2026-10-17):
+  the README still called this "AI-powered Playwright test generation" with
+  "multiple output styles: Fast, Clean, Production" and a "Free / Pro product
+  structure", none of which exist, and promised "component to unit test
+  generation", which the product deliberately does not do. Below that, a
+  changelog of checkpoints -- Phase 1A, V1.3, V1.5 -- that nobody reads and
+  that says nothing about what the thing is for.
+  One claim was worse than stale. "The GitHub App is read-only during
+  repository import: metadata and contents read" was written before the App
+  gained contents write (to open a pull request with approved test code) and
+  pull-requests write (to leave the evidence note on it). Somebody deciding
+  whether to install it reads that sentence instead of the code, and a
+  security claim that is more generous to us than the code is the one kind of
+  staleness that is not harmless.
+  Rewritten as what the product is: the chain from an approved requirement to
+  a proof link a stranger can open, what holds it honest, the MCP surface, and
+  the environment it needs -- with the real permission ceiling and what each
+  permission is for. Two of its claims are now checked by a test, because they
+  are the two a reader cannot check themselves: the number of MCP tools, and
+  the App's permissions against the ceiling the code enforces.
 
 ### Found by using the product as a team would
 - **The first push of the CI example failed, before anything existed to run**
