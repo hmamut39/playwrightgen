@@ -123,8 +123,15 @@ export async function readBadgeState(
     return { kind: "unavailable" };
   }
 
+  // A badge is a standing claim in somebody else's README, read in the
+  // present tense by people who will never open the link behind it. A
+  // snapshot link cannot support one: its numbers were true on the day it was
+  // made and can never move again, so a project that broke the next morning
+  // would keep a green "12 of 12 verified" until the link expired. The badge
+  // can go stale, fail or empty only because it is read live.
+  if (readSnapshot(record.snapshot)) return { kind: "unavailable" };
+
   const report =
-    readSnapshot(record.snapshot) ??
     (await buildReleaseEvidenceReport({
       organizationId: record.organizationId,
       projectId: record.projectId,

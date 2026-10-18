@@ -20,6 +20,24 @@ has reproduced in isolation. Everything else passed.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **A badge that could never go red** (2026-10-18): the README badge is read
+  live, which is what lets it turn amber when evidence goes stale and red
+  when something fails. It was also offered for a snapshot link -- and a
+  snapshot's numbers were true on the day it was made and can never move
+  again. A team that froze a link, pasted the badge into a public README and
+  broke everything the next morning would keep a green "12 of 12 verified"
+  until the link expired, in front of everyone who reads that repository.
+  The badge is not offered for a snapshot link now, and the page says why: a
+  badge is read as a statement about the project today, so it needs a link
+  that follows the project. The server refuses one too, in case a token was
+  minted before this was true, and answers "unavailable" -- the same thing it
+  says for a stopped or expired link, which is what this is.
+  The test for it passed on the first run with the guard removed, which made
+  it worthless: the fixture gave `generatedAt` as a Date where the column
+  holds JSON, so the snapshot was rejected as unreadable and the badge came
+  out "unavailable" for the wrong reason. Fixed, and then proved both ways.
+
+### Found by using the product as a team would
 - **A 404 was read as a page, and a test was written from it** (2026-10-18):
   the page reader was asked to open a real 404 and reported success. An error
   page loads, has a title and a heading, so it came back like any other page

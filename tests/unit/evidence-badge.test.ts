@@ -2,7 +2,13 @@ import { createHmac, randomUUID } from "node:crypto";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { badgeMessage, badgeSvg, badgeTokenFor, readBadgeToken } from "@/lib/services/evidence-badge";
+import {
+  badgeMessage,
+  badgeSvg,
+  badgeTokenFor,
+  readBadgeState,
+  readBadgeToken,
+} from "@/lib/services/evidence-badge";
 
 /**
  * A badge goes in a public README, so the question is not what it shows but
@@ -14,10 +20,10 @@ beforeAll(() => {
   process.env.RUNNER_INGEST_SECRET = SECRET;
 });
 
-function proofToken(expiresAt = Date.now() + 60_000) {
+function proofToken(expiresAt = Date.now() + 60_000, projectId = randomUUID()) {
   const body = Buffer.from(
     JSON.stringify({
-      projectId: randomUUID(),
+      projectId,
       organizationId: randomUUID(),
       issuedAt: Date.now() - 1_000,
       expiresAt,
@@ -78,6 +84,44 @@ describe("what the badge says", () => {
     expect(badgeMessage({ kind: "unverified" })).toBe("none verified");
     expect(badgeMessage({ kind: "empty" })).toBe("no requirements");
     expect(badgeMessage({ kind: "unavailable" })).toBe("unavailable");
+  });
+
+  it("will not stand behind a snapshot link", async () => {
+    // A badge is a standing claim in a README, read in the present tense by
+    // people who never open the link behind it. A snapshot's numbers were
+    // true on the day it was made and can never move, so a project that broke
+    // the next morning would keep a green "12 of 12 verified" until the link
+    // expired -- a badge that cannot go stale, fail or empty.
+    // As the column holds it: JSON, with the date as a string. A Date here
+    // is rejected by the reader, and the test would then pass because the
+    // snapshot was unreadable rather than because it was refused.
+    const frozen = {
+      generatedAt: "2026-10-01T09:00:00.000Z",
+      project: { id: "p1", name: "Shop", slug: "shop" },
+      organization: { name: "Acme", slug: "acme" },
+      totals: { verified: 12, failing: 0, unverified: 0, stale: 0 },
+      truncated: false,
+      coverage: { shown: 12, total: 12 },
+      requirements: [],
+    };
+    const projectId = randomUUID();
+    const state = await readBadgeState(badgeTokenFor(proofToken(Date.now() + 60_000, projectId)) as string, {
+      prisma: {
+        proofLink: {
+          findUnique: async () => ({
+            revokedAt: null,
+            expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+            projectId,
+            organizationId: "o1",
+            snapshot: frozen,
+          }),
+        },
+      } as never,
+      now: new Date("2026-10-18T09:00:00.000Z"),
+    });
+
+    expect(state).toEqual({ kind: "unavailable" });
+    expect(badgeMessage(state)).toBe("unavailable");
   });
 
   it("never reads a capped report as the whole project", () => {

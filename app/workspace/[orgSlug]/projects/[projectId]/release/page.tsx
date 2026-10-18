@@ -61,7 +61,12 @@ export default async function ReleaseReadinessPage({
    * hand the evidence to everyone who reads the repository.
    */
   const proofToken = proof?.split("/proof/")[1];
-  const badgeToken = proofToken ? badgeTokenFor(proofToken) : null;
+  // Not offered for a snapshot link. A badge is read in the present tense by
+  // people who never open the evidence behind it, and a snapshot's numbers
+  // cannot move again -- a project that broke the next morning would keep a
+  // green badge. The server refuses to serve one too, in case a token was
+  // minted before this was true.
+  const badgeToken = proofToken && kind !== "snapshot" ? badgeTokenFor(proofToken) : null;
   const badgeMarkdown = badgeToken
     ? `![requirements](${siteUrl()}/badge/${badgeToken}.svg)`
     : null;
@@ -149,6 +154,11 @@ export default async function ReleaseReadinessPage({
                   evidence, so it is safe in a public README. Stopping the link stops the badge too.
                 </p>
               </>
+            ) : kind === "snapshot" ? (
+              <p className="mt-2 text-xs text-emerald-900">
+                No README badge for a snapshot link: a badge is read as a statement about the project today, and this
+                link&rsquo;s numbers cannot change. Share a link that follows the project if you want one.
+              </p>
             ) : null}
           </div>
         ) : null}
