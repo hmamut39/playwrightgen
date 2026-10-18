@@ -9,6 +9,9 @@ const freeTools = [
   { href: "/engineering-review", label: "Release Review" },
 ] as const;
 
+/** Pages that are one task with one way forward; see the check below. */
+const FOCUSED_TASKS = ["/sign-in", "/sign-up", "/onboarding"] as const;
+
 export function SiteNavigation() {
   const pathname = usePathname();
   // Inside the workspace the product has its own navigation; the marketing
@@ -18,6 +21,14 @@ export function SiteNavigation() {
   // A shared proof link is read by someone outside the team, and it promises no
   // way into the workspace. A menu offering one would break that promise.
   if (pathname.startsWith("/proof/")) return null;
+  // Signing in, signing up and naming your first organisation are each a single
+  // task with one way forward. The marketing menu put six ways out above them,
+  // and its "Open Workspace" button was the worst of the six: signed out it
+  // leads to /workspace, which sends you back to /sign-in -- a button that
+  // returns you to the page you are standing on. Onboarding is the one that
+  // costs something, because a new person who wanders off it has an account
+  // with no organisation and nothing to come back to.
+  if (FOCUSED_TASKS.some((task) => pathname === task || pathname.startsWith(`${task}/`))) return null;
   const navigationItems = [
     { href: "/#product", label: "Product", match: "/" },
     ...freeTools.map((tool) => ({ ...tool, match: tool.href })),
