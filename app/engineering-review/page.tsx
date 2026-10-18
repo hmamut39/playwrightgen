@@ -393,7 +393,7 @@ export default function EngineeringReviewPage() {
                     </p>
                     <Link
                         href="/workspace"
-                        className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-cyan-600"
+                        className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-cyan-700"
                     >
                         Continue with project evidence →
                     </Link>

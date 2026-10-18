@@ -19,6 +19,25 @@ has reproduced in isolation. Everything else passed.
 
 ## Shipped (most recent first)
 
+### Found by using the product as a team would
+- **The call to action went pale at the moment somebody pressed it**
+  (2026-10-18): the hover and focus states were left out of the contrast work
+  on purpose -- nothing had measured one, and changing how an interaction
+  feels on a guess is not the same as fixing a defect. Measured now, because
+  a button is read in the state it is in when a finger is on its way to it.
+  "Open Workspace", the primary call to action on every page, turned white on
+  cyan-600 under the pointer: 3.62:1 where 4.5 is the floor. The same on the
+  pricing page's featured button. White needs a 700 behind it in every state,
+  which is now true of the hover colours too.
+  Both harnesses measure it, and the measurement needed two corrections
+  before its findings could be trusted -- which is becoming the pattern worth
+  recording. It first reported six focus failures that were really the same
+  hover measured twice, because the pointer never left the control before
+  focus was taken. And it read 4.05 where the truth was 3.62, because a CSS
+  transition means the colour at ninety milliseconds is somewhere between the
+  two. Transitions are disabled for the measurement now, and the pointer is
+  moved away first.
+
 ### Reaching the people who never open it
 - **626kB of syntax definitions for languages this product never shows**
   (2026-10-18): nothing had ever measured what the front door costs a visitor.

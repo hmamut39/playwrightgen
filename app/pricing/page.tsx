@@ -141,7 +141,7 @@ export default function PricingPage() {
                 href={plan.href}
                 className={`mt-8 inline-flex min-h-11 w-full items-center justify-center rounded-xl px-5 text-sm font-semibold transition ${
                   plan.featured
-                    ? "bg-cyan-700 text-white hover:bg-cyan-600"
+                    ? "bg-cyan-700 text-white hover:bg-cyan-800"
                     : "border border-slate-300 bg-white text-slate-800 hover:border-cyan-300 hover:bg-cyan-50"
                 }`}
               >
@@ -217,7 +217,7 @@ export default function PricingPage() {
             {waitlistMessage ? <p className="mt-3 text-sm text-slate-600" role="status">{waitlistMessage}</p> : null}
             <div className="mt-6 flex gap-3">
               <button type="button" onClick={() => setShowWaitlist(false)} className="min-h-11 flex-1 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Close</button>
-              <button type="button" onClick={joinWaitlist} disabled={waitlistLoading} className="min-h-11 flex-1 rounded-xl bg-cyan-700 px-4 text-sm font-semibold text-white hover:bg-cyan-600 disabled:opacity-50">
+              <button type="button" onClick={joinWaitlist} disabled={waitlistLoading} className="min-h-11 flex-1 rounded-xl bg-cyan-700 px-4 text-sm font-semibold text-white hover:bg-cyan-800 disabled:opacity-50">
                 {waitlistLoading ? "Joining…" : "Join waitlist"}
               </button>
             </div>

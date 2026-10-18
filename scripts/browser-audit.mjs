@@ -208,3 +208,119 @@ export const ACCESSIBILITY = () => {
 
   return issues;
 };
+
+/**
+ * The contrast of one element's own text, for a state only the harness can
+ * produce.
+ *
+ * Hover cannot be simulated from inside the page -- it is a real pointer or
+ * it is nothing -- so the walk hovers the control and then asks the element
+ * what it looks like now. Focus could be set from inside, but is driven the
+ * same way here so both states are measured by the same path.
+ */
+export const CONTRAST_OF_SELF = (node) => {
+  const surface = document.createElement("canvas");
+  surface.width = 1;
+  surface.height = 1;
+  const context = surface.getContext("2d", { willReadFrequently: true });
+  const toRgb = (value) => {
+    if (!context || !value || value === "transparent") return null;
+    context.clearRect(0, 0, 1, 1);
+    context.fillStyle = "#000";
+    context.fillStyle = value;
+    context.fillRect(0, 0, 1, 1);
+    const [r, g, b, alpha] = context.getImageData(0, 0, 1, 1).data;
+    return { r, g, b, a: alpha / 255 };
+  };
+  const luminance = ({ r, g, b }) => {
+    const channel = (value) => {
+      const scaled = value / 255;
+      return scaled <= 0.03928 ? scaled / 12.92 : ((scaled + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+  };
+  const backgroundOf = (element) => {
+    let current = element;
+    while (current) {
+      const style = getComputedStyle(current);
+      if (style.backgroundImage && style.backgroundImage !== "none") return null;
+      const colour = toRgb(style.backgroundColor);
+      if (colour && colour.a > 0.5) return colour;
+      current = current.parentElement;
+    }
+    return { r: 255, g: 255, b: 255, a: 1 };
+  };
+
+  const text = (node.textContent ?? "").trim();
+  if (text.length < 3) return null;
+  const style = getComputedStyle(node);
+  const foreground = toRgb(style.color);
+  const background = backgroundOf(node);
+  if (!foreground || !background || foreground.a < 0.5) return null;
+  const first = luminance(foreground);
+  const second = luminance(background);
+  const ratio = (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+  const size = parseFloat(style.fontSize);
+  const bold = Number.parseInt(style.fontWeight, 10) >= 700;
+  const required = size >= 24 || (size >= 18.66 && bold) ? 3 : 4.5;
+  return {
+    ratio: Math.round(ratio * 100) / 100,
+    required,
+    size: Math.round(size),
+    text: text.slice(0, 40),
+    cls: (typeof node.className === "string" ? node.className : "").slice(0, 70),
+  };
+};
+
+/**
+ * Every control, measured while the pointer is on it and while the keyboard
+ * is in it.
+ *
+ * A button that reads well at rest and turns pale under the pointer is read
+ * at exactly the moment somebody is about to press it. This was left out of
+ * the first contrast pass deliberately -- nothing had measured one, and
+ * changing how an interaction feels on a guess is not the same as fixing a
+ * defect. This measures it.
+ */
+export async function interactionContrast(page, limit = 24) {
+  const found = [];
+  // Measured states have to be still states. A transition means the colour
+  // read at ninety milliseconds is somewhere between the two, which reported
+  // a hover at 4.05 that is really 3.62 once it arrives.
+  await page.addStyleTag({
+    content: "*, *::before, *::after { transition: none !important; animation: none !important; }",
+  }).catch(() => {});
+  const controls = await page.$$("a[href], button, [role=button]");
+  for (const control of controls.slice(0, limit)) {
+    let visible = false;
+    try {
+      visible = await control.isVisible();
+    } catch {
+      continue;
+    }
+    if (!visible) continue;
+    for (const [state, act] of [
+      ["hover", async () => control.hover({ timeout: 2_000 })],
+      // The pointer has to leave first, or the hover style is still on and
+      // every focus measurement is a second hover measurement -- which is
+      // what the first run of this reported on six pages.
+      ["focus", async () => {
+        await page.mouse.move(0, 0);
+        await control.focus({ timeout: 2_000 });
+      }],
+    ]) {
+      try {
+        await act();
+        await page.waitForTimeout(60);
+        const measured = await control.evaluate(CONTRAST_OF_SELF);
+        if (measured && measured.ratio < measured.required) {
+          found.push({ rule: `contrast while ${state}`, ...measured, detail: `${measured.ratio}:1 (needs ${measured.required}:1) ${measured.size}px "${measured.text}"` });
+        }
+      } catch {
+        // A control that cannot be hovered (covered, off-screen, detached)
+        // is not a finding; it is simply not measurable from here.
+      }
+    }
+  }
+  return found;
+}

@@ -20,7 +20,7 @@ import { join } from "node:path";
 
 import { chromium } from "playwright";
 
-import { ACCESSIBILITY, LOW_CONTRAST } from "./browser-audit.mjs";
+import { ACCESSIBILITY, interactionContrast, LOW_CONTRAST } from "./browser-audit.mjs";
 
 const BASE = (process.env.AUDIT_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 const WIDTH = Number(process.env.AUDIT_WIDTH ?? 390);
@@ -169,7 +169,7 @@ async function main() {
       await page.waitForTimeout(1_200);
       const report = await page.evaluate(OVERFLOWING);
       const dim = await page.evaluate(LOW_CONTRAST);
-      const barriers = await page.evaluate(ACCESSIBILITY);
+      const barriers = [...(await page.evaluate(ACCESSIBILITY)), ...(await interactionContrast(page, 12))];
       for (const issue of barriers) {
         const key = `${issue.rule}|${issue.detail}`;
         if (!access.has(key)) access.set(key, { ...issue, pages: new Set() });

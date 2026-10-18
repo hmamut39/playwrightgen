@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 // Plain JavaScript, shared with the signed-in audit script so one rule
 // cannot drift into two.
-import { ACCESSIBILITY, LOW_CONTRAST } from "../../scripts/browser-audit.mjs";
+import { ACCESSIBILITY, interactionContrast, LOW_CONTRAST } from "../../scripts/browser-audit.mjs";
 
 /**
  * What the public pages owe a reader who is not using a mouse and good eyes.
@@ -54,6 +54,29 @@ test("public pages keep every piece of text above the contrast floor", async ({ 
  * The same walk over the workspace found a real one on 2026-10-18 -- the
  * "where this project runs" field had a placeholder and no label at all.
  */
+/**
+ * The states a person reads a control in just before pressing it.
+ *
+ * Left out of the first contrast pass on purpose -- nothing had measured a
+ * hover and changing how an interaction feels on a guess is not the same as
+ * fixing a defect. Measured on 2026-10-18: "Open Workspace", the primary
+ * call to action on every page, went to white on cyan-600 under the pointer,
+ * which is 3.62:1 where 4.5 is the floor.
+ */
+test("controls stay readable under the pointer and the keyboard", async ({ page }) => {
+  test.setTimeout(180_000);
+  const found = [];
+  for (const path of PUBLIC_PAGES) {
+    await page.goto(path, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    await page.waitForTimeout(1_000);
+    for (const issue of await interactionContrast(page)) {
+      found.push(`${path}  ${issue.rule}: ${issue.detail} ${issue.cls}`);
+    }
+  }
+  const report = found.join("\n");
+  expect(report, `controls below the contrast floor in an interaction state:\n${report}`).toBe("");
+});
+
 test("public pages name their controls and show where the keyboard is", async ({ page }) => {
   test.setTimeout(180_000);
   const report = await sweep(page, ACCESSIBILITY);

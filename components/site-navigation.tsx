@@ -29,7 +29,7 @@ export function SiteNavigation() {
     <nav className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
       <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-5 px-4 sm:px-6 lg:px-8">
         <Link href="/" className="group flex shrink-0 items-center gap-3">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-950 text-xs font-bold tracking-[-0.02em] text-white shadow-sm transition group-hover:bg-cyan-600">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-950 text-xs font-bold tracking-[-0.02em] text-white shadow-sm transition group-hover:bg-cyan-700">
             PG
           </span>
           <span>
@@ -60,7 +60,7 @@ export function SiteNavigation() {
 
         <Link
           href="/workspace"
-          className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-600"
+          className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-700"
         >
           Open Workspace
           <span aria-hidden="true">→</span>
