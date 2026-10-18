@@ -20,6 +20,8 @@ import { join } from "node:path";
 
 import { chromium } from "playwright";
 
+import { ACCESSIBILITY, LOW_CONTRAST } from "./browser-audit.mjs";
+
 const BASE = (process.env.AUDIT_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 const WIDTH = Number(process.env.AUDIT_WIDTH ?? 390);
 const HEIGHT = Number(process.env.AUDIT_HEIGHT ?? 844);
@@ -64,84 +66,6 @@ const OVERFLOWING = () => {
   return { pageWidth: document.documentElement.scrollWidth, viewport: window.innerWidth, culprits: culprits.slice(0, 3) };
 };
 
-/**
- * Every piece of text on the page, against what is behind it.
- *
- * The public pages got this on 2026-10-18 and the workspace could not: it is
- * behind a sign-in, and the browser check that guards the marketing site
- * cannot reach it. This walk already has a session, so it measures here too.
- *
- * Tailwind v4 writes colours as lab(), so the browser converts them rather
- * than a regular expression: a 1x1 canvas fill, read back as sRGB. Text over
- * a gradient or an image has no background colour to read and is skipped
- * rather than guessed at.
- */
-const LOW_CONTRAST = () => {
-  const surface = document.createElement("canvas");
-  surface.width = 1;
-  surface.height = 1;
-  const context = surface.getContext("2d", { willReadFrequently: true });
-  const toRgb = (value) => {
-    if (!context || !value || value === "transparent") return null;
-    context.clearRect(0, 0, 1, 1);
-    context.fillStyle = "#000";
-    context.fillStyle = value;
-    context.fillRect(0, 0, 1, 1);
-    const [r, g, b, alpha] = context.getImageData(0, 0, 1, 1).data;
-    return { r, g, b, a: alpha / 255 };
-  };
-  const luminance = ({ r, g, b }) => {
-    const channel = (value) => {
-      const scaled = value / 255;
-      return scaled <= 0.03928 ? scaled / 12.92 : ((scaled + 0.055) / 1.055) ** 2.4;
-    };
-    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
-  };
-  const backgroundOf = (node) => {
-    let element = node;
-    while (element) {
-      const style = getComputedStyle(element);
-      if (style.backgroundImage && style.backgroundImage !== "none") return null;
-      const colour = toRgb(style.backgroundColor);
-      if (colour && colour.a > 0.5) return colour;
-      element = element.parentElement;
-    }
-    return { r: 255, g: 255, b: 255, a: 1 };
-  };
-
-  const found = [];
-  for (const node of document.querySelectorAll("p, span, li, a, h1, h2, h3, h4, td, th, label, div, button")) {
-    if (node.children.length > 0) continue;
-    const text = (node.textContent ?? "").trim();
-    if (text.length < 4) continue;
-    const style = getComputedStyle(node);
-    if (style.visibility === "hidden" || style.display === "none") continue;
-    const box = node.getBoundingClientRect();
-    if (box.width < 2 || box.height < 2) continue;
-    const foreground = toRgb(style.color);
-    if (!foreground || foreground.a < 0.5) continue;
-    const background = backgroundOf(node);
-    if (!background) continue;
-    const first = luminance(foreground);
-    const second = luminance(background);
-    const ratio = (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
-    const size = parseFloat(style.fontSize);
-    const bold = Number.parseInt(style.fontWeight, 10) >= 700;
-    // WCAG AA: 3:1 for large text, 4.5:1 for everything else.
-    const required = size >= 24 || (size >= 18.66 && bold) ? 3 : 4.5;
-    if (ratio < required) {
-      found.push({
-        ratio: Math.round(ratio * 100) / 100,
-        required,
-        size: Math.round(size),
-        text: text.slice(0, 44),
-        cls: (typeof node.className === "string" ? node.className : "").slice(0, 70),
-      });
-    }
-  }
-  return found;
-};
-
 const PROJECT_TABS = [
   "overview",
   "health",
@@ -177,6 +101,8 @@ async function main() {
   const checked = [];
   /** One entry per style that fails, with the pages it was seen on. */
   const contrast = new Map();
+  /** One entry per accessibility barrier, likewise. */
+  const access = new Map();
 
   try {
     const email =
@@ -243,6 +169,12 @@ async function main() {
       await page.waitForTimeout(1_200);
       const report = await page.evaluate(OVERFLOWING);
       const dim = await page.evaluate(LOW_CONTRAST);
+      const barriers = await page.evaluate(ACCESSIBILITY);
+      for (const issue of barriers) {
+        const key = `${issue.rule}|${issue.detail}`;
+        if (!access.has(key)) access.set(key, { ...issue, pages: new Set() });
+        access.get(key).pages.add(name);
+      }
       const wide = report.pageWidth > report.viewport;
       checked.push(name);
       for (const entry of dim) {
@@ -279,7 +211,14 @@ async function main() {
     console.log(`      ${entry.cls}`);
   }
 
-  if (failures.length || dim.length) process.exitCode = 1;
+  const barriers = [...access.values()];
+  console.log(`${barriers.length} accessibility barriers.`);
+  for (const barrier of barriers) {
+    console.log(`  - ${barrier.rule} on ${[...barrier.pages].join(", ")}`);
+    console.log(`      ${barrier.detail}`);
+  }
+
+  if (failures.length || dim.length || barriers.length) process.exitCode = 1;
 }
 
 await main();

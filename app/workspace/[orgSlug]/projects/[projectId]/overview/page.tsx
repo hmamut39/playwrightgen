@@ -201,6 +201,10 @@ export default async function ProjectOverviewPage({
             <input
               name="liveUrl"
               type="url"
+              // The heading above says what this is; a screen reader reads the
+              // field, not the layout, and a placeholder is not a name -- it
+              // leaves as soon as somebody types.
+              aria-label="Public address where this project runs"
               defaultValue={project.liveUrl ?? ""}
               maxLength={2_000}
               placeholder="https://staging.our-app.example.com/"

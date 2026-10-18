@@ -20,6 +20,32 @@ has reproduced in isolation. Everything else passed.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **What a keyboard and a screen reader get, measured** (2026-10-18): the
+  contrast work said nothing about whether a control has a name, whether a
+  field has a label, whether an image has alt text, whether the headings make
+  an outline, or whether the keyboard leaves a visible mark. A product whose
+  pitch is auditability should not fail an audit of itself.
+  The rules now live in one module that both harnesses import --
+  `scripts/browser-audit.mjs` -- because the signed-out check in CI and the
+  signed-in `audit:phone` walk had each grown their own copy of the contrast
+  measurement, which is how one rule becomes two.
+  Across six public pages and twenty-one workspace pages, one real barrier:
+  the "where this project runs" field on a project's overview had a
+  placeholder and no label at all, so a screen reader announced an unnamed
+  edit box. A placeholder is not a name -- it leaves as soon as somebody
+  types. It has an `aria-label` now.
+  The rest of the findings were faults in the measurement, which is worth
+  recording because each would have become a false alarm somebody learned to
+  ignore. A hidden file input behind a styled button was reported as an
+  unlabelled field; a field with `autoFocus` was reported as having no focus
+  ring, because it was already wearing one when its resting state was read;
+  and a field inside a closed `details` was reported the same way, because a
+  closed disclosure still has a box. The browser answers that last one
+  properly through `checkVisibility`, which knows the difference between laid
+  out and visible.
+  Both checks run in CI now, and the heading rule was proved by breaking one.
+
+### Found by using the product as a team would
 - **The design pass had only measured what a signed-out browser can see**
   (2026-10-18): the contrast work that morning covered the six public pages,
   which is where the measurement could reach. The workspace -- the part a
