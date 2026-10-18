@@ -138,8 +138,9 @@ export default function McpPage() {
         <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <h2 className="text-2xl font-semibold tracking-[-0.035em] text-slate-950">Tools</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Sixteen tools over the Model Context Protocol (Streamable HTTP). Running and generating use your
-            workspace&rsquo;s daily AI allowance.
+            Sixteen tools over the Model Context Protocol (Streamable HTTP), speaking the 2026-07-28 revision
+            and every earlier one back to 2024-11-05, so an editor connects whichever it implements. Running
+            and generating use your workspace&rsquo;s daily AI allowance.
           </p>
           <div className="mt-5 overflow-x-auto">
             <table className="w-full min-w-[36rem] text-left text-sm">

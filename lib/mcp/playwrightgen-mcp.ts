@@ -74,7 +74,33 @@ import { siteUrl } from "@/lib/site";
  * through the same services, and so the same authorization, as the web app.
  */
 
+/**
+ * The versions this server speaks, newest first.
+ *
+ * 2026-07-28 is a different era rather than another revision: it removes the
+ * initialize handshake and the session, and carries the version, the client's
+ * identity and its capabilities in every request instead. The spec calls a
+ * server that answers both "dual-era" and allows one endpoint to serve them,
+ * which is what this does -- a request carrying modern `_meta` is served
+ * statelessly, an `initialize` selects the old behaviour.
+ *
+ * Worth doing before a client forces it. A modern-only client meeting a
+ * legacy-only server does not degrade: the spec's own compatibility matrix
+ * says it fails outright, and this surface is the product's whole bet on
+ * agents.
+ */
+export const MODERN_PROTOCOL_VERSION = "2026-07-28";
 export const SUPPORTED_PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"] as const;
+export const ALL_PROTOCOL_VERSIONS = [MODERN_PROTOCOL_VERSION, ...SUPPORTED_PROTOCOL_VERSIONS] as const;
+
+/** Per-request metadata keys the modern era defines. */
+const META_PROTOCOL_VERSION = "io.modelcontextprotocol/protocolVersion";
+const META_CLIENT_INFO = "io.modelcontextprotocol/clientInfo";
+const META_SERVER_INFO = "io.modelcontextprotocol/serverInfo";
+
+/** JSON-RPC error codes the modern transport defines, with their HTTP status. */
+const HEADER_MISMATCH = -32020;
+const UNSUPPORTED_PROTOCOL_VERSION = -32022;
 const SERVER_INFO = { name: "playwrightgen", title: "PlaywrightGen", version: "1.0.0" };
 
 const INSTRUCTIONS = `PlaywrightGen holds this project's approved requirements, test cases, reviewed Playwright automation and run evidence.
@@ -1456,4 +1482,181 @@ export async function handleMcpMessage(
     default:
       return fail(-32601, `Method not found: ${request.method}`);
   }
+}
+
+/**
+ * One request in the modern era, with the HTTP headers it must agree with.
+ *
+ * The headers exist so a load balancer can route without parsing the body,
+ * which only helps if the two cannot disagree -- so the server checks them
+ * and refuses a request whose header says one thing and whose body says
+ * another. Each refusal carries the status the spec names, because a client
+ * tells a modern server from a legacy one by reading exactly that.
+ */
+export type McpRequestHeaders = {
+  protocolVersion: string | null;
+  method: string | null;
+  name: string | null;
+};
+
+export type McpHttpAnswer = { status: number; body: JsonRpcResponse | null };
+
+/** `Mcp-Name: =?base64?...?=` carries a value no header could hold plainly. */
+function headerValue(raw: string | null): string | null {
+  if (raw === null) return null;
+  const sentinel = /^=\?base64\?(.*)\?=$/.exec(raw.trim());
+  if (!sentinel) return raw;
+  try {
+    return Buffer.from(sentinel[1], "base64").toString("utf8");
+  } catch {
+    return raw;
+  }
+}
+
+/**
+ * How the client described itself on this request.
+ *
+ * The old era said it once, in the handshake, and this server keeps no
+ * session to remember it in -- so what gets recorded beside an agent's
+ * proposal was whatever the User-Agent happened to say. The modern era
+ * carries it on every request, which is better evidence of which assistant
+ * wrote something. It is still the caller's own claim and decides nothing.
+ */
+export function clientInfoOf(message: unknown): { name?: unknown; version?: unknown } | null {
+  const meta = (message as { params?: { _meta?: Record<string, unknown> } } | null)?.params?._meta;
+  const info = meta?.[META_CLIENT_INFO];
+  return info && typeof info === "object" && !Array.isArray(info) ? (info as { name?: unknown }) : null;
+}
+
+/** The protocol version a request declares, from its body. */
+function declaredVersion(params: unknown): string | null {
+  const meta = (params as { _meta?: Record<string, unknown> } | undefined)?._meta;
+  const value = meta?.[META_PROTOCOL_VERSION];
+  return typeof value === "string" ? value : null;
+}
+
+/**
+ * Whether this request is written in the modern era at all.
+ *
+ * Either marker is enough. A body carrying the version in `_meta` is modern
+ * whatever the headers say, and a header naming a version this server does
+ * not know has to be answered in modern terms -- with the list of versions it
+ * does know -- or the client has no way to fall forward.
+ */
+export function isModernRequest(message: unknown, headers: McpRequestHeaders): boolean {
+  const params = (message as { params?: unknown } | null)?.params;
+  if (declaredVersion(params) !== null) return true;
+  const header = headers.protocolVersion;
+  return header !== null && !SUPPORTED_PROTOCOL_VERSIONS.some((version) => version === header);
+}
+
+/**
+ * Answers one request over HTTP, in whichever era it was written.
+ *
+ * Returns the status alongside the body because in the modern era the two
+ * are one answer: an unsupported version, a mismatched header and an unknown
+ * method are all distinguished by their status, and a client uses a 400 with
+ * a recognised error body to tell "this server is modern, retry properly"
+ * from "this server is old, fall back to initialize".
+ */
+export async function handleMcpHttpMessage(
+  message: unknown,
+  session: EditorSession,
+  headers: McpRequestHeaders,
+): Promise<McpHttpAnswer> {
+  if (!isModernRequest(message, headers)) {
+    const body = await handleMcpMessage(message, session);
+    return { status: body ? 200 : 202, body };
+  }
+
+  const parsed = z
+    .object({
+      jsonrpc: z.literal("2.0"),
+      id: z.union([z.string(), z.number()]).nullable().optional(),
+      method: z.string(),
+      params: z.unknown().optional(),
+    })
+    .safeParse(message);
+  if (!parsed.success) {
+    return { status: 400, body: { jsonrpc: "2.0", id: null, error: { code: -32600, message: "Invalid request" } } };
+  }
+  const request = parsed.data as JsonRpcRequest;
+  const id = request.id ?? null;
+  const refuse = (status: number, code: number, text: string, data?: Record<string, unknown>): McpHttpAnswer => ({
+    status,
+    body: { jsonrpc: "2.0", id, error: { code, message: text, ...(data ? { data } : {}) } },
+  });
+
+  const bodyVersion = declaredVersion(request.params);
+  const headerVersion = headers.protocolVersion;
+  if (headerVersion === null) {
+    return refuse(400, HEADER_MISMATCH, "The MCP-Protocol-Version header is required.");
+  }
+  if (bodyVersion !== null && bodyVersion !== headerVersion) {
+    return refuse(
+      400,
+      HEADER_MISMATCH,
+      `Header mismatch: MCP-Protocol-Version header value ${JSON.stringify(headerVersion)} does not match the protocol version in _meta, ${JSON.stringify(bodyVersion)}.`,
+    );
+  }
+  const version = bodyVersion ?? headerVersion;
+  if (version !== MODERN_PROTOCOL_VERSION) {
+    return refuse(400, UNSUPPORTED_PROTOCOL_VERSION, "Unsupported protocol version", {
+      supported: [...ALL_PROTOCOL_VERSIONS],
+      requested: version,
+    });
+  }
+  if (headers.method !== null && headers.method !== request.method) {
+    return refuse(
+      400,
+      HEADER_MISMATCH,
+      `Header mismatch: Mcp-Method header value ${JSON.stringify(headers.method)} does not match the method ${JSON.stringify(request.method)}.`,
+    );
+  }
+
+  if (request.method === "server/discover") {
+    return {
+      status: 200,
+      body: {
+        jsonrpc: "2.0",
+        id,
+        result: {
+          resultType: "complete",
+          supportedVersions: [...ALL_PROTOCOL_VERSIONS],
+          capabilities: { tools: {} },
+          instructions: `${INSTRUCTIONS}\n\nConnected project: ${session.projectName}.`,
+          _meta: { [META_SERVER_INFO]: SERVER_INFO },
+        },
+      },
+    };
+  }
+
+  // The name is mirrored into a header for the same reason the method is, and
+  // a call routed on one name and run on another is the thing that check is
+  // for.
+  if (request.method === "tools/call") {
+    const named = (request.params as { name?: unknown } | undefined)?.name;
+    const headerName = headerValue(headers.name);
+    if (headerName === null) {
+      return refuse(400, HEADER_MISMATCH, "The Mcp-Name header is required on a tools/call request.");
+    }
+    if (typeof named === "string" && headerName !== named) {
+      return refuse(
+        400,
+        HEADER_MISMATCH,
+        `Header mismatch: Mcp-Name header value ${JSON.stringify(headerName)} does not match the tool ${JSON.stringify(named)}.`,
+      );
+    }
+  }
+
+  // Everything else is the same work, answered by the same tools. `initialize`
+  // does not exist in this era, so it falls through to method-not-found.
+  if (request.method === "initialize" || request.method.startsWith("notifications/")) {
+    return refuse(404, -32601, `Method not found: ${request.method}`);
+  }
+  const body = await handleMcpMessage(request, session);
+  if (body && "error" in body && body.error.code === -32601) {
+    return { status: 404, body };
+  }
+  return { status: body ? 200 : 202, body };
 }

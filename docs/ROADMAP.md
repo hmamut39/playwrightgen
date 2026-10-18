@@ -19,6 +19,33 @@ has reproduced in isolation. Everything else passed.
 
 ## Shipped (most recent first)
 
+### The surface nobody had walked
+- **The MCP endpoint speaks both eras now** (2026-10-18): the protocol's
+  2026-07-28 revision is not another version but a different shape -- no
+  initialize handshake, no session, and the version, the client's identity
+  and its capabilities carried in every request instead. Read from the
+  specification rather than from memory, and its compatibility matrix decides
+  the question the roadmap had left open ("do it when a client needs it"): a
+  modern-only client meeting a legacy-only server **fails outright**. There is
+  no fall-back for it to take. Waiting for a client to force it means finding
+  out when somebody's editor cannot connect.
+  The endpoint serves both, which that revision explicitly allows on one
+  address. A request carrying modern `_meta` is answered statelessly; an
+  `initialize` still selects the old behaviour, unchanged. `server/discover`
+  is implemented, as a modern server must, and lists every version this one
+  speaks so a client can choose without another round trip.
+  The status codes are the part that is easy to get wrong and easy to test,
+  because they are how a client tells a modern server from an old one: 400
+  with -32020 when a header and the body disagree about the version, the
+  method or the tool name (including a name carried in the base64 sentinel
+  form); 400 with -32022 and the list of supported versions when asked for
+  one this server does not speak; 404 with -32601 for a method that does not
+  exist in this era, `initialize` among them; and a refusal of batches, which
+  this revision does not have. Ten cases, one per rule.
+  One quiet gain: the modern era names the calling client on every request,
+  so what gets recorded beside an agent's proposal is now the editor's own
+  claim rather than whatever its User-Agent happened to say.
+
 ### Reaching the people who never open it
 - **A design system, counted rather than argued about** (2026-10-18): the
   owner asked for a deep look at the styling. Opinions about design are
@@ -2373,7 +2400,12 @@ change in classification can only be attributed to that field.
 8. **Fetch a ticket from Jira or Linear.** GitHub issues are done (2026-10-10).
    Jira and Linear each need an OAuth app the owner would have to create, so
    ask only when somebody actually wants one.
-9. **MCP 2026-07-28.** The server speaks 2025-06-18. The new spec is a
+9. ~~**MCP 2026-07-28.**~~ Done 2026-10-18, before a client forced it: the
+   endpoint serves both eras. Checked against the specification rather than
+   memory, and the compatibility matrix there is blunt -- a modern-only
+   client meeting a legacy-only server fails outright, with no fall-back, and
+   this surface is the product's whole bet on agents. Details in Shipped.
+   Original item: The server speaks 2025-06-18. The new spec is a
    stateless rewrite (no initialize handshake, no session id, Mcp-Method
    routing, MRTR in place of server-initiated requests). Clients still
    negotiate older versions, so this is maintenance rather than a feature: do

@@ -703,6 +703,192 @@ test("adds", async ({ page }) => {
     });
   });
 
+    /**
+     * The 2026-07-28 era, which is not another revision but a different shape:
+     * no initialize, no session, and the version, the client and its
+     * capabilities carried on every request instead. The spec's compatibility
+     * matrix is blunt about what happens when a client that speaks only this
+     * meets a server that speaks only the old one -- it fails outright -- so
+     * this endpoint answers both, which that revision explicitly allows.
+     *
+     * Each case here is a rule from the transport binding, because the status
+     * codes are not decoration: a client tells a modern server from a legacy
+     * one by whether a 400 carries a recognised error body.
+     */
+    describe("the 2026-07-28 era", () => {
+      const META = {
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientInfo": { name: "Cursor", version: "2.4.1" },
+        "io.modelcontextprotocol/clientCapabilities": {},
+      };
+
+      async function modern(
+        space: Awaited<ReturnType<typeof workspace>>,
+        body: Record<string, unknown>,
+        headers: Record<string, string> = {},
+      ) {
+        const token = tokenFor(space, space.engineer.id);
+        const response = await handleMcpRequest(
+          new NextRequest("https://playwrightgen.test/api/mcp", {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${token}`,
+              "content-type": "application/json",
+              "mcp-protocol-version": "2026-07-28",
+              "mcp-method": String(body.method ?? ""),
+              ...headers,
+            },
+            body: JSON.stringify(body),
+          }),
+          { authenticate: (header: string | null) => authenticateEditorRequest(header, { prisma, secret: SECRET }) },
+        );
+        return { status: response.status, body: await response.json().catch(() => null) };
+      }
+
+      const withMeta = (method: string, params: Record<string, unknown> = {}) => ({
+        jsonrpc: "2.0",
+        id: 1,
+        method,
+        params: { ...params, _meta: META },
+      });
+
+      it("answers server/discover, which a modern server must implement", async () => {
+        const space = await workspace();
+        const { status, body } = await modern(space, withMeta("server/discover"));
+
+        expect(status).toBe(200);
+        expect(body.result).toMatchObject({
+          resultType: "complete",
+          capabilities: { tools: {} },
+        });
+        // Every version it speaks, newest first, so a client that prefers an
+        // older one can pick without another round trip.
+        expect(body.result.supportedVersions).toContain("2026-07-28");
+        expect(body.result.supportedVersions).toContain("2025-06-18");
+        expect(body.result._meta["io.modelcontextprotocol/serverInfo"]).toMatchObject({ name: "playwrightgen" });
+        expect(body.result.instructions).toContain("not approve");
+      });
+
+      it("serves the same tools with no handshake at all", async () => {
+        const space = await workspace();
+        const { status, body } = await modern(space, withMeta("tools/list"));
+
+        expect(status).toBe(200);
+        expect(body.result.tools).toHaveLength(16);
+      });
+
+      it("refuses a request whose header and body disagree about the version", async () => {
+        const space = await workspace();
+        const { status, body } = await modern(space, withMeta("tools/list"), {
+          "mcp-protocol-version": "2025-06-18",
+        });
+
+        // -32020 HeaderMismatch: the headers exist so an intermediary can
+        // route without parsing the body, which only helps if they cannot
+        // disagree with it.
+        expect(status).toBe(400);
+        expect(body.error.code).toBe(-32020);
+        expect(body.error.message).toContain("2025-06-18");
+      });
+
+      it("refuses a modern request with no version header", async () => {
+        const space = await workspace();
+        const { status, body } = await modern(space, withMeta("tools/list"), {
+          "mcp-protocol-version": "",
+        });
+
+        expect(status).toBe(400);
+        expect(body.error.code).toBe(-32020);
+      });
+
+      it("names the versions it does speak when asked for one it does not", async () => {
+        const space = await workspace();
+        const { status, body } = await modern(
+          space,
+          { jsonrpc: "2.0", id: 1, method: "tools/list", params: { _meta: { "io.modelcontextprotocol/protocolVersion": "2030-01-01" } } },
+          { "mcp-protocol-version": "2030-01-01" },
+        );
+
+        // -32022, with the list: a client has no other way to fall forward.
+        expect(status).toBe(400);
+        expect(body.error.code).toBe(-32022);
+        expect(body.error.data.supported).toContain("2026-07-28");
+        expect(body.error.data.requested).toBe("2030-01-01");
+      });
+
+      it("refuses a call routed under one tool name and written with another", async () => {
+        const space = await workspace();
+        const { status, body } = await modern(
+          space,
+          withMeta("tools/call", { name: "project_overview", arguments: {} }),
+          { "mcp-name": "submit_playwright_code" },
+        );
+
+        expect(status).toBe(400);
+        expect(body.error.code).toBe(-32020);
+        expect(body.error.message).toContain("project_overview");
+      });
+
+      it("accepts a tool name carried in the header's base64 form", async () => {
+        const space = await workspace();
+        const encoded = `=?base64?${Buffer.from("project_overview", "utf8").toString("base64")}?=`;
+        const { status, body } = await modern(
+          space,
+          withMeta("tools/call", { name: "project_overview", arguments: {} }),
+          { "mcp-name": encoded },
+        );
+
+        expect(status).toBe(200);
+        expect(body.result.isError).toBeUndefined();
+      });
+
+      it("treats the handshake as a method that no longer exists", async () => {
+        const space = await workspace();
+        const { status, body } = await modern(space, withMeta("initialize"));
+
+        // 404 with -32601, which is how a client tells an unknown method from
+        // an address that is not an MCP endpoint at all.
+        expect(status).toBe(404);
+        expect(body.error.code).toBe(-32601);
+      });
+
+      it("takes one request per POST, not a batch", async () => {
+        const space = await workspace();
+        const token = tokenFor(space, space.engineer.id);
+        const response = await handleMcpRequest(
+          new NextRequest("https://playwrightgen.test/api/mcp", {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${token}`,
+              "content-type": "application/json",
+              "mcp-protocol-version": "2026-07-28",
+            },
+            body: JSON.stringify([withMeta("tools/list"), withMeta("tools/list")]),
+          }),
+          { authenticate: (header: string | null) => authenticateEditorRequest(header, { prisma, secret: SECRET }) },
+        );
+
+        expect(response.status).toBe(400);
+        expect((await response.json()).error.message).toContain("one request per POST");
+      });
+
+      it("still answers a client that speaks the old era", async () => {
+        const space = await workspace();
+        const token = tokenFor(space, space.engineer.id);
+        const response = await handleMcpRequest(
+          new NextRequest("https://playwrightgen.test/api/mcp", {
+            method: "POST",
+            headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+            body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18" } }),
+          }),
+          { authenticate: (header: string | null) => authenticateEditorRequest(header, { prisma, secret: SECRET }) },
+        );
+
+        expect(response.status).toBe(200);
+        expect((await response.json()).result).toMatchObject({ protocolVersion: "2025-06-18" });
+      });
+    });
+
   describe("endpoint", () => {
     it("refuses a request without a valid token", async () => {
       const response = await handleMcpRequest(

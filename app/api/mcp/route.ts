@@ -1,7 +1,12 @@
 import { NextRequest } from "next/server";
 
 import { readAgentName } from "@/lib/mcp/agent-identity";
-import { handleMcpMessage } from "@/lib/mcp/playwrightgen-mcp";
+import {
+  clientInfoOf,
+  handleMcpHttpMessage,
+  handleMcpMessage,
+  isModernRequest,
+} from "@/lib/mcp/playwrightgen-mcp";
 import { authenticateEditorRequest, type EditorSession } from "@/lib/services/editor-access";
 
 export const runtime = "nodejs";
@@ -33,6 +38,12 @@ function json(body: unknown, status = 200, headers: Record<string, string> = {})
  * Clerk's middleware does not run here -- the same arrangement as CI ingest.
  * Each POST carries one JSON-RPC message, or a batch from an older client, and
  * is answered with JSON; the server keeps no session and opens no stream.
+ *
+ * Both eras of the protocol are served here. A request carrying the modern
+ * per-request metadata (2026-07-28, which removed the initialize handshake)
+ * is answered statelessly with the status codes that revision defines; an
+ * `initialize` selects the older behaviour. Batches belong to the older era
+ * alone, where they were allowed.
  */
 export async function handleMcpRequest(
   request: NextRequest,
@@ -48,9 +59,7 @@ export async function handleMcpRequest(
   }
 
   // Who is calling, as they describe themselves. Recorded with what they
-  // propose; it decides nothing. The handshake's clientInfo is preferred where
-  // a message carries it, since this server keeps no session to remember it.
-  const agent = readAgentName({ userAgent: request.headers.get("user-agent") });
+  // propose; it decides nothing.
 
   const raw = await request.text();
   if (Buffer.byteLength(raw, "utf8") > MAX_BODY_BYTES) {
@@ -63,9 +72,31 @@ export async function handleMcpRequest(
     return json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } }, 400);
   }
 
+  const headers = {
+    protocolVersion: request.headers.get("mcp-protocol-version"),
+    method: request.headers.get("mcp-method"),
+    name: request.headers.get("mcp-name"),
+  };
+  // A modern request names its client in `_meta` every time, which beats
+  // guessing from a User-Agent; an older one has only the header.
+  const agent = readAgentName({
+    userAgent: request.headers.get("user-agent"),
+    clientInfo: Array.isArray(payload) ? null : clientInfoOf(payload),
+  });
+
   if (Array.isArray(payload)) {
     if (payload.length === 0 || payload.length > 20) {
       return json({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "Invalid batch" } }, 400);
+    }
+    if (payload.some((message) => isModernRequest(message, headers))) {
+      return json(
+        {
+          jsonrpc: "2.0",
+          id: null,
+          error: { code: -32600, message: "This protocol version sends one request per POST; batches are not accepted." },
+        },
+        400,
+      );
     }
     const responses = [];
     for (const message of payload) {
@@ -75,9 +106,13 @@ export async function handleMcpRequest(
     return responses.length ? json(responses) : new Response(null, { status: 202 });
   }
 
-  const response = await handleMcpMessage(payload, { ...session, agent });
+  // The modern era decides the status as well as the body: a 400 carrying a
+  // recognised error is how a client tells this server apart from an old one,
+  // and a 404 with -32601 separates an unknown method from an endpoint that
+  // is not an MCP endpoint at all.
+  const answer = await handleMcpHttpMessage(payload, { ...session, agent }, headers);
   // Notifications and client responses are acknowledged without a body.
-  return response ? json(response) : new Response(null, { status: 202 });
+  return answer.body ? json(answer.body, answer.status) : new Response(null, { status: answer.status });
 }
 
 export function POST(request: NextRequest) {
