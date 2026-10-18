@@ -14,7 +14,7 @@ import {
   reserveFreeToolRun,
 } from "@/lib/operations/free-tool-access";
 import { logOperationalEvent } from "@/lib/operations/safe-telemetry";
-import { capturePageSnapshot, type PageSnapshot } from "@/lib/free-tools/page-snapshot";
+import { capturePageSnapshot, isPublicWebAddress, type PageSnapshot } from "@/lib/free-tools/page-snapshot";
 import { readTestAccount } from "@/lib/free-tools/sign-in";
 import { saveFreeToolDraft } from "@/lib/services/free-tool-drafts";
 import { measureSurfaceCoverage, readControls } from "@/lib/free-tools/surface-coverage";
@@ -45,6 +45,19 @@ export async function POST(req: Request) {
     if (!pageUrl && !requirement && !existingTests && !screenshot) return NextResponse.json({ error: "Add a requirement, test, URL, or screenshot first." }, { status: 400 });
     if (pageUrl.length > 2_000 || requirement.length > 30_000 || existingTests.length > 250_000) return NextResponse.json({ error: "The submitted evidence is too large for one preliminary review." }, { status: 413 });
     if (screenshot && (!screenshot.type.startsWith("image/") || screenshot.size > 2_000_000)) return NextResponse.json({ error: "Use a PNG, JPEG, or WebP screenshot under 2MB." }, { status: 413 });
+
+    // Refused before the quota, because this costs nothing to decide.
+    // Reserving first is deliberate -- it stops the page reader being used as
+    // a free service -- but an address that can never be opened is not abuse
+    // to be rate-limited, it is a mistake to be answered. Charging one of
+    // five daily drafts for a localhost URL, after a minute of "reading the
+    // page", is the product taking something for nothing.
+    if (pageUrl && !isPublicWebAddress(pageUrl)) {
+      return NextResponse.json(
+        { error: "Only public web addresses can be opened (not localhost or private networks)." },
+        { status: 400 },
+      );
+    }
 
     const quota = await reserveFreeToolRun({ request: req, surface: "coverage-review", requestId });
 

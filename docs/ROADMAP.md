@@ -19,6 +19,26 @@ has reproduced in isolation. Everything else passed.
 
 ## Shipped (most recent first)
 
+### Found by using the product as a team would
+- **A localhost URL cost a visitor one of their five drafts** (2026-10-18):
+  walking the free tool's refusal paths as a stranger would. Pasting
+  `http://localhost:3000/` did not get refused -- it started a prove run.
+  The page said "Reading the page and writing the test..." and a minute later
+  it failed, and the attempt had taken one of the five drafts a visitor gets
+  in a day. Two of them went that way before the tool said "0 of 5 drafts
+  left today", which is how the fault was noticed at all.
+  The order was deliberate and half right. The quota is reserved before the
+  page is read so the page reader cannot be used as a free service -- a good
+  reason, written down in a comment. What it did not weigh is that a private
+  address is not abuse to be rate-limited; it is a mistake to be answered,
+  and answering it costs nothing: no network, no page, no model.
+  Refused before the quota now, in Quick Generate and Coverage Review, and
+  said in the browser as the address is typed so nobody waits a minute to
+  hear it. Both use the predicate the page reader itself uses, so the three
+  cannot disagree about what a public address is. Verified by reading the
+  allowance either side of a refused request: five of five before, five of
+  five after.
+
 ### Reaching the people who never open it
 - **Every visitor downloaded a session they did not have** (2026-10-18):
   `ClerkProvider` wrapped the whole application from the root layout, so the

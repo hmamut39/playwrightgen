@@ -10,6 +10,7 @@ import { WorkspaceHandoffButton } from "@/components/free-tools/workspace-handof
 import type { FreeToolHandoff } from "@/lib/free-tools/handoff";
 import { useFreeToolAllowance } from "@/components/free-tools/use-free-tool-allowance";
 import { LimitReached, readFreeToolLimit, type FreeToolLimit } from "@/components/free-tools/limit-reached";
+import { isPublicWebAddress } from "@/lib/free-tools/public-address";
 import { CodeBlock } from "@/components/workspace/code-block";
 import { PreviewRunPanel, type CompletedRun, type RunResult } from "@/components/free-tools/preview-run-panel";
 import { ProveRounds } from "@/components/free-tools/prove-rounds";
@@ -156,6 +157,9 @@ export default function QuickGeneratePage() {
   const [depth, setDepth] = useState<GenerationDepth>("FOCUSED");
   const [request, setRequest] = useState("");
   const [pageUrl, setPageUrl] = useState("");
+  // The same test the server applies, so the two cannot disagree about what
+  // "a public address" means.
+  const unopenableAddress = pageUrl.trim().length > 0 && mode !== "API" && !isPublicWebAddress(pageUrl.trim());
   const [files, setFiles] = useState<File[]>([]);
   const [result, setResult] = useState<QuickGenerationResult | null>(null);
   const [inputSignals, setInputSignals] = useState<string[]>([]);
@@ -570,8 +574,20 @@ export default function QuickGeneratePage() {
                   <span className="font-normal text-slate-500">
                     {mode === "API" ? "(optional)" : "(optional \u2014 we open it and use the real buttons and fields)"}
                   </span>
-                  <input value={pageUrl} onChange={(event) => { setPageUrl(event.target.value); resetResult(); }} maxLength={2_000} placeholder="https://app.example.com/login" className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-cyan-600" />
+                  <input value={pageUrl} onChange={(event) => { setPageUrl(event.target.value); resetResult(); }} maxLength={2_000} placeholder="https://app.example.com/login" aria-invalid={unopenableAddress ? true : undefined} className={`mt-2 w-full rounded-xl border px-4 py-3 text-sm outline-none ${unopenableAddress ? "border-amber-400 focus:border-amber-500" : "border-slate-300 focus:border-cyan-600"}`} />
                 </label>
+                {/*
+                  Said as soon as it is typed. The server refuses this too,
+                  but a visitor should not wait a minute, and should not be
+                  charged one of five daily drafts, to be told something the
+                  browser already knows.
+                */}
+                {unopenableAddress ? (
+                  <p className="mt-2 text-sm text-amber-700">
+                    Only public web addresses can be opened (not localhost or private networks). The page is opened
+                    from a remote browser, so it has to be reachable from the internet.
+                  </p>
+                ) : null}
                 {mode !== "API" ? <TestAccountFields value={account} onChange={setAccount} /> : null}
               </div>
               <div>
@@ -615,7 +631,7 @@ export default function QuickGeneratePage() {
                   <button
                     type="button"
                     onClick={() => proveIt()}
-                    disabled={busy}
+                    disabled={busy || unopenableAddress}
                     title="Generates the test, runs it on your page, fixes the failing step and runs again"
                     className="inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-6 text-sm font-bold text-white hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -625,7 +641,7 @@ export default function QuickGeneratePage() {
                 <button
                   type="button"
                   onClick={generate}
-                  disabled={busy}
+                  disabled={busy || unopenableAddress}
                   className={
                     canProve
                       ? "inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-800 hover:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"

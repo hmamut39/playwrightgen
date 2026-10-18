@@ -8,7 +8,7 @@ import {
   type QuickGenerationInput,
 } from "@/lib/ai/quick-generation";
 import { EnvironmentValidationError } from "@/lib/env";
-import { capturePageSnapshot, type PageSnapshot } from "@/lib/free-tools/page-snapshot";
+import { capturePageSnapshot, isPublicWebAddress, type PageSnapshot } from "@/lib/free-tools/page-snapshot";
 import {
   FreeToolLimitError,
   freeToolLimitBody,
@@ -59,6 +59,19 @@ export async function POST(req: Request) {
         totalTextBytes += file.size;
         if (totalTextBytes > MAX_TEXT_CONTEXT) return NextResponse.json({ error: "Keep total attached text under 500KB." }, { status: 413 });
       }
+    }
+
+    // Refused before the quota, because this costs nothing to decide.
+    // Reserving first is deliberate -- it stops the page reader being used as
+    // a free service -- but an address that can never be opened is not abuse
+    // to be rate-limited, it is a mistake to be answered. Charging one of
+    // five daily drafts for a localhost URL, after a minute of "reading the
+    // page", is the product taking something for nothing.
+    if (pageUrl && !isPublicWebAddress(pageUrl)) {
+      return NextResponse.json(
+        { error: "Only public web addresses can be opened (not localhost or private networks)." },
+        { status: 400 },
+      );
     }
 
     const quota = await reserveFreeToolRun({ request: req, surface: "quick-generate", requestId });
