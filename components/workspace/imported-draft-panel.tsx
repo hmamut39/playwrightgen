@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { CodeBlock } from "@/components/workspace/code-block";
 import { LocalTime } from "@/components/workspace/local-time";
 import { PendingButton } from "@/components/workspace/pending-button";
 import { importedDraftSourceLabel, type ImportedRunEvidence } from "@/lib/services/imported-drafts";
@@ -58,7 +59,15 @@ export function ImportedDraftPanel({
       ) : null}
       <details className="mt-3">
         <summary className="cursor-pointer text-xs font-semibold text-cyan-800">Show the code</summary>
-        <pre className="mt-2 max-h-80 overflow-auto rounded-lg bg-slate-950 p-4 text-xs leading-5 text-slate-100">{draft.code}</pre>
+        {/*
+          The same highlighter the automation page uses. This panel is where a
+          reviewer first reads code an agent or a free tool wrote, and it was
+          showing it as one flat colour -- the exact complaint that put a
+          highlighter on the automation page in the first place.
+        */}
+        <div className="mt-2">
+          <CodeBlock code={draft.code} maxHeight="20rem" />
+        </div>
       </details>
       {draft.usedAt ? (
         <p className="mt-3 text-sm text-slate-600">

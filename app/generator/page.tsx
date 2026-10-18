@@ -3,8 +3,6 @@
 import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 import { GenerationProgress } from "@/components/free-tools/generation-progress";
 import { ResultActions } from "@/components/free-tools/result-actions";
@@ -12,6 +10,7 @@ import { WorkspaceHandoffButton } from "@/components/free-tools/workspace-handof
 import type { FreeToolHandoff } from "@/lib/free-tools/handoff";
 import { useFreeToolAllowance } from "@/components/free-tools/use-free-tool-allowance";
 import { LimitReached, readFreeToolLimit, type FreeToolLimit } from "@/components/free-tools/limit-reached";
+import { CodeBlock } from "@/components/workspace/code-block";
 import { PreviewRunPanel, type CompletedRun, type RunResult } from "@/components/free-tools/preview-run-panel";
 import { ProveRounds } from "@/components/free-tools/prove-rounds";
 import { SavedDrafts, type SavedDraft } from "@/components/free-tools/saved-drafts";
@@ -740,7 +739,7 @@ export default function QuickGeneratePage() {
                   <span className="font-semibold">Fixed by AI:</span> {fixNote} Run it again below to check.
                 </p>
               ) : null}
-              <SyntaxHighlighter language="typescript" style={vscDarkPlus} customStyle={{ margin: 0, padding: "1.5rem", background: "#020617", fontSize: "0.82rem", minHeight: "18rem" }} wrapLongLines>{result.code}</SyntaxHighlighter>
+              <CodeBlock code={result.code} padding="1.5rem" fontSize="0.82rem" minHeight="18rem" maxHeight="none" wrapLongLines />
               {livePage?.status === "read" && mode !== "API" ? (
                 <PreviewRunPanel
                   key={result.code}

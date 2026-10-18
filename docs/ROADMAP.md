@@ -19,6 +19,31 @@ has reproduced in isolation. Everything else passed.
 
 ## Shipped (most recent first)
 
+### Reaching the people who never open it
+- **626kB of syntax definitions for languages this product never shows**
+  (2026-10-18): nothing had ever measured what the front door costs a visitor.
+  Every public page was sending 1,832kB of JavaScript, the same on all four,
+  so it was one shared bundle rather than anything a page asked for. The
+  server is quick -- 60 to 100ms to first byte, under half a second to first
+  paint -- and the weight was all payload.
+  The largest chunk was 626kB, and reading it settled what it was: the full
+  Prism build inside `react-syntax-highlighter`, carrying Fortran, Verilog,
+  Haskell, Ruby, C# and MATLAB. This product renders TypeScript, JSON and one
+  shell line. `PrismLight` with four languages registered does the same job,
+  and the generator page now uses the shared `CodeBlock` instead of importing
+  the highlighter a second time with its own settings.
+  JavaScript on every public page: 1,832kB to 1,006kB, measured on a
+  production build at both ends rather than in dev, where the numbers mean
+  nothing.
+  The danger in that change is silence: an unregistered language renders as
+  plain text and nobody notices until a customer reads grey code. So it was
+  checked in a browser -- 47 coloured spans in a JSON block, 146 in a
+  TypeScript draft -- and checking it turned up a surface that had never been
+  highlighted at all. The panel where a reviewer first reads code an agent or
+  a free tool wrote was a plain `<pre>`: the exact complaint that put a
+  highlighter on the automation page, still true one page over. It uses the
+  same component now.
+
 ### Found by using the product as a team would
 - **What a keyboard and a screen reader get, measured** (2026-10-18): the
   contrast work said nothing about whether a control has a name, whether a
