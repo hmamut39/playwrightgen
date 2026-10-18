@@ -368,7 +368,7 @@ export default async function AutomationArtifactPage({
                   <span
                     className={`rounded-full px-2.5 py-1 ${
                       liveRun.verdict === "passed"
-                        ? "bg-emerald-600 text-white"
+                        ? "bg-emerald-700 text-white"
                         : liveRun.verdict === "partial"
                           ? "bg-amber-50 text-amber-800"
                           : "bg-red-50 text-red-700"
@@ -549,7 +549,7 @@ export default async function AutomationArtifactPage({
                     <li key={String(title)} className="flex items-start gap-3">
                       <span
                         aria-hidden="true"
-                        className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-600 text-xs font-bold text-white"
+                        className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-700 text-xs font-bold text-white"
                       >
                         {index + 1}
                       </span>

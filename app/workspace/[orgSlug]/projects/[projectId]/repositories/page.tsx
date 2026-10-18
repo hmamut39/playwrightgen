@@ -327,7 +327,7 @@ export default async function ProjectRepositoriesPage({
                     />
                     <button
                       type="submit"
-                      className="shrink-0 rounded-full bg-cyan-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-cyan-700"
+                      className="shrink-0 rounded-full bg-cyan-700 px-4 py-2 text-xs font-semibold text-white transition hover:bg-cyan-700"
                     >
                       Connect
                     </button>
@@ -385,7 +385,7 @@ export default async function ProjectRepositoriesPage({
             </label>
             <button
               type="submit"
-              className="rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-700"
+              className="rounded-xl bg-cyan-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-800"
             >
               Verify and connect
             </button>
@@ -453,7 +453,7 @@ export default async function ProjectRepositoriesPage({
                           </label>
                           <button
                             type="submit"
-                            className="rounded-full bg-cyan-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-cyan-700"
+                            className="rounded-full bg-cyan-700 px-4 py-2 text-xs font-semibold text-white transition hover:bg-cyan-700"
                           >
                             Import snapshot
                           </button>
@@ -473,7 +473,7 @@ export default async function ProjectRepositoriesPage({
                             {latestImport.sourceRef}@{shortSha(latestImport.commitSha)}
                           </code>
                         </div>
-                        <p className="text-xs text-slate-400">
+                        <p className="text-xs text-slate-500">
                           Parser {latestImport.parserVersion}
                         </p>
                       </div>
@@ -486,7 +486,7 @@ export default async function ProjectRepositoriesPage({
                           ["Support files", latestImport.supportFileCount],
                         ].map(([label, value]) => (
                           <div key={label} className="rounded-xl bg-white/5 p-3">
-                            <dt className="text-xs text-slate-400">{label}</dt>
+                            <dt className="text-xs text-slate-500">{label}</dt>
                             <dd className="mt-1 text-xl font-semibold">{value}</dd>
                           </div>
                         ))}
@@ -513,7 +513,7 @@ export default async function ProjectRepositoriesPage({
                               className="flex flex-col justify-between gap-1 border-b border-white/10 px-4 py-3 text-sm last:border-b-0 sm:flex-row sm:items-center"
                             >
                               <code className="break-all text-slate-100">{file.path}</code>
-                              <span className="shrink-0 text-xs text-slate-400">
+                              <span className="shrink-0 text-xs text-slate-500">
                                 {file.kind.replaceAll("_", " ").toLowerCase()}
                                 {file.kind === "TEST_SPEC"
                                   ? ` · ${file.discoveredTestCount} tests`
@@ -556,7 +556,7 @@ export default async function ProjectRepositoriesPage({
                     "&projectId=" +
                     encodeURIComponent(projectId)
                   }
-                  className="inline-flex rounded-full bg-cyan-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-700"
+                  className="inline-flex rounded-full bg-cyan-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-800"
                 >
                   Install or connect GitHub
                 </Link>
@@ -608,7 +608,7 @@ export default async function ProjectRepositoriesPage({
                 ["Execution", "Runs in your own CI, never ours"],
               ].map(([label, value]) => (
                 <div key={label} className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">{label}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
                   <p className="mt-2 text-sm font-medium text-slate-800">{value}</p>
                 </div>
               ))}

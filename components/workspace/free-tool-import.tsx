@@ -155,7 +155,7 @@ function AttachedCode({ draft }: { draft: NonNullable<FreeToolHandoff["draft"]> 
         <span
           className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${
             run?.verdict === "passed"
-              ? "bg-emerald-600 text-white"
+              ? "bg-emerald-700 text-white"
               : run?.verdict === "failed"
                 ? "bg-red-100 text-red-800"
                 : "bg-white text-slate-600 ring-1 ring-slate-200"

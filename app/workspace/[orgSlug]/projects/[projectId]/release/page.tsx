@@ -38,7 +38,7 @@ function Metric({
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
       <p className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-slate-950">
         {value}
-        {of === undefined ? null : <span className="text-slate-400"> of {of}</span>}
+        {of === undefined ? null : <span className="text-slate-500"> of {of}</span>}
       </p>
       <p className="mt-2 text-xs leading-5 text-slate-500">{caption}</p>
     </div>
@@ -292,7 +292,7 @@ export default async function ReleaseReadinessPage({
             ran. Built to print or attach to a release ticket.
           </p>
         </div>
-        <p className="mt-3 text-xs text-slate-400">
+        <p className="mt-3 text-xs text-slate-500">
           Measured <LocalTime value={readiness.measuredAt} /> ·{" "}
           {readiness.evidence.hasExecution
             ? `${readiness.evidence.attemptCount} recorded ${readiness.evidence.attemptCount === 1 ? "attempt" : "attempts"}, last activity ${freshnessLabel[readiness.evidence.freshness].toLowerCase()}${readiness.evidence.ageDays !== null ? ` at ${readiness.evidence.ageDays} days old` : ""}`
@@ -404,7 +404,7 @@ export default async function ReleaseReadinessPage({
         </section>
       )}
 
-      <p className="mt-10 text-xs leading-5 text-slate-400">
+      <p className="mt-10 text-xs leading-5 text-slate-500">
         Counts are direct database relationships, not an AI judgement. Missing evidence is
         reported as missing and never counted as a pass.
       </p>

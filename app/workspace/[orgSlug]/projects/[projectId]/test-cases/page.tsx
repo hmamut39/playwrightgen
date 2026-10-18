@@ -94,7 +94,7 @@ export default async function TestCasesPage({
                     {testCase.status.replace("_", " ")}
                   </span>
                 </div>
-                <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-400">
+                <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-500">
                   <span>Version {testCase.currentVersionNumber}</span>
                   <span>{testCase.priority} priority</span>
                   <span>{testCase._count.requirementLinks} linked requirements</span>

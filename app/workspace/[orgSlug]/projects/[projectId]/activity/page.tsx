@@ -80,7 +80,7 @@ export default async function ProjectActivityPage({
         {activity.items.length > 0 ? (
           // Said whether or not this project has that many, so nobody can
           // read a truncated file as the whole history.
-          <p className="mt-2 text-xs leading-5 text-slate-400">
+          <p className="mt-2 text-xs leading-5 text-slate-500">
             The newest 5,000 events, with the dates they cover in the file name.
           </p>
         ) : null}
@@ -98,7 +98,7 @@ export default async function ProjectActivityPage({
           <div className="mt-8 space-y-8">
             {days.map(({ day, entries }) => (
               <section key={day}>
-                <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                   {dayLabel(day, today, yesterday)}
                 </h2>
                 <ol className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -116,7 +116,7 @@ export default async function ProjectActivityPage({
                             <span className="text-slate-500"> &middot; {entry.detail}</span>
                           ) : null}
                         </p>
-                        <span className="shrink-0 text-xs text-slate-400">
+                        <span className="shrink-0 text-xs text-slate-500">
                           <LocalTime value={entry.createdAt} style="time" />
                         </span>
                       </div>

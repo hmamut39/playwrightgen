@@ -16,7 +16,7 @@ type ImportedDraft = {
 function evidenceLabel(evidence: ImportedRunEvidence | null, source: string) {
   if (!evidence && source === "editor") return { text: "Not run by PlaywrightGen yet", tone: "bg-white text-slate-600 ring-1 ring-slate-200" };
   if (!evidence) return { text: "Not run on the live page before import", tone: "bg-white text-slate-600 ring-1 ring-slate-200" };
-  if (evidence.verdict === "passed") return { text: `Passed on the live page · ${evidence.passed} checks`, tone: "bg-emerald-600 text-white" };
+  if (evidence.verdict === "passed") return { text: `Passed on the live page · ${evidence.passed} checks`, tone: "bg-emerald-700 text-white" };
   if (evidence.verdict === "partial") {
     return { text: `Partly run on the live page · ${evidence.passed} checks passed`, tone: "bg-amber-100 text-amber-900" };
   }

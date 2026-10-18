@@ -101,7 +101,7 @@ export default async function OrganizationWorkspacePage({
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="font-semibold text-slate-950">{project.name}</h2>
-                  <p className="mt-1 text-xs text-slate-400">{project.slug}</p>
+                  <p className="mt-1 text-xs text-slate-500">{project.slug}</p>
                 </div>
                 <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${project.status === "ACTIVE" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
                   {humanLabel(project.status)}
@@ -142,12 +142,12 @@ export default async function OrganizationWorkspacePage({
                   </span>
                 ) : null}
                 {projectRisk?.lastEvidenceAt ? null : (
-                  <span className="rounded-full bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-400">
+                  <span className="rounded-full bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-500">
                     No run evidence
                   </span>
                 )}
               </div>
-              <p className="mt-3 text-xs text-slate-400">
+              <p className="mt-3 text-xs text-slate-500">
                 {projectRisk?.lastEvidenceAt ? (
                   <>
                     Last evidence <LocalTime value={projectRisk.lastEvidenceAt} style="date" /> · updated{" "}

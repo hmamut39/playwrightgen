@@ -77,7 +77,7 @@ export default async function NewProjectPage({
           <input name="name" required maxLength={200} autoFocus placeholder="For example: Checkout web app" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60" />
         </label>
         <label className="block text-sm font-medium">
-          Where does it run? <span className="font-normal text-slate-400">(optional)</span>
+          Where does it run? <span className="font-normal text-slate-500">(optional)</span>
           <input
             name="pageUrl"
             type="url"
@@ -95,10 +95,10 @@ export default async function NewProjectPage({
             question on the first form they fill in. */}
         <details className="group rounded-lg">
           <summary className="cursor-pointer text-sm font-medium text-slate-600 hover:text-slate-900">
-            Custom project address <span className="font-normal text-slate-400">(optional)</span>
+            Custom project address <span className="font-normal text-slate-500">(optional)</span>
           </summary>
         <label className="mt-3 block text-sm font-medium">
-          Slug <span className="font-normal text-slate-400">(optional)</span>
+          Slug <span className="font-normal text-slate-500">(optional)</span>
           <input name="slug" maxLength={100} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" title="Lowercase letters, numbers and hyphens, for example checkout-flow" placeholder="Leave blank to create it from the name" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60" />
           <span className="mt-1.5 block text-xs font-normal text-slate-500">
             Used in the project&rsquo;s address. Lowercase letters, numbers and hyphens only &mdash; &ldquo;Checkout Flow&rdquo; becomes <code className="font-mono">checkout-flow</code>.
@@ -106,7 +106,7 @@ export default async function NewProjectPage({
         </label>
         </details>
         <label className="block text-sm font-medium">
-          Description <span className="font-normal text-slate-400">(optional)</span>
+          Description <span className="font-normal text-slate-500">(optional)</span>
           <textarea name="description" rows={4} maxLength={10000} placeholder="What the product does and who uses it." className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60" />
         </label>
         <button type="submit" className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">Create project</button>

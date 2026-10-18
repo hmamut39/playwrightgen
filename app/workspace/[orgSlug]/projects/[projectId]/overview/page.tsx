@@ -220,7 +220,7 @@ export default async function ProjectOverviewPage({
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
               <div>
                 <p className="text-sm font-semibold text-slate-900">
-                  Daily live checks {project.liveChecksEnabled ? <span className="ml-1 rounded-full bg-emerald-600 px-2 py-0.5 text-xs text-white">On</span> : <span className="ml-1 rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-700">Off</span>}
+                  Daily live checks {project.liveChecksEnabled ? <span className="ml-1 rounded-full bg-emerald-700 px-2 py-0.5 text-xs text-white">On</span> : <span className="ml-1 rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-700">Off</span>}
                 </p>
                 <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
                   Every day, each approved browser test runs on this address and the result is recorded under Test Runs. A

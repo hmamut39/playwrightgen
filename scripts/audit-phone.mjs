@@ -1,5 +1,5 @@
 /**
- * Every workspace page, measured at phone width.
+ * Every workspace page, measured: narrow enough, and readable.
  *
  * A page wider than the screen slides sideways under the thumb, and nothing in
  * the test suite notices: the review pages carried that fault for weeks because
@@ -64,6 +64,84 @@ const OVERFLOWING = () => {
   return { pageWidth: document.documentElement.scrollWidth, viewport: window.innerWidth, culprits: culprits.slice(0, 3) };
 };
 
+/**
+ * Every piece of text on the page, against what is behind it.
+ *
+ * The public pages got this on 2026-10-18 and the workspace could not: it is
+ * behind a sign-in, and the browser check that guards the marketing site
+ * cannot reach it. This walk already has a session, so it measures here too.
+ *
+ * Tailwind v4 writes colours as lab(), so the browser converts them rather
+ * than a regular expression: a 1x1 canvas fill, read back as sRGB. Text over
+ * a gradient or an image has no background colour to read and is skipped
+ * rather than guessed at.
+ */
+const LOW_CONTRAST = () => {
+  const surface = document.createElement("canvas");
+  surface.width = 1;
+  surface.height = 1;
+  const context = surface.getContext("2d", { willReadFrequently: true });
+  const toRgb = (value) => {
+    if (!context || !value || value === "transparent") return null;
+    context.clearRect(0, 0, 1, 1);
+    context.fillStyle = "#000";
+    context.fillStyle = value;
+    context.fillRect(0, 0, 1, 1);
+    const [r, g, b, alpha] = context.getImageData(0, 0, 1, 1).data;
+    return { r, g, b, a: alpha / 255 };
+  };
+  const luminance = ({ r, g, b }) => {
+    const channel = (value) => {
+      const scaled = value / 255;
+      return scaled <= 0.03928 ? scaled / 12.92 : ((scaled + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+  };
+  const backgroundOf = (node) => {
+    let element = node;
+    while (element) {
+      const style = getComputedStyle(element);
+      if (style.backgroundImage && style.backgroundImage !== "none") return null;
+      const colour = toRgb(style.backgroundColor);
+      if (colour && colour.a > 0.5) return colour;
+      element = element.parentElement;
+    }
+    return { r: 255, g: 255, b: 255, a: 1 };
+  };
+
+  const found = [];
+  for (const node of document.querySelectorAll("p, span, li, a, h1, h2, h3, h4, td, th, label, div, button")) {
+    if (node.children.length > 0) continue;
+    const text = (node.textContent ?? "").trim();
+    if (text.length < 4) continue;
+    const style = getComputedStyle(node);
+    if (style.visibility === "hidden" || style.display === "none") continue;
+    const box = node.getBoundingClientRect();
+    if (box.width < 2 || box.height < 2) continue;
+    const foreground = toRgb(style.color);
+    if (!foreground || foreground.a < 0.5) continue;
+    const background = backgroundOf(node);
+    if (!background) continue;
+    const first = luminance(foreground);
+    const second = luminance(background);
+    const ratio = (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+    const size = parseFloat(style.fontSize);
+    const bold = Number.parseInt(style.fontWeight, 10) >= 700;
+    // WCAG AA: 3:1 for large text, 4.5:1 for everything else.
+    const required = size >= 24 || (size >= 18.66 && bold) ? 3 : 4.5;
+    if (ratio < required) {
+      found.push({
+        ratio: Math.round(ratio * 100) / 100,
+        required,
+        size: Math.round(size),
+        text: text.slice(0, 44),
+        cls: (typeof node.className === "string" ? node.className : "").slice(0, 70),
+      });
+    }
+  }
+  return found;
+};
+
 const PROJECT_TABS = [
   "overview",
   "health",
@@ -97,6 +175,8 @@ async function main() {
   const page = await context.newPage();
   const failures = [];
   const checked = [];
+  /** One entry per style that fails, with the pages it was seen on. */
+  const contrast = new Map();
 
   try {
     const email =
@@ -135,12 +215,41 @@ async function main() {
       ...PROJECT_TABS.map((tab) => [tab, `${projectBase}/${tab}`]),
     ];
 
+    /**
+     * The first item on a list page, which is where people actually read.
+     *
+     * Walking the tabs alone measures thirteen index pages and none of the
+     * detail pages a reviewer spends their day on. Each list links its items
+     * by id, so the first one is followed when there is one; a project with
+     * an empty list simply contributes nothing.
+     */
+    async function firstDetail(tab) {
+      await page.goto(`${projectBase}/${tab}`, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(800);
+      const href = await page
+        .locator(`a[href*='/${tab}/']`)
+        .evaluateAll((links) => links.map((link) => link.getAttribute("href") ?? "")[0] ?? "");
+      const id = /\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\/|$)/i;
+      return href && id.test(href) ? [`${tab} detail`, new URL(href, page.url()).toString()] : null;
+    }
+
+    for (const tab of ["requirements", "test-cases", "automation", "test-runs", "cover"]) {
+      const detail = await firstDetail(tab);
+      if (detail) pages.push(detail);
+    }
+
     for (const [name, url] of pages) {
       const response = await page.goto(url, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(1_200);
       const report = await page.evaluate(OVERFLOWING);
+      const dim = await page.evaluate(LOW_CONTRAST);
       const wide = report.pageWidth > report.viewport;
       checked.push(name);
+      for (const entry of dim) {
+        const key = `${entry.cls}|${entry.ratio}`;
+        if (!contrast.has(key)) contrast.set(key, { ...entry, pages: new Set() });
+        contrast.get(key).pages.add(name);
+      }
       const status = response?.status() ?? 0;
       if (status >= 400) {
         failures.push(`${name}: HTTP ${status}`);
@@ -160,8 +269,17 @@ async function main() {
   console.log(`\n${checked.length} pages measured at ${WIDTH}px; ${failures.length} wider than the screen.`);
   if (failures.length) {
     for (const failure of failures) console.log(`  - ${failure}`);
-    process.exitCode = 1;
   }
+
+  const dim = [...contrast.values()].sort((a, b) => a.ratio - b.ratio);
+  console.log(`${dim.length} styles below the WCAG AA contrast floor.`);
+  for (const entry of dim) {
+    console.log(`  - ${entry.ratio}:1 (needs ${entry.required}:1) ${entry.size}px on ${[...entry.pages].join(", ")}`);
+    console.log(`      "${entry.text}"`);
+    console.log(`      ${entry.cls}`);
+  }
+
+  if (failures.length || dim.length) process.exitCode = 1;
 }
 
 await main();

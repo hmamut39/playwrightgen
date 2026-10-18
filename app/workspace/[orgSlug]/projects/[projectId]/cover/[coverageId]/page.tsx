@@ -18,7 +18,7 @@ const ITEM_BADGE: Record<string, { text: string; tone: string }> = {
   SKIPPED: { text: "Left out", tone: "bg-slate-100 text-slate-500" },
   QUEUED: { text: "Waiting", tone: "bg-slate-100 text-slate-700" },
   PROVING: { text: "Proving…", tone: "bg-cyan-50 text-cyan-800" },
-  PASSED: { text: "Passed", tone: "bg-emerald-600 text-white" },
+  PASSED: { text: "Passed", tone: "bg-emerald-700 text-white" },
   PARTIAL: { text: "Partly run", tone: "bg-amber-50 text-amber-800" },
   FAILED: { text: "Not passing yet", tone: "bg-red-50 text-red-700" },
   ERROR: { text: "Could not run", tone: "bg-red-50 text-red-700" },

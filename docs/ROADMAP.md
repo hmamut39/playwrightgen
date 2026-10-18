@@ -19,6 +19,32 @@ has reproduced in isolation. Everything else passed.
 
 ## Shipped (most recent first)
 
+### Found by using the product as a team would
+- **The design pass had only measured what a signed-out browser can see**
+  (2026-10-18): the contrast work that morning covered the six public pages,
+  which is where the measurement could reach. The workspace -- the part a
+  customer is in all day -- was behind a sign-in and had never been looked at
+  with a ruler.
+  `audit:phone` already walks every workspace page with a real Clerk session,
+  checking nothing is wider than the screen, so it measures contrast on the
+  same walk rather than growing a second script with a second sign-in. It
+  also follows the first item on each list now: walking the tabs alone
+  measured thirteen index pages and none of the detail pages a reviewer
+  spends the day on.
+  Twenty-one pages, and the same fault as the marketing site had, on the ones
+  people use most: nine styles below the floor, `text-slate-400` on white and
+  on `slate-50` at 2.51 to 2.63 -- the "No run evidence" badge on the
+  workspace home, the "Permissions" heading on Repositories and Activity, the
+  note under the Activity export, "(optional)" beside form labels, a version
+  number on Test Cases, a large "of 0" on Release.
+  Then a second kind on the detail pages, which the tab walk had never
+  reached: white text on a `-600` accent at 3.62 to 3.65 -- the green
+  "Passed - 15 checks" badge, the cyan buttons on Repositories. White needs a
+  700 behind it. Fixed wherever a resting state carried it, in six files.
+  Hover variants are left alone, because nothing has measured one and
+  guessing at interaction feel is not the same as fixing a defect.
+  Zero on all twenty-one pages now, and the public check still passes.
+
 ### The surface nobody had walked
 - **The MCP endpoint speaks both eras now** (2026-10-18): the protocol's
   2026-07-28 revision is not another version but a different shape -- no

@@ -99,7 +99,7 @@ export default async function CoverPage({
           />
         </label>
         <label className="block text-sm font-medium">
-          What matters most <span className="font-normal text-slate-400">(optional)</span>
+          What matters most <span className="font-normal text-slate-500">(optional)</span>
           <textarea
             name="focus"
             rows={3}
