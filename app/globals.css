@@ -1,5 +1,28 @@
 @import "tailwindcss";
 
+/**
+ * The fonts the layout already loads.
+ *
+ * `next/font` was wiring Geist onto the body as CSS variables and nothing
+ * ever read them: the rule below said Arial, so every page of this product
+ * rendered in Arial while paying to download a font it never showed. Mapping
+ * Tailwind's own font tokens to those variables fixes the whole site at once
+ * and keeps `font-sans` and `font-mono` meaning what they say.
+ *
+ * `inline` matters, and the reason is worth keeping. A custom property is
+ * computed on the element that declares it, so a plain `@theme` emits
+ * `--font-sans: var(--font-geist-sans)` at the document root -- where
+ * next/font has defined nothing, since it puts its variables on the body.
+ * The token computes to empty there and inherits down empty, and every
+ * `font-mono` on the site silently rendered in the sans face. `inline` puts
+ * the value into the utility itself, so it resolves on the element that uses
+ * it, where Geist is in scope.
+ */
+@theme inline {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+}
+
 :root {
   --background: #fafafa;
   --foreground: #171717;
@@ -17,7 +40,13 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* Named directly as well, so the body does not depend on a theme token
+     resolving: a missing font is invisible until somebody measures it. */
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Proportional figures read better in prose; tabular ones are asked for
+     where numbers line up in a column. */
+  font-feature-settings: "cv11";
+  text-rendering: optimizeLegibility;
 }
 
 ::selection {

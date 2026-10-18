@@ -19,6 +19,37 @@ has reproduced in isolation. Everything else passed.
 
 ## Shipped (most recent first)
 
+### Reaching the people who never open it
+- **The site was rendering in Arial, and the front page asked for four
+  minutes** (2026-10-18): the owner's own reading of the home page -- "lots of
+  paragraphs, do you think an end client understands and is comfortable" --
+  checked against the live page in a browser rather than agreed with.
+  Two faults, one of them invisible until measured. `next/font` loads Geist
+  and puts it on the body as CSS variables, and `globals.css` then said
+  `font-family: Arial, Helvetica, sans-serif`, which won. Every page of this
+  product rendered in Arial while paying to download a font it never showed.
+  The fix needs `@theme inline`, not `@theme`: a custom property is computed
+  on the element that declares it, so a plain theme token emits
+  `--font-sans: var(--font-geist-sans)` at the document root, where next/font
+  has defined nothing, and it inherits down empty -- which is how the first
+  attempt moved the site from Arial to the system stack and left every
+  `font-mono` rendering in the sans face. Both faces are now verified by
+  computed style in a real browser, not by reading the CSS.
+  The second fault was volume. 1,049 words, 6,179px on a desktop and 10,982px
+  on a phone -- about twenty-eight phone screens -- and three of the six
+  sections making the same promise in different words: the editor section,
+  the roles section and the trust model all said AI proposes, people approve,
+  evidence is kept. Now 865 words and 5,087px, with the roles as one scannable
+  line instead of three cards of prose, the twelve-item capability wall cut to
+  the six a team cannot get from an assistant that only writes code, and every
+  card's description shortened without losing a single fact -- the detail
+  lines under them already carried the specifics.
+  A measurement that was wrong is worth recording too: a first pass reported
+  paragraphs running 240 characters per line. They were short strings in wide
+  boxes, not long lines. Measured properly -- text length over rendered lines
+  -- the page's prose sits at 59 to 69 characters, which is comfortable, and
+  nothing needed doing about it.
+
 ### The surface nobody had walked
 - **The seam a customer's first push lands on had no test either side of it**
   (2026-10-17): `playwrightgen-report.mjs` is plain Node that runs on somebody

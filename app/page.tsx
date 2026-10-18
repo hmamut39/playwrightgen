@@ -72,19 +72,22 @@ const freeTools = [
   },
 ] as const;
 
+/**
+ * Six, not twelve.
+ *
+ * The longer list was every capability the workspace has, which reads as a
+ * wall rather than an argument: a visitor skims it and takes away nothing.
+ * These are the six a team cannot get from an assistant that only writes
+ * code, which is the question this panel is answering. The rest are met in
+ * the product, where they mean something.
+ */
 const workspaceCapabilities = [
-  "Organization and project isolation",
   "Immutable Requirement and Test Case versions",
   "Requirement-to-Test Case traceability",
-  "Separate Browser and API automation engines",
-  "Append-only run attempts and failure evidence",
   "Members write, leads approve, nobody approves their own work",
   "Results from your own CI, pinned to approved versions",
   "Cover a whole page: plan its tests, approve, prove each one",
-  "Automation run on your live site before anyone reviews it",
-  "Connects to VS Code, Cursor and Claude Code over MCP",
   "Share the evidence with anyone: a read-only link, expiring, stoppable",
-  "Keep it: one file that opens anywhere, and a badge for your README",
 ] as const;
 
 const integrations = [
@@ -92,28 +95,28 @@ const integrations = [
     label: "Your editor",
     title: "Approved tests, inside VS Code, Cursor and Claude Code",
     description:
-      "Connect your editor's AI assistant over MCP. In one call it writes a test from the real page and makes it pass, then proposes it with that evidence; it also pulls approved automation into your repository.",
+      "Over MCP, your editor's assistant writes a test from the real page, makes it pass, and proposes it with that run as evidence.",
     detail: "Proposes, never approves · personal token · revoked when access ends",
   },
   {
     label: "Your CI",
     title: "Your runners, your secrets, our evidence",
     description:
-      "Tests run in your own GitHub Actions. Only a bounded summary of results comes back, and each one attaches to the exact approved version it exercised.",
+      "Tests run on your own runners. Only a bounded summary comes back, attached to the exact approved version it exercised.",
     detail: "Signed reports · nothing of yours executes here",
   },
   {
     label: "Everyone else",
     title: "Proof for the people who ask whether it was tested",
     description:
-      "Send a manager, a customer or an auditor a read-only link to this project's evidence: each requirement, the approved tests that verify it, and how those tests last ran. They can download it as one file to keep, and your README can carry a badge saying how many requirements are verified. No account, no test code, no way into your workspace.",
+      "Send a manager, a customer or an auditor a read-only link to this project's evidence, or one file they can keep. No account, no test code, no way in.",
     detail: "Expires \u00b7 stoppable the moment you change your mind \u00b7 not indexed",
   },
   {
     label: "Your team",
     title: "A second pair of eyes on every approval",
     description:
-      "Members write requirements, test cases and automation. Leads approve them. Nobody approves their own submission while someone else can, and every step shows who did it and when.",
+      "Members write, leads approve, and nobody approves their own work while somebody else can. Every step shows who and when.",
     detail: "Leads · Members · Viewers · review queue",
   },
 ] as const;
@@ -121,37 +124,22 @@ const integrations = [
 const principles = [
   {
     title: "Evidence before confidence",
-    description:
-      "Every durable quality claim should link back to the Requirement, Test Case, artifact, run, or finding that supports it.",
+    description: "Every claim links to the record behind it.",
   },
   {
-    title: "AI proposes. Teams approve.",
-    description:
-      "AI can review, generate, and diagnose. It cannot silently change approved intent or turn generated output into trusted automation.",
+    title: "AI proposes. People approve.",
+    description: "It drafts, runs and diagnoses. It approves nothing.",
   },
   {
     title: "History stays inspectable",
-    description:
-      "Versions and execution attempts are preserved so a later edit never changes what the team previously reviewed or ran.",
+    description: "A later edit never changes what was reviewed or run.",
   },
 ] as const;
 
 const audiences = [
-  {
-    role: "QA and SDET leads",
-    outcome:
-      "Connect planning, automation, execution, and failure review without maintaining separate evidence spreadsheets.",
-  },
-  {
-    role: "Developers",
-    outcome:
-      "Get a clear next test, inspect generated Playwright code, and understand failures without losing engineering context.",
-  },
-  {
-    role: "Engineering managers",
-    outcome:
-      "See what is covered, what is unresolved, and which evidence is still missing before a release decision.",
-  },
+  { role: "QA and SDET leads", outcome: "One record for intent, automation, runs and failures." },
+  { role: "Developers", outcome: "The next test to write, and why the last one failed." },
+  { role: "Engineering managers", outcome: "What is verified and what is not, before you ship." },
 ] as const;
 
 function ArrowIcon() {
@@ -517,7 +505,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="mt-12 grid gap-5 lg:grid-cols-3">
+          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {integrations.map((integration) => (
               <div
                 key={integration.label}
@@ -554,28 +542,22 @@ export default function Home() {
 
       <section className="px-4 pb-20 sm:px-6 lg:px-8 lg:pb-28">
         <div className="mx-auto max-w-7xl">
-          <div className="text-center">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-700">
-              Designed for the whole delivery conversation
-            </p>
-            <h2 className="mx-auto mt-4 max-w-3xl text-4xl font-semibold tracking-[-0.045em] sm:text-5xl">
-              One shared view of quality, different decisions for each role
-            </h2>
-          </div>
-
-          <div className="mt-12 grid gap-5 md:grid-cols-3">
-            {audiences.map((audience, index) => (
-              <div key={audience.role} className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-                <span className="grid h-10 w-10 place-items-center rounded-xl bg-cyan-50 text-xs font-bold text-cyan-700">
-                  0{index + 1}
-                </span>
-                <h3 className="mt-6 text-xl font-semibold tracking-[-0.025em]">{audience.role}</h3>
-                <p className="mt-3 leading-7 text-slate-600">{audience.outcome}</p>
+          {/*
+            Three cards of prose answering "is this for me?" is a paragraph
+            each for a question that deserves a line each. The names are what
+            a visitor scans for; the sentence is confirmation, not an
+            argument.
+          */}
+          <div className="grid gap-x-10 gap-y-6 sm:grid-cols-3">
+            {audiences.map((audience) => (
+              <div key={audience.role}>
+                <h3 className="text-base font-semibold tracking-[-0.015em] text-slate-950">{audience.role}</h3>
+                <p className="mt-1.5 text-sm leading-6 text-slate-600">{audience.outcome}</p>
               </div>
             ))}
           </div>
 
-          <div className="mt-20 rounded-[2.25rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8 lg:p-10">
+          <div className="mt-14 rounded-[2.25rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8 lg:p-10">
             <div className="grid gap-10 lg:grid-cols-[0.78fr_1.22fr] lg:items-start">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-700">Trust model</p>
@@ -583,9 +565,8 @@ export default function Home() {
                   AI assistance without invisible authority
                 </h2>
                 <p className="mt-5 leading-7 text-slate-600">
-                  The goal is not maximum automation at any cost. The goal is
-                  faster quality work that remains reviewable, attributable, and
-                  safe to challenge.
+                  Not maximum automation at any cost: faster quality work that
+                  stays reviewable, attributable and safe to challenge.
                 </p>
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
