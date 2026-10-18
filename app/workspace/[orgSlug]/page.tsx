@@ -43,8 +43,8 @@ export default async function OrganizationWorkspacePage({
     <>
       <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Workspace</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Projects</h1>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">Workspace</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.02em]">Projects</h1>
           <p className="mt-2 text-sm text-slate-600">
             A project is one product or app you test: its requirements, test cases, automation and release evidence.
           </p>
@@ -113,7 +113,7 @@ export default async function OrganizationWorkspacePage({
               </p>
               <div className="mt-5 flex flex-wrap items-center gap-2">
                 {reviewCounts.get(project.id) ? (
-                  <span className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-800">
+                  <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800">
                     {reviewCounts.get(project.id)} waiting for review
                   </span>
                 ) : null}
@@ -200,7 +200,7 @@ function FirstProjectGuide({ href }: { href: string }) {
     <section className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="bg-slate-950 px-6 py-7 text-white sm:px-8">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-300">Start here</p>
-        <h2 className="mt-2 text-2xl font-semibold tracking-tight">
+        <h2 className="mt-2 text-2xl font-semibold tracking-[-0.02em]">
           From nothing to tests that prove your app works
         </h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">

@@ -35,8 +35,8 @@ function Metric({
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5">
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-slate-950">
         {value}
         {of === undefined ? null : <span className="text-slate-400"> of {of}</span>}
       </p>
@@ -114,7 +114,7 @@ export default async function ReleaseReadinessPage({
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
           {readiness.project.name}
         </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+        <h1 className="mt-2 text-3xl font-semibold tracking-[-0.02em] text-slate-950">
           Release readiness
         </h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
@@ -314,7 +314,7 @@ export default async function ReleaseReadinessPage({
         >
           {readiness.releasable ? "No blockers found" : "Release is blocked"}
         </p>
-        <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+        <h2 className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-slate-950">
           {readiness.releasable
             ? cautions.length === 0
               ? "Nothing is blocking this release."
@@ -369,7 +369,7 @@ export default async function ReleaseReadinessPage({
           ].map(([heading, list, border, badge]) =>
             list.length === 0 ? null : (
               <div key={heading}>
-                <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">
                   {heading}
                 </h3>
                 <div className="mt-3 space-y-3">

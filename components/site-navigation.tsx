@@ -29,14 +29,14 @@ export function SiteNavigation() {
     <nav className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
       <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-5 px-4 sm:px-6 lg:px-8">
         <Link href="/" className="group flex shrink-0 items-center gap-3">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-950 text-xs font-bold tracking-tight text-white shadow-sm transition group-hover:bg-cyan-600">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-950 text-xs font-bold tracking-[-0.02em] text-white shadow-sm transition group-hover:bg-cyan-600">
             PG
           </span>
           <span>
             <span className="block text-base font-bold tracking-[-0.02em] text-slate-950">
               PlaywrightGen
             </span>
-            <span className="hidden text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 sm:block">
+            <span className="hidden text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 sm:block">
               Quality operating system
             </span>
           </span>

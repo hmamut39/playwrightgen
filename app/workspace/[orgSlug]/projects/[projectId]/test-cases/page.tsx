@@ -42,7 +42,7 @@ export default async function TestCasesPage({
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-700">
             {project.name}
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Test Cases</h1>
+          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.02em]">Test Cases</h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
             Versioned, reviewable test intent with direct Requirement traceability.
           </p>
@@ -82,7 +82,7 @@ export default async function TestCasesPage({
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="font-semibold text-slate-950">{testCase.title}</h2>
-                      <span className="rounded bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
+                      <span className="rounded-lg bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
                         {testCase.type.replaceAll("_", " ")}
                       </span>
                     </div>

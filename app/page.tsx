@@ -190,12 +190,12 @@ export default function Home() {
 
         <div className="mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[1.02fr_0.98fr]">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-cyan-200">
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-cyan-200">
               <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_14px_rgba(103,232,249,0.85)]" />
               Evidence-backed quality for Playwright teams
             </div>
 
-            <h1 className="mt-7 max-w-4xl text-5xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-6xl lg:text-7xl">
+            <h1 className="mt-7 max-w-4xl text-5xl font-semibold leading-[0.98] tracking-[-0.035em] sm:text-6xl lg:text-7xl">
               Playwright tests
               <span className="block text-cyan-300">proven on your real page.</span>
             </h1>
@@ -211,7 +211,7 @@ export default function Home() {
                 Quick Generate with the loop already running. */}
             <form action="/generator" method="get" className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-3 sm:p-4">
               <input type="hidden" name="prove" value="1" />
-              <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+              <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
                 What should it test?
                 <input
                   name="request"
@@ -279,11 +279,11 @@ export default function Home() {
           </div>
 
           <div className="relative mx-auto w-full max-w-2xl lg:max-w-none">
-            <div className="absolute -inset-4 rounded-[2.2rem] bg-cyan-300/10 blur-2xl" />
+            <div className="absolute -inset-4 rounded-[2rem] bg-cyan-300/10 blur-2xl" />
             <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900/90 p-4 shadow-2xl shadow-black/40 backdrop-blur sm:p-6">
               <div className="flex items-center justify-between border-b border-white/10 pb-4">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-300">
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">
                     Quality evidence map
                   </p>
                   <p className="mt-1 text-sm text-slate-400">Illustrative project workflow</p>
@@ -342,10 +342,10 @@ export default function Home() {
       <section id="product" className="scroll-mt-24 px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
         <div className="mx-auto max-w-7xl">
           <div className="max-w-3xl">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-700">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-700">
               One product, two ways to start
             </p>
-            <h2 className="mt-4 text-4xl font-semibold tracking-[-0.045em] text-slate-950 sm:text-5xl">
+            <h2 className="mt-4 text-4xl font-semibold tracking-[-0.035em] text-slate-950 sm:text-5xl">
               Explore freely. Build trust in Workspace.
             </h2>
             <p className="mt-5 text-lg leading-8 text-slate-600">
@@ -358,8 +358,8 @@ export default function Home() {
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Free tools</p>
-                  <h3 className="mt-3 text-2xl font-semibold tracking-[-0.03em]">
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Free tools</p>
+                  <h3 className="mt-3 text-2xl font-semibold tracking-[-0.035em]">
                     Fast, preliminary analysis
                   </h3>
                 </div>
@@ -400,8 +400,8 @@ export default function Home() {
               <div className="relative">
                 <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-300">Workspace</p>
-                    <h3 className="mt-3 text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">Workspace</p>
+                    <h3 className="mt-3 text-2xl font-semibold tracking-[-0.035em] sm:text-3xl">
                       The system of record for quality
                     </h3>
                   </div>
@@ -444,10 +444,10 @@ export default function Home() {
         <div className="mx-auto max-w-7xl">
           <div className="grid gap-8 lg:grid-cols-[0.78fr_1.22fr] lg:gap-16">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-700">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-700">
                 The quality evidence loop
               </p>
-              <h2 className="mt-4 text-4xl font-semibold tracking-[-0.045em] sm:text-5xl">
+              <h2 className="mt-4 text-4xl font-semibold tracking-[-0.035em] sm:text-5xl">
                 From approved intent to an explainable release decision
               </h2>
               <p className="mt-5 text-lg leading-8 text-slate-600">
@@ -466,7 +466,7 @@ export default function Home() {
                     <span className="grid h-10 w-10 place-items-center rounded-xl bg-slate-950 text-xs font-bold text-white">
                       {item.step}
                     </span>
-                    <span className="text-xs font-bold uppercase tracking-[0.14em] text-cyan-700 sm:mt-2 sm:block">
+                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-700 sm:mt-2 sm:block">
                       {item.label}
                     </span>
                   </div>
@@ -492,10 +492,10 @@ export default function Home() {
       <section className="px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
         <div className="mx-auto max-w-7xl">
           <div className="max-w-3xl">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-700">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-700">
               Works where your team already works
             </p>
-            <h2 className="mt-4 text-4xl font-semibold tracking-[-0.045em] sm:text-5xl">
+            <h2 className="mt-4 text-4xl font-semibold tracking-[-0.035em] sm:text-5xl">
               Your editor writes the code. PlaywrightGen keeps the proof.
             </h2>
             <p className="mt-5 text-lg leading-8 text-slate-600">
@@ -509,12 +509,12 @@ export default function Home() {
             {integrations.map((integration) => (
               <div
                 key={integration.label}
-                className="flex flex-col rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm"
+                className="flex flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
               >
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-700">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-700">
                   {integration.label}
                 </p>
-                <h3 className="mt-4 text-xl font-semibold tracking-[-0.025em] text-slate-950">
+                <h3 className="mt-4 text-xl font-semibold tracking-[-0.02em] text-slate-950">
                   {integration.title}
                 </h3>
                 <p className="mt-3 flex-1 leading-7 text-slate-600">{integration.description}</p>
@@ -525,8 +525,8 @@ export default function Home() {
             ))}
           </div>
 
-          <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-slate-800 bg-slate-950 p-5 font-mono text-[13px] leading-6 text-slate-300 shadow-xl sm:p-7">
-            <p className="text-slate-500"># In VS Code, Cursor or Claude Code</p>
+          <div className="mt-6 overflow-hidden rounded-3xl border border-slate-800 bg-slate-950 p-5 font-mono text-[13px] leading-6 text-slate-300 shadow-xl sm:p-7">
+            <p className="text-slate-400"># In VS Code, Cursor or Claude Code</p>
             <p className="mt-2">
               <span className="text-cyan-300">you</span> Using PlaywrightGen, write the test for our checkout test case.
             </p>
@@ -551,17 +551,17 @@ export default function Home() {
           <div className="grid gap-x-10 gap-y-6 sm:grid-cols-3">
             {audiences.map((audience) => (
               <div key={audience.role}>
-                <h3 className="text-base font-semibold tracking-[-0.015em] text-slate-950">{audience.role}</h3>
+                <h3 className="text-base font-semibold tracking-[-0.02em] text-slate-950">{audience.role}</h3>
                 <p className="mt-1.5 text-sm leading-6 text-slate-600">{audience.outcome}</p>
               </div>
             ))}
           </div>
 
-          <div className="mt-14 rounded-[2.25rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8 lg:p-10">
+          <div className="mt-14 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8 lg:p-10">
             <div className="grid gap-10 lg:grid-cols-[0.78fr_1.22fr] lg:items-start">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-700">Trust model</p>
-                <h2 className="mt-4 text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-700">Trust model</p>
+                <h2 className="mt-4 text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">
                   AI assistance without invisible authority
                 </h2>
                 <p className="mt-5 leading-7 text-slate-600">
@@ -584,12 +584,12 @@ export default function Home() {
       </section>
 
       <section className="px-4 pb-20 sm:px-6 lg:px-8 lg:pb-28">
-        <div className="relative mx-auto max-w-7xl overflow-hidden rounded-[2.25rem] bg-slate-950 px-6 py-12 text-white shadow-xl sm:px-10 sm:py-14 lg:px-14">
+        <div className="relative mx-auto max-w-7xl overflow-hidden rounded-[2rem] bg-slate-950 px-6 py-12 text-white shadow-xl sm:px-10 sm:py-14 lg:px-14">
           <div className="pointer-events-none absolute right-[-8rem] top-[-10rem] h-80 w-80 rounded-full bg-cyan-400/20 blur-3xl" />
           <div className="relative flex flex-col justify-between gap-9 lg:flex-row lg:items-end">
             <div className="max-w-3xl">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-300">Start with the evidence you have</p>
-              <h2 className="mt-4 text-4xl font-semibold tracking-[-0.045em] sm:text-5xl">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">Start with the evidence you have</p>
+              <h2 className="mt-4 text-4xl font-semibold tracking-[-0.035em] sm:text-5xl">
                 Turn the next quality question into a durable team decision.
               </h2>
               <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300">

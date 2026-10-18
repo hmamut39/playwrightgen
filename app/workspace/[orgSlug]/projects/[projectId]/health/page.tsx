@@ -36,7 +36,7 @@ function Card({ href, title, children }: { href: string; title: string; children
       className="block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 sm:p-5"
     >
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">{title}</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">{title}</h2>
         <span aria-hidden className="text-slate-400">&rarr;</span>
       </div>
       <div className="mt-2 text-sm leading-6 text-slate-700">{children}</div>
@@ -45,7 +45,7 @@ function Card({ href, title, children }: { href: string; title: string; children
 }
 
 function Big({ children, tone = "text-slate-950" }: { children: React.ReactNode; tone?: string }) {
-  return <p className={`text-2xl font-semibold tracking-tight ${tone}`}>{children}</p>;
+  return <p className={`text-2xl font-semibold tracking-[-0.02em] ${tone}`}>{children}</p>;
 }
 
 export default async function ProjectHealthPage({
@@ -136,7 +136,7 @@ export default async function ProjectHealthPage({
 
       <header>
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">Health</p>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">{project.name}</h1>
+        <h1 className="mt-2 text-2xl font-semibold tracking-[-0.02em] sm:text-3xl">{project.name}</h1>
       </header>
 
       <section aria-label="Verdict" className={`mt-5 rounded-2xl border p-5 ${style.box}`}>

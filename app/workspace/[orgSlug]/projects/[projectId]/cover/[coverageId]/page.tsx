@@ -77,7 +77,7 @@ export default async function PageCoverageDetail({
       <p className="mt-6 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
         {run.status === "PLANNING" ? "Planning" : run.status === "PLAN_FAILED" ? "No plan" : run.status === "PLANNED" ? "Plan" : run.status === "DONE" ? "Covered" : run.status === "PAUSED" ? "Paused" : "Proving"}
       </p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight">{run.pageTitle}</h1>
+      <h1 className="mt-2 text-3xl font-semibold tracking-[-0.02em]">{run.pageTitle}</h1>
       <p className="mt-1 break-all text-sm text-slate-500">{run.pageUrl}</p>
 
       {run.status === "PLANNING" ? (

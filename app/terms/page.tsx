@@ -33,10 +33,10 @@ export default function TermsPage() {
     <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-700 sm:px-6 lg:py-14">
       <article className="mx-auto max-w-4xl overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
         <header className="bg-slate-950 px-6 py-10 text-white sm:px-10">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-300">
             Protected product preview
           </p>
-          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em]">
+          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.035em]">
             Preview terms
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300">

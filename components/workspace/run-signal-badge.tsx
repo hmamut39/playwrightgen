@@ -13,7 +13,7 @@ const signalStyle: Record<RunSignal, string> = {
   // Distinct from stable on purpose. A single passing revision is good news and
   // is shown as such, but it must not borrow the confidence of a result that
   // has held across changes.
-  PASSING: "bg-sky-50 text-sky-700 ring-sky-200",
+  PASSING: "bg-cyan-50 text-cyan-700 ring-cyan-200",
   FLAKY: "bg-amber-50 text-amber-800 ring-amber-200",
   REGRESSION: "bg-red-50 text-red-700 ring-red-200",
   INTENT_CHANGED: "bg-violet-50 text-violet-700 ring-violet-200",

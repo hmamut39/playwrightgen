@@ -245,9 +245,9 @@ export default async function TestCaseDetailPage({
           <div className="flex flex-wrap items-center gap-3">
             <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusStyle[testCase.status]}`}>{testCase.status.replace("_", " ")}</span>
             <span className="text-xs text-slate-400">Version {testCase.currentVersionNumber}</span>
-            <span className="rounded bg-violet-50 px-2 py-1 text-xs font-semibold text-violet-700">{testCase.type.replaceAll("_", " ")}</span>
+            <span className="rounded-lg bg-violet-50 px-2 py-1 text-xs font-semibold text-violet-700">{testCase.type.replaceAll("_", " ")}</span>
           </div>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight">{testCase.title}</h1>
+          <h1 className="mt-3 text-3xl font-semibold tracking-[-0.02em]">{testCase.title}</h1>
           <p className="mt-3 text-sm text-slate-500">{humanLabel(testCase.priority)} priority · {testCase.automationStatus === "AUTOMATED" ? "Automated" : testCase.automationStatus === "DRAFT" ? "Automation in progress" : "Not automated yet"} · Owner: {personName(testCase.owner.displayName)}</p>
         </div>
         <div id="review-actions" className="flex flex-wrap gap-2">
@@ -283,9 +283,9 @@ export default async function TestCaseDetailPage({
         </form>
       ) : (
         <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Objective</h2><p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">{testCase.objective}</p>
-          <h2 className="mt-7 border-t pt-6 text-sm font-semibold uppercase tracking-wide text-slate-400">Preconditions</h2><p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">{testCase.preconditions || "None specified."}</p>
-          <div className="mt-7 grid gap-6 border-t pt-6 sm:grid-cols-2"><div><h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Steps</h2><ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-slate-700">{steps.map((step, index) => <li key={`${index}-${step}`}>{step}</li>)}</ol></div><div><h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Expected results</h2><ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-slate-700">{expectedResults.map((result, index) => <li key={`${index}-${result}`}>{result}</li>)}</ul></div></div>
+          <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">Objective</h2><p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">{testCase.objective}</p>
+          <h2 className="mt-7 border-t pt-6 text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">Preconditions</h2><p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">{testCase.preconditions || "None specified."}</p>
+          <div className="mt-7 grid gap-6 border-t pt-6 sm:grid-cols-2"><div><h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">Steps</h2><ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-slate-700">{steps.map((step, index) => <li key={`${index}-${step}`}>{step}</li>)}</ol></div><div><h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">Expected results</h2><ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-slate-700">{expectedResults.map((result, index) => <li key={`${index}-${result}`}>{result}</li>)}</ul></div></div>
         </section>
       )}
 

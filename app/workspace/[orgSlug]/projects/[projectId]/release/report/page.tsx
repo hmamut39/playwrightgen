@@ -84,7 +84,7 @@ export default async function ReleaseEvidenceReportPage({
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
           {report.organization.name} · {report.project.name}
         </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+        <h1 className="mt-2 text-3xl font-semibold tracking-[-0.02em] text-slate-950">
           Release evidence report
         </h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
@@ -122,7 +122,7 @@ export default async function ReleaseEvidenceReportPage({
         // A release is read from the tracker rather than kept here, so these
         // are the team's own milestones and cannot drift from them.
         <nav className="mt-6 flex flex-wrap items-center gap-2 print:hidden" aria-label="Release scope">
-          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Showing</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Showing</span>
           <Link
             href={`${base}/release/report`}
             className={
@@ -176,8 +176,8 @@ export default async function ReleaseEvidenceReportPage({
           ] as const
         ).map(([label, value, style]) => (
           <div key={label} className={`rounded-2xl border p-5 ${style}`}>
-            <p className="text-xs font-semibold uppercase tracking-[0.14em]">{label}</p>
-            <p className="mt-2 text-3xl font-semibold tracking-tight">{value}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em]">{label}</p>
+            <p className="mt-2 text-3xl font-semibold tracking-[-0.02em]">{value}</p>
           </div>
         ))}
       </section>
@@ -227,7 +227,7 @@ export default async function ReleaseEvidenceReportPage({
                 <div className="mt-4 overflow-x-auto">
                   <table className="w-full min-w-[36rem] border-collapse text-left text-sm">
                     <thead>
-                      <tr className="border-b border-slate-200 text-xs uppercase tracking-[0.1em] text-slate-500">
+                      <tr className="border-b border-slate-200 text-xs uppercase tracking-[0.16em] text-slate-500">
                         <th className="py-2 pr-3 font-semibold">Test Case</th>
                         <th className="py-2 pr-3 font-semibold">State</th>
                         <th className="py-2 pr-3 font-semibold">Last result</th>

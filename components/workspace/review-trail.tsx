@@ -41,7 +41,7 @@ export function ReviewTrailPanel({
       <dl className="flex flex-wrap gap-x-10 gap-y-3">
         {trail.submitted ? (
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <dt className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
               Submitted for review
             </dt>
             <dd className="mt-1 text-slate-800">
@@ -51,7 +51,7 @@ export function ReviewTrailPanel({
         ) : null}
         {decision ? (
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <dt className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
               {decision.kind === "approved" ? "Approved" : "Changes requested"}
             </dt>
             <dd
@@ -66,7 +66,7 @@ export function ReviewTrailPanel({
         <p
           className={`mt-3 rounded-lg px-3 py-2 leading-6 ${
             trail.awaitingAnotherApprover
-              ? "bg-sky-50 text-sky-900"
+              ? "bg-cyan-50 text-cyan-900"
               : "bg-amber-50 text-amber-900"
           }`}
         >

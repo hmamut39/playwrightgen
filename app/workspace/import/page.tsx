@@ -111,8 +111,8 @@ export default async function WorkspaceImportPage() {
         <Link href="/workspace" className="text-sm font-semibold text-cyan-700 hover:text-cyan-900">
           ← Workspace
         </Link>
-        <p className="mt-8 text-xs font-bold uppercase tracking-[0.18em] text-cyan-700">Trusted transition</p>
-        <h1 className="mt-3 text-4xl font-semibold tracking-[-0.045em] text-slate-950 sm:text-5xl">
+        <p className="mt-8 text-xs font-bold uppercase tracking-[0.16em] text-cyan-700">Trusted transition</p>
+        <h1 className="mt-3 text-4xl font-semibold tracking-[-0.035em] text-slate-950 sm:text-5xl">
           Continue preliminary work inside a real project
         </h1>
         <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">

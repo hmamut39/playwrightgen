@@ -83,7 +83,7 @@ export default function PricingPage() {
               <span className="inline-flex rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1.5 text-xs font-semibold text-cyan-200">
                 Public product preview
               </span>
-              <h1 className="mt-6 text-4xl font-semibold tracking-[-0.045em] sm:text-5xl">
+              <h1 className="mt-6 text-4xl font-semibold tracking-[-0.035em] sm:text-5xl">
                 Start free. Pay only when the team platform is production-ready.
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">
@@ -106,7 +106,7 @@ export default function PricingPage() {
           {plans.map((plan) => (
             <article
               key={plan.name}
-              className={`rounded-[1.75rem] border p-6 shadow-sm sm:p-8 ${
+              className={`rounded-3xl border p-6 shadow-sm sm:p-8 ${
                 plan.featured
                   ? "border-cyan-300 bg-cyan-50/70"
                   : "border-slate-200 bg-white"
@@ -116,12 +116,12 @@ export default function PricingPage() {
                 <div>
                   <p className="text-sm font-semibold text-slate-950">{plan.name}</p>
                   <div className="mt-4 flex items-end gap-3">
-                    <p className="text-4xl font-semibold tracking-[-0.04em] text-slate-950">{plan.price}</p>
+                    <p className="text-4xl font-semibold tracking-[-0.035em] text-slate-950">{plan.price}</p>
                     <p className="pb-1 text-xs font-medium text-slate-500">{plan.suffix}</p>
                   </div>
                 </div>
                 {plan.featured ? (
-                  <span className="rounded-full bg-cyan-600 px-3 py-1 text-xs font-semibold text-white">
+                  <span className="rounded-full bg-cyan-700 px-3 py-1 text-xs font-semibold text-white">
                     Best product experience
                   </span>
                 ) : null}
@@ -141,7 +141,7 @@ export default function PricingPage() {
                 href={plan.href}
                 className={`mt-8 inline-flex min-h-11 w-full items-center justify-center rounded-xl px-5 text-sm font-semibold transition ${
                   plan.featured
-                    ? "bg-cyan-600 text-white hover:bg-cyan-500"
+                    ? "bg-cyan-700 text-white hover:bg-cyan-600"
                     : "border border-slate-300 bg-white text-slate-800 hover:border-cyan-300 hover:bg-cyan-50"
                 }`}
               >
@@ -156,7 +156,7 @@ export default function PricingPage() {
             CI ingestion, evidence reports, automatic failure analysis -- so the
             price is stated, and the promise that pricing would arrive with real
             entitlements is kept rather than quietly dropped. */}
-        <section className="mt-4 rounded-[1.75rem] border border-slate-900 bg-slate-950 p-6 text-white shadow-sm sm:p-8">
+        <section className="mt-4 rounded-3xl border border-slate-900 bg-slate-950 p-6 text-white shadow-sm sm:p-8">
           <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-start">
             <div className="max-w-3xl">
               <div className="flex flex-wrap items-center gap-2">
@@ -165,7 +165,7 @@ export default function PricingPage() {
                   {PRO_PLAN.trialLabel}
                 </span>
               </div>
-              <p className="mt-3 text-4xl font-bold tracking-tight">
+              <p className="mt-3 text-4xl font-bold tracking-[-0.02em]">
                 {PRO_PLAN.priceLabel}
                 <span className="ml-2 text-sm font-normal text-slate-400">
                   {PRO_PLAN.intervalLabel}
@@ -198,9 +198,9 @@ export default function PricingPage() {
 
       {showWaitlist ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/70 px-4 backdrop-blur-sm">
-          <div role="dialog" aria-modal="true" aria-labelledby="waitlist-title" className="w-full max-w-md rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-2xl">
+          <div role="dialog" aria-modal="true" aria-labelledby="waitlist-title" className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
             <span className="inline-flex rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">Team + CI</span>
-            <h2 id="waitlist-title" className="mt-4 text-2xl font-semibold tracking-[-0.03em] text-slate-950">Join the product waitlist</h2>
+            <h2 id="waitlist-title" className="mt-4 text-2xl font-semibold tracking-[-0.035em] text-slate-950">Join the product waitlist</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
               Get launch updates when GitHub, runners, entitlements, and support are ready for real teams.
             </p>
@@ -217,7 +217,7 @@ export default function PricingPage() {
             {waitlistMessage ? <p className="mt-3 text-sm text-slate-600" role="status">{waitlistMessage}</p> : null}
             <div className="mt-6 flex gap-3">
               <button type="button" onClick={() => setShowWaitlist(false)} className="min-h-11 flex-1 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Close</button>
-              <button type="button" onClick={joinWaitlist} disabled={waitlistLoading} className="min-h-11 flex-1 rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50">
+              <button type="button" onClick={joinWaitlist} disabled={waitlistLoading} className="min-h-11 flex-1 rounded-xl bg-cyan-700 px-4 text-sm font-semibold text-white hover:bg-cyan-600 disabled:opacity-50">
                 {waitlistLoading ? "Joining…" : "Join waitlist"}
               </button>
             </div>

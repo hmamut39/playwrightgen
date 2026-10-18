@@ -28,7 +28,7 @@ export function CopyField({ label, value, secret = false }: CopyFieldProps) {
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-1.5">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+      <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
         {label}
       </span>
       <div className="flex items-center gap-2">
@@ -122,7 +122,7 @@ export function CiSetupPanel({
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
         Continuous integration
       </p>
-      <h2 className="mt-2 text-xl font-semibold tracking-tight">
+      <h2 className="mt-2 text-xl font-semibold tracking-[-0.02em]">
         Run tests in your own CI
       </h2>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
@@ -207,7 +207,7 @@ export function CiSetupPanel({
                         <code className="min-w-0 truncate font-mono text-xs text-slate-700">
                           {CI_TEMPLATES[name].destination}
                         </code>
-                        <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-cyan-700">
+                        <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-700">
                           Download
                         </span>
                       </span>
@@ -238,7 +238,7 @@ export function CiSetupPanel({
                 : "mt-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-3.5"
             }
           >
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
               Last results delivery
             </p>
             {lastRejection ? (

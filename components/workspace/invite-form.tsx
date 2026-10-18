@@ -25,7 +25,7 @@ export function InviteForm({
             required
             autoComplete="off"
             placeholder="colleague@company.com"
-            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60"
+            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60"
           />
         </label>
         <label className="block text-sm font-medium text-slate-800 sm:w-44">
@@ -33,7 +33,7 @@ export function InviteForm({
           <select
             name="role"
             defaultValue="MEMBER"
-            className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60"
+            className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60"
           >
             <option value="MEMBER">Member</option>
             <option value="PROJECT_LEAD">Lead</option>

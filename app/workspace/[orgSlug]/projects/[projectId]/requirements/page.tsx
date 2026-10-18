@@ -47,10 +47,10 @@ export default async function ProjectRequirementsPage({
       <ProjectNavigation organizationSlug={orgSlug} projectId={projectId} />
       <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
             {project.name}
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Requirements</h1>
+          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.02em]">Requirements</h1>
           <p className="mt-2 text-sm text-slate-600">
             Versioned product intent moving from draft through review and approval.
           </p>

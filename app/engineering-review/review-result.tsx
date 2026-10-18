@@ -26,17 +26,17 @@ export function ReviewResult({
                 <section
                     ref={sectionRef}
                     aria-labelledby="impact-analysis-heading"
-                    className="mx-auto mt-10 max-w-5xl scroll-mt-6 rounded-[2rem] border border-sky-200 bg-slate-100/80 p-4 shadow-sm sm:p-7"
+                    className="mx-auto mt-10 max-w-5xl scroll-mt-6 rounded-[2rem] border border-cyan-200 bg-slate-100/80 p-4 shadow-sm sm:p-7"
                 >
-                    <header className="rounded-2xl border border-sky-200 bg-white p-5 sm:p-6">
+                    <header className="rounded-2xl border border-cyan-200 bg-white p-5 sm:p-6">
                         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">
+                                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
                                     AI Impact Analysis
                                 </p>
                                 <h2
                                     id="impact-analysis-heading"
-                                    className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl"
+                                    className="mt-2 text-2xl font-bold tracking-[-0.02em] text-slate-950 sm:text-3xl"
                                 >
                                     Change impact results
                                 </h2>
@@ -102,7 +102,7 @@ export function ReviewResult({
                             <section className="rounded-2xl border border-cyan-200 bg-cyan-50 p-5 sm:p-6">
                                 <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
                                     <div>
-                                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-800">
+                                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-800">
                                             Turn analysis into owned work
                                         </p>
                                         <h3 className="mt-2 text-xl font-semibold text-slate-950">
@@ -128,14 +128,14 @@ export function ReviewResult({
                             <button
                                 type="button"
                                 onClick={onAnalyzeAnother}
-                                className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-2 text-sm font-semibold text-slate-800 transition hover:border-sky-300 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                                className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-2 text-sm font-semibold text-slate-800 transition hover:border-cyan-300 hover:bg-cyan-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
                             >
                                 Analyze Another Change
                             </button>
                             <button
                                 type="button"
                                 onClick={onBackToInput}
-                                className="inline-flex min-h-11 items-center justify-center rounded-xl px-5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                                className="inline-flex min-h-11 items-center justify-center rounded-xl px-5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
                             >
                                 Back to Change Input
                             </button>
@@ -147,10 +147,10 @@ export function ReviewResult({
 
 function ImpactSummary({ result }: { result: EngineeringReviewResult }) {
     return (
-        <section className="rounded-2xl border border-sky-300 bg-sky-50 p-5 shadow-sm sm:p-6">
+        <section className="rounded-2xl border border-cyan-300 bg-cyan-50 p-5 shadow-sm sm:p-6">
             <h3 className="text-xl font-bold text-slate-950">Impact Summary</h3>
             <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_auto]">
-                <div className="rounded-xl border border-sky-100 bg-white p-5">
+                <div className="rounded-xl border border-cyan-100 bg-white p-5">
                     <p className="text-base leading-7 text-slate-700">
                         {result.executiveSummary}
                     </p>
@@ -162,7 +162,7 @@ function ImpactSummary({ result }: { result: EngineeringReviewResult }) {
                     that next to it, along with the one action that raises it,
                     keeps it from being read as a quality score. */}
                 <div className="rounded-xl bg-slate-950 p-5 text-white lg:min-w-56">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-200">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200">
                         Evidence Confidence
                     </p>
                     <p className="mt-2 text-3xl font-bold">{result.overallScore}%</p>
@@ -172,14 +172,14 @@ function ImpactSummary({ result }: { result: EngineeringReviewResult }) {
                         score.
                     </p>
                     {result.overallScore < 85 ? (
-                        <p className="mt-2 text-xs leading-5 text-sky-200">
+                        <p className="mt-2 text-xs leading-5 text-cyan-200">
                             Attach the source files the change touches to raise it.
                         </p>
                     ) : null}
                 </div>
             </div>
-            <div className="mt-4 rounded-xl border border-sky-200 bg-white p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+            <div className="mt-4 rounded-xl border border-cyan-200 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                     Evidence quality
                 </p>
                 <p className="mt-2 text-sm leading-6 text-slate-700">
@@ -233,7 +233,7 @@ function FindingCard({
 function InfoBlock({ label, value }: { label: string; value: string }) {
     return (
         <div className="rounded-xl border border-slate-200 bg-white p-3">
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                 {label}
             </p>
             <p>{value}</p>
@@ -247,19 +247,19 @@ function EvidenceBlock({ value }: { value: string }) {
         marker === "[CONFIRMED]"
             ? "border-emerald-200 bg-emerald-50 text-emerald-700"
             : marker === "[LIKELY]"
-              ? "border-sky-200 bg-sky-50 text-sky-700"
+              ? "border-cyan-200 bg-cyan-50 text-cyan-700"
               : marker === "[POSSIBLE]"
                 ? "border-amber-200 bg-amber-50 text-amber-700"
                 : "border-slate-300 bg-slate-100 text-slate-700";
 
     return (
-        <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-sky-800">
+        <div className="rounded-xl border border-cyan-200 bg-cyan-50/70 p-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-800">
                 Evidence
             </p>
             <p className="text-slate-700">
                 {marker && (
-                    <span className={`mr-2 inline-flex rounded-full border px-2 py-0.5 text-[0.7rem] font-bold tracking-wide ${markerClassName}`}>
+                    <span className={`mr-2 inline-flex rounded-full border px-2 py-0.5 text-[0.7rem] font-bold tracking-[0.16em] ${markerClassName}`}>
                         {marker}
                     </span>
                 )}

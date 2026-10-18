@@ -45,7 +45,7 @@ export default async function TestRunsPage({
       <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">{project.name}</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Test Runs</h1>
+          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.02em]">Test Runs</h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
             Every time a test runs, the result is kept exactly as it happened and tied to the approved version it ran.
             Keeping the version and the revision with each result is how a test that is merely flaky can be told apart

@@ -219,7 +219,7 @@ export default async function AutomationArtifactPage({
               {artifact.approvedVersionNumber ?? "—"}
             </span>
           </div>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight">{artifact.name}</h1>
+          <h1 className="mt-3 text-3xl font-semibold tracking-[-0.02em]">{artifact.name}</h1>
           <p className="mt-3 text-sm text-slate-500">
             Pinned to{" "}
             <Link
@@ -355,7 +355,7 @@ export default async function AutomationArtifactPage({
                     <ul className="mt-2 space-y-1.5">
                       {liveRun.notRunLines.map((entry) => (
                         <li key={entry.line} className="break-words">
-                          <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px]">{entry.line}</code>
+                          <code className="rounded-lg bg-slate-100 px-1 py-0.5 font-mono text-[11px]">{entry.line}</code>
                           {entry.reason ? <span className="ml-1 text-slate-500">— {entry.reason}</span> : null}
                         </li>
                       ))}
@@ -452,7 +452,7 @@ export default async function AutomationArtifactPage({
                               {item.intent}
                             </p>
                             <p className="mt-3 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs leading-5 text-cyan-900">
-                              <span className="font-semibold uppercase tracking-[0.08em]">
+                              <span className="font-semibold uppercase tracking-[0.16em]">
                                 Asserts
                               </span>
                               <br />
@@ -510,7 +510,7 @@ export default async function AutomationArtifactPage({
                       <>
                         Use the Copy button above and save it under your Playwright
                         test directory, usually{" "}
-                        <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">
+                        <code className="rounded-lg bg-slate-100 px-1.5 py-0.5 font-mono text-xs">
                           tests/
                         </code>
                         . PlaywrightGen never runs your tests; they run on your
@@ -521,7 +521,7 @@ export default async function AutomationArtifactPage({
                       "Leave the test title alone",
                       <>
                         The title starts with a marker like{" "}
-                        <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">
+                        <code className="rounded-lg bg-slate-100 px-1.5 py-0.5 font-mono text-xs">
                           [pwg:…]
                         </code>
                         . That marker is how a result finds the approved Test Case

@@ -250,7 +250,7 @@ export default async function RequirementDetailPage({
     <div className="mx-auto max-w-5xl">
       <Link
         href={listPath}
-        className="text-sm font-medium text-sky-700 hover:text-sky-900"
+        className="text-sm font-medium text-cyan-700 hover:text-cyan-900"
       >
         ← Requirements
       </Link>
@@ -276,7 +276,7 @@ export default async function RequirementDetailPage({
               Version {requirement.currentVersionNumber}
             </span>
           </div>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight">
+          <h1 className="mt-3 text-3xl font-semibold tracking-[-0.02em]">
             {requirement.title}
           </h1>
           <p className="mt-3 text-sm text-slate-500">
@@ -452,7 +452,7 @@ export default async function RequirementDetailPage({
               required
               maxLength={300}
               defaultValue={requirement.title}
-              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60"
+              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60"
             />
           </label>
           <label className="block text-sm font-medium">
@@ -462,7 +462,7 @@ export default async function RequirementDetailPage({
               rows={7}
               maxLength={50000}
               defaultValue={requirement.description}
-              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60"
+              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60"
             />
           </label>
           <label className="block text-sm font-medium">
@@ -472,7 +472,7 @@ export default async function RequirementDetailPage({
               rows={7}
               maxLength={50000}
               defaultValue={requirement.acceptanceCriteria}
-              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60"
+              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60"
             />
           </label>
           <label className="block text-sm font-medium">
@@ -481,7 +481,7 @@ export default async function RequirementDetailPage({
               name="externalReference"
               maxLength={500}
               defaultValue={requirement.externalReference ?? ""}
-              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60"
+              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60"
             />
           </label>
           <button className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">
@@ -490,13 +490,13 @@ export default async function RequirementDetailPage({
         </form>
       ) : (
         <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">
             Description
           </h2>
           <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">
             {requirement.description || "No description provided."}
           </p>
-          <h2 className="mt-8 border-t border-slate-200 pt-6 text-sm font-semibold uppercase tracking-wide text-slate-400">
+          <h2 className="mt-8 border-t border-slate-200 pt-6 text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">
             Acceptance criteria
           </h2>
           <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">
@@ -507,10 +507,10 @@ export default async function RequirementDetailPage({
 
       <RequirementGaps action={readGapsAction} />
 
-      <section className="mt-8 rounded-2xl border border-sky-200 bg-sky-50/40 p-6 shadow-sm sm:p-8">
+      <section className="mt-8 rounded-2xl border border-cyan-200 bg-cyan-50/40 p-6 shadow-sm sm:p-8">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
               Advisory analysis
             </p>
             <h2 className="mt-2 text-lg font-semibold">AI Requirement Review</h2>
@@ -522,7 +522,7 @@ export default async function RequirementDetailPage({
           </div>
           {detail.canUpdate && requirement.status !== "ARCHIVED" ? (
             <form action={runReviewAction} className="max-w-xs">
-              <PendingButton pendingLabel="Reviewing…" className="rounded-lg bg-sky-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-900">
+              <PendingButton pendingLabel="Reviewing…" className="rounded-lg bg-cyan-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-900">
                 Run AI review
               </PendingButton>
               <PendingNotice>
@@ -534,7 +534,7 @@ export default async function RequirementDetailPage({
         </div>
 
         {reviews.length === 0 ? (
-          <p className="mt-6 rounded-xl border border-dashed border-sky-200 bg-white px-4 py-5 text-sm text-slate-500">
+          <p className="mt-6 rounded-xl border border-dashed border-cyan-200 bg-white px-4 py-5 text-sm text-slate-500">
             No AI review has been run for this requirement.
           </p>
         ) : (
@@ -563,7 +563,7 @@ export default async function RequirementDetailPage({
                     <div key={suggestion.id} className="rounded-lg border border-slate-200 p-4">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
                             {suggestion.category.replaceAll("_", " ")} · {suggestion.severity}
                           </p>
                           <h3 className="mt-1 text-sm font-semibold">{suggestion.title}</h3>
@@ -628,7 +628,7 @@ export default async function RequirementDetailPage({
                 <p className="mt-3 whitespace-pre-wrap leading-6">
                   {version.description || "No description."}
                 </p>
-                <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
                   Acceptance criteria
                 </p>
                 <p className="mt-2 whitespace-pre-wrap leading-6">

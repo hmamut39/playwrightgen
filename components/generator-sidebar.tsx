@@ -81,13 +81,13 @@ export default function GeneratorSidebar({
   }, [historyItems, search]);
 
   return (
-    <aside className="flex h-full w-[19rem] flex-col border-r border-gray-200 bg-white pt-4 lg:h-screen lg:w-[290px] lg:pt-0">
-      <div className="border-b border-gray-200 px-4 py-4">
+    <aside className="flex h-full w-[19rem] flex-col border-r border-slate-200 bg-white pt-4 lg:h-screen lg:w-[290px] lg:pt-0">
+      <div className="border-b border-slate-200 px-4 py-4">
         <div className="text-lg font-semibold text-black">PlaywrightGen</div>
-        <div className="text-xs text-gray-500">AI test workspace</div>
+        <div className="text-xs text-slate-500">AI test workspace</div>
       </div>
 
-      <div className="space-y-3 border-b border-gray-200 p-4">
+      <div className="space-y-3 border-b border-slate-200 p-4">
         <button
           type="button"
           onClick={onNew}
@@ -101,14 +101,14 @@ export default function GeneratorSidebar({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search history"
-          className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-black"
+          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-black"
         />
       </div>
 
-      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
         <div>
           <div className="text-sm font-medium text-black">History</div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-slate-500">
             {filteredHistoryItems.length} item{filteredHistoryItems.length === 1 ? "" : "s"}
           </div>
         </div>
@@ -117,7 +117,7 @@ export default function GeneratorSidebar({
           <button
             type="button"
             onClick={onClear}
-            className="text-xs text-gray-500 transition hover:text-black"
+            className="text-xs text-slate-500 transition hover:text-black"
           >
             Clear
           </button>
@@ -127,7 +127,7 @@ export default function GeneratorSidebar({
       <div className="flex-1 overflow-y-auto p-3">
         <div className="space-y-2">
           {filteredHistoryItems.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-400">
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-400">
               No saved history yet.
             </div>
           ) : (
@@ -137,7 +137,7 @@ export default function GeneratorSidebar({
                 className={`flex items-start gap-2 rounded-2xl border p-3 transition ${
                   selectedHistoryId === item.id
                     ? "border-black bg-black text-white"
-                    : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                 }`}
               >
                 <button
@@ -146,7 +146,7 @@ export default function GeneratorSidebar({
                   className="min-w-0 flex-1 text-left"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <span className="text-[11px] font-medium uppercase tracking-[0.14em] opacity-70">
+                    <span className="text-[11px] font-medium uppercase tracking-[0.16em] opacity-70">
                       {item.tabType === "debug"
                         ? "debug"
                         : item.generationType === "url"
@@ -172,10 +172,10 @@ export default function GeneratorSidebar({
                     e.stopPropagation();
                     onDelete(item.id);
                   }}
-                  className={`mt-1 shrink-0 rounded-md p-2 transition ${
+                  className={`mt-1 shrink-0 rounded-lg p-2 transition ${
                     selectedHistoryId === item.id
                       ? "text-white/70 hover:bg-white/10 hover:text-white"
-                      : "text-gray-400 hover:bg-gray-100 hover:text-red-500"
+                      : "text-slate-400 hover:bg-slate-100 hover:text-red-500"
                   }`}
                   aria-label="Delete history item"
                   title="Delete"
@@ -188,15 +188,15 @@ export default function GeneratorSidebar({
         </div>
       </div>
 
-      <div className="space-y-3 border-t border-gray-200 bg-white p-4">
-        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
-          <div className="text-xs uppercase tracking-[0.16em] text-gray-400">
+      <div className="space-y-3 border-t border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
             Plan
           </div>
           <div className="mt-1 text-sm font-medium text-black">
             {isProVerified ? "Pro active" : "Free plan"}
           </div>
-          <div className="mt-1 text-xs text-gray-500">
+          <div className="mt-1 text-xs text-slate-500">
             {isProVerified
               ? "Unlimited Pro workflow access"
               : hasSyncedUsage
@@ -206,7 +206,7 @@ export default function GeneratorSidebar({
         </div>
 
         {userEmail && (
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
             Signed in as:
             <div className="mt-1 break-all font-medium text-black">{userEmail}</div>
           </div>
@@ -215,7 +215,7 @@ export default function GeneratorSidebar({
         <button
           type="button"
           onClick={onLogout}
-          className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-black hover:text-black"
+          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-black hover:text-black"
         >
           Logout
         </button>

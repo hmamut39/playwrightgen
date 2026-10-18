@@ -379,11 +379,11 @@ export default function EngineeringReviewPage() {
     return (
         <main className="min-h-screen bg-[#F8FAFC] px-4 py-8 sm:px-6 sm:py-10">
             <div className="mx-auto max-w-7xl">
-                <section className="rounded-[2rem] border border-sky-100 bg-white p-6 shadow-sm sm:p-8">
-                    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-sky-600">
+                <section className="rounded-[2rem] border border-cyan-100 bg-white p-6 shadow-sm sm:p-8">
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-600">
                         Free Tool · Release Review
                     </p>
-                    <h1 className="max-w-4xl text-3xl font-bold tracking-tight text-slate-950 sm:text-5xl">
+                    <h1 className="max-w-4xl text-3xl font-bold tracking-[-0.02em] text-slate-950 sm:text-5xl">
                         Review change risk before calling it release-ready
                     </h1>
                     <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600 sm:text-lg">
@@ -393,7 +393,7 @@ export default function EngineeringReviewPage() {
                     </p>
                     <Link
                         href="/workspace"
-                        className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-sky-600"
+                        className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-cyan-600"
                     >
                         Continue with project evidence →
                     </Link>
@@ -405,12 +405,12 @@ export default function EngineeringReviewPage() {
                     className="mx-auto mt-8 max-w-5xl scroll-mt-6 rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm sm:p-7"
                 >
                     <header className="border-b border-slate-200 px-2 pb-6 sm:px-1">
-                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
                             Change Input
                         </p>
                         <h2
                             id="change-input-heading"
-                            className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl"
+                            className="mt-2 text-2xl font-bold tracking-[-0.02em] text-slate-950 sm:text-3xl"
                         >
                             Describe the software change
                         </h2>
@@ -426,7 +426,7 @@ export default function EngineeringReviewPage() {
                             <button
                                 type="button"
                                 onClick={applyExample}
-                                className="rounded-xl border border-sky-300 bg-sky-50 px-3.5 py-2 text-xs font-semibold text-sky-800 transition hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60"
+                                className="rounded-xl border border-cyan-300 bg-cyan-50 px-3.5 py-2 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
                             >
                                 Fill in an example
                             </button>
@@ -454,7 +454,7 @@ export default function EngineeringReviewPage() {
                                         invalidateResult();
                                     }}
                                     placeholder="Example: Add MFA to Admin Dashboard"
-                                    className="-mt-3 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                                    className="-mt-3 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                                 />
 
                                 <div>
@@ -486,7 +486,7 @@ export default function EngineeringReviewPage() {
                                         className={`w-full rounded-xl border px-4 py-3 text-sm outline-none transition focus:ring-2 ${
                                             fieldErrors.changeSummary
                                                 ? "border-red-400 focus:border-red-500 focus:ring-red-100"
-                                                : "border-slate-300 focus:border-sky-500 focus:ring-sky-100"
+                                                : "border-slate-300 focus:border-cyan-500 focus:ring-cyan-100"
                                         }`}
                                     />
                                     {fieldErrors.changeSummary && (
@@ -527,7 +527,7 @@ export default function EngineeringReviewPage() {
                                         className={`w-full rounded-xl border px-4 py-3 text-sm outline-none transition focus:ring-2 ${
                                             fieldErrors.expectedBehavior
                                                 ? "border-red-400 focus:border-red-500 focus:ring-red-100"
-                                                : "border-slate-300 focus:border-sky-500 focus:ring-sky-100"
+                                                : "border-slate-300 focus:border-cyan-500 focus:ring-cyan-100"
                                         }`}
                                     />
                                     {fieldErrors.expectedBehavior && (
@@ -556,7 +556,7 @@ export default function EngineeringReviewPage() {
                                                 invalidateResult();
                                             }}
                                             placeholder="How does the system behave today?"
-                                            className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                                            className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                                         />
                                     </div>
                                     <div>
@@ -574,7 +574,7 @@ export default function EngineeringReviewPage() {
                                                 invalidateResult();
                                             }}
                                             placeholder="Add numbered or free-form success criteria."
-                                            className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                                            className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                                         />
                                     </div>
                                 </div>
@@ -596,14 +596,14 @@ export default function EngineeringReviewPage() {
                                     <button
                                         type="button"
                                         onClick={clearFiles}
-                                        className="w-fit text-sm font-semibold text-sky-700 hover:text-sky-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                                        className="w-fit text-sm font-semibold text-cyan-700 hover:text-cyan-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
                                     >
                                         Clear all
                                     </button>
                                 )}
                             </div>
 
-                            <div className="mt-5 rounded-2xl border border-dashed border-sky-200 bg-sky-50/60 p-5">
+                            <div className="mt-5 rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/60 p-5">
                                 <input
                                     ref={fileInputRef}
                                     aria-label="Upload evidence files (optional)"
@@ -611,7 +611,7 @@ export default function EngineeringReviewPage() {
                                     multiple
                                     accept=".ts,.tsx,.js,.jsx,.json,.md,.txt,.yml,.yaml,.config"
                                     onChange={(event) => handleFileUpload(event.target.files)}
-                                    className="block w-full rounded-xl text-sm text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 file:mr-4 file:rounded-xl file:border-0 file:bg-slate-950 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-slate-800"
+                                    className="block w-full rounded-xl text-sm text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 file:mr-4 file:rounded-xl file:border-0 file:bg-slate-950 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-slate-800"
                                 />
                                 <p className="mt-3 text-xs leading-5 text-slate-500">
                                     Relevant text files only. Maximum 250KB per file and 600KB total.
@@ -647,13 +647,13 @@ export default function EngineeringReviewPage() {
                             )}
                         </section>
 
-                        <section className="overflow-hidden rounded-2xl border border-sky-200 bg-sky-50/40">
+                        <section className="overflow-hidden rounded-2xl border border-cyan-200 bg-cyan-50/40">
                             <button
                                 type="button"
                                 aria-expanded={contextExpanded}
                                 aria-controls="structured-change-context"
                                 onClick={() => setContextExpanded((current) => !current)}
-                                className="flex w-full items-center justify-between gap-4 p-5 text-left transition hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-500 sm:p-6"
+                                className="flex w-full items-center justify-between gap-4 p-5 text-left transition hover:bg-cyan-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-500 sm:p-6"
                             >
                                 <span>
                                     <span className="block text-lg font-bold text-slate-950">
@@ -661,7 +661,7 @@ export default function EngineeringReviewPage() {
                                     </span>
                                     <span className="mt-1 block text-sm text-slate-600">Optional</span>
                                 </span>
-                                <span className="shrink-0 rounded-full border border-sky-200 bg-white px-3 py-1.5 text-sm font-semibold text-sky-700">
+                                <span className="shrink-0 rounded-full border border-cyan-200 bg-white px-3 py-1.5 text-sm font-semibold text-cyan-700">
                                     {contextExpanded ? "Hide context" : "Add more context"}
                                 </span>
                             </button>
@@ -669,7 +669,7 @@ export default function EngineeringReviewPage() {
                             {contextExpanded && (
                                 <div
                                     id="structured-change-context"
-                                    className="space-y-7 border-t border-sky-200 bg-white p-5 sm:p-6"
+                                    className="space-y-7 border-t border-cyan-200 bg-white p-5 sm:p-6"
                                 >
                                     <MultiSelectChips
                                         label="Change categories"
@@ -743,7 +743,7 @@ export default function EngineeringReviewPage() {
                                                         if (status !== "Yes") setFeatureFlagName("");
                                                         invalidateResult();
                                                     }}
-                                                    className={`rounded-lg px-4 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
+                                                    className={`rounded-lg px-4 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 ${
                                                         featureFlagStatus === status
                                                             ? "bg-slate-950 text-white shadow-sm"
                                                             : "text-slate-600 hover:bg-white"
@@ -784,7 +784,7 @@ export default function EngineeringReviewPage() {
                                                 }
                                                 invalidateResult();
                                             }}
-                                            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                                            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                                         >
                                             {rolloutStrategies.map((strategy) => (
                                                 <option key={strategy}>{strategy}</option>
@@ -822,7 +822,7 @@ export default function EngineeringReviewPage() {
                             )}
                         </section>
 
-                        <section className="rounded-2xl border border-sky-200 bg-sky-50 p-5 sm:p-6">
+                        <section className="rounded-2xl border border-cyan-200 bg-cyan-50 p-5 sm:p-6">
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
                                     <p className="text-sm font-semibold text-slate-950">
@@ -833,7 +833,7 @@ export default function EngineeringReviewPage() {
                                         evidence confidence and result specificity.
                                     </p>
                                     {remaining !== null && (
-                                        <p className="mt-2 text-xs font-semibold text-sky-800">
+                                        <p className="mt-2 text-xs font-semibold text-cyan-800">
                                             {remaining} free analyses remaining today
                                         </p>
                                     )}
@@ -842,7 +842,7 @@ export default function EngineeringReviewPage() {
                                     type="button"
                                     onClick={handleAnalyze}
                                     disabled={loading}
-                                    className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-xl bg-slate-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                                    className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-xl bg-slate-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                     {loading ? "Analyzing change..." : "Analyze Change Impact"}
                                 </button>
@@ -859,9 +859,9 @@ export default function EngineeringReviewPage() {
                             )}
 
                             {loading && (
-                                <div role="status" aria-live="polite" className="mt-5 border-t border-sky-200 pt-4">
-                                    <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-sky-100">
-                                        <div className="h-full w-2/3 animate-pulse rounded-full bg-sky-600 motion-reduce:animate-none" />
+                                <div role="status" aria-live="polite" className="mt-5 border-t border-cyan-200 pt-4">
+                                    <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-cyan-100">
+                                        <div className="h-full w-2/3 animate-pulse rounded-full bg-cyan-600 motion-reduce:animate-none" />
                                     </div>
                                     <p className="text-sm font-medium leading-6 text-slate-700">
                                         Reviewing evidence, tracing dependencies, and identifying
@@ -879,10 +879,10 @@ export default function EngineeringReviewPage() {
                        comes back, and what deliberately does not, is what makes
                        the output trustworthy when it arrives. */
                     <section className="mx-auto mt-10 max-w-5xl rounded-[2rem] border border-dashed border-slate-300 bg-white p-6 sm:p-8">
-                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
                             What this review returns
                         </p>
-                        <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">
+                        <h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em] text-slate-950">
                             Where a change lands, and what to verify
                         </h2>
                         <div className="mt-6 grid gap-4 sm:grid-cols-2">

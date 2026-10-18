@@ -157,8 +157,8 @@ export default async function ProjectOverviewPage({
       <ProjectNavigation organizationSlug={orgSlug} projectId={projectId} />
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Project overview</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">{project.name}</h1>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">Project overview</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.02em]">{project.name}</h1>
           <p className="mt-2 text-sm text-slate-500">{project.slug}</p>
         </div>
         {overview.canArchive ? (
@@ -295,7 +295,7 @@ export default async function ProjectOverviewPage({
                           <form action={regenerateAction} className="shrink-0">
                             <input type="hidden" name="testCaseId" value={entry.testCaseId} />
                             <input type="hidden" name="automationArtifactId" value={entry.automationArtifactId} />
-                            <PendingButton pendingLabel="Starting…" className="rounded-md border border-cyan-300 bg-white px-2 py-1 text-xs font-semibold text-cyan-800 hover:bg-cyan-50">
+                            <PendingButton pendingLabel="Starting…" className="rounded-lg border border-cyan-300 bg-white px-2 py-1 text-xs font-semibold text-cyan-800 hover:bg-cyan-50">
                               Generate again from the live page
                             </PendingButton>
                           </form>
@@ -397,11 +397,11 @@ export default async function ProjectOverviewPage({
 
       <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <dl className="grid gap-6 sm:grid-cols-2">
-          <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Status</dt><dd className="mt-2 text-sm font-medium">{humanLabel(project.status)}</dd></div>
-          <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Your role</dt><dd className="mt-2 text-sm font-medium">{humanLabel(overview.role)}</dd></div>
-          <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Creator</dt><dd className="mt-2 text-sm font-medium">{personName(project.createdBy.displayName)}</dd></div>
-          <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Created</dt><dd className="mt-2 text-sm"><LocalTime value={project.createdAt} /></dd></div>
-          <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Updated</dt><dd className="mt-2 text-sm"><LocalTime value={project.updatedAt} /></dd></div>
+          <div><dt className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Status</dt><dd className="mt-2 text-sm font-medium">{humanLabel(project.status)}</dd></div>
+          <div><dt className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Your role</dt><dd className="mt-2 text-sm font-medium">{humanLabel(overview.role)}</dd></div>
+          <div><dt className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Creator</dt><dd className="mt-2 text-sm font-medium">{personName(project.createdBy.displayName)}</dd></div>
+          <div><dt className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Created</dt><dd className="mt-2 text-sm"><LocalTime value={project.createdAt} /></dd></div>
+          <div><dt className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Updated</dt><dd className="mt-2 text-sm"><LocalTime value={project.updatedAt} /></dd></div>
         </dl>
         <div className="mt-8 border-t border-slate-200 pt-6">
           <h2 className="text-sm font-semibold">Description</h2>

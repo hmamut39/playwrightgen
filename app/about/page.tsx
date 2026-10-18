@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 export default function AboutPage() {
   return (
     <main className="mx-auto max-w-3xl px-6 py-16">
-      <h1 className="text-4xl font-semibold tracking-tight text-slate-950">
+      <h1 className="text-4xl font-semibold tracking-[-0.02em] text-slate-950">
         About {SITE_NAME}
       </h1>
 
@@ -46,7 +46,7 @@ export default function AboutPage() {
         product, designed and written by one person rather than a company.
       </p>
 
-      <h2 className="mt-12 text-2xl font-semibold tracking-tight text-slate-950">
+      <h2 className="mt-12 text-2xl font-semibold tracking-[-0.02em] text-slate-950">
         What it is for
       </h2>
       <p className="mt-4 text-base leading-7 text-slate-700">{SITE_PURPOSE}</p>
@@ -59,7 +59,7 @@ export default function AboutPage() {
         round it up.
       </p>
 
-      <h2 className="mt-12 text-2xl font-semibold tracking-tight text-slate-950">
+      <h2 className="mt-12 text-2xl font-semibold tracking-[-0.02em] text-slate-950">
         What it will not do
       </h2>
       <p className="mt-4 text-base leading-7 text-slate-700">
@@ -76,7 +76,7 @@ export default function AboutPage() {
         your repository contents &mdash; only a bounded summary of results.
       </p>
 
-      <h2 className="mt-12 text-2xl font-semibold tracking-tight text-slate-950">
+      <h2 className="mt-12 text-2xl font-semibold tracking-[-0.02em] text-slate-950">
         Contact
       </h2>
       <p className="mt-4 text-base leading-7 text-slate-700">

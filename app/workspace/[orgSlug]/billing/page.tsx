@@ -38,8 +38,8 @@ export default async function BillingPage({
   return (
     <div className="mx-auto max-w-5xl">
       <header>
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Workspace</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Plan and billing</h1>
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">Workspace</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-[-0.02em]">Plan and billing</h1>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           One plan covers the whole workspace: every project and every member.
         </p>
@@ -48,7 +48,7 @@ export default async function BillingPage({
       <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Current plan</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Current plan</p>
             <p className="mt-1 text-2xl font-semibold text-slate-950">{onTeam ? "Team" : "Free"}</p>
             <p className="mt-2 text-sm text-slate-600">
               {activeSubscription?.status === "TRIALING"
@@ -65,7 +65,7 @@ export default async function BillingPage({
             ) : null}
           </div>
           <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">AI allowance</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">AI allowance</p>
             <p className="mt-1 font-semibold text-slate-900">{limits.aiDailyLimit} AI actions per day</p>
             <p className="text-xs text-slate-500">shared by the whole workspace</p>
           </div>

@@ -46,7 +46,7 @@ const resultWord: Record<string, string> = {
 function Expired() {
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center px-4 py-16">
-      <h1 className="text-2xl font-semibold tracking-tight">This link is no longer valid</h1>
+      <h1 className="text-2xl font-semibold tracking-[-0.02em]">This link is no longer valid</h1>
       <p className="mt-3 text-sm leading-6 text-slate-600">
         A proof link expires, and the team can retire one at any time. Ask whoever shared it for a new one.
       </p>
@@ -124,8 +124,8 @@ export default async function ProofPage({
         </div>
       ) : null}
       <header>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">Test evidence</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">{report.project.name}</h1>
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">Test evidence</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-[-0.02em]">{report.project.name}</h1>
         <p className="mt-2 text-sm text-slate-600">
           {report.organization.name} &middot; {frozen ? "taken" : "as of"} <LocalTime value={report.generatedAt} />
         </p>
@@ -158,7 +158,7 @@ export default async function ProofPage({
           ["Not verified", report.totals.unverified, "text-slate-700"],
         ].map(([label, value, tone]) => (
           <div key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">{label}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">{label}</p>
             <p className={`mt-2 text-3xl font-semibold ${tone}`}>{value}</p>
           </div>
         ))}

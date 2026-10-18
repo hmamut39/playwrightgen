@@ -84,7 +84,7 @@ export default function RootLayout({
 
             {children}
 
-            <footer className="mt-20 border-t py-6 text-center text-sm text-gray-500">
+            <footer className="mt-20 border-t py-6 text-center text-sm text-slate-500">
               <div className="flex flex-wrap justify-center gap-6">
                 <a href="/about" className="hover:text-black">
                   About
@@ -98,13 +98,13 @@ export default function RootLayout({
               </div>
               {/* On every page, because the question is asked from every
                   page and an About link alone answers it one click late. */}
-              <p className="mt-4 px-6 text-xs leading-5 text-gray-500">
+              <p className="mt-4 px-6 text-xs leading-5 text-slate-500">
                 {SITE_NAME} is built by{" "}
                 <a
                   href={SITE_AUTHOR.url}
                   rel="author noreferrer"
                   target="_blank"
-                  className="font-medium text-gray-700 underline underline-offset-2 hover:text-black"
+                  className="font-medium text-slate-700 underline underline-offset-2 hover:text-black"
                 >
                   {SITE_AUTHOR.name} ({SITE_AUTHOR.alternateName})
                 </a>

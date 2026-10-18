@@ -167,7 +167,7 @@ export function WorkspaceOnboardingStep({ returnUrl = "/workspace" }: { returnUr
           placeholder={suggested || "Acme QA team"}
           maxLength={100}
           autoFocus
-          className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60"
+          className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60"
         />
         {error ? (
           <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">

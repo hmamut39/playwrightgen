@@ -20,6 +20,42 @@ has reproduced in isolation. Everything else passed.
 ## Shipped (most recent first)
 
 ### Reaching the people who never open it
+- **A design system, counted rather than argued about** (2026-10-18): the
+  owner asked for a deep look at the styling. Opinions about design are
+  cheap, so every decision the codebase makes was tallied across 138 files
+  and grouped by the job it does. The result was a product assembled piece by
+  piece rather than designed to a system:
+  twenty-one letter spacings (nine different negative trackings between
+  -0.015 and -0.055, nine uppercase ones between 0.08 and 0.24), thirteen
+  corner radii including six arbitrary rem values, two grey families mixed
+  (`slate`, which is blue-tinted, and `gray`, which is not) and two accent
+  hues mixed (`cyan` in the brand, `sky` in the forms and focus rings).
+  Now four letter spacings chosen by what the text is -- display, heading,
+  body, uppercase label -- six radii, one grey, one accent. Nothing was
+  retyped by hand: three codemods, each dry-run first, then the whole site
+  walked at two widths to confirm nothing moved.
+  Then the part of design that is not taste at all. Every piece of text on
+  six public pages was measured against what is behind it, and nine styles
+  sat below the WCAG AA floor -- led by `text-slate-400` on white at 2.63
+  where 4.5 is required: the product's own subtitle in the header, the eyebrow
+  label on every card, the "(optional)" hints beside form labels, the tools
+  table's column headings. White on `bg-cyan-600` was 3.62, the kind of near
+  miss that looks fine to whoever picked it. All nine are fixed, each in its
+  own direction -- lighter on the dark panels, darker on the light ones,
+  which the measurement decided rather than guesswork, once by correcting me
+  mid-fix when a "light" card turned out to be dark.
+  It is a browser check now, so it runs in CI beside the other public-surface
+  tests, and it names every failure with its ratio, size and class rather
+  than reporting a count.
+  Two measurement bugs of my own, both caught before they became claims. A
+  first pass reported paragraphs at 240 characters per line; they were short
+  strings in wide boxes, and the real prose measures 59 to 69. A first
+  contrast pass reported every dark panel on the site as failing, because
+  Tailwind v4 writes colours as `lab()` and a regular expression of mine only
+  understood `rgb()`. The browser converts them now: a 1x1 canvas fill, read
+  back as sRGB.
+
+### Reaching the people who never open it
 - **The page that says "paste this into your editor" had nothing to paste
   with** (2026-10-18): a sweep of every public page after the font change --
   for breakage first, then for the density the owner had asked about. No

@@ -453,12 +453,12 @@ export default function QuickGeneratePage() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
       <div className="mx-auto max-w-7xl">
-        <section className="relative overflow-hidden rounded-[2.25rem] bg-slate-950 px-6 py-10 text-white shadow-xl sm:px-9 sm:py-12 lg:px-12">
+        <section className="relative overflow-hidden rounded-[2rem] bg-slate-950 px-6 py-10 text-white shadow-xl sm:px-9 sm:py-12 lg:px-12">
           <div className="pointer-events-none absolute right-[-8rem] top-[-10rem] h-80 w-80 rounded-full bg-cyan-400/20 blur-3xl" />
           <div className="relative grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-300">Free Tool · Quick Generate</p>
-              <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-[-0.05em] sm:text-5xl lg:text-6xl">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">Free Tool · Quick Generate</p>
+              <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-[-0.035em] sm:text-5xl lg:text-6xl">
                 Turn test intent into a reviewable Playwright draft
               </h1>
               <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-300">
@@ -477,7 +477,7 @@ export default function QuickGeneratePage() {
 
         <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-700">1 · Choose the evidence shape</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-700">1 · Choose the evidence shape</p>
             <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
               {modes.map((item) => (
                 <button
@@ -496,7 +496,7 @@ export default function QuickGeneratePage() {
               <p className="text-sm font-semibold text-slate-900">Draft depth</p>
               <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
                 {(["FOCUSED", "EXPANDED"] as const).map((item) => (
-                  <button key={item} type="button" onClick={() => { setDepth(item); resetResult(); }} className={`rounded-lg px-3 py-2 text-xs font-bold ${depth === item ? "bg-white text-slate-950 shadow-sm" : "text-slate-500"}`}>
+                  <button key={item} type="button" onClick={() => { setDepth(item); resetResult(); }} className={`rounded-lg px-3 py-2 text-xs font-bold ${depth === item ? "bg-white text-slate-950 shadow-sm" : "text-slate-600"}`}>
                     {item === "FOCUSED" ? "Focused" : "Expanded"}
                   </button>
                 ))}
@@ -508,8 +508,8 @@ export default function QuickGeneratePage() {
           </div>
 
           <div className="mt-7 border-t border-slate-200 pt-7">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-700">2 · Supply intent and evidence</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">{activeMode.label}</h2>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-700">2 · Supply intent and evidence</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em] text-slate-950">{activeMode.label}</h2>
 
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
               <span className="text-sm font-semibold text-slate-800">
@@ -568,7 +568,7 @@ export default function QuickGeneratePage() {
               <div>
                 <label className="text-sm font-semibold text-slate-800">
                   {mode === "API" ? "API base URL" : "Page URL"}{" "}
-                  <span className="font-normal text-slate-400">
+                  <span className="font-normal text-slate-500">
                     {mode === "API" ? "(optional)" : "(optional \u2014 we open it and use the real buttons and fields)"}
                   </span>
                   <input value={pageUrl} onChange={(event) => { setPageUrl(event.target.value); resetResult(); }} maxLength={2_000} placeholder="https://app.example.com/login" className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-cyan-600" />
@@ -576,7 +576,7 @@ export default function QuickGeneratePage() {
                 {mode !== "API" ? <TestAccountFields value={account} onChange={setAccount} /> : null}
               </div>
               <div>
-                <p className="text-sm font-semibold text-slate-800">Files or screenshots <span className="font-normal text-slate-400">(optional)</span></p>
+                <p className="text-sm font-semibold text-slate-800">Files or screenshots <span className="font-normal text-slate-500">(optional)</span></p>
                 <button type="button" onClick={() => fileInputRef.current?.click()} className="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-dashed border-cyan-300 bg-cyan-50 px-4 text-sm font-semibold text-cyan-800 hover:bg-cyan-100">
                   Add evidence files
                 </button>
@@ -659,7 +659,7 @@ export default function QuickGeneratePage() {
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
               <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-700">Preliminary result</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-700">Preliminary result</p>
                   <h2 className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-slate-950">{result.title}</h2>
                   <p className="mt-3 max-w-3xl leading-7 text-slate-600">{result.summary}</p>
                 </div>
@@ -767,9 +767,9 @@ export default function QuickGeneratePage() {
             <div className="rounded-[2rem] border border-cyan-200 bg-cyan-50 p-6 sm:p-8">
               <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
                 {provenRun?.verdict === "passed" ? (
-                  <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-800">Passed on the live page · {provenRun.passed} checks</p><h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">Send this passing test to a project</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">It becomes a Test Case with this code attached{provenRun.receipt ? ", and the passing run goes with it as signed evidence" : ""}. After review and approval, the code becomes its first automation version &mdash; no second generation.</p></div>
+                  <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-800">Passed on the live page · {provenRun.passed} checks</p><h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em] text-slate-950">Send this passing test to a project</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">It becomes a Test Case with this code attached{provenRun.receipt ? ", and the passing run goes with it as signed evidence" : ""}. After review and approval, the code becomes its first automation version &mdash; no second generation.</p></div>
                 ) : (
-                  <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-800">Need a trusted artifact?</p><h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">Continue through Test Case review in Workspace</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">The plan becomes an AI-suggested Test Case draft and the code goes with it. Review and approve the Test Case, then turn the code into a versioned automation artifact.{livePage?.status === "read" && mode !== "API" ? " Run it on the live page first to bring the passing result with it." : ""}</p></div>
+                  <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-800">Need a trusted artifact?</p><h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em] text-slate-950">Continue through Test Case review in Workspace</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">The plan becomes an AI-suggested Test Case draft and the code goes with it. Review and approve the Test Case, then turn the code into a versioned automation artifact.{livePage?.status === "read" && mode !== "API" ? " Run it on the live page first to bring the passing result with it." : ""}</p></div>
                 )}
                 {handoff ? <WorkspaceHandoffButton handoff={handoff} className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-slate-950 px-5 text-sm font-bold text-white hover:bg-cyan-700 lg:w-auto">Continue in Workspace →</WorkspaceHandoffButton> : null}
               </div>
@@ -781,10 +781,10 @@ export default function QuickGeneratePage() {
              worth the effort. Stating the shape of the output up front is the
              cheapest way to earn the first attempt. */
           <section className="mt-8 rounded-[2rem] border border-dashed border-slate-300 bg-white p-6 sm:p-8">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
               What you get back
             </p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em] text-slate-950">
               A reviewable draft, not a black box
             </h2>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -869,7 +869,7 @@ function LivePagePanel({ livePage, result }: { livePage: LivePage; result: Quick
           <p className="mt-0.5 text-xs text-slate-500">Not on the page we opened &mdash; usually elements on a later screen or behind sign-in.</p>
           <ul className="mt-2 flex flex-wrap gap-1.5">
             {unverified.map((name) => (
-              <li key={name} className="rounded-md bg-amber-50 px-2 py-0.5 font-mono text-xs text-amber-900">{name}</li>
+              <li key={name} className="rounded-lg bg-amber-50 px-2 py-0.5 font-mono text-xs text-amber-900">{name}</li>
             ))}
           </ul>
         </div>
@@ -911,17 +911,17 @@ export default defineConfig({
       <ol className="mt-3 space-y-3">
         <li>
           <span className="text-slate-400">1.</span> Save the code as{" "}
-          <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs text-cyan-200">tests/draft.spec.ts</code>{" "}
+          <code className="rounded-lg bg-white/10 px-1.5 py-0.5 font-mono text-xs text-cyan-200">tests/draft.spec.ts</code>{" "}
           in a project with Playwright (<code className="font-mono text-xs text-cyan-200">npm init playwright@latest</code> creates one).
         </li>
         <li>
           <span className="text-slate-400">2.</span> Point it at your {isApi ? "API" : "app"} in{" "}
-          <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs text-cyan-200">playwright.config.ts</code>:
+          <code className="rounded-lg bg-white/10 px-1.5 py-0.5 font-mono text-xs text-cyan-200">playwright.config.ts</code>:
           <pre className="mt-2 overflow-x-auto rounded-xl bg-black/40 p-3 font-mono text-xs leading-5 text-slate-200">{config}</pre>
         </li>
         <li>
           <span className="text-slate-400">3.</span> Run{" "}
-          <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs text-cyan-200">npx playwright test --ui</code>{" "}
+          <code className="rounded-lg bg-white/10 px-1.5 py-0.5 font-mono text-xs text-cyan-200">npx playwright test --ui</code>{" "}
           to watch each step and fix any locator marked for confirmation.
         </li>
       </ol>

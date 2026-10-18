@@ -54,7 +54,7 @@ export default async function SnapshotChangesPage({
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
           {kept.snapshot.organization.name} · {kept.snapshot.project.name}
         </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">What changed since this snapshot</h1>
+        <h1 className="mt-2 text-3xl font-semibold tracking-[-0.02em] text-slate-950">What changed since this snapshot</h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">
           The snapshot was taken <LocalTime value={kept.takenAt} />
           {kept.sharedBy ? ` by ${kept.sharedBy}` : ""}. Everything below is the difference between it and the project
@@ -75,7 +75,7 @@ export default async function SnapshotChangesPage({
 
       {change.moved.length ? (
         <section className="mt-8">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Verdicts that moved</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Verdicts that moved</h2>
           <ul className="mt-3 space-y-2">
             {change.moved.map((move) => (
               <li
@@ -95,7 +95,7 @@ export default async function SnapshotChangesPage({
 
       {change.added.length ? (
         <section className="mt-8">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
             Added since the snapshot
           </h2>
           <ul className="mt-3 space-y-2">
@@ -114,7 +114,7 @@ export default async function SnapshotChangesPage({
 
       {change.removed.length ? (
         <section className="mt-8">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
             In the snapshot, not in the project now
           </h2>
           <ul className="mt-3 space-y-2">

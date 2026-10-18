@@ -96,7 +96,7 @@ export function EditorSetupPanel({ mcpUrl, token }: { mcpUrl: string; token: str
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-700">
         Your editor
       </p>
-      <h2 className="mt-2 text-xl font-semibold tracking-tight">
+      <h2 className="mt-2 text-xl font-semibold tracking-[-0.02em]">
         Use approved tests from VS Code, Cursor or Claude Code
       </h2>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
@@ -134,7 +134,7 @@ export function EditorSetupPanel({ mcpUrl, token }: { mcpUrl: string; token: str
       </div>
 
       <div className="mt-4 flex items-center justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
           {active.file}
         </p>
         <button

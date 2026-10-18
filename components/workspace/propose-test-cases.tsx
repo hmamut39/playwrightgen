@@ -85,7 +85,7 @@ export function ProposeTestCases({
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-700">
         Coverage
       </p>
-      <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">
+      <h2 className="mt-2 text-xl font-semibold tracking-[-0.02em] text-slate-950">
         Propose Test Cases for this requirement
       </h2>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">

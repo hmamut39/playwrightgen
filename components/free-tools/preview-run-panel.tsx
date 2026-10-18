@@ -306,7 +306,7 @@ export function PreviewRunPanel({
               <ol className="mt-3 space-y-3">
                 {test.steps.map((step) => (
                   <li key={step.name}>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{step.name}</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">{step.name}</p>
                     <ul className="mt-1 space-y-1">
                       {step.operations.map((operation, index) => (
                         <li key={`${step.name}-${index}`} className="flex gap-2 font-mono text-xs">

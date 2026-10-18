@@ -122,7 +122,7 @@ export function SavedDrafts({
 
   const visible = showAll ? drafts : drafts.slice(0, 4);
   return (
-    <section aria-labelledby="saved-drafts-heading" className="mt-6 rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+    <section aria-labelledby="saved-drafts-heading" className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <div className="flex items-baseline justify-between gap-3">
         <h2 id="saved-drafts-heading" className="text-sm font-bold text-slate-950">
           {heading} <span className="font-medium text-slate-400">&middot; {drafts.length}</span>

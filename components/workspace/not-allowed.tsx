@@ -23,7 +23,7 @@ export function NotAllowed({
     <div className="mx-auto max-w-2xl">
       <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Not allowed</p>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="mt-2 text-2xl font-semibold tracking-[-0.02em]">{title}</h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">{detail}</p>
         <Link
           href={backHref}

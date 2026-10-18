@@ -76,10 +76,10 @@ export function FreeToolImport({
 
       <div className="flex flex-col justify-between gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-start">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-700">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-700">
             {sourceLabels[handoff.source]} → Workspace
           </p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">
+          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em] text-slate-950">
             Create a real {handoff.target === "TEST_CASE" ? "Test Case" : "Requirement"} draft
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{handoff.notice}</p>

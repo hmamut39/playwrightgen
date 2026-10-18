@@ -37,10 +37,10 @@ const accentStyles = {
     card: "border-cyan-200 bg-cyan-50/40",
   },
   sky: {
-    text: "text-sky-700",
-    focusBorder: "focus:border-sky-500",
-    ring: "focus-visible:ring-sky-500/60",
-    card: "border-sky-200 bg-sky-50/40",
+    text: "text-cyan-700",
+    focusBorder: "focus:border-cyan-500",
+    ring: "focus-visible:ring-cyan-500/60",
+    card: "border-cyan-200 bg-cyan-50/40",
   },
   violet: {
     text: "text-violet-700",
@@ -97,7 +97,7 @@ export function PageTitle({
   className?: string;
 }) {
   return (
-    <h1 className={cx("mt-2 text-3xl font-semibold tracking-tight text-slate-950", className)}>
+    <h1 className={cx("mt-2 text-3xl font-semibold tracking-[-0.02em] text-slate-950", className)}>
       {children}
     </h1>
   );
@@ -137,7 +137,7 @@ export function SectionTitle({
   className?: string;
 }) {
   return (
-    <h2 className={cx("mt-2 text-xl font-semibold tracking-tight text-slate-950", className)}>
+    <h2 className={cx("mt-2 text-xl font-semibold tracking-[-0.02em] text-slate-950", className)}>
       {children}
     </h2>
   );

@@ -125,7 +125,7 @@ export default async function ProjectTeamPage({
 
       <header>
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">Team</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+        <h1 className="mt-2 text-3xl font-semibold tracking-[-0.02em] text-slate-950">
           Who works on {team.project.name}
         </h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
@@ -227,7 +227,7 @@ export default async function ProjectTeamPage({
                     id={`role-${member.userId}`}
                     name="role"
                     defaultValue={member.projectRole ?? "NONE"}
-                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60"
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60"
                   >
                     <option value="PROJECT_LEAD">Lead</option>
                     <option value="MEMBER">Member</option>

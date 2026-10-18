@@ -70,7 +70,7 @@ export default async function ProjectQualityPage({
                 {intelligence.evidence.freshness.toLowerCase()} evidence
               </span>
             </div>
-            <h1 className="mt-5 text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
+            <h1 className="mt-5 text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">
               {intelligence.project.name}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
@@ -135,7 +135,7 @@ export default async function ProjectQualityPage({
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
               What should I fix next?
             </p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em] text-slate-950">
               {totalActionableGaps} actionable {totalActionableGaps === 1 ? "gap" : "gaps"}
             </h2>
           </div>
@@ -276,7 +276,7 @@ function SignalCard({
   return (
     <Link href={href} className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-md">
       <p className="text-xs font-medium text-slate-500">{label}</p>
-      <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-slate-950">{value}</p>
+      <p className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-slate-950">{value}</p>
       <p className="mt-2 text-xs leading-5 text-slate-500">{detail}</p>
       <p className="mt-4 text-xs font-semibold text-cyan-700 group-hover:text-cyan-600">View source →</p>
     </Link>
@@ -308,7 +308,7 @@ function GapGroup({
       <div>
         <div className="flex items-center gap-2">
           <span className={`h-2 w-2 rounded-full ${dotStyle}`} />
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{eyebrow}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{eyebrow}</p>
         </div>
         <h3 className="mt-2 text-sm font-semibold leading-5 text-slate-950">{title}</h3>
         <p className="mt-2 text-xs text-slate-400">{count} {count === 1 ? "record" : "records"}</p>

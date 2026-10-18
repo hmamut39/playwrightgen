@@ -44,10 +44,10 @@ export default async function AutomationPage({
       <ProjectNavigation organizationSlug={orgSlug} projectId={projectId} />
       <header className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
             Automation
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.02em]">
             The Playwright code for each approved test
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">

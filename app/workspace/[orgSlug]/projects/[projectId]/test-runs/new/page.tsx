@@ -93,7 +93,7 @@ export default async function NewTestRunPage({
     <div className="mx-auto max-w-3xl">
       <Link href={`/workspace/${orgSlug}/projects/${projectId}/test-runs`} className="text-sm font-medium text-cyan-700 hover:text-cyan-900">← Test Runs</Link>
       <p className="mt-8 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">{project.name}</p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight">New test run</h1>
+      <h1 className="mt-2 text-3xl font-semibold tracking-[-0.02em]">New test run</h1>
       <p className="mt-2 text-sm text-slate-600">Record a test you ran yourself, outside CI. The result is saved against the test case exactly as it was approved, so later edits never change what this run proved.</p>
 
       {approved.total === 0 ? (

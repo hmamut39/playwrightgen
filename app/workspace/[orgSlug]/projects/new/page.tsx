@@ -65,8 +65,8 @@ export default async function NewProjectPage({
 
   return (
     <div className="mx-auto max-w-2xl">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Projects</p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight">Create project</h1>
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">Projects</p>
+      <h1 className="mt-2 text-3xl font-semibold tracking-[-0.02em]">Create project</h1>
       <p className="mt-2 text-sm text-slate-600">
         One project for each product or app you test. Give it a page too and PlaywrightGen plans that page&rsquo;s tests
         straight away. You can change both later.
@@ -74,7 +74,7 @@ export default async function NewProjectPage({
       <form action={createProjectAction} className="mt-8 space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <label className="block text-sm font-medium">
           Name
-          <input name="name" required maxLength={200} autoFocus placeholder="For example: Checkout web app" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60" />
+          <input name="name" required maxLength={200} autoFocus placeholder="For example: Checkout web app" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60" />
         </label>
         <label className="block text-sm font-medium">
           Where does it run? <span className="font-normal text-slate-400">(optional)</span>
@@ -83,7 +83,7 @@ export default async function NewProjectPage({
             type="url"
             maxLength={2_000}
             placeholder="https://your-app.example.com/"
-            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60"
+            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60"
           />
           <span className="mt-1.5 block text-xs font-normal text-slate-500">
             A public page of your product. PlaywrightGen reads it, plans the tests it needs, and shows you the plan to
@@ -99,7 +99,7 @@ export default async function NewProjectPage({
           </summary>
         <label className="mt-3 block text-sm font-medium">
           Slug <span className="font-normal text-slate-400">(optional)</span>
-          <input name="slug" maxLength={100} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" title="Lowercase letters, numbers and hyphens, for example checkout-flow" placeholder="Leave blank to create it from the name" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60" />
+          <input name="slug" maxLength={100} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" title="Lowercase letters, numbers and hyphens, for example checkout-flow" placeholder="Leave blank to create it from the name" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60" />
           <span className="mt-1.5 block text-xs font-normal text-slate-500">
             Used in the project&rsquo;s address. Lowercase letters, numbers and hyphens only &mdash; &ldquo;Checkout Flow&rdquo; becomes <code className="font-mono">checkout-flow</code>.
           </span>
@@ -107,7 +107,7 @@ export default async function NewProjectPage({
         </details>
         <label className="block text-sm font-medium">
           Description <span className="font-normal text-slate-400">(optional)</span>
-          <textarea name="description" rows={4} maxLength={10000} placeholder="What the product does and who uses it." className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60" />
+          <textarea name="description" rows={4} maxLength={10000} placeholder="What the product does and who uses it." className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60" />
         </label>
         <button type="submit" className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">Create project</button>
       </form>

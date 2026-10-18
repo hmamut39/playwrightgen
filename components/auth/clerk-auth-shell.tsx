@@ -31,12 +31,12 @@ export function ClerkAuthShell({
         <section className="max-w-xl">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200"
+            className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200"
           >
             <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(103,232,249,0.9)]" />
             {eyebrow}
           </Link>
-          <h1 className="mt-6 text-4xl font-semibold tracking-[-0.04em] text-white sm:text-5xl">
+          <h1 className="mt-6 text-4xl font-semibold tracking-[-0.035em] text-white sm:text-5xl">
             {title}
           </h1>
           <p className="mt-5 max-w-lg text-base leading-7 text-slate-300 sm:text-lg">
@@ -69,7 +69,7 @@ export function ClerkAuthShell({
 
         <section className="flex justify-center lg:justify-end">
           <div className="w-full max-w-md rounded-[2rem] border border-white/10 bg-white/[0.07] p-3 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-5">
-            <div className="flex min-h-[31rem] items-center justify-center rounded-[1.4rem] bg-white p-4 text-slate-950 sm:p-6">
+            <div className="flex min-h-[31rem] items-center justify-center rounded-3xl bg-white p-4 text-slate-950 sm:p-6">
               {children}
             </div>
           </div>

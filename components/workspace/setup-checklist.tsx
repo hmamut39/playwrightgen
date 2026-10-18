@@ -42,7 +42,7 @@ export function SetupChecklist({
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
             Getting started
           </p>
-          <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">
+          <h2 className="mt-2 text-xl font-semibold tracking-[-0.02em] text-slate-950">
             Complete the evidence chain
           </h2>
         </div>

@@ -9,7 +9,7 @@ const switcherAppearance = {
   elements: {
     rootBox: "w-full",
     organizationSwitcherTrigger:
-      "w-full justify-between rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-white shadow-none transition-colors hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-sky-400",
+      "w-full justify-between rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-white shadow-none transition-colors hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-cyan-400",
     organizationPreviewMainIdentifier: "text-sm font-medium text-white",
     organizationPreviewSecondaryIdentifier: "text-xs text-slate-400",
     organizationSwitcherTriggerIcon: "text-slate-400",
@@ -92,11 +92,11 @@ export function WorkspaceShell({
     <main className="min-h-[calc(100vh-8rem)] overflow-x-hidden bg-slate-50 text-slate-950 lg:flex">
       <aside className="hidden w-72 shrink-0 flex-col border-r border-slate-800 bg-slate-950 px-5 py-6 text-white lg:flex">
         <div className="flex items-center gap-3 px-1">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-xs font-bold tracking-tight text-slate-950">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-xs font-bold tracking-[-0.02em] text-slate-950">
             PG
           </div>
           <div>
-            <p className="font-semibold tracking-tight">PlaywrightGen</p>
+            <p className="font-semibold tracking-[-0.02em]">PlaywrightGen</p>
             <p className="text-xs text-slate-400">Quality workspace</p>
           </div>
         </div>
@@ -122,7 +122,7 @@ export function WorkspaceShell({
             aria-current="page"
             className="flex items-center gap-3 rounded-xl bg-slate-800 px-3 py-2.5 text-sm font-medium text-white"
           >
-            <span className="h-2 w-2 rounded-full bg-sky-400" />
+            <span className="h-2 w-2 rounded-full bg-cyan-400" />
             Overview
           </div>
           <div className="mt-1 flex items-center justify-between rounded-xl px-3 py-2.5 text-sm text-slate-400">
@@ -130,7 +130,7 @@ export function WorkspaceShell({
               <span className="h-2 w-2 rounded-full border border-slate-600" />
               Projects
             </span>
-            <span className="rounded-md border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500">
+            <span className="rounded-lg border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.16em] text-slate-500">
               Coming next
             </span>
           </div>
@@ -146,7 +146,7 @@ export function WorkspaceShell({
               elements: {
                 rootBox: "w-full",
                 userButtonTrigger:
-                  "w-full justify-start rounded-xl px-2 py-2 text-white transition-colors hover:bg-slate-800 focus-visible:ring-2 focus-visible:ring-sky-400",
+                  "w-full justify-start rounded-xl px-2 py-2 text-white transition-colors hover:bg-slate-800 focus-visible:ring-2 focus-visible:ring-cyan-400",
                 userButtonOuterIdentifier: "text-sm text-white",
               },
             }}
@@ -179,7 +179,7 @@ export function WorkspaceShell({
                 appearance={{
                   elements: {
                     organizationSwitcherTrigger:
-                      "h-9 max-w-40 rounded-lg border border-slate-200 bg-white px-2 shadow-none focus-visible:ring-2 focus-visible:ring-sky-500",
+                      "h-9 max-w-40 rounded-lg border border-slate-200 bg-white px-2 shadow-none focus-visible:ring-2 focus-visible:ring-cyan-500",
                     organizationPreviewMainIdentifier:
                       "max-w-20 truncate text-xs font-medium text-slate-700 sm:max-w-32",
                     organizationPreviewSecondaryIdentifier: "hidden",
@@ -213,7 +213,7 @@ export function WorkspaceShell({
             <div>
               <h1
                 id="workspace-overview-heading"
-                className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl"
+                className="text-2xl font-semibold tracking-[-0.02em] text-slate-950 sm:text-3xl"
               >
                 Workspace overview
               </h1>
@@ -229,10 +229,10 @@ export function WorkspaceShell({
           </header>
 
           <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sky-700">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
               Active workspace
             </p>
-            <h2 className="mt-3 text-xl font-semibold tracking-tight text-slate-950 sm:text-2xl">
+            <h2 className="mt-3 text-xl font-semibold tracking-[-0.02em] text-slate-950 sm:text-2xl">
               Welcome to {organizationName}
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 sm:text-base sm:leading-7">
@@ -251,7 +251,7 @@ export function WorkspaceShell({
                   key={foundation.title}
                   className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
                 >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-sky-100 bg-sky-50 text-sky-700">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-100 bg-cyan-50 text-cyan-700">
                     {foundation.icon}
                   </div>
                   <h3 className="mt-5 text-base font-semibold text-slate-950">
@@ -271,7 +271,7 @@ export function WorkspaceShell({
           >
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="max-w-3xl">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                   Next milestone
                 </p>
                 <h2

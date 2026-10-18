@@ -71,7 +71,7 @@ export default async function CoverPage({
     <div className="mx-auto max-w-4xl">
       <ProjectNavigation organizationSlug={orgSlug} projectId={projectId} />
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">Cover a page</p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight">Every test a page needs, proven on the page</h1>
+      <h1 className="mt-2 text-3xl font-semibold tracking-[-0.02em]">Every test a page needs, proven on the page</h1>
       <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
         Give a page. PlaywrightGen reads it, plans up to {PAGE_COVERAGE_MAX_ITEMS} test cases for what a person can do
         there &mdash; skipping ones this project already has &mdash; and shows you the plan. Only what you keep is proven:

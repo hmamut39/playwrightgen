@@ -48,7 +48,7 @@ export function WorkspaceFrame({
                     // Tailwind's layered utilities, which is why the name stayed dark.
                     rootBox: "w-full",
                     organizationSwitcherTrigger:
-                      "w-full! justify-between! rounded-xl! border! border-slate-700! bg-slate-800! px-3! py-2! text-white! shadow-none! hover:bg-slate-700! focus-visible:ring-2 focus-visible:ring-sky-400",
+                      "w-full! justify-between! rounded-xl! border! border-slate-700! bg-slate-800! px-3! py-2! text-white! shadow-none! hover:bg-slate-700! focus-visible:ring-2 focus-visible:ring-cyan-400",
                     organizationPreviewMainIdentifier: "text-sm! font-medium! text-white! truncate!",
                     organizationPreviewSecondaryIdentifier: "text-xs! text-slate-400!",
                     organizationSwitcherTriggerIcon: "text-slate-400!",

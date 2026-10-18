@@ -78,7 +78,7 @@ export default function GeneratorLayout({
               <button
                 type="button"
                 onClick={() => setSidebarOpen(false)}
-                className="absolute right-5 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-300 bg-white text-lg shadow-sm transition hover:bg-gray-50"
+                className="absolute right-5 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-300 bg-white text-lg shadow-sm transition hover:bg-slate-50"
                 aria-label="Close sidebar"
                 title="Close sidebar"
               >
@@ -96,7 +96,7 @@ export default function GeneratorLayout({
               <button
                 type="button"
                 onClick={() => setSidebarOpen(true)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-300 bg-white text-lg shadow-sm transition hover:bg-gray-50"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-300 bg-white text-lg shadow-sm transition hover:bg-slate-50"
                 aria-label="Open sidebar"
                 title="Open sidebar"
               >

@@ -123,14 +123,14 @@ export default async function NewRequirementPage({
     <div className="mx-auto max-w-3xl">
       <Link
         href={`/workspace/${orgSlug}/projects/${projectId}/requirements`}
-        className="text-sm font-medium text-sky-700 hover:text-sky-900"
+        className="text-sm font-medium text-cyan-700 hover:text-cyan-900"
       >
         ← Requirements
       </Link>
-      <p className="mt-8 text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">
+      <p className="mt-8 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
         {project.name}
       </p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight">New requirement</h1>
+      <h1 className="mt-2 text-3xl font-semibold tracking-[-0.02em]">New requirement</h1>
       <p className="mt-2 text-sm text-slate-600">
         Start a draft. Description and acceptance criteria are required before review.
       </p>
@@ -260,7 +260,7 @@ export default async function NewRequirementPage({
             required
             maxLength={300}
             defaultValue={filled.title ?? ""}
-            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60"
+            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60"
           />
         </label>
         <label className="block text-sm font-medium">
@@ -270,7 +270,7 @@ export default async function NewRequirementPage({
             rows={7}
             maxLength={50000}
             defaultValue={filled.description ?? ""}
-            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60"
+            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60"
           />
         </label>
         <label className="block text-sm font-medium">
@@ -281,7 +281,7 @@ export default async function NewRequirementPage({
             maxLength={50000}
             defaultValue={filled.acceptanceCriteria ?? ""}
             placeholder="Describe observable, testable outcomes."
-            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60"
+            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60"
           />
         </label>
         <label className="block text-sm font-medium">
@@ -291,7 +291,7 @@ export default async function NewRequirementPage({
             maxLength={500}
             defaultValue={filled.externalReference ?? ""}
             placeholder="e.g. JIRA-123 or a source URL"
-            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/60"
+            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60"
           />
         </label>
         <button

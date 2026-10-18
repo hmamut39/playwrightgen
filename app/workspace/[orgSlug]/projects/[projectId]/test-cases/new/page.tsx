@@ -71,7 +71,7 @@ export default async function NewTestCasePage({
         ← Test Cases
       </Link>
       <p className="mt-8 text-xs font-semibold uppercase tracking-[0.16em] text-violet-700">{project.name}</p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight">New test case</h1>
+      <h1 className="mt-2 text-3xl font-semibold tracking-[-0.02em]">New test case</h1>
       <p className="mt-2 text-sm text-slate-600">
         Start a draft. Objective, steps, and expected results are required before review.
       </p>

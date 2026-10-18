@@ -103,11 +103,11 @@ export default function McpPage() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
       <div className="mx-auto max-w-6xl">
-        <section className="relative overflow-hidden rounded-[2.25rem] bg-slate-950 px-6 py-10 text-white shadow-xl sm:px-9 sm:py-12 lg:px-12">
+        <section className="relative overflow-hidden rounded-[2rem] bg-slate-950 px-6 py-10 text-white shadow-xl sm:px-9 sm:py-12 lg:px-12">
           <div className="pointer-events-none absolute right-[-8rem] top-[-10rem] h-80 w-80 rounded-full bg-cyan-400/20 blur-3xl" />
           <div className="relative">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-300">MCP server</p>
-            <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-[-0.05em] sm:text-5xl">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">MCP server</p>
+            <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-[-0.035em] sm:text-5xl">
               Playwright tests your editor&rsquo;s AI has proven on the live page
             </h1>
             <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-300">
@@ -127,7 +127,7 @@ export default function McpPage() {
 
         <section className="mt-8 grid gap-4 md:grid-cols-3">
           {loop.map((item) => (
-            <div key={item.step} className="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <div key={item.step} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <span className="grid h-8 w-8 place-items-center rounded-lg bg-slate-950 text-sm font-bold text-white">{item.step}</span>
               <h2 className="mt-4 text-lg font-semibold text-slate-950">{item.title}</h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">{item.body}</p>
@@ -136,7 +136,7 @@ export default function McpPage() {
         </section>
 
         <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <h2 className="text-2xl font-semibold tracking-[-0.03em] text-slate-950">Tools</h2>
+          <h2 className="text-2xl font-semibold tracking-[-0.035em] text-slate-950">Tools</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
             Sixteen tools over the Model Context Protocol (Streamable HTTP). Running and generating use your
             workspace&rsquo;s daily AI allowance.
@@ -144,7 +144,7 @@ export default function McpPage() {
           <div className="mt-5 overflow-x-auto">
             <table className="w-full min-w-[36rem] text-left text-sm">
               <thead>
-                <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-400">
+                <tr className="border-b border-slate-200 text-xs uppercase tracking-[0.16em] text-slate-500">
                   <th className="py-2 pr-4 font-semibold">Tool</th>
                   <th className="py-2 pr-4 font-semibold">Kind</th>
                   <th className="py-2 font-semibold">What it does</th>
@@ -166,7 +166,7 @@ export default function McpPage() {
         </section>
 
         <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <h2 className="text-2xl font-semibold tracking-[-0.03em] text-slate-950">What happens after your team approves</h2>
+          <h2 className="text-2xl font-semibold tracking-[-0.035em] text-slate-950">What happens after your team approves</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
             An assistant can propose; approval is what makes a test count. From then on the workspace keeps it working
             and keeps the record.
@@ -181,7 +181,7 @@ export default function McpPage() {
         </section>
 
         <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <h2 className="text-2xl font-semibold tracking-[-0.03em] text-slate-950">Connect in three steps</h2>
+          <h2 className="text-2xl font-semibold tracking-[-0.035em] text-slate-950">Connect in three steps</h2>
           <ol className="mt-4 space-y-2 text-sm leading-6 text-slate-700">
             <li>
               <span className="font-semibold">1.</span> <Link href="/sign-up" className="font-semibold text-cyan-800 hover:text-cyan-950">Create a free workspace</Link> and a project.
@@ -223,7 +223,7 @@ export default function McpPage() {
         </section>
 
         <section className="mt-8 rounded-[2rem] border border-emerald-200 bg-emerald-50 p-6 sm:p-8">
-          <h2 className="text-2xl font-semibold tracking-[-0.03em] text-slate-950">What it can never do</h2>
+          <h2 className="text-2xl font-semibold tracking-[-0.035em] text-slate-950">What it can never do</h2>
           <ul className="mt-4 grid gap-3 text-sm leading-6 text-slate-700 md:grid-cols-2">
             <li><span className="font-semibold">Approve anything.</span> Proposals wait for a person on your team; nothing counts as coverage until they approve it.</li>
             <li><span className="font-semibold">Go beyond your role.</span> The token is yours, for one project, and checked against your access on every request. A viewer&rsquo;s assistant cannot write.</li>

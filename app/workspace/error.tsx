@@ -39,7 +39,7 @@ export default function WorkspaceError({
         <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-slate-950 text-sm font-bold text-white">
           PG
         </div>
-        <h1 className="mt-5 text-2xl font-semibold tracking-tight text-slate-950">
+        <h1 className="mt-5 text-2xl font-semibold tracking-[-0.02em] text-slate-950">
           This page didn&rsquo;t load
         </h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">
