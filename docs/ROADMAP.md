@@ -20,6 +20,29 @@ has reproduced in isolation. Everything else passed.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **"Wait a minute" told to somebody whose day was over** (2026-10-18): the
+  free tool refused with "That was quick -- wait a minute before the next
+  run" beside a counter reading "0 of 5 drafts left today". Each sentence was
+  true of its own limit, and together they were useless advice: a minute does
+  not return a daily allowance, which comes back at midnight.
+  The cause is in the Lua that reserves a request. Both limits are checked in
+  one atomic script, and the minute was checked first, so whenever both were
+  over the caller heard about the one a wait can lift rather than the one
+  that was actually blocking them.
+  It costs more than a confusing sentence, because the workspace acts on that
+  answer: `reserveWaitingOutBurst` sleeps the minute out and tries again,
+  precisely because a minute limit is a wait rather than a refusal. Told
+  "burst" when the truth was "daily", a prove run sat there for a minute and
+  then failed for the real reason. The free tool also withheld the Team
+  plan -- it is offered when the daily allowance runs out, which is exactly
+  the case that was being reported as a burst.
+  All three limiters check the day first now: the public one, the workspace
+  one, and the CI ingest one, where the reader is a build engineer looking at
+  a log. The order is held by a test that reads the shipped script, because
+  the decision happens inside Redis and nothing here runs Lua; it was proved
+  by reversing one and watching it fail.
+
+### Found by using the product as a team would
 - **A localhost URL cost a visitor one of their five drafts** (2026-10-18):
   walking the free tool's refusal paths as a stranger would. Pasting
   `http://localhost:3000/` did not get refused -- it started a prove run.

@@ -25,11 +25,17 @@ local daily_count = tonumber(redis.call("GET", KEYS[2]) or "0")
 local minute_limit = tonumber(ARGV[1])
 local daily_limit = tonumber(ARGV[2])
 
-if minute_count >= minute_limit then
-  return {0, minute_count, daily_count, 1}
-end
+-- The day is checked before the minute, and the order is the message.
+-- Both can be over at once, and whichever is reported is what the caller is
+-- told to do about it: "wait a minute" is useless advice to somebody whose
+-- day is spent, and a workspace flow acts on it -- it sleeps out the minute
+-- and tries again, to be refused a second time for the real reason. The
+-- binding constraint is the one a wait cannot lift.
 if daily_count >= daily_limit then
   return {0, minute_count, daily_count, 2}
+end
+if minute_count >= minute_limit then
+  return {0, minute_count, daily_count, 1}
 end
 
 minute_count = redis.call("INCR", KEYS[1])

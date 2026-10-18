@@ -35,11 +35,14 @@ local minute_limit = tonumber(ARGV[1])
 local daily_result_limit = tonumber(ARGV[2])
 local results = tonumber(ARGV[5])
 
-if minute_count >= minute_limit then
-  return {0, minute_count, daily_results, 1}
-end
+-- The day before the minute, for the reason the AI limiters do it: both can
+-- be over at once, and the one reported is the one a build engineer reads in
+-- their log and acts on. A day's budget does not come back in a minute.
 if daily_results + results > daily_result_limit then
   return {0, minute_count, daily_results, 2}
+end
+if minute_count >= minute_limit then
+  return {0, minute_count, daily_results, 1}
 end
 
 minute_count = redis.call("INCR", KEYS[1])
