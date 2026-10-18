@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 
 import { SiteNavigation } from "@/components/site-navigation";
 import { SiteStructuredData } from "@/components/site-structured-data";
-import { validatePublicClerkEnvironment } from "@/lib/env";
 import {
   SHARE_IMAGE,
   SITE_AUTHOR,

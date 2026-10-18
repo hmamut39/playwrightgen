@@ -60,7 +60,7 @@ type LivePage =
       excerpt: string;
       signedIn?: boolean;
     }
-  | { status: "not_read"; reason: string };
+  | { status: "not_read"; reason: string; httpStatus?: number };
 
 const LIVE_PAGE_REASONS: Record<string, string> = {
   blocked_address: "Only public web addresses can be opened (not localhost or private networks).",
@@ -69,6 +69,9 @@ const LIVE_PAGE_REASONS: Record<string, string> = {
   not_configured: "Page reading is not available right now.",
   no_login_form: "We found no sign-in form on that page. Check the page URL, or add the login page's URL under the test account.",
   sign_in_rejected: "The site did not accept the test account: its sign-in form was still there after submitting.",
+  // Said as a refusal rather than a reading, because a draft written from an
+  // error page is built from the wrong page and looks like any other draft.
+  error_page: "That address answered an error, so there was no page to read. Check the address.",
 };
 
 /** A public practice shop whose login page shows its demo account. */
@@ -850,7 +853,9 @@ function LivePagePanel({ livePage, result }: { livePage: LivePage; result: Quick
     return (
       <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
         <span className="font-semibold">We could not open the page, so locators are best guesses.</span>{" "}
-        {LIVE_PAGE_REASONS[livePage.reason] ?? LIVE_PAGE_REASONS.unreachable}
+        {livePage.reason === "error_page" && livePage.httpStatus
+          ? `That address answered ${livePage.httpStatus}, so there was no page to read. Check the address.`
+          : LIVE_PAGE_REASONS[livePage.reason] ?? LIVE_PAGE_REASONS.unreachable}
       </p>
     );
   }

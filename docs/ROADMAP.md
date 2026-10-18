@@ -20,6 +20,28 @@ has reproduced in isolation. Everything else passed.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **A 404 was read as a page, and a test was written from it** (2026-10-18):
+  the page reader was asked to open a real 404 and reported success. An error
+  page loads, has a title and a heading, so it came back like any other page
+  -- and the draft was written entirely from the wrong page, under the words
+  "Live page read". The product's own repair prompt already knows this shape
+  ("if the tree at the failure is an error page, the test opened the wrong
+  address"); the reader did not.
+  The navigation response carries the status and it was being thrown away.
+  Anything from 400 up is refused now, with the number kept so the tool can
+  say "that address answered 404" rather than "the page could not be
+  opened". A server error fails the navigation before there is a response to
+  read, so that case is recognised by the reason Chromium gives instead.
+  Checked against four real addresses: a 404 refused in under two seconds
+  where it used to take three and a half and succeed, a host that does not
+  resolve still unreachable, a 500 now an error page, and a page that works
+  still read.
+  A test now holds the whole class: every reason the reader can return has a
+  sentence on every tool that shows one. The fallback says "could not be
+  opened" whatever happened, so a missing sentence is invisible -- which is
+  how a new reason would have slipped through.
+
+### Found by using the product as a team would
 - **"Wait a minute" told to somebody whose day was over** (2026-10-18): the
   free tool refused with "That was quick -- wait a minute before the next
   run" beside a counter reading "0 of 5 drafts left today". Each sentence was

@@ -90,11 +90,14 @@ type LiveCoveragePage =
         offSite?: { role: string; name: string }[];
       } | null;
     }
-  | { status: "not_read"; reason: string };
+  | { status: "not_read"; reason: string; httpStatus?: number };
 
 const LIVE_REASONS: Record<string, string> = {
   no_login_form: "We found no sign-in form on that page. Check the page URL, or add the login page's URL under the test account.",
   sign_in_rejected: "The site did not accept the test account: its sign-in form was still there after submitting.",
+  // Said as a refusal rather than a reading, because a draft written from an
+  // error page is built from the wrong page and looks like any other draft.
+  error_page: "That address answered an error, so there was no page to read. Check the address.",
   blocked_address: "Only public web addresses can be opened (not localhost or private networks).",
   timeout: "The page took too long to load.",
   unreachable: "The page could not be opened.",
@@ -490,7 +493,9 @@ function LiveCoveragePanel({ livePage }: { livePage: LiveCoveragePage }) {
     return (
       <p className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm leading-6 text-amber-900">
         <span className="font-semibold">We could not open the page, so this review uses your text only.</span>{" "}
-        {LIVE_REASONS[livePage.reason] ?? LIVE_REASONS.unreachable}
+        {livePage.reason === "error_page" && livePage.httpStatus
+          ? `That address answered ${livePage.httpStatus}, so there was no page to read. Check the address.`
+          : LIVE_REASONS[livePage.reason] ?? LIVE_REASONS.unreachable}
       </p>
     );
   }

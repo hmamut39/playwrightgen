@@ -141,7 +141,7 @@ export async function POST(req: Request) {
               excerpt: snapshot.aria.slice(0, 4_000),
               signedIn: Boolean(snapshot.signedIn),
             }
-          : { status: "not_read", reason: snapshot.reason }
+          : { status: "not_read", reason: snapshot.reason, httpStatus: snapshot.status }
         : null,
       inputSignals: [
         request ? "Requirement or prompt" : null,

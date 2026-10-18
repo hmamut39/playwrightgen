@@ -115,7 +115,7 @@ export async function POST(req: Request) {
                 // Computed from the page and the pasted tests, not by the model.
                 surface: existingTests ? measureSurfaceCoverage(snapshot.aria, existingTests, { pageUrl: snapshot.finalUrl, linkTargets: snapshot.linkTargets }) : null,
               }
-            : { status: "not_read", reason: snapshot.reason }
+            : { status: "not_read", reason: snapshot.reason, httpStatus: snapshot.status }
           : null,
     };
 

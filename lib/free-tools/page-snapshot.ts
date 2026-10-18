@@ -47,7 +47,16 @@ export type PageSnapshot =
     }
   | {
       ok: false;
-      reason: "not_configured" | "blocked_address" | "unreachable" | "timeout" | "no_login_form" | "sign_in_rejected";
+      reason:
+        | "not_configured"
+        | "blocked_address"
+        | "unreachable"
+        | "timeout"
+        | "no_login_form"
+        | "sign_in_rejected"
+        | "error_page";
+      /** The status an error page answered with, so the reason can say it. */
+      status?: number;
     };
 
 const MAX_ARIA_CHARS = 14_000;
@@ -94,7 +103,17 @@ export async function capturePageSnapshot(
     try {
       const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
       const page = await context.newPage();
-      await page.goto(url, { waitUntil: "domcontentloaded", timeout: NAVIGATION_TIMEOUT_MS });
+      const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: NAVIGATION_TIMEOUT_MS });
+      // An error page is a page: it loads, it has a heading and a title, and
+      // the reader used to hand it over as though it were the application.
+      // A draft written from a 404 is built entirely from the wrong page and
+      // the visitor is told "Live page read", which is true and useless. The
+      // status is the one signal that needs no guessing, so it is the one
+      // used -- not sniffing the text for "not found".
+      const status = response?.status();
+      if (typeof status === "number" && status >= 400) {
+        return { ok: false, reason: "error_page", status };
+      }
       // Client-rendered apps paint after DOMContentLoaded; give them a moment,
       // but never wait on a page that keeps the network busy forever.
       await page.waitForLoadState("networkidle", { timeout: 4_000 }).catch(() => {});
@@ -167,6 +186,13 @@ export async function capturePageSnapshot(
     // key, so it is blanked out of the message.
     const message = (error instanceof Error ? error.message : String(error)).replace(/token=[^&\s"']+/g, "token=***");
     console.warn("[page-snapshot] could not read the page:", message.split("\n")[0].slice(0, 300));
+    // A server error fails the navigation before there is a response to take
+    // a status from, so the check above never sees it. Chromium says which it
+    // was, and "that address answered an error" is a different thing for a
+    // person to act on than "we could not reach it".
+    if (message.includes("ERR_HTTP_RESPONSE_CODE_FAILURE")) {
+      return { ok: false, reason: "error_page" };
+    }
     return { ok: false, reason: "unreachable" };
   }
 }
