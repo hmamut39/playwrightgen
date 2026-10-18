@@ -8,12 +8,19 @@ export function ResultActions({
   tone = "light",
   copyLabel = "Copy",
   downloadLabel = "Download",
+  showDownload = true,
 }: {
   content: string;
   filename: string;
   tone?: "light" | "dark";
   copyLabel?: string;
   downloadLabel?: string;
+  /**
+   * A generated test is worth keeping as a file; a ten-line editor config is
+   * not -- it is going straight into a settings file somebody already has
+   * open. The MCP page needs the copying and not the download.
+   */
+  showDownload?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const buttonStyle =
@@ -47,13 +54,15 @@ export function ResultActions({
       >
         {copied ? "Copied" : copyLabel}
       </button>
-      <button
-        type="button"
-        onClick={download}
-        className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${buttonStyle}`}
-      >
-        {downloadLabel}
-      </button>
+      {showDownload ? (
+        <button
+          type="button"
+          onClick={download}
+          className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${buttonStyle}`}
+        >
+          {downloadLabel}
+        </button>
+      ) : null}
     </div>
   );
 }

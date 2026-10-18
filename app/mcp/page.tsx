@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { ResultActions } from "@/components/free-tools/result-actions";
 import { SHARE_IMAGE, siteUrl } from "@/lib/site";
 
 const TITLE = "Playwright MCP server for Copilot, Cursor and Claude Code";
@@ -195,9 +196,25 @@ export default function McpPage() {
           <div className="mt-5 grid gap-4 lg:grid-cols-3">
             {configs.map((config) => (
               <div key={config.editor} className="min-w-0 rounded-2xl border border-slate-200 bg-slate-950">
-                <div className="flex items-baseline justify-between gap-3 border-b border-white/10 px-4 py-3">
-                  <p className="text-sm font-semibold text-white">{config.editor}</p>
-                  <p className="truncate font-mono text-xs text-slate-400">{config.file}</p>
+                {/*
+                  The page's whole job is "paste this into your editor", and
+                  every one of these blocks is wider than its card: the text
+                  scrolls sideways inside a small box, so reading it by eye
+                  gets you a truncated command. Copying takes the whole thing
+                  whatever the card shows. The file path moved under the name
+                  rather than beside it, where it was being truncated too.
+                */}
+                <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white">{config.editor}</p>
+                    <p className="truncate font-mono text-xs text-slate-400">{config.file}</p>
+                  </div>
+                  <ResultActions
+                    content={config.code}
+                    filename={`playwrightgen-${config.editor.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.txt`}
+                    tone="dark"
+                    showDownload={false}
+                  />
                 </div>
                 <pre className="overflow-x-auto p-4 text-xs leading-5 text-slate-100">{config.code}</pre>
               </div>

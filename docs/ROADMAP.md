@@ -20,6 +20,25 @@ has reproduced in isolation. Everything else passed.
 ## Shipped (most recent first)
 
 ### Reaching the people who never open it
+- **The page that says "paste this into your editor" had nothing to paste
+  with** (2026-10-18): a sweep of every public page after the font change --
+  for breakage first, then for the density the owner had asked about. No
+  breakage: nine pages, two widths, all rendering Geist, no horizontal
+  overflow, no script errors, and the rest of them already lean at 235 to 448
+  words. `/mcp` is the only long one at 764, and it was left alone, because
+  its length is a sixteen-row tools table. Density is a fault in persuasion
+  and a feature in reference.
+  What the sweep did find: all three editor-config blocks on that page are
+  wider than their cards on desktop *and* phone, so the text scrolls sideways
+  inside a small box and anyone reading it by eye copies a truncated command.
+  The page had no copy button anywhere. Each block has one now, reusing the
+  free tools' own copy control rather than writing a second -- which only
+  needed an option to leave out the download, since a ten-line editor config
+  is going straight into a settings file somebody already has open. Verified
+  by clicking it in a browser and reading the clipboard back: 401 characters
+  ending in the closing brace, not what the card happened to show.
+
+### Reaching the people who never open it
 - **The site was rendering in Arial, and the front page asked for four
   minutes** (2026-10-18): the owner's own reading of the home page -- "lots of
   paragraphs, do you think an end client understands and is comfortable" --
