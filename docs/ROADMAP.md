@@ -20,6 +20,45 @@ has reproduced in isolation. Everything else passed.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **A refresh was the one step the preview would not take** (2026-10-18):
+  running a mock company -- Northwind Retail, a lead, an engineer and a
+  manager -- through a real coverage plan on TodoMVC. Four tests were planned
+  and proven: three passed, and the fourth, "New todos persist after page
+  reload", came back "Partly run: nothing failed, but some steps could not
+  run in the preview", naming `await page.reload()`.
+  The verdict was honest and useless. The skipped step was the one the test
+  existed to make, so "nothing failed" said nothing -- the todos were never
+  asked to survive anything, and the assertion after the reload passed
+  against a page that had never been reloaded. Every test shaped "do
+  something, refresh, is it still there?" landed in the same half-state,
+  which covers most of what localStorage is for.
+  Running it needed no new power: the preview already drives a real browser
+  and already navigates it for `goto`, and a reload returns to the address it
+  is on, so the origin check that guards `goto` has nothing to decide. The
+  persistence test now runs end to end, 6 of 6 steps. Proved by a draft that
+  can only pass if the reload really happened -- type into the box without
+  submitting, reload, assert the box is empty -- and by deleting the support
+  and watching the new test fail.
+- **A button on the sign-in page that leads back to the sign-in page**
+  (2026-10-18): the same walkthrough, at sign-up. The onboarding page asks
+  for one thing -- name your organisation -- and carried the marketing menu
+  above it: Product, three free tools, MCP, Pricing, and "Open Workspace".
+  Signed out, that button goes to `/workspace`, which redirects to
+  `/sign-in`; on the sign-in page it returns you to the page you are standing
+  on. Verified in a browser rather than reasoned about. Onboarding is where
+  it costs something: someone who wanders off it has an account with no
+  organisation and nothing to come back to. The nav already hid itself in the
+  workspace and on proof links; these three pages were never added to the
+  rule.
+- **A dev badge read as a product fault** (2026-10-18): the same walkthrough
+  reported the sidebar rendering the company name as "wind Retail", with a
+  circle drawn over the first letters on every workspace page. It was not the
+  product. `#devtools-indicator`, the Next.js dev-tools button, sits at
+  [20, 844, 36x36] under `next dev` and lands exactly on the sidebar footer.
+  It does not exist in a production build. Recorded because the walkthrough
+  runs locally and will meet it again: anything at the bottom-left corner of
+  a local screenshot is suspect, and `document.elementsFromPoint` names the
+  `nextjs-portal` shadow host rather than anything of ours.
 - **"Fixed until it passes", on a loop that stops after two fixes**
   (2026-10-18): checking the claims the public pages make against what the
   code does. The prove loop writes a test, runs it, fixes the failing step
@@ -2668,6 +2707,26 @@ change in classification can only be attributed to that field.
   eighteen minutes (117 files, 856 tests), and its default reporter prints
   nothing until the end when the output is piped, so silence is not a hang.
 
+- **Vercel Function Storage is the binding free-tier limit, not bandwidth.**
+  On 2026-10-18 the free team `hasan-gens-projects` hit 100% of 10 GB. It is
+  not old builds piling up: `vercel ls` showed one project and four
+  deployments. `vercel inspect` reports roughly 199 function outputs for the
+  live deployment at ~17 MB each, so one deployment is on the order of
+  2-3 GB and four fills the quota. Deleting the three non-live deployments
+  (`vercel remove playwrightgen --safe`, owner's call) frees about three
+  quarters but refills in three or four pushes. The durable levers are
+  smaller functions (`outputFileTracingExcludes` cut 30% on 2026-10-18) and
+  fewer deployments -- batch commits rather than pushing each one.
+  Pruned on 2026-10-18 with the owner's go-ahead: `vercel remove playwrightgen
+  --safe --yes` removed the three unaliased deployments and kept the one
+  serving playwrightgen.com, taking the count from four to one. Verified after
+  by loading six pages (all 200) and by running a real draft through
+  `POST /api/preview-run` on production, which opened a browser and returned a
+  passing verdict -- the project, the domain and the functions were untouched,
+  and deploying works exactly as before.
+  `vercel build` cannot be measured on this machine: it creates symlinks
+  between duplicate functions and Windows refuses them without developer
+  mode, so the local build stops after the first function.
 - Local development: `npx next dev -p 3000`. The dev database may need
   `db:migrate:verified` with `EXPECTED_NEON_BRANCH_ID=br-restless-dawn-axyqbc68`
   and `EXPECTED_NEON_PROJECT_ID=restless-frost-04247280` (dev branch, not

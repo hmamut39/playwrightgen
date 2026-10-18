@@ -175,6 +175,11 @@ async function perform(
     return;
   }
 
+  if (operation.op === "reload") {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 15_000 });
+    return;
+  }
+
   if (operation.op === "action") {
     const locator = resolveLocator(page, operation.locator);
     const options = { timeout: ACTION_TIMEOUT_MS };

@@ -324,3 +324,60 @@ test('x', async ({ page }) => {
     expect(operations[1]).toMatchObject({ op: "unsupported" });
   });
 });
+
+/**
+ * A refresh is the whole point of a persistence test.
+ *
+ * Found on 2026-10-18 by having a mock company prove a real coverage plan.
+ * Four tests were written for TodoMVC; three passed and the fourth -- "New
+ * todos persist after page reload" -- came back "Partly run: nothing failed,
+ * but some steps could not run in the preview", naming `await page.reload()`.
+ *
+ * The verdict was honest and useless. The step that could not run was the one
+ * the test existed to make, so "nothing failed" said nothing: the todos were
+ * never asked to survive anything. Every test of the form "do something,
+ * refresh, is it still there?" landed in the same half-state, and that covers
+ * most of what localStorage is used for.
+ *
+ * Running it needs no new power. The preview already drives a real browser and
+ * already navigates it for goto; reload returns to the address it is on, so
+ * the origin check that guards goto has nothing left to decide.
+ */
+const persistenceTest = `import { test, expect } from '@playwright/test';
+
+test('new todos persist after page reload', async ({ page }) => {
+  await page.goto('/todomvc/');
+  const newTodo = page.getByRole('textbox', { name: 'What needs to be done?' });
+  await newTodo.fill('Persistent item');
+  await newTodo.press('Enter');
+  await page.reload();
+  await expect(page.getByText('Persistent item')).toBeVisible();
+});`;
+
+describe("a test that refreshes the page", () => {
+  it("plans the reload as a step it runs, not one it skips", () => {
+    const plan = planPreviewRun(persistenceTest);
+    const operations = plan.tests[0].steps.flatMap((step) => step.operations);
+    const kinds = operations.map((operation) => operation.op);
+    expect(kinds).toContain("reload");
+    expect(
+      operations.filter((operation) => operation.op === "unsupported"),
+      "nothing in this draft should be left unrun",
+    ).toEqual([]);
+  });
+
+  it("still refuses page methods it genuinely cannot replay", () => {
+    // The point is not that every page.* call is now run. Without this, the
+    // change could have been "accept anything" and the test above would pass.
+    const plan = planPreviewRun(`import { test } from '@playwright/test';
+
+test('uses a page method the preview cannot replay', async ({ page }) => {
+  await page.goto('/todomvc/');
+  await page.setViewportSize({ width: 100, height: 100 });
+});`);
+    const operations = plan.tests[0].steps.flatMap((step) => step.operations);
+    const unsupported = operations.filter((operation) => operation.op === "unsupported");
+    expect(unsupported).toHaveLength(1);
+    expect(unsupported[0]).toMatchObject({ reason: "page.setViewportSize() is not run in the preview" });
+  });
+});

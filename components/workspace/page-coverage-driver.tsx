@@ -4,6 +4,22 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 /**
+ * What the banner says while the tests are being proven.
+ *
+ * A function rather than ternaries inside the JSX because the difference
+ * between the three cases is one space, and JSX decides for itself which
+ * newlines around an expression become spaces -- so the sentence could only
+ * be checked by rendering it. Here it can simply be read, and tested.
+ */
+export function provingSentence(remaining: number | null): string {
+  const carryOn = "Keep this page open; if you close it, it carries on from here when you come back.";
+  if (remaining === null) return `Proving the tests, two at a time. ${carryOn}`;
+  if (remaining === 0) return `Proving the tests — finishing the last one. ${carryOn}`;
+  const tests = remaining === 1 ? "1 test" : `${remaining} tests`;
+  return `Proving the tests, two at a time — ${tests} still to go. ${carryOn}`;
+}
+
+/**
  * Keeps a "cover this page" plan moving while this page is open.
  *
  * Each call proves one test on the server, so no request runs longer than a
@@ -28,6 +44,18 @@ export function PageCoverageDriver({
   const [password, setPassword] = useState("");
   const router = useRouter();
   const [problem, setProblem] = useState("");
+  /**
+   * How many tests are still to prove, as the server last reported it.
+   *
+   * This line used to predict instead: "each takes about a minute". How long
+   * one takes depends on the page, the model and the browser service, and a
+   * run of four on a slow evening took far longer than the sentence allowed --
+   * leaving someone watching a promise that had already expired, with no way
+   * to tell progress from a stall. The count beside it is the same thing the
+   * workers already read to decide whether to keep going, so saying it costs
+   * nothing and cannot go stale.
+   */
+  const [remaining, setRemaining] = useState<number | null>(null);
   const started = useRef(false);
 
   useEffect(() => {
@@ -53,6 +81,7 @@ export function PageCoverageDriver({
           }
           failures = 0;
           setProblem("");
+          if (typeof data.remaining === "number") setRemaining(data.remaining);
           router.refresh();
           if (data.status !== "PROVING" || (!data.provedItemId && data.remaining > 0)) {
             // Paused, done, or the other worker holds the last item.
@@ -99,8 +128,7 @@ export function PageCoverageDriver({
 
   return (
     <p role="status" aria-live="polite" className="mt-4 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900">
-      Proving the tests, two at a time &mdash; each takes about a minute. Keep this page open; if you close it, it carries on
-      from here when you come back.
+      {provingSentence(remaining)}
       {problem ? <span className="mt-1 block text-amber-800">{problem}</span> : null}
     </p>
   );

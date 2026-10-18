@@ -25,7 +25,7 @@ export const SITE_DESCRIPTION =
  */
 export const SITE_AUTHOR = {
   name: "Mamuti Aishan",
-  /** The name he also goes by, so either one finds him. */
+  /** The name they also go by, so either one finds them. */
   alternateName: "Hasan",
   url: "https://github.com/hmamut39",
 } as const;

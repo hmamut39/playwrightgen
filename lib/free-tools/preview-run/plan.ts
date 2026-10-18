@@ -59,6 +59,19 @@ export type MatcherName =
 
 export type Operation =
   | { op: "goto"; url: string; source: string }
+  /**
+   * page.reload(), run as a real reload of the page already open.
+   *
+   * "Add something, refresh, is it still there?" is how a test asks whether
+   * state survives, and for anything kept in localStorage it is the whole
+   * point of the test. Without it the persistence test came back "Partly run
+   * -- nothing failed, but some steps could not run", which is a verdict
+   * nobody can act on: the one step that mattered was the one skipped.
+   *
+   * It needs no address and cannot leave the site, so the origin check that
+   * guards goto has nothing to decide here.
+   */
+  | { op: "reload"; source: string }
   | { op: "action"; action: ActionName; locator: LocatorPlan; value?: string; source: string }
   | { op: "expect"; subject: "locator"; locator: LocatorPlan; matcher: MatcherName; negated: boolean; expected?: TextExpectation | number | { kind: "ref"; name: string }; source: string }
   | { op: "expect"; subject: "page"; matcher: "toHaveURL" | "toHaveTitle"; negated: boolean; expected: TextMatch; source: string }
@@ -357,6 +370,7 @@ export function planPreviewRun(code: string, options: { env?: Record<string, str
 
     if (target.type === "page") {
       if (method === "goto" && args[0]?.type === "string") return { op: "goto", url: args[0].value, source: text };
+      if (method === "reload") return { op: "reload", source: text };
       if (method === "waitForURL" && args[0] && asTextMatch(args[0])) {
         return { op: "expect", subject: "page", matcher: "toHaveURL", negated: false, expected: asTextMatch(args[0])!, source: text };
       }
