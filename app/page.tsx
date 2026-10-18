@@ -50,7 +50,7 @@ const freeTools = [
     number: "01",
     title: "Quick Generate",
     description:
-      "Describe the behaviour and give a URL. It reads the real page, writes the Playwright test, runs it in a real browser and fixes it until it passes.",
+      "Describe the behaviour and give a URL. It reads the real page, writes the Playwright test, runs it in a real browser and fixes the failing step until it passes -- or shows you the step it could not fix.",
     href: "/generator",
     action: "Write and prove a test",
   },
@@ -202,9 +202,10 @@ export default function Home() {
 
             <p className="mt-7 max-w-2xl text-lg leading-8 text-slate-300 sm:text-xl">
               Say what to test and paste a URL. PlaywrightGen reads the page,
-              writes the test, runs it in a real browser and fixes it until it
-              passes &mdash; then your team reviews it, with the passing run as
-              evidence, before it counts.
+              writes the test, runs it in a real browser and fixes the failing
+              step until it passes &mdash; or shows you the step it could not
+              fix. Then your team reviews it, with the passing run as evidence,
+              before it counts.
             </p>
 
             {/* A plain GET form: it works before any script loads, and lands in
@@ -267,7 +268,7 @@ export default function Home() {
             <div className="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-400">
               {[
                 "Run in a real browser",
-                "Fixed until it passes",
+                "Fixed and run again, or told why not",
                 "Reviewed before it counts",
               ].map((item) => (
                 <span key={item} className="inline-flex items-center gap-2">

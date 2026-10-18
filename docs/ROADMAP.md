@@ -20,6 +20,30 @@ has reproduced in isolation. Everything else passed.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **"Fixed until it passes", on a loop that stops after two fixes**
+  (2026-10-18): checking the claims the public pages make against what the
+  code does. The prove loop writes a test, runs it, fixes the failing step
+  and runs again -- at most twice in the free tool, once in the workspace,
+  up to three times over MCP -- and when the budget is gone it says so
+  plainly: "Still failing after the fixes included in one attempt. The draft
+  and the failure are below." The product behaves honestly. Five sentences
+  around it did not: the hero paragraph, the hero checklist, the page
+  description, the MCP page's own summary and its tools table all promised
+  "until it passes" with no end to it.
+  That is the product's own standard applied to its marketing: a claim has to
+  be true as written, or say what happens when it is not. They now say what
+  the loop does -- fixes the failing step until it passes, or shows the step
+  it could not fix -- which is a better promise anyway, because the failing
+  case is the one a sceptical reader is thinking about.
+  Checked and left alone in the same pass, with the reason, so the next
+  session does not re-walk them: staleness is one function used by every
+  surface (fresh to seven days, aging to thirty, stale beyond); the free
+  tools' "5 free runs" and "10 live runs" match the limits actually enforced,
+  and their counters are keyed per surface, so the two allowances really are
+  separate; and a snapshot proof link already tells its reader it is a
+  snapshot, in those words, with the date it was taken.
+
+### Found by using the product as a team would
 - **A badge that could never go red** (2026-10-18): the README badge is read
   live, which is what lets it turn amber when evidence goes stale and red
   when something fails. It was also offered for a snapshot link -- and a

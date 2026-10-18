@@ -31,7 +31,7 @@ const loop = [
   },
   {
     step: "2",
-    title: "Run it until it passes",
+    title: "Run it, fix it, run it again",
     body: "run_playwright_test replays the test step by step on the live page and returns the failing step with the page as it was, so your assistant fixes the locator and runs again. prove_playwright_test does that whole loop in one call.",
   },
   {
@@ -42,7 +42,7 @@ const loop = [
 ];
 
 const tools: Array<{ name: string; kind: "Reads" | "Runs" | "Proposes"; does: string }> = [
-  { name: "prove_playwright_test", kind: "Runs", does: "The whole loop in one call: write it, run it, fix the failing step, run again until it passes." },
+  { name: "prove_playwright_test", kind: "Runs", does: "The whole loop in one call: write it, run it, fix the failing step, run again until it passes or the fixes run out." },
   { name: "plan_page_coverage", kind: "Proposes", does: "Plans the tests a whole page needs; a person approves the plan in PlaywrightGen." },
   { name: "prove_page_coverage", kind: "Runs", does: "Proves each approved test on the live page and returns the passing suite." },
   { name: "generate_playwright_test", kind: "Runs", does: "Writes a draft from a described flow and the real page." },
@@ -112,7 +112,8 @@ export default function McpPage() {
             </h1>
             <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-300">
               Connect GitHub Copilot, Cursor or Claude Code to PlaywrightGen. Your assistant writes the test from the real
-              page, runs it until it passes, and proposes it with that evidence &mdash; and your team decides what counts.
+              page, runs it and fixes what fails until it passes, and proposes it with that evidence &mdash; and your team
+              decides what counts.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link href="/sign-up" className="inline-flex min-h-12 items-center justify-center rounded-xl bg-cyan-400 px-6 text-sm font-bold text-slate-950 hover:bg-cyan-300">
