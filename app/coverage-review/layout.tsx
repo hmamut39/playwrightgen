@@ -1,3 +1,4 @@
+import { ClerkArea } from "@/components/auth/clerk-area";
 import type { Metadata } from "next";
 
 import { SHARE_IMAGE } from "@/lib/site";
@@ -11,6 +12,7 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", images: [SHARE_IMAGE.url] },
 };
 
+/** Saved drafts are offered to signed-in readers, which needs the session. */
 export default function Layout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return children;
+  return <ClerkArea>{children}</ClerkArea>;
 }

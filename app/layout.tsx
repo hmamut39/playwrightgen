@@ -1,4 +1,3 @@
-import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
@@ -63,19 +62,9 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY } =
-    validatePublicClerkEnvironment();
-
+  // Clerk is mounted by the trees that need it (see ClerkArea), so a visitor
+  // reading the home page does not download a session they do not have.
   return (
-    <ClerkProvider
-      publishableKey={NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
-      signInUrl="/sign-in"
-      signUpUrl="/sign-up"
-      signInFallbackRedirectUrl="/workspace"
-      signUpFallbackRedirectUrl="/workspace"
-      // Our own first step instead of Clerk's "Setup your organization" form.
-      taskUrls={{ "choose-organization": "/onboarding" }}
-    >
       <html lang="en">
         <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
           <SiteStructuredData />
@@ -114,6 +103,5 @@ export default function RootLayout({
           </div>
         </body>
       </html>
-    </ClerkProvider>
   );
 }

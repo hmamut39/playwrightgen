@@ -19,6 +19,27 @@ has reproduced in isolation. Everything else passed.
 
 ## Shipped (most recent first)
 
+### Reaching the people who never open it
+- **Every visitor downloaded a session they did not have** (2026-10-18):
+  `ClerkProvider` wrapped the whole application from the root layout, so the
+  home page, the pricing page and the MCP page each pulled clerk-js and the
+  Clerk UI bundle -- about 212kB in production -- to support a sign-in none
+  of them reads. Those are the pages a stranger meets first.
+  The provider does not have to be outermost; it has to be above anything
+  that uses Clerk. It is mounted now by the trees that do: the workspace,
+  the two sign-in routes, onboarding, and the two free tools that tailor one
+  sentence to whether you are signed in. Measured on a production build,
+  JavaScript on the pages that need none of it went from 1,006kB to 924kB
+  locally and the request count from 43 to 37; the saving is larger in
+  production, where the Clerk UI bundle is served from the product's own
+  domain and loaded as well.
+  Authentication is the one thing not worth guessing at, so it was checked
+  rather than reasoned about: `audit:phone` signs in through the real
+  sign-in page with a Clerk ticket, and it walked all twenty-one workspace
+  pages afterwards. The public browser checks pass too.
+  Together with the syntax-highlighter change earlier the same day, a public
+  page now carries 924kB of JavaScript where it carried 1,832kB.
+
 ### Found by using the product as a team would
 - **The call to action went pale at the moment somebody pressed it**
   (2026-10-18): the hover and focus states were left out of the contrast work

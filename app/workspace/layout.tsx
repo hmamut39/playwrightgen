@@ -1,3 +1,4 @@
+import { ClerkArea } from "@/components/auth/clerk-area";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -7,10 +8,11 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+/** Everything here is signed in, so this is where Clerk is mounted. */
 export default function WorkspaceLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return children;
+  return <ClerkArea>{children}</ClerkArea>;
 }
