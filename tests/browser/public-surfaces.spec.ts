@@ -14,7 +14,10 @@ test("public quality workflow surfaces remain reachable", async ({ page }) => {
   await open("/generator");
   await expect(page.getByRole("heading", { name: /reviewable playwright draft/i })).toBeVisible();
 
+  // The tool was renamed; the old address is kept as a permanent redirect so
+  // links already sent out keep working, and this follows it on purpose.
   await open("/intelligence");
+  expect(new URL(page.url()).pathname).toBe("/coverage-review");
   await expect(page.getByRole("heading", { name: /quality gap/i })).toBeVisible();
 
   await open("/pricing");
