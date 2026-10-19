@@ -1,5 +1,7 @@
 import "server-only";
 
+import { isProviderOutOfCredit, providerFailureReason } from "@/lib/ai/provider-availability";
+
 import { z } from "zod";
 
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
@@ -163,11 +165,25 @@ export async function startPageCoveragePlan(
         plan,
       );
     } catch (error) {
-      console.error("[page-coverage] planning failed", error);
+      // "Try again, or say what you want covered" blames the request. When
+      // the AI account has run out of credit, the request was fine and no
+      // rewording of it will help -- and this is the first thing a new
+      // workspace does, so it is the worst possible place to send somebody
+      // away rewriting a sentence that was never the problem.
+      const outOfCredit = isProviderOutOfCredit(error);
+      console.error(
+        "[page-coverage] planning failed:",
+        outOfCredit ? providerFailureReason(error) : error,
+      );
       await client(dependencies)
         .pageCoverage.update({
           where: { id: run.id },
-          data: { status: "PLAN_FAILED", message: "A plan could not be made for this page. Try again, or say what you want covered." },
+          data: {
+            status: "PLAN_FAILED",
+            message: outOfCredit
+              ? "AI planning is paused on this deployment, so no plan could be made. Nothing is wrong with the page or what you asked for."
+              : "A plan could not be made for this page. Try again, or say what you want covered.",
+          },
         })
         .catch(() => {});
     }
