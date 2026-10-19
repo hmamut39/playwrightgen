@@ -132,6 +132,24 @@ export function CiSetupPanel({
         immutable Test Run evidence pinned to the approved version each test
         covers.
       </p>
+      {/*
+        Said once, at the top, because the three pipelines above are offered
+        with ready-made configuration and only one of them can be finished.
+        Every recorded result is attributed to a real person, and the only
+        person the product can name is whoever connected the repository --
+        which today means a GitHub repository, since that is the only kind it
+        connects. A team on GitLab or Jenkins could copy the snippet, set the
+        four variables and watch every delivery be refused, with nothing on
+        the screen naming the reason. Better to cost them a minute here than
+        an afternoon there.
+      */}
+      <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+        Wherever they run, recording the results here needs a{" "}
+        <span className="font-semibold text-slate-800">connected GitHub repository</span>: each result is
+        attributed to the person who connected it, and that connection is how the product knows who they are.
+        If your code is not on GitHub, the pipeline configuration below will run your tests but the results
+        cannot be recorded yet.
+      </p>
 
       {!configured ? (
         <p className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
@@ -141,9 +159,9 @@ export function CiSetupPanel({
         </p>
       ) : !hasActiveConnection ? (
         <p className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">
-          Connect a repository above first. Results are attributed to the person
-          who created the active connection, so ingestion stays closed until one
-          exists.
+          Connect a GitHub repository above first — that is the only connection this product makes today.
+          Results are attributed to the person who created it, so ingestion stays closed until one exists, and
+          the token below is not issued.
         </p>
       ) : (
         <>

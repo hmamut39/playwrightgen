@@ -20,6 +20,23 @@ has reproduced in isolation. Everything else passed.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **Three pipelines offered, one that can be finished** (2026-10-19): the mock
+  company reached the step where CI results come back. The panel says tests
+  run "on GitHub Actions, GitLab CI or Jenkins" and ships ready-made
+  configuration for all three, then gates everything behind "Connect a
+  repository above first" -- where the only connector is the GitHub App.
+  Every recorded result is attributed to a real person and the only person the
+  product can name is whoever created the repository connection
+  (`resolveAutomationActor` fails closed without one); a connection cannot
+  exist without a `githubInstallationId`, and the CI token is an HMAC carrying
+  no issuer. So a team on GitLab could copy the snippet, set the four
+  variables and watch every delivery refused, with nothing on screen naming
+  the reason.
+  The page now says it, at the top and at the gate. **Open for the owner:**
+  whether non-GitHub teams should be able to record results at all. The fix is
+  choosing another real person to attribute to -- the project's creator is the
+  obvious candidate -- which is about an hour's work but changes what the
+  audit trail means, so it is a product decision rather than a repair.
 - **Every Test Case said "This test is failing"** (2026-10-19): walking the
   mock company to its own Test Cases. All four carried the heading, three of
   them directly above the line "Passed on the live page, 10 checks".
