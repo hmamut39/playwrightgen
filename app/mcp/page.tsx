@@ -62,7 +62,11 @@ const tools: Array<{ name: string; kind: "Reads" | "Runs" | "Proposes"; does: st
 
 /** What the workspace adds once a proposed test has been approved. */
 const afterApproval = [
-  "Daily checks run it on your live site and say the day it breaks.",
+  // Not "Daily checks run it on your live site": they do not start on their
+  // own. liveChecksEnabled defaults to false and a person switches it on. In
+  // a list headed "once a test has been approved", the plain sentence read as
+  // a promise that approval was enough.
+  "Daily checks, once you switch them on, run it on your live site and say the day it breaks.",
   "Approved code opens as a pull request in your repository.",
   "The evidence can be shared as a read-only link, downloaded as a file, or shown as a README badge.",
 ];

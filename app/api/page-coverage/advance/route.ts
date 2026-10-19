@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isProviderOutOfCredit, providerFailureReason } from "@/lib/ai/provider-availability";
 import { z } from "zod";
 
 import { requireWorkspaceContext, WorkspaceAuthorizationError } from "@/lib/auth/workspace-context";
@@ -42,6 +43,22 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "This page needs the test account to prove its tests.", signInNeeded: true }, { status: 409 });
       }
       return NextResponse.json({ error: error.detail ?? error.code }, { status: error.code === "not_found" ? 404 : 409 });
+    }
+    // An exhausted AI account is not a test that failed to prove. The driver
+    // on the page retries a 5xx, so without this it asked again every few
+    // seconds, three times, and then settled on "it will be tried again" --
+    // which was never true. `retryable: false` stops it at the first answer
+    // and shows the reason instead.
+    if (isProviderOutOfCredit(error)) {
+      console.error("[page-coverage] advance stopped:", providerFailureReason(error));
+      return NextResponse.json(
+        {
+          error:
+            "AI generation is paused on this deployment, so no more tests can be proven right now. Nothing already proven is lost.",
+          retryable: false,
+        },
+        { status: 503 },
+      );
     }
     console.error("[page-coverage] advance failed", error);
     return NextResponse.json({ error: "The next test could not be proven. It will be tried again." }, { status: 500 });

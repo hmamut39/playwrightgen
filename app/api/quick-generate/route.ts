@@ -7,6 +7,7 @@ import {
   QuickGenerationProviderError,
   type QuickGenerationInput,
 } from "@/lib/ai/quick-generation";
+import { isProviderOutOfCredit, providerFailureReason } from "@/lib/ai/provider-availability";
 import { EnvironmentValidationError } from "@/lib/env";
 import { capturePageSnapshot, isPublicWebAddress, type PageSnapshot } from "@/lib/free-tools/page-snapshot";
 import {
@@ -193,12 +194,20 @@ export async function POST(req: Request) {
       );
     }
 
+    // An account with nothing left to spend is not a failed request: no retry
+    // can succeed, so it is reported as unavailable rather than as "please try
+    // again", and the provider's own sentence goes to the log so the person
+    // who can fix it finds out without reading code.
+    const outOfCredit = isProviderOutOfCredit(error);
     const configurationFailure =
+      outOfCredit ||
       error instanceof EnvironmentValidationError ||
       (error instanceof QuickGenerationProviderError &&
         error.code === "configuration_missing");
     const providerFailure = error instanceof QuickGenerationProviderError;
-    const code = configurationFailure
+    const code = outOfCredit
+      ? "provider_out_of_credit"
+      : configurationFailure
       ? "configuration_unavailable"
       : providerFailure
         ? error.code
@@ -208,12 +217,17 @@ export async function POST(req: Request) {
       requestId,
       status: "failed",
       code,
+      // Without this, an unexpected failure logged its code and nothing else,
+      // so "internal_error" was the entire account of a broken home page.
+      reason: providerFailureReason(error),
       durationMs: Date.now() - startedAt,
       surface: "quick-generate",
     });
     return NextResponse.json(
       {
-        error: configurationFailure
+        error: outOfCredit
+          ? "AI generation is paused on this deployment. Nothing is wrong with what you asked for, and trying again will not help until it is restored."
+          : configurationFailure
           ? "AI generation is temporarily unavailable."
           : providerFailure
             ? "The model could not produce a safe structured draft. Please refine the input and try again."

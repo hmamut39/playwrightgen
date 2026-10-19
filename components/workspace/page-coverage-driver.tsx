@@ -76,7 +76,10 @@ export function PageCoverageDriver({
           if (!response.ok) {
             failures += 1;
             setProblem(data.error || "A test could not be proven; trying again.");
-            if (failures >= 3 || response.status < 500) return;
+            // Some refusals cannot be retried into working -- an AI account
+            // with nothing left to spend, for one. Asking again every few
+            // seconds only delays the moment somebody reads the reason.
+            if (data.retryable === false || failures >= 3 || response.status < 500) return;
             continue;
           }
           failures = 0;

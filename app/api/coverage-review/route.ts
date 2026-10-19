@@ -7,6 +7,7 @@ import {
   reviewCoverage,
   type CoverageReviewInput,
 } from "@/lib/ai/coverage-review";
+import { isProviderOutOfCredit, providerFailureReason } from "@/lib/ai/provider-availability";
 import { EnvironmentValidationError } from "@/lib/env";
 import {
   FreeToolLimitError,
@@ -163,12 +164,18 @@ export async function POST(req: Request) {
       );
     }
 
+    // See the note in quick-generate/route.ts: an exhausted account cannot be
+    // retried into working, so it is not reported as a failed attempt.
+    const outOfCredit = isProviderOutOfCredit(error);
     const configurationFailure =
+      outOfCredit ||
       error instanceof EnvironmentValidationError ||
       (error instanceof CoverageReviewProviderError &&
         error.code === "configuration_missing");
     const providerFailure = error instanceof CoverageReviewProviderError;
-    const code = configurationFailure
+    const code = outOfCredit
+      ? "provider_out_of_credit"
+      : configurationFailure
       ? "configuration_unavailable"
       : providerFailure
         ? error.code
@@ -178,12 +185,15 @@ export async function POST(req: Request) {
       requestId,
       status: "failed",
       code,
+      reason: providerFailureReason(error),
       durationMs: Date.now() - startedAt,
       surface: "coverage-review",
     });
     return NextResponse.json(
       {
-        error: configurationFailure
+        error: outOfCredit
+          ? "AI review is paused on this deployment. Nothing is wrong with what you sent, and trying again will not help until it is restored."
+          : configurationFailure
           ? "AI review is temporarily unavailable."
           : providerFailure
             ? "The model could not produce a reliable structured review. Refine the evidence and try again."

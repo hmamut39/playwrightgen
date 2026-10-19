@@ -538,14 +538,28 @@ export default async function ProjectRepositoriesPage({
           </div>
         ) : (
           <div className="mx-auto max-w-2xl py-8 text-center sm:py-12">
+            {/*
+              This badge said "Read-only GitHub App" and the panel below said
+              "Metadata and Contents read only". Neither is what the App may
+              hold: the permission ceiling is metadata read, contents read and
+              write, pull requests read and write, issues read -- as the README
+              states and a test checks. Contents write is what commits the test
+              file a pull request proposes, which is a feature the pricing page
+              sells.
+              Understating your own access is the worse direction to be wrong
+              in. Somebody approving an installation on the strength of the
+              word "read-only" has been told something about their repository
+              that is not true, and they are the one person who cannot check.
+            */}
             <span className="inline-flex rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-800">
-              Read-only GitHub App
+              Least-privilege GitHub App
             </span>
             <h2 className="mt-4 text-xl font-semibold">No repository connected</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Install the read-only PlaywrightGen GitHub App, verify your GitHub
-              access, then choose the repository whose test evidence belongs to
-              this project.
+              Install the PlaywrightGen GitHub App, verify your GitHub access,
+              then choose the repository whose test evidence belongs to this
+              project. It never merges anything and never pushes to your
+              default branch.
             </p>
             {context.can("organization:manage") && setupConfigured ? (
               <div className="mt-5">
@@ -603,7 +617,7 @@ export default async function ProjectRepositoriesPage({
             ) : null}
             <div className="mt-6 grid gap-3 text-left sm:grid-cols-3">
               {[
-                ["Permissions", "Metadata and Contents read only"],
+                ["Permissions", "Metadata and issues read; contents and pull requests write, to open a PR"],
                 ["Imports", "Pinned to an exact commit"],
                 ["Execution", "Runs in your own CI, never ours"],
               ].map(([label, value]) => (

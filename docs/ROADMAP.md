@@ -20,6 +20,58 @@ has reproduced in isolation. Everything else passed.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **The home page's own button was answering 500, and nothing said why**
+  (2026-10-19): found by timing the hero's promise -- "Write & prove it ...
+  takes about a minute" -- against production. It answered HTTP 500 "Quick
+  Generate failed. Please try again." in 11.8s.
+  The cause was not code: the AI account had run out of credit, and the
+  provider was returning `429 You have no credits remaining`. Three things
+  were wrong around it. The visitor was told to try again, which could never
+  work. The operational log recorded `{"code":"internal_error"}` and nothing
+  else -- the telemetry schema is an allowlist and had no field for a reason
+  at all -- so the only person who could fix it had no way to learn of it.
+  And the workspace's "Cover a page" driver treats a 5xx as retryable, so a
+  team watched it ask again every few seconds, three times, before settling
+  on "it will be tried again", which was never true.
+  An exhausted account is now told apart from an ordinary rate limit -- both
+  are 429 and they mean opposite things, so the test pins a real rate-limit
+  message as *not* this -- reported as paused rather than failed, answered
+  with `retryable: false` so the driver stops at once, and logged with the
+  provider's own sentence, sanitised of anything key-shaped and capped at 300
+  characters.
+  **Owner action:** add credit at platform.openai.com. Every AI feature is
+  down until then: both free tools and Cover a page.
+- **The install screen called a writing App read-only** (2026-10-19): following
+  the pricing page's promise of "pull requests with approved tests, straight
+  to your repository" to the screen where a team installs the GitHub App. That
+  screen called it a "Read-only GitHub App" and listed "Metadata and Contents
+  read only". The ceiling is metadata read, contents read and write, pull
+  requests read and write, issues read -- contents write is what commits the
+  file a pull request proposes. The README says so and `readme-claims` checks
+  it; the screen where somebody grants the access did not.
+  Understating your own access is the worse direction to be wrong in: a person
+  approving an installation on the word "read-only" has been told something
+  about their repository that is not true, and they cannot check. It now says
+  "Least-privilege GitHub App", names the writes, and keeps the true
+  reassurance -- never merges, never pushes to the default branch. The test
+  reads `GITHUB_PERMISSION_CEILING` rather than a copy of the words.
+- **Daily checks that never start** (2026-10-19): step four of the four shown
+  to every new workspace read "Approve, then let it watch the site -- ... After
+  that, daily checks run it on your site and tell you the day it breaks."
+  `liveChecksEnabled` defaults to false and the only thing that sets it true is
+  a person pressing the switch on Health or Overview. A team following those
+  four steps exactly would approve their tests, believe the site was watched,
+  and learn otherwise on the day it broke -- the one day this product exists
+  to tell them about. The same sentence sat on the MCP page under "what the
+  workspace adds once a test has been approved"; both now say it is a switch.
+  The test checks the wording against the schema default rather than against
+  itself.
+- Checked and found honest the same morning, recorded so they are not
+  re-investigated: Slack and Discord alerts are both really implemented, with
+  URL validation and the right payload for each; proof pages set `noindex` on
+  the page and the download, link only to the public home page, and show no
+  test code; and the separation-of-duties rule behaves exactly as the Team
+  page describes it.
 - **"Nothing has ever been run" beside three tests that had run**
   (2026-10-19): the mock company reached its release page. Three of its tests
   had passed on the live page the day before -- every Test Case said so, in

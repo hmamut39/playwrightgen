@@ -182,8 +182,15 @@ const FIRST_STEPS = [
     detail: "Each test is written, run in a real browser and fixed until it passes. You see what passed and what did not.",
   },
   {
-    title: "Approve, then let it watch the site",
-    detail: "Approving turns a test into evidence. After that, daily checks run it on your site and tell you the day it breaks.",
+    title: "Approve, then switch on daily checks",
+    // This used to read "After that, daily checks run it on your site and tell
+    // you the day it breaks", which described something that does not happen:
+    // liveChecksEnabled defaults to false and the only thing that turns it on
+    // is a person pressing the switch on Health or Overview. A new team
+    // following these four steps exactly would approve their tests, believe
+    // the site was being watched, and find out otherwise on the day it broke
+    // -- which is the one day this product exists to tell them about.
+    detail: "Approving turns a test into evidence. Then switch on daily checks, and it runs them on your site every day and tells you the day one breaks.",
   },
 ];
 
