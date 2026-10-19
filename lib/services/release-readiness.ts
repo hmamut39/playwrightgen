@@ -6,7 +6,7 @@ import {
 } from "@/lib/auth/workspace-context";
 import { getPrismaClient } from "@/lib/db/prisma";
 import { getProjectQualityIntelligence } from "@/lib/services/project-quality";
-import { classifyRuns, loadAttemptFacts, type RunSignal } from "@/lib/services/run-signals";
+import { classifyRuns, loadAttemptFacts, type AttemptFact, type RunSignal } from "@/lib/services/run-signals";
 
 /**
  * Answers "can this be released?" without inventing a number.
@@ -125,7 +125,54 @@ export async function getReleaseReadiness(
   const flaky = bySignal("FLAKY");
   const intentChanged = bySignal("INTENT_CHANGED");
 
+  /**
+   * Approved tests whose last recorded run did not pass, however the failure
+   * is classified -- or not classified at all.
+   *
+   * `regressions` answers a narrower question: which failures can be pinned
+   * on the application. That needs commit hashes on both sides, and a daily
+   * live check has none, because it runs against an address rather than a
+   * revision. So a project checked daily could have every approved test
+   * failing and still report "0 regressions", and nothing else on this page
+   * counted a failure at all -- `NEW_FAILURE` and `INSUFFICIENT` were
+   * classified and then dropped.
+   *
+   * Found on 2026-10-19 by breaking a mock company's site under its own
+   * suite. Three approved tests failed every day, a product-defect finding
+   * was confirmed at 70%, and this page said "Nothing is blocking this
+   * release". That is the most consequential sentence the product prints.
+   *
+   * Counted per test case from the attempt records rather than from the
+   * signals, so it holds whether or not a cause was ever worked out.
+   */
+  const latestByTestCase = new Map<string, AttemptFact>();
+  for (const attempt of attemptFacts) {
+    const held = latestByTestCase.get(attempt.testCaseId);
+    if (!held || attempt.executedAt.getTime() > held.executedAt.getTime()) {
+      latestByTestCase.set(attempt.testCaseId, attempt);
+    }
+  }
+  const failingTestCases = [...latestByTestCase.values()].filter(
+    (attempt) => attempt.result !== "PASSED",
+  ).length;
+
   const findings: ReadinessFinding[] = [];
+
+  // Before the attribution question, the plain one: is anything failing? A
+  // release page that can only describe failures it has pinned on somebody
+  // stays quiet about the rest, and quiet reads as fine.
+  if (failingTestCases > 0) {
+    findings.push({
+      severity: "BLOCKER",
+      code: "tests_failing",
+      title: "Approved tests are failing",
+      detail:
+        `${failingTestCases === 1 ? "An approved test" : `${failingTestCases} approved tests`} last ran and did not pass. ` +
+        "Whether the application or the test is at fault is a separate question, and may not be settled yet -- either way the evidence does not show this behaviour working.",
+      href: `${base}/test-runs`,
+      count: failingTestCases,
+    });
+  }
 
   if (regressions > 0) {
     findings.push({

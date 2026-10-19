@@ -200,6 +200,133 @@ describe("release readiness and missing execution evidence", () => {
     expect(blocker?.detail).toContain("Nothing has ever been run");
   });
 
+  /**
+   * Found on 2026-10-19 by breaking a mock company's site under its own
+   * approved suite. Three approved tests failed on the live page every day, a
+   * product-defect finding was confirmed at 70%, and this page said "Nothing
+   * is blocking this release".
+   *
+   * `regressions` answers a narrower question -- which failures can be pinned
+   * on the application -- and that needs a commit hash on both sides. A daily
+   * live check runs against an address, not a revision, so it has none, and
+   * the `NEW_FAILURE` and `INSUFFICIENT` signals were classified and then
+   * dropped. Nothing else on the page counted a failure at all.
+   *
+   * The attribution question is worth keeping. Asking it first was the
+   * mistake.
+   */
+  it("blocks while an approved test is failing, even with nothing to blame", async () => {
+    const space = await workspace();
+    const d = deps(space);
+    const testCase = await createTestCase({
+      projectId: space.project.id,
+      title: "A todo can be added",
+      objective: "Verify a todo appears after submitting.",
+      steps: ["Type a todo", "Press Enter"],
+      expectedResults: ["The todo appears"],
+    }, d);
+    await submitTestCaseForReview({ projectId: space.project.id, testCaseId: testCase.id }, d);
+    await approveTestCase({ projectId: space.project.id, testCaseId: testCase.id }, d);
+    const version = await prisma.testCaseVersion.findFirstOrThrow({
+      where: { testCaseId: testCase.id },
+      orderBy: { versionNumber: "desc" },
+    });
+    const testRun = await prisma.testRun.create({
+      data: {
+        organizationId: space.organization.id,
+        projectId: space.project.id,
+        testCaseId: testCase.id,
+        testCaseVersionId: version.id,
+        name: "Daily live check",
+        status: "FAILED",
+        latestAttemptNumber: 1,
+        createdByUserId: space.owner.id,
+      },
+    });
+    // No commitSha, exactly as a daily live check records it.
+    await prisma.testRunAttempt.create({
+      data: {
+        organizationId: space.organization.id,
+        projectId: space.project.id,
+        testRunId: testRun.id,
+        attemptNumber: 1,
+        result: "FAILED",
+        mode: "PLAYWRIGHT_BROWSER",
+        environment: "PRODUCTION",
+        browser: "CHROMIUM",
+        summary: "Daily live check: 0 passed, 1 failed.",
+        failureDetails: "locator.waitFor: Timeout 5000ms exceeded.",
+        stepResults: [],
+        evidence: [],
+        executedByUserId: space.owner.id,
+      },
+    });
+
+    const readiness = await getReleaseReadiness({ projectId: space.project.id }, d);
+    const blocker = readiness.findings.find((f) => f.code === "tests_failing");
+
+    expect(blocker).toBeDefined();
+    expect(blocker?.severity).toBe("BLOCKER");
+    expect(blocker?.count).toBe(1);
+    expect(readiness.releasable).toBe(false);
+    // It must not claim to know whose fault it is: that is the regression
+    // finding's job, and it has the commit evidence this one does not.
+    expect(blocker?.detail).toMatch(/separate question|not be settled/i);
+    expect(readiness.findings.some((f) => f.code === "regressions_open")).toBe(false);
+  });
+
+  it("does not raise it when the approved tests are passing", async () => {
+    // Without this the blocker could fire unconditionally, which would
+    // satisfy the case above while making the page useless.
+    const space = await workspace();
+    const d = deps(space);
+    const testCase = await createTestCase({
+      projectId: space.project.id,
+      title: "A todo can be added",
+      objective: "Verify a todo appears after submitting.",
+      steps: ["Type a todo", "Press Enter"],
+      expectedResults: ["The todo appears"],
+    }, d);
+    await submitTestCaseForReview({ projectId: space.project.id, testCaseId: testCase.id }, d);
+    await approveTestCase({ projectId: space.project.id, testCaseId: testCase.id }, d);
+    const version = await prisma.testCaseVersion.findFirstOrThrow({
+      where: { testCaseId: testCase.id },
+      orderBy: { versionNumber: "desc" },
+    });
+    const testRun = await prisma.testRun.create({
+      data: {
+        organizationId: space.organization.id,
+        projectId: space.project.id,
+        testCaseId: testCase.id,
+        testCaseVersionId: version.id,
+        name: "Daily live check",
+        status: "PASSED",
+        latestAttemptNumber: 1,
+        createdByUserId: space.owner.id,
+      },
+    });
+    await prisma.testRunAttempt.create({
+      data: {
+        organizationId: space.organization.id,
+        projectId: space.project.id,
+        testRunId: testRun.id,
+        attemptNumber: 1,
+        result: "PASSED",
+        mode: "PLAYWRIGHT_BROWSER",
+        environment: "PRODUCTION",
+        browser: "CHROMIUM",
+        summary: "Daily live check: 1 passed.",
+        failureDetails: "",
+        stepResults: [],
+        evidence: [],
+        executedByUserId: space.owner.id,
+      },
+    });
+
+    const readiness = await getReleaseReadiness({ projectId: space.project.id }, d);
+    expect(readiness.findings.some((f) => f.code === "tests_failing")).toBe(false);
+  });
+
   it("clears the blocker once something has actually run", async () => {
     // The counterpart to the case above. A gate that blocked unconditionally
     // would satisfy the previous test while making the page useless, so the

@@ -20,6 +20,26 @@ has reproduced in isolation. Everything else passed.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **"Nothing is blocking this release", with every approved test failing**
+  (2026-10-19): the worst thing found all day, and it took breaking a site to
+  find it. Three approved tests failed on the live page every day, Health said
+  so, the proof link said FAILING, a product-defect finding was confirmed at
+  70% -- and the release page said "Nothing is blocking this release, with 1
+  caution to review", without mentioning the failing tests anywhere.
+  `regressions` answers a narrower question than it appears to: which failures
+  can be pinned on the application. That needs a commit hash on both sides,
+  and a daily live check runs against an address rather than a revision, so it
+  has none. The `NEW_FAILURE` and `INSUFFICIENT` signals were classified and
+  then dropped, and no other finding counted a failure at all. A team who use
+  daily checks and have not wired CI could therefore never trip it.
+  The attribution question is worth keeping; asking it first was the mistake.
+  A `tests_failing` blocker now comes before it, counted per test case from
+  the attempt records so it holds whether or not a cause was ever worked out,
+  and worded not to claim one: "Whether the application or the test is at
+  fault is a separate question, and may not be settled yet -- either way the
+  evidence does not show this behaviour working."
+  Checked by deleting the blocker and watching the new case fail, and by a
+  second case pinning that it stays quiet while the tests pass.
 - **The day it breaks, walked end to end** (2026-10-19): every test seen
   until now had passed, so the product's whole reason for existing -- telling
   a team the day something breaks -- had never been watched. Northwind's live
