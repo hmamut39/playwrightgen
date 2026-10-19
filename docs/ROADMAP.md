@@ -20,6 +20,32 @@ has reproduced in isolation. Everything else passed.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **Every Test Case said "This test is failing"** (2026-10-19): walking the
+  mock company to its own Test Cases. All four carried the heading, three of
+  them directly above the line "Passed on the live page, 10 checks".
+  Nothing ever asked whether the test was failing. `readRepairReadiness`
+  returned a readiness object whatever the runs said -- its "no analysis yet"
+  branch was written for a failure nobody had diagnosed, not for a test that
+  had never failed -- and the page rendered the section whenever that object
+  existed. The error code `no_failure` had been declared since the service was
+  written and never once thrown.
+  It now reads the most recent run, which is the honest answer to a sentence
+  in the present tense, and returns nothing when that run did not fail; the
+  diagnosis is scoped to that run rather than to any failure the test ever
+  had. A team told their passing tests are failing stops reading the labels,
+  which is the one thing this product sells. Three new tests, each checked by
+  deleting the guard and watching them fail.
+- **A reviewer was shown the good number and not the bad one** (2026-10-19):
+  the same walk, at the moment of approval. The lead opened a Test Case
+  waiting for her decision and read "Partly run on the live page, 7 checks
+  passed" above an Approve button. One step had never run -- the page reload
+  the test was written for -- and nothing on that screen said so. The receipt
+  carries `skipped` and `notReached`; only `passed` was ever shown.
+  A partial verdict is the one that misleads on its own: nothing failed, so it
+  reads like a pass. The badge now says "7 passed, 1 not run" and a line
+  beneath it says what that means and to check the code against the steps
+  before approving. Everything needed was already in the signed receipt, so
+  nothing about the evidence format changed.
 - **A refresh was the one step the preview would not take** (2026-10-18):
   running a mock company -- Northwind Retail, a lead, an engineer and a
   manager -- through a real coverage plan on TodoMVC. Four tests were planned

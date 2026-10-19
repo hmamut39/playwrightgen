@@ -81,7 +81,7 @@ export type RepairReadiness = {
 export async function readRepairReadiness(
   input: { orgSlug?: string; projectId: string; testCaseId: string },
   dependencies?: WorkspaceContextDependencies,
-): Promise<RepairReadiness> {
+): Promise<RepairReadiness | null> {
   const projectId = z.string().uuid().parse(input.projectId);
   const testCaseId = z.string().uuid().parse(input.testCaseId);
   const workspace = await requireWorkspaceContext(
@@ -90,11 +90,27 @@ export async function readRepairReadiness(
   );
   const prisma = dependencies?.prisma ?? getPrismaClient();
 
+  // Is this test failing at all? Everything below answers "what should we do
+  // about the failure", and until now nothing asked whether there was one.
+  // The readiness object was returned either way and the screen showed its
+  // heading, so a Test Case whose every run had passed was labelled "This
+  // test is failing" -- directly above the evidence saying it passed. The
+  // most recent run is the honest answer to a sentence in the present tense:
+  // a test that failed last month and passes now is not failing.
+  const latestRun = await prisma.testRun.findFirst({
+    where: { organizationId: workspace.organization.id, projectId, testCaseId },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, status: true },
+  });
+  if (!latestRun || latestRun.status !== "FAILED") return null;
+
+  // Scoped to the run being shown. A finding from an older, already-fixed
+  // failure would otherwise decide what is offered for this one.
   const finding = await prisma.failureFinding.findFirst({
     where: {
       organizationId: workspace.organization.id,
       projectId,
-      attempt: { testRun: { testCaseId } },
+      testRunId: latestRun.id,
     },
     orderBy: [{ confidence: "desc" }, { createdAt: "desc" }],
     select: { category: true, confidence: true, title: true },
@@ -196,6 +212,11 @@ export async function proposeAutomationRepair(
 
   // The gate first: never repair a test whose failure looks like a real bug.
   const readiness = await readRepairReadiness(input, dependencies);
+  // "no_failure" has been in this error's list since the service was written
+  // and was never once thrown, because nothing asked whether the test was
+  // failing. Now that the readiness check answers that, repairing a test that
+  // is not failing is refused instead of being attempted.
+  if (!readiness) throw new AutomationRepairError("no_failure");
   if (!readiness.allowed) throw new AutomationRepairError("looks_like_product_defect", readiness.message);
 
   const project = await prisma.project.findUnique({

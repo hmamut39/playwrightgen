@@ -14,12 +14,27 @@ type ImportedDraft = {
   usedAt: Date | null;
 };
 
-function evidenceLabel(evidence: ImportedRunEvidence | null, source: string) {
+/**
+ * The badge beside imported code, saying what its live run actually showed.
+ *
+ * Exported so the partial case can be tested: it is the one verdict whose
+ * number reads like good news on its own.
+ */
+export function evidenceLabel(evidence: ImportedRunEvidence | null, source: string) {
   if (!evidence && source === "editor") return { text: "Not run by PlaywrightGen yet", tone: "bg-white text-slate-600 ring-1 ring-slate-200" };
   if (!evidence) return { text: "Not run on the live page before import", tone: "bg-white text-slate-600 ring-1 ring-slate-200" };
   if (evidence.verdict === "passed") return { text: `Passed on the live page · ${evidence.passed} checks`, tone: "bg-emerald-700 text-white" };
   if (evidence.verdict === "partial") {
-    return { text: `Partly run on the live page · ${evidence.passed} checks passed`, tone: "bg-amber-100 text-amber-900" };
+    // The count of what did not run belongs in the label, not only in the
+    // word "partly". A reviewer deciding whether to approve read "Partly run
+    // on the live page, 7 checks passed" and had no way to tell that anything
+    // had been left out, let alone how much -- the number beside it was the
+    // good news on its own.
+    const notRun = evidence.skipped + evidence.notReached;
+    return {
+      text: `Partly run on the live page · ${evidence.passed} passed, ${notRun} not run`,
+      tone: "bg-amber-100 text-amber-900",
+    };
   }
   return { text: "Its last live run failed", tone: "bg-red-100 text-red-800" };
 }
@@ -55,6 +70,24 @@ export function ImportedDraftPanel({
           &middot; {draft.evidence.tests} test{draft.evidence.tests === 1 ? "" : "s"}
           {draft.evidence.inputs?.length ? <> &middot; signed in with a test account ({draft.evidence.inputs.join(", ")})</> : null}
           {" "}&middot; signed by PlaywrightGen for this exact code.
+        </p>
+      ) : null}
+      {/*
+        Said where the decision is made. This panel sits on the Test Case
+        page, which is where a lead presses Approve, and a partial run is the
+        one verdict whose meaning is not obvious from its number: nothing
+        failed, so it reads like a pass. What it actually means is that some
+        steps were never exercised, and the step a test was written for is
+        often exactly the one the preview cannot replay -- a reload, in the
+        run that prompted this. The approval is still the reviewer's to give;
+        this makes sure they know what they are giving it on.
+      */}
+      {draft.evidence?.verdict === "partial" ? (
+        <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+          Nothing failed, but {draft.evidence.skipped + draft.evidence.notReached}{" "}
+          {draft.evidence.skipped + draft.evidence.notReached === 1 ? "step was" : "steps were"} never run, so{" "}
+          {draft.evidence.skipped + draft.evidence.notReached === 1 ? "it is" : "they are"} unproven. Check the code below
+          against the steps above before approving.
         </p>
       ) : null}
       <details className="mt-3">

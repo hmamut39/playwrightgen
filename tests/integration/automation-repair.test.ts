@@ -195,11 +195,12 @@ describe("whether a failing test may be repaired", () => {
       area.owned,
     );
 
-    expect(readiness.allowed).toBe(false);
+    expect(readiness).not.toBeNull();
+    expect(readiness?.allowed).toBe(false);
     // The reason is said out loud, because a button that silently declines
     // teaches nobody anything.
-    expect(readiness.message).toContain("defect in the product");
-    expect(readiness.message).toContain("delete the only warning");
+    expect(readiness?.message).toContain("defect in the product");
+    expect(readiness?.message).toContain("delete the only warning");
   });
 
   it("offers a repair when the test itself is what looks wrong", async () => {
@@ -212,7 +213,7 @@ describe("whether a failing test may be repaired", () => {
     );
 
     expect(readiness).toMatchObject({ allowed: true, category: "TEST_DEFECT", confidence: 80 });
-    expect(readiness.message).toContain("A person still reviews it");
+    expect(readiness?.message).toContain("A person still reviews it");
   });
 
   it("will not act on a diagnosis it is not confident about", async () => {
@@ -224,8 +225,61 @@ describe("whether a failing test may be repaired", () => {
       area.owned,
     );
 
-    expect(readiness.allowed).toBe(false);
-    expect(readiness.message).toContain("not confident");
+    expect(readiness).not.toBeNull();
+    expect(readiness?.allowed).toBe(false);
+    expect(readiness?.message).toContain("not confident");
+  });
+
+  /**
+   * Found on 2026-10-19, walking a mock company through its own test cases.
+   * Every one of the four showed the heading "This test is failing" -- three
+   * of them directly above the line "Passed on the live page, 10 checks".
+   *
+   * Nothing here ever asked whether the test was failing. The readiness
+   * object was returned whatever the runs said, the page rendered its section
+   * whenever that object existed, and so the label appeared on every Test
+   * Case in the product. A team told their passing tests are failing stops
+   * reading the labels, which is the one thing this product sells.
+   */
+  it("says nothing about repairs when the test is not failing", async () => {
+    const area = await space();
+    await prisma.testRun.update({ where: { id: area.run.id }, data: { status: "PASSED" } });
+    await prisma.testRunAttempt.update({ where: { id: area.attempt.id }, data: { result: "PASSED" } });
+
+    const readiness = await readRepairReadiness(
+      { projectId: area.project.id, testCaseId: area.testCase.id },
+      area.owned,
+    );
+
+    expect(readiness).toBeNull();
+  });
+
+  it("says nothing about repairs when the test has never been run", async () => {
+    const area = await space();
+    await prisma.failureFinding.deleteMany({ where: { testRunId: area.run.id } });
+    await prisma.failureAnalysis.deleteMany({ where: { testRunId: area.run.id } });
+    await prisma.testRunAttempt.deleteMany({ where: { testRunId: area.run.id } });
+    await prisma.testRun.delete({ where: { id: area.run.id } });
+
+    const readiness = await readRepairReadiness(
+      { projectId: area.project.id, testCaseId: area.testCase.id },
+      area.owned,
+    );
+
+    expect(readiness).toBeNull();
+  });
+
+  it("refuses to repair a test that is not failing", async () => {
+    const area = await space();
+    await prisma.testRun.update({ where: { id: area.run.id }, data: { status: "PASSED" } });
+    await prisma.project.update({ where: { id: area.project.id }, data: { liveUrl: "https://shop.example.com/" } });
+
+    // "no_failure" was declared when this service was written and never
+    // thrown. Before, a request to repair a passing test got as far as
+    // looking for automation to rewrite.
+    await expect(
+      proposeAutomationRepair({ projectId: area.project.id, testCaseId: area.testCase.id }, area.owned),
+    ).rejects.toMatchObject({ code: "no_failure" });
   });
 
   it("does nothing until something has analysed the failure", async () => {
@@ -236,8 +290,9 @@ describe("whether a failing test may be repaired", () => {
       area.owned,
     );
 
-    expect(readiness.allowed).toBe(false);
-    expect(readiness.message).toContain("Nothing has analysed this failure yet");
+    expect(readiness).not.toBeNull();
+    expect(readiness?.allowed).toBe(false);
+    expect(readiness?.message).toContain("Nothing has analysed this failure yet");
   });
 
   it("leaves the environment and the test data to a person", async () => {
@@ -248,8 +303,9 @@ describe("whether a failing test may be repaired", () => {
         { projectId: area.project.id, testCaseId: area.testCase.id },
         area.owned,
       );
-      expect(readiness.allowed).toBe(false);
-      expect(readiness.message).toContain("only offered when the test itself");
+      expect(readiness).not.toBeNull();
+    expect(readiness?.allowed).toBe(false);
+      expect(readiness?.message).toContain("only offered when the test itself");
     }
   });
 });
