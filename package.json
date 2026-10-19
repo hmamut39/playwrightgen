@@ -29,6 +29,7 @@
     "evals": "node scripts/run-evals.mjs",
     "evals:raw": "vitest run --config vitest.evals.config.ts",
     "db:migrate:preview": "node scripts/migrate-preview.mjs",
+    "db:migrate:production": "node scripts/migrate-production.mjs",
     "audit:phone": "node scripts/audit-phone.mjs"
   },
   "dependencies": {
