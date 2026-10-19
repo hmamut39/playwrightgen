@@ -20,6 +20,35 @@ has reproduced in isolation. Everything else passed.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **The eval that guards the repair loop did not check what it was named for**
+  (2026-10-19): the scheduled Evals run went red, and the case was
+  `draft-repair.eval.ts - keeps the assertion when the behaviour is simply not
+  there`. Every eval in the run had passed; this one failed on a regex.
+  Reading it: the case asserted that `weakeningFindings` found nothing and
+  that the explanation mentioned the absence. It never checked the assertion
+  survived. `weakeningFindings` is shape-only by its own documentation --
+  "it cannot tell a better assertion from a worse one" -- so swapping the
+  absent counter for a check the page can still satisfy was invisible to it,
+  and the only thing that failed was the wording test not recognising "the
+  tree did not contain that element" as a statement of absence.
+  So the case failed for an incidental reason while the substantive problem
+  walked past it: the model had replaced `getByTestId('todo-count')` with an
+  assertion about the list, explaining that this "preserves the intent". A
+  counter removed by a real defect, a suite that goes green, a diff small
+  enough to wave through -- the exact failure `automation-repair.ts` calls
+  worse than no tool.
+  The case now requires the absent locator to still be in the repaired code,
+  and the wording check accepts honest synonyms, since a case that reads as a
+  regression because of a synonym teaches people to bless baselines without
+  reading them. The prompt rule was tightened to name the substitution.
+  The first tightening over-corrected and is worth recording: told to return
+  the line exactly as it was, the model stopped fixing a locator whose element
+  had merely been renamed, which is the repair's whole job. Measured, not
+  guessed -- that case passed 2/2 on the old wording and failed on the new.
+  The rule now draws the line it depends on, absent from the tree versus
+  present under another name, and says what to do on each side. Four cases,
+  three consecutive full-file runs, all green; the key case fails on the old
+  wording, which is how the fix is known to be the thing that fixed it.
 - **The advice on an uncovered requirement was to duplicate the tests**
   (2026-10-19): walking the mock company the length of the chain, from "Cover
   a page" to a link somebody outside the team can read. That flow -- the
