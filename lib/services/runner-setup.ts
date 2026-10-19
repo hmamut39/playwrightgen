@@ -75,6 +75,42 @@ export async function getProjectRunnerSetup(
 }
 
 /**
+ * Records that this person has taken the project's CI token.
+ *
+ * Results delivered with that token are recorded under a real person, and
+ * this is the act that names them. It is deliberately not done when the page
+ * is merely opened: the evidence page shows this name beside "Attempt 3" as
+ * though they ran it, and a lead who glanced at a settings screen has not
+ * done anything worth putting their name on. Revealing or copying the secret
+ * is the moment somebody is taking it away to a pipeline.
+ *
+ * Written once and never overwritten, so a colleague looking at the token
+ * later does not quietly take over responsibility for what CI reports.
+ * Rotating does overwrite it, because rotating is itself an act.
+ */
+export async function claimProjectRunnerToken(
+  input: { orgSlug?: string; projectId: string },
+  dependencies?: WorkspaceContextDependencies,
+): Promise<void> {
+  const projectId = uuidSchema.parse(input.projectId);
+  const workspace = await requireWorkspaceContext(
+    { orgSlug: input.orgSlug, projectId, permission: "repository:connect" },
+    dependencies,
+  );
+  const prisma = dependencies?.prisma ?? getPrismaClient();
+  await prisma.project.updateMany({
+    // The null check is in the where clause so two people pressing at once
+    // cannot race: the second update matches no rows.
+    where: {
+      organizationId: workspace.organization.id,
+      id: projectId,
+      runnerTokenActorUserId: null,
+    },
+    data: { runnerTokenActorUserId: workspace.user.id },
+  });
+}
+
+/**
  * Revokes this project's ingest token by advancing its version.
  *
  * Because the token is derived rather than stored, incrementing the version is
@@ -100,7 +136,10 @@ export async function rotateProjectRunnerToken(
   const rotated = await prisma.$transaction(async (transaction) => {
     const project = await transaction.project.update({
       where: { organizationId_id: { organizationId: workspace.organization.id, id: projectId } },
-      data: { runnerTokenVersion: { increment: 1 } },
+      // Rotating is taking the new token away to a pipeline, so it moves the
+      // attribution to whoever did it. Unlike the first read, this one is an
+      // act rather than a glance.
+      data: { runnerTokenVersion: { increment: 1 }, runnerTokenActorUserId: workspace.user.id },
       select: { runnerTokenVersion: true },
     });
 

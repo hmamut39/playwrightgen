@@ -20,6 +20,48 @@ has reproduced in isolation. Everything else passed.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **A team without GitHub could not record a single CI result** (2026-10-19):
+  the morning's walk found the CI panel offering GitHub Actions, GitLab CI and
+  Jenkins with ready-made configuration, and only the first could be finished;
+  the first fix was to say so on the page. This removes the limit instead.
+  Every recorded result is kept under a named person and the only one the
+  product could name was whoever installed the GitHub App
+  (`resolveAutomationActor` failed closed otherwise). A connection cannot
+  exist without a `githubInstallationId`, and the CI token is an HMAC that
+  carries no issuer, so there was nobody else to ask about.
+  `Project.runnerTokenActorUserId` (migration
+  `20261019141925_record_who_took_the_ci_token`) records whoever takes the
+  project's CI token, and ingestion names them when no repository is
+  connected. The repository connection still takes precedence, so no existing
+  attribution moved, and ingestion still refuses when nobody at all can be
+  named -- a test pins that refusal, because widening who qualifies must not
+  quietly remove the floor.
+  **When** it is recorded was the part worth getting right. The first version
+  wrote it whenever the Repositories page was read, and the evidence page
+  prints that name beside "Attempt 3" as though they ran it -- so a lead who
+  opened a settings screen would have been named on every CI result that
+  followed. It is now written when the secret is revealed or copied, which is
+  the moment somebody takes it away to a pipeline. Written once and never
+  overwritten, so a colleague looking later inherits nothing; rotating does
+  move it, because rotating is itself an act. The null check sits in the
+  `where` clause so two people pressing at once cannot race.
+  Three sentences elsewhere became false the moment this shipped and were
+  corrected with it: the CI panel's own warning, the rejection note telling a
+  pipeline to "reconnect the repository", and the project setup chain, whose
+  repository step both said attribution required a connection and could never
+  tick for a team that had taken the token instead -- a checklist that cannot
+  be finished is worse than none. `docs/CHECKPOINT_STATUS.md` V1.9 records the
+  supersession rather than being left to go stale.
+
+  Migration note for the production run: this migration also carries drift
+  pending since the Prisma 7 upgrade -- it drops database-side `id` defaults
+  on 16 tables and renames a batch of indexes and foreign keys. The first
+  migration created after that upgrade absorbs it, and this was the first.
+  Checked rather than assumed: nothing in the codebase issues a raw `INSERT`
+  (the only raw SQL is a `SELECT 1` health check), so every insert goes
+  through Prisma, which generates its own UUIDs and never relied on those
+  defaults. The renames are metadata only and match names the August
+  migrations created.
 - **The home page's own button was answering 500, and nothing said why**
   (2026-10-19): found by timing the hero's promise -- "Write & prove it ...
   takes about a minute" -- against production. It answered HTTP 500 "Quick

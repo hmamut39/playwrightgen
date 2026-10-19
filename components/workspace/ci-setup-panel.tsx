@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { CI_PROVIDERS, CI_TEMPLATES, type CiProvider } from "@/lib/ci/templates";
 import { LocalTime } from "@/components/workspace/local-time";
@@ -9,13 +9,31 @@ type CopyFieldProps = {
   label: string;
   value: string;
   secret?: boolean;
+  /**
+   * Called the first time the secret is revealed or copied -- the moment
+   * somebody is taking it away to a pipeline. Results delivered with this
+   * token are recorded under whoever that was, and the evidence page prints
+   * their name beside the attempt, so the act has to be theirs rather than a
+   * side effect of opening the page.
+   */
+  onTaken?: () => void | Promise<void>;
 };
 
-export function CopyField({ label, value, secret = false }: CopyFieldProps) {
+export function CopyField({ label, value, secret = false, onTaken }: CopyFieldProps) {
   const [revealed, setRevealed] = useState(!secret);
   const [copied, setCopied] = useState(false);
+  const taken = useRef(false);
+
+  function take() {
+    if (taken.current || !onTaken) return;
+    taken.current = true;
+    // Never blocks the copy or the reveal: the person gets what they came
+    // for, and a failed write only means ingestion stays closed.
+    void Promise.resolve(onTaken()).catch(() => {});
+  }
 
   async function copy() {
+    take();
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
@@ -41,7 +59,13 @@ export function CopyField({ label, value, secret = false }: CopyFieldProps) {
         {secret ? (
           <button
             type="button"
-            onClick={() => setRevealed((current) => !current)}
+            onClick={() => {
+              // Only on the way open: hiding it again is not taking it.
+              setRevealed((current) => {
+                if (!current) take();
+                return !current;
+              });
+            }}
             className="shrink-0 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
           >
             {revealed ? "Hide" : "Reveal"}
@@ -61,7 +85,6 @@ export function CopyField({ label, value, secret = false }: CopyFieldProps) {
 
 export type CiSetupPanelProps = {
   configured: boolean;
-  hasActiveConnection: boolean;
   organizationId?: string;
   projectId?: string;
   token?: string;
@@ -96,11 +119,12 @@ export type CiSetupPanelProps = {
     note: string;
   } | null;
   rotateAction?: (formData: FormData) => void | Promise<void>;
+  /** Records who took the token; see CopyField's `onTaken`. */
+  claimAction?: () => void | Promise<void>;
 };
 
 export function CiSetupPanel({
   configured,
-  hasActiveConnection,
   organizationId,
   projectId,
   token,
@@ -110,6 +134,7 @@ export function CiSetupPanel({
   lastDelivery,
   lastRejection,
   rotateAction,
+  claimAction,
 }: CiSetupPanelProps) {
   // Which pipeline the instructions below are written for. An IT department
   // rarely runs only one, and instructions for the wrong one are worse than
@@ -133,22 +158,19 @@ export function CiSetupPanel({
         covers.
       </p>
       {/*
-        Said once, at the top, because the three pipelines above are offered
-        with ready-made configuration and only one of them can be finished.
-        Every recorded result is attributed to a real person, and the only
-        person the product can name is whoever connected the repository --
-        which today means a GitHub repository, since that is the only kind it
-        connects. A team on GitLab or Jenkins could copy the snippet, set the
-        four variables and watch every delivery be refused, with nothing on
-        the screen naming the reason. Better to cost them a minute here than
-        an afternoon there.
+        This said recording required a connected GitHub repository, which was
+        true and was the whole problem: three pipelines were offered with
+        ready-made configuration and only one could be finished. Every result
+        is recorded under a real person, and the only one the product could
+        name was whoever installed the GitHub App.
+        It can now name whoever took this token, who holds
+        `repository:connect` and is putting it into a pipeline. So the
+        sentence says who will be named rather than which host you must use.
       */}
       <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-        Wherever they run, recording the results here needs a{" "}
-        <span className="font-semibold text-slate-800">connected GitHub repository</span>: each result is
-        attributed to the person who connected it, and that connection is how the product knows who they are.
-        If your code is not on GitHub, the pipeline configuration below will run your tests but the results
-        cannot be recorded yet.
+        Every result is recorded under a real person. Taking the token below puts your name on the results
+        this pipeline delivers, so it reads as evidence somebody stands behind rather than something a
+        machine asserted. No GitHub repository is needed for this.
       </p>
 
       {!configured ? (
@@ -157,16 +179,15 @@ export function CiSetupPanel({
           <code className="font-mono text-xs">RUNNER_INGEST_SECRET</code> must be
           set before a project token can be issued.
         </p>
-      ) : !hasActiveConnection ? (
-        <p className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">
-          Connect a GitHub repository above first — that is the only connection this product makes today.
-          Results are attributed to the person who created it, so ingestion stays closed until one exists, and
-          the token below is not issued.
-        </p>
       ) : (
         <>
           <div className="mt-6 grid gap-4">
-            <CopyField label="Repository secret · PLAYWRIGHTGEN_TOKEN" value={token ?? ""} secret />
+            <CopyField
+              label="Repository secret · PLAYWRIGHTGEN_TOKEN"
+              value={token ?? ""}
+              secret
+              onTaken={claimAction}
+            />
             <div className="grid gap-4 sm:grid-cols-2">
               <CopyField label="Variable · PLAYWRIGHTGEN_ORG_ID" value={organizationId ?? ""} />
               <CopyField label="Variable · PLAYWRIGHTGEN_PROJECT_ID" value={projectId ?? ""} />

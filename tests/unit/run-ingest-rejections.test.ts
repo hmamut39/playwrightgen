@@ -156,7 +156,15 @@ describe("a delivery that is refused", () => {
     expect(recordRejection).not.toHaveBeenCalled();
   });
 
-  it("explains a valid token with no repository to attribute evidence to", async () => {
+  /**
+   * The advice here changed on 2026-10-19. It used to say "Reconnect the
+   * repository", which was the only way to be attributable at the time, and
+   * was therefore useless to a team whose code is not on GitHub -- the ones
+   * most likely to meet this refusal. Taking the project's CI token now
+   * records who did it, so the note names both routes and fits whoever is
+   * reading it.
+   */
+  it("explains a valid token with nobody to attribute evidence to", async () => {
     withSecret();
     const body = JSON.stringify(payload());
     const recordRejection = vi.fn().mockResolvedValue(undefined);
@@ -172,7 +180,12 @@ describe("a delivery that is refused", () => {
     expect(response.status).toBe(403);
     const json = await response.json();
     expect(json.code).toBe("repository_connection_inactive");
-    expect(json.message).toContain("Reconnect the repository");
+    // Both routes, because only one of them is open to a GitLab team.
+    expect(json.message).toMatch(/reconnect the repository/i);
+    expect(json.message).toMatch(/copy the CI token/i);
+    // And it says what taking either one actually does, rather than leaving
+    // somebody to guess why it would help.
+    expect(json.message).toMatch(/recorded as the person the results belong to/i);
     expect(recordRejection).toHaveBeenCalledTimes(1);
     expect(recordRejection.mock.calls[0][0]).toMatchObject({ reason: "connection_inactive" });
   });

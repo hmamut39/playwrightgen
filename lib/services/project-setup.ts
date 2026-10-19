@@ -78,6 +78,7 @@ export async function getProjectSetup(
     links,
     automation,
     connections,
+    tokenHolder,
     attempts,
     latestRequirement,
     approvedRequirement,
@@ -89,6 +90,14 @@ export async function getProjectSetup(
     prisma.requirementTestCase.count({ where: scope }),
     prisma.automationArtifact.count({ where: { ...scope, status: { not: "ARCHIVED" } } }),
     prisma.repositoryConnection.count({ where: { ...scope, status: "ACTIVE" } }),
+    // Whether anybody can be named as the person behind CI results. A team
+    // without a GitHub repository can now be attributable by taking the CI
+    // token, and without this the step beside it would never tick for them --
+    // a checklist that cannot be finished is worse than none.
+    prisma.project.findFirst({
+      where: { organizationId: scope.organizationId, id: scope.projectId },
+      select: { runnerTokenActorUserId: true },
+    }),
     prisma.testRunAttempt.count({ where: scope }),
     // Enough to send each button to the one screen where the step is done,
     // rather than to a list the person then has to search.
@@ -175,12 +184,18 @@ export async function getProjectSetup(
     },
     {
       key: "repository",
-      title: "Connect a repository",
-      detail: "Results are attributed to the person who connected the repository, so this comes before reporting.",
-      done: connections > 0,
+      title: "Connect a repository, or take the CI token",
+      // This said "Results are attributed to the person who connected the
+      // repository, so this comes before reporting", which was exactly true
+      // until 2026-10-19 and is the sentence that kept teams without a GitHub
+      // repository out. Whoever takes the CI token is now recorded too, so
+      // the step is about having somebody to name rather than about GitHub.
+      detail:
+        "Results are recorded under a real person: whoever connects the repository, or whoever takes this project's CI token. Both live on the Repositories page.",
+      done: connections > 0 || Boolean(tokenHolder?.runnerTokenActorUserId),
       count: connections,
       href: `${base}/repositories`,
-      actionLabel: "Connect GitHub",
+      actionLabel: "Open Repositories",
     },
     {
       key: "evidence",

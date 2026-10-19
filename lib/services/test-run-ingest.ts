@@ -204,10 +204,26 @@ export type IngestSummary = {
 };
 
 /**
- * Resolves the actor a CI-recorded attempt is attributed to. Automated runs have
- * no Clerk session, so attempts are attributed to the human who connected the
- * repository. That keeps `executedByUserId` a real, auditable user rather than a
- * synthetic account, and it fails closed when no connection is active.
+ * Resolves the actor a CI-recorded attempt is attributed to.
+ *
+ * Automated runs carry no Clerk session, so each attempt is recorded under a
+ * real, auditable person rather than a synthetic account, and it fails closed
+ * when there is nobody to name.
+ *
+ * Two people can qualify, in this order. Whoever connected the repository, as
+ * before. Otherwise whoever took this project's CI token -- a holder of
+ * `repository:connect`, so a lead or an owner, who put it into a pipeline.
+ *
+ * The second was added on 2026-10-19. Until then the repository connection
+ * was the only answer, and a connection cannot exist without a GitHub
+ * installation id: a team whose code lives on GitLab or runs through Jenkins
+ * could copy the pipeline configuration this product gives them, set every
+ * variable, and have every delivery refused with a 403. The panel offered
+ * three pipelines and could finish one.
+ *
+ * Connecting a pipeline is at least as deliberate an act as installing an App
+ * once, so this widens who can be named without loosening what being named
+ * means.
  */
 async function resolveAutomationActor(
   prisma: PrismaClient,
@@ -219,9 +235,15 @@ async function resolveAutomationActor(
     orderBy: { createdAt: "asc" },
     select: { createdByUserId: true },
   });
+  if (connection) return connection.createdByUserId;
 
-  if (!connection) throw new RunIngestError("repository_connection_inactive", 403);
-  return connection.createdByUserId;
+  const project = await prisma.project.findFirst({
+    where: { organizationId, id: projectId },
+    select: { runnerTokenActorUserId: true },
+  });
+  if (project?.runnerTokenActorUserId) return project.runnerTokenActorUserId;
+
+  throw new RunIngestError("repository_connection_inactive", 403);
 }
 
 export async function ingestPlaywrightResults(

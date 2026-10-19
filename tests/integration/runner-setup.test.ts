@@ -6,6 +6,7 @@ import type { PrismaClient, ProjectMembershipRole } from "@/generated/prisma/cli
 import { WorkspaceAuthorizationError } from "@/lib/auth/workspace-context";
 import { deriveProjectRunnerToken } from "@/lib/integrations/runner/ingest-token";
 import {
+  claimProjectRunnerToken,
   getProjectRunnerSetup,
   rotateProjectRunnerToken,
 } from "@/lib/services/runner-setup";
@@ -215,6 +216,85 @@ describe("project runner setup", () => {
     // A credential must never be written into an audit record.
     if (!rotated.configured) throw new Error("expected configured");
     expect(JSON.stringify(activity?.metadata)).not.toContain(rotated.token);
+  });
+
+  /**
+   * Added 2026-10-19 with the fallback that lets a team without a GitHub
+   * repository record CI results: whoever takes this token is the person
+   * those results are recorded under.
+   *
+   * Which makes *when* it is recorded matter. The first version wrote it
+   * whenever the page was read, and the evidence page prints that name beside
+   * "Attempt 3" as though they ran it -- so a lead who opened a settings
+   * screen would have been named on every CI result that followed. Taking the
+   * token is the act; opening the page is not.
+   */
+  it("does not name somebody merely for reading the token", async () => {
+    vi.stubEnv("RUNNER_INGEST_SECRET", SECRET);
+    const space = await workspace();
+
+    await getProjectRunnerSetup({ projectId: space.project.id }, deps(space));
+
+    const project = await prisma.project.findUniqueOrThrow({
+      where: { id: space.project.id },
+      select: { runnerTokenActorUserId: true },
+    });
+    expect(project.runnerTokenActorUserId).toBeNull();
+  });
+
+  it("names whoever takes the token", async () => {
+    vi.stubEnv("RUNNER_INGEST_SECRET", SECRET);
+    const space = await workspace();
+
+    await claimProjectRunnerToken({ projectId: space.project.id }, deps(space));
+
+    const project = await prisma.project.findUniqueOrThrow({
+      where: { id: space.project.id },
+      select: { runnerTokenActorUserId: true },
+    });
+    expect(project.runnerTokenActorUserId).toBe(space.owner.id);
+  });
+
+  it("does not hand responsibility to a colleague who looks later", async () => {
+    vi.stubEnv("RUNNER_INGEST_SECRET", SECRET);
+    const space = await workspace();
+    const second = await member(space, "PROJECT_LEAD");
+
+    await claimProjectRunnerToken({ projectId: space.project.id }, deps(space));
+    await claimProjectRunnerToken({ projectId: space.project.id }, deps(space, second));
+
+    const project = await prisma.project.findUniqueOrThrow({
+      where: { id: space.project.id },
+      select: { runnerTokenActorUserId: true },
+    });
+    // Still the first person: the results belong to whoever wired the
+    // pipeline, not to the last person who opened the page.
+    expect(project.runnerTokenActorUserId).toBe(space.owner.id);
+  });
+
+  it("moves the name to whoever rotates, because rotating is an act", async () => {
+    vi.stubEnv("RUNNER_INGEST_SECRET", SECRET);
+    const space = await workspace();
+    const second = await member(space, "PROJECT_LEAD");
+
+    await claimProjectRunnerToken({ projectId: space.project.id }, deps(space));
+    await rotateProjectRunnerToken({ projectId: space.project.id }, deps(space, second));
+
+    const project = await prisma.project.findUniqueOrThrow({
+      where: { id: space.project.id },
+      select: { runnerTokenActorUserId: true },
+    });
+    expect(project.runnerTokenActorUserId).toBe(second.id);
+  });
+
+  it("denies the claim to members who cannot connect a repository", async () => {
+    vi.stubEnv("RUNNER_INGEST_SECRET", SECRET);
+    const space = await workspace();
+    const viewer = await member(space, "VIEWER");
+
+    await expect(
+      claimProjectRunnerToken({ projectId: space.project.id }, deps(space, viewer)),
+    ).rejects.toBeInstanceOf(WorkspaceAuthorizationError);
   });
 
   it("denies rotation to members who cannot connect a repository", async () => {

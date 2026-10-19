@@ -14,6 +14,7 @@ import { ProjectNavigation } from "@/components/workspace/project-navigation";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import {
   getProjectRunnerSetup,
+  claimProjectRunnerToken,
   rotateProjectRunnerToken,
   type RunnerSetup,
 } from "@/lib/services/runner-setup";
@@ -47,6 +48,25 @@ const importStatusStyle = {
 
 function shortSha(value: string | null) {
   return value ? value.slice(0, 8) : "Not resolved";
+}
+
+/**
+ * Records that this person has taken the CI token.
+ *
+ * Bound per request rather than taking a FormData, because it is called from
+ * a button that is not a form submit -- the moment the secret is revealed or
+ * copied. It deliberately does not revalidate: nothing on the screen changes,
+ * and a refresh under somebody's cursor as they copy a token would be a
+ * strange thing to do to them.
+ */
+function claimRunnerTokenAction(orgSlug: string, projectId: string) {
+  return async () => {
+    "use server";
+    await claimProjectRunnerToken({ orgSlug, projectId }).catch(() => {
+      // Ingestion stays closed until a claim succeeds; the person still has
+      // their token and can press again.
+    });
+  };
 }
 
 async function rotateRunnerTokenAction(formData: FormData) {
@@ -634,9 +654,6 @@ export default async function ProjectRepositoriesPage({
       {context.can("repository:connect") ? (
         <CiSetupPanel
           configured={runnerSetup.configured}
-          hasActiveConnection={connections.some(
-            (connection) => connection.status === "ACTIVE",
-          )}
           organizationId={
             runnerSetup.configured ? runnerSetup.organizationId : undefined
           }
@@ -674,6 +691,7 @@ export default async function ProjectRepositoriesPage({
               : null
           }
           rotateAction={rotateRunnerTokenAction}
+          claimAction={claimRunnerTokenAction(orgSlug, projectId)}
         />
       ) : null}
     </div>

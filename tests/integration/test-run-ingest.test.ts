@@ -455,6 +455,56 @@ describe("Playwright result ingestion from customer CI", () => {
     ).rejects.toMatchObject({ code: "repository_connection_inactive", status: 403 });
   });
 
+  /**
+   * Added 2026-10-19. Until then the repository connection was the only way
+   * to be attributable, and a connection cannot exist without a GitHub
+   * installation id -- so a team whose code lives on GitLab, or who run
+   * through Jenkins, could copy the pipeline configuration this product hands
+   * them, set every variable, and have each delivery refused with a 403. The
+   * CI panel offered three pipelines and could finish one.
+   *
+   * Whoever takes the project's CI token is now recorded, and results are
+   * kept under them when no repository is connected. They hold
+   * `repository:connect`, so a lead or an owner.
+   */
+  it("records results under whoever took the CI token when no repository is connected", async () => {
+    const space = await workspace(false);
+    await prisma.project.update({
+      where: { id: space.project.id },
+      data: { runnerTokenActorUserId: space.owner.id },
+    });
+    const { testCaseId, versionId } = await approvedVersion(space);
+    const title = `${buildTestCaseVersionMarker(versionId)} checkout succeeds`;
+
+    const summary = await ingestPlaywrightResults(payload(space, title), { prisma });
+
+    expect(summary.recorded).toBeGreaterThan(0);
+    const attempt = await prisma.testRunAttempt.findFirst({
+      where: { organizationId: space.organization.id, projectId: space.project.id },
+      orderBy: { executedAt: "desc" },
+      select: { executedByUserId: true },
+    });
+    // A real, auditable person -- the point of the rule, not an exception to it.
+    expect(attempt?.executedByUserId).toBe(space.owner.id);
+    expect(testCaseId).toBeTruthy();
+  });
+
+  it("still fails closed when nobody at all can be named", async () => {
+    // The floor underneath the change above. Widening who qualifies must not
+    // turn into recording evidence that belongs to nobody.
+    const space = await workspace(false);
+    await prisma.project.update({
+      where: { id: space.project.id },
+      data: { runnerTokenActorUserId: null },
+    });
+    const { versionId } = await approvedVersion(space);
+    const title = `${buildTestCaseVersionMarker(versionId)} checkout succeeds`;
+
+    await expect(
+      ingestPlaywrightResults(payload(space, title), { prisma }),
+    ).rejects.toMatchObject({ code: "repository_connection_inactive", status: 403 });
+  });
+
   it("names the sibling project a foreign marker belongs to", async () => {
     // The pipeline is reporting to one project while the tests were written
     // in another. The product knew which, and said only that they "belong to

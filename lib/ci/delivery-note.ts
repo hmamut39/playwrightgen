@@ -75,7 +75,12 @@ export function rejectionNote(reason: RejectionReason): string {
     case "stale_token":
       return 'This delivery was signed with a project token that is no longer current, so it was refused. The token was rotated here; update PLAYWRIGHTGEN_TOKEN in your CI with the current value and the next run will be recorded.';
     case "connection_inactive":
-      return 'This delivery was signed with a valid token, but this project has no active repository connection, so there is nobody to attribute the evidence to. Reconnect the repository and the next run will be recorded.';
+      // The advice used to be "reconnect the repository", which was the only
+      // way to be attributable and is still the only one a GitHub team needs.
+      // It is no longer the only one: opening the CI panel and taking the
+      // token records who did it, which is what a team on GitLab or Jenkins
+      // does instead. Naming both means the advice fits whoever is reading.
+      return 'This delivery was signed with a valid token, but nobody here can be named as the person behind it, so there is nothing to attribute the evidence to. Open this project’s Repositories page and either reconnect the repository or copy the CI token again — whoever does that is recorded as the person the results belong to, and the next run will be kept.';
   }
 }
 /** Why results with no marker were not recorded. */

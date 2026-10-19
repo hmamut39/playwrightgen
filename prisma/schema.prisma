@@ -359,6 +359,7 @@ model User {
   projectsCreated              Project[]                   @relation("ProjectCreatedBy")
   projectsArchived             Project[]                   @relation("ProjectArchivedBy")
   projectLiveChecks            Project[]                   @relation("ProjectLiveChecksActor")
+  projectRunnerTokens          Project[]                   @relation("ProjectRunnerTokenActor")
   activities                   Activity[]                  @relation("ActivityActor")
   requirementsCreated          Requirement[]               @relation("RequirementCreatedBy")
   requirementsOwned            Requirement[]               @relation("RequirementOwner")
@@ -552,6 +553,17 @@ model Project {
   archivedByUserId       String?       @db.Uuid
   archivedAt             DateTime?     @db.Timestamptz(3)
   runnerTokenVersion     Int           @default(1)
+  /// Who put this project's CI token into a pipeline: results delivered with
+  /// that token are recorded under them.
+  ///
+  /// Recording CI results needs a real person, and the only one the product
+  /// could name was whoever installed the GitHub App -- so a team on GitLab
+  /// or Jenkins could copy the pipeline configuration, set every variable and
+  /// have each delivery refused. Whoever reveals or rotates the token holds
+  /// `repository:connect`, which is a lead or an owner, and connecting the
+  /// pipeline is a more deliberate act than installing an App once, so this
+  /// is the better signature of the two rather than a weaker substitute.
+  runnerTokenActorUserId String?       @db.Uuid
   /// Where this project runs, so generated automation can be proven on it.
   liveUrl                String?       @db.Text
   /// Run approved automation on liveUrl every day and record the results.
@@ -579,6 +591,7 @@ model Project {
   createdBy              User                        @relation("ProjectCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   archivedBy             User?                       @relation("ProjectArchivedBy", fields: [archivedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   liveChecksActor        User?                       @relation("ProjectLiveChecksActor", fields: [liveChecksActorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  runnerTokenActor       User?                       @relation("ProjectRunnerTokenActor", fields: [runnerTokenActorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   projectMemberships     ProjectMembership[]
   activities             Activity[]
   requirements           Requirement[]
