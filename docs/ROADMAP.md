@@ -20,6 +20,36 @@ has reproduced in isolation. Everything else passed.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **The chain walked end to end, in both states** (2026-10-19): the mock
+  company reached a link somebody outside the team can read, first with the
+  release blocked and then with it verified, and the product told the truth in
+  both.
+  Blocked: VERIFIED 0, NOT VERIFIED 1, "An approved test covers this, but it
+  has never run, so nothing demonstrates the behaviour" -- with three approved
+  tests and full traceability sitting right there, which is where a lesser
+  tool prints "3 tests passed". Then daily checks were switched on from
+  Health, ran the three approved tests against the live page, recorded three
+  attempts, and the execution-evidence blocker cleared. The same link, read
+  cold again: VERIFIED 1 -- and still qualified, unprompted, "3 approved tests
+  last ran and passed. This requirement states 4 acceptance criteria, and the
+  records do not say which". Volunteering the limit of its own evidence to an
+  auditor is the behaviour this product is for.
+  Four surfaces were walked and found honest, recorded so they are not
+  re-investigated: the MCP server in both protocol eras (16 tools each, the
+  modern header mirroring and its -32020 mismatch refusal, the classic
+  handshake for an editor that has not migrated) gives an editor the same
+  sentences the web page gives a lead; the downloadable evidence is one
+  self-contained HTML file with no scripts and no external references, so it
+  still reads offline in ten years, carrying a document reference and the same
+  verdicts; the README badge is a 1 KB SVG that says "requirements: none
+  verified" rather than a green tick, and leaks no titles, code or links; and
+  daily checks really are off until somebody turns them on, which is what this
+  morning's wording fix now tells people.
+  One scare worth recording: the Health page threw "Unknown field
+  `runnerTokenActorUserId`". Not the product -- the dev server had been
+  running since before the morning's migration and still held the Prisma
+  client generated before it. `next dev` does not notice `prisma generate`.
+  Restarting fixed it; production builds regenerate on `prebuild`.
 - **The eval that guards the repair loop did not check what it was named for**
   (2026-10-19): the scheduled Evals run went red, and the case was
   `draft-repair.eval.ts - keeps the assertion when the behaviour is simply not
