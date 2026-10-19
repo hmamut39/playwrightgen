@@ -84,13 +84,32 @@ export async function getReleaseReadiness(
   // untested project into a green "nothing is blocking this release", which is
   // the single most consequential claim this page makes. An indexed count over
   // the append-only attempt table answers the execution question directly.
-  const [attemptFacts, totalAttempts, projectSettings] = await Promise.all([
+  // Counted separately from attempts, and never mixed with them. A live-page
+  // run proves the code does what it says against the page at that moment; it
+  // is not execution evidence for a release, which has to be a run recorded
+  // against an approved version. Keeping them apart is right. Saying only the
+  // first half was not: a lead who had just watched three tests pass on the
+  // live page, and whose Test Cases each read "Passed on the live page, 10
+  // checks", was told "Nothing has ever been run for this project" -- which
+  // is false as written, and left her with no idea what would count.
+  const [attemptFacts, totalAttempts, livePageRuns, projectSettings] = await Promise.all([
     loadAttemptFacts(prisma, {
       organizationId: workspace.organization.id,
       projectId: input.projectId,
     }),
     prisma.testRunAttempt.count({
       where: { organizationId: workspace.organization.id, projectId: input.projectId },
+    }),
+    prisma.testCaseImportedDraft.count({
+      where: {
+        organizationId: workspace.organization.id,
+        projectId: input.projectId,
+        // Only the runs that actually passed. A partial run -- nothing
+        // failed, but some steps never ran -- is not something to count in a
+        // sentence containing the word "passed"; repairing one false claim
+        // with another would be no repair at all.
+        runEvidence: { path: ["verdict"], equals: "passed" },
+      },
     }),
     prisma.project.findUnique({
       where: { organizationId_id: { organizationId: workspace.organization.id, id: input.projectId } },
@@ -151,7 +170,11 @@ export async function getReleaseReadiness(
       code: "evidence_missing",
       title: "No execution evidence exists",
       detail:
-        "Nothing has ever been run for this project, so there is no basis on which to judge this release. Approved documents describe intended behaviour; they do not demonstrate it.",
+        livePageRuns > 0
+          ? `No run has been recorded against an approved version, so there is no basis on which to judge this release. ${
+              livePageRuns === 1 ? "One test has" : `${livePageRuns} tests have`
+            } passed on the live page here, which proves the code and not the release: evidence counts once the approved automation runs in your pipeline and reports back, or a Test Run is recorded here.`
+          : "Nothing has ever been run for this project, so there is no basis on which to judge this release. Approved documents describe intended behaviour; they do not demonstrate it.",
       href: `${base}/test-runs`,
       count: 1,
     });

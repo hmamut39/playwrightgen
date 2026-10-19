@@ -20,6 +20,19 @@ has reproduced in isolation. Everything else passed.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **"Nothing has ever been run" beside three tests that had run**
+  (2026-10-19): the mock company reached its release page. Three of its tests
+  had passed on the live page the day before -- every Test Case said so, in
+  those words -- and the release blocker read "Nothing has ever been run for
+  this project".
+  Keeping live-page runs out of release evidence is right, and the reason is
+  good: they prove the code against the page at a moment, not the release
+  against an approved version. Saying nothing had run was not right, and it
+  told the lead nothing about what would count instead. The blocker now says
+  how many passed on the live page, that this proves the code and not the
+  release, and what does count -- the approved automation reporting from the
+  pipeline, or a Test Run recorded here. Counted only where the stored verdict
+  is `passed`, so the sentence cannot include the partly-run one.
 - **Three pipelines offered, one that can be finished** (2026-10-19): the mock
   company reached the step where CI results come back. The panel says tests
   run "on GitHub Actions, GitLab CI or Jenkins" and ships ready-made

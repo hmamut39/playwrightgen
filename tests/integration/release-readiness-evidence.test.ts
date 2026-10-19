@@ -123,6 +123,83 @@ describe("release readiness and missing execution evidence", () => {
     expect(readiness.findings.some((f) => f.code === "evidence_missing")).toBe(true);
   });
 
+  /**
+   * Found on 2026-10-19, walking a mock company to its release page. Three of
+   * its tests had passed on the live page the day before -- every Test Case
+   * said so, in those words -- and the release page said "Nothing has ever
+   * been run for this project".
+   *
+   * Keeping live-page runs out of release evidence is right: they prove the
+   * code against the page at a moment, not the release against an approved
+   * version. Saying nothing had run was not right, and it left the lead with
+   * no idea what would count instead.
+   */
+  it("does not claim nothing has run when live-page runs exist", async () => {
+    const space = await workspace();
+    const d = deps(space);
+    const testCase = await createTestCase({
+      projectId: space.project.id,
+      title: "A todo can be added",
+      objective: "Verify a todo appears after submitting.",
+      steps: ["Type a todo", "Press Enter"],
+      expectedResults: ["The todo appears"],
+    }, d);
+    await prisma.testCaseImportedDraft.create({
+      data: {
+        organizationId: space.organization.id,
+        projectId: space.project.id,
+        testCaseId: testCase.id,
+        source: "page-coverage",
+        code: "import { test } from '@playwright/test';",
+        pageUrl: "https://demo.playwright.dev/todomvc/",
+        runEvidence: {
+          v: 1,
+          codeSha256: "a".repeat(64),
+          pageUrl: "https://demo.playwright.dev/todomvc/",
+          verdict: "passed",
+          passed: 10,
+          failed: 0,
+          skipped: 0,
+          notReached: 0,
+          tests: 1,
+          durationMs: 3200,
+          ranAt: "2026-10-18T20:43:00.000Z",
+        },
+        importedByUserId: space.owner.id,
+      },
+    });
+
+    const readiness = await getReleaseReadiness({ projectId: space.project.id }, d);
+    const blocker = readiness.findings.find((f) => f.code === "evidence_missing");
+
+    // Still blocked: a live-page run is not release evidence.
+    expect(blocker).toBeDefined();
+    expect(readiness.releasable).toBe(false);
+    // But it no longer says nothing has run, and it says what would count.
+    expect(blocker?.detail).not.toContain("Nothing has ever been run");
+    expect(blocker?.detail).toContain("passed on the live page");
+    expect(blocker?.detail).toMatch(/pipeline|Test Run is recorded/);
+  });
+
+  it("still says nothing has run when nothing has", async () => {
+    // Without this, the change above could have replaced one fixed sentence
+    // with another fixed sentence.
+    const space = await workspace();
+    const d = deps(space);
+    await createTestCase({
+      projectId: space.project.id,
+      title: "Untouched",
+      objective: "Nothing has run for this one.",
+      steps: ["Do nothing"],
+      expectedResults: ["Nothing"],
+    }, d);
+
+    const readiness = await getReleaseReadiness({ projectId: space.project.id }, d);
+    const blocker = readiness.findings.find((f) => f.code === "evidence_missing");
+
+    expect(blocker?.detail).toContain("Nothing has ever been run");
+  });
+
   it("clears the blocker once something has actually run", async () => {
     // The counterpart to the case above. A gate that blocked unconditionally
     // would satisfy the previous test while making the page useless, so the
