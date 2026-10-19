@@ -20,6 +20,36 @@ has reproduced in isolation. Everything else passed.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **The day it breaks, walked end to end** (2026-10-19): every test seen
+  until now had passed, so the product's whole reason for existing -- telling
+  a team the day something breaks -- had never been watched. Northwind's live
+  address was pointed at a different page, which is the same situation as a
+  redesign landing on Monday, and the daily-check cron was run. (A project is
+  due again only after `MIN_INTERVAL_MS`, twenty hours, so the clock was moved
+  by clearing `liveChecksLastRunAt` on that one project; the first attempt
+  looked like a bug until the records showed the cron had picked up a
+  different project entirely. Reading the table rather than the page is what
+  caught that.)
+  The chain held at every link. Three tests failed, each recorded with the
+  step and the locator that timed out and marked `newToday`. Health moved to
+  "3 failing in the last live check" and named each test that started failing.
+  The proof link an outsider already held flipped from VERIFIED to FAILING by
+  itself, because it follows the project rather than freezing a flattering
+  moment. Failure analysis returned three findings with self-reported
+  confidence and an exact quote behind each: PRODUCT DEFECT at 70% reasoning
+  that the same approved version had passed before, TEST DEFECT at 55% as the
+  alternative, and UNKNOWN at 25% saying what the artifacts could not rule
+  out.
+  Then the part that matters most. On the analysed test the repair button was
+  absent and the page read "This failure looks like a defect in the product,
+  not in the test. Repairing the test here would delete the only warning
+  anybody was going to get." On the two not yet analysed it refused for a
+  different reason -- nothing had diagnosed them yet -- so a repair could not
+  be proposed for a test that is doing its job. The fast path to green is to
+  rewrite the failing test, and the product declined to take it.
+  This also confirmed the morning's fix in the real product: "This test is
+  failing" appeared on exactly the three tests that were failing, where it had
+  appeared on every Test Case in the workspace that morning.
 - **The chain walked end to end, in both states** (2026-10-19): the mock
   company reached a link somebody outside the team can read, first with the
   release blocked and then with it verified, and the product told the truth in
