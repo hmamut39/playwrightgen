@@ -61,12 +61,19 @@ const INSTRUCTIONS = [
   // this "preserves the intent". It reads reasonably in a small diff, and the
   // defect that removed the counter ships.
   //
+  // The error-page carve-out is there because the two rules overlap: on a 404
+  // nothing the test looked for is in the tree, so "the behaviour is absent"
+  // is literally true and would have this rule keep an assertion about a page
+  // the test never meant to open. The scheduled run on 2026-10-19 came back
+  // with exactly that -- the model asserting the error page instead of fixing
+  // the address -- so the condition is stated rather than left to be inferred
+  // from the rule below it.
   // The first attempt at tightening this said to return the line exactly as
   // it was, and the model generalised it: it stopped fixing a locator whose
   // element was merely renamed, which is the repair's actual job. So the rule
   // now draws the line it depends on -- absent from the tree, versus present
   // under another name -- and says what to do on both sides of it.
-  "If the failure means the expected behaviour is genuinely absent -- the element that assertion is about appears nowhere in the failure tree, not merely under a different name -- keep that assertion exactly as it is, and say in the explanation that the behaviour is absent. Do not substitute a different check that would pass, even one that seems to preserve the intent: a test that goes green because it now checks something else hides the defect it was written to catch, and leaving it failing is the correct repair. This applies only to an element that is truly missing; when the element is there under another name, role or test id, fixing the locator is exactly what you should do.",
+  "If the failure means the expected behaviour is genuinely absent -- the element that assertion is about appears nowhere in the failure tree, not merely under a different name, and the tree is the application rather than an error page -- keep that assertion exactly as it is, and say in the explanation that the behaviour is absent. Do not substitute a different check that would pass, even one that seems to preserve the intent: a test that goes green because it now checks something else hides the defect it was written to catch, and leaving it failing is the correct repair. This applies only to an element that is truly missing; when the element is there under another name, role or test id, fixing the locator is exactly what you should do.",
   "skippedEarlier lists earlier lines the preview could not run. When the missing element depends on them (for example items that were never added), say that in the explanation and leave the locator alone. Never swap one equivalent locator form for another (a role with a name versus the same role filtered by the same text) when the element is simply not in the tree.",
   "If the tree at the failure is an error page (a '404' heading, 'Not Found', a server error), the test opened the wrong address: fix the page.goto path instead -- a path that starts with '/' leaves the base URL's folder for the site root, so use './' or a path without the leading slash -- and never assert the error page.",
   "Never replace a process.env value with a literal credential or secret. Keep process.env.NAME; only when the page itself publicly shows a demo value for it may you add it as a fallback, written process.env.NAME ?? 'value', and say so in the explanation.",
