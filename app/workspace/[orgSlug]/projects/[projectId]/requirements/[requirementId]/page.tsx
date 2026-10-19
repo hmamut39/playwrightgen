@@ -378,7 +378,31 @@ export default async function RequirementDetailPage({
           <p className="mt-5 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm leading-6 text-slate-600">
             Nothing verifies this requirement yet, so it counts as uncovered
             wherever coverage is reported.
-            {requirement.status === "APPROVED" ? " Propose Test Cases above, or write one by hand." : null}
+            {/*
+              The advice used to be "Propose Test Cases above, or write one by
+              hand" -- make more. A team that came through "Cover a page",
+              which is what the product suggests first, arrives here with
+              approved tests and no requirement, so the only advice on the
+              screen was to duplicate the work they had just done. The link is
+              made from the Test Case side, which they had no reason to guess.
+            */}
+            {requirement.status === "APPROVED" && detail.unlinkedApprovedTestCases > 0 ? (
+              <>
+                {" "}
+                This project already has{" "}
+                <Link
+                  href={`/workspace/${orgSlug}/projects/${projectId}/test-cases`}
+                  className="font-semibold text-violet-700 underline hover:text-violet-800"
+                >
+                  {detail.unlinkedApprovedTestCases} approved{" "}
+                  {detail.unlinkedApprovedTestCases === 1 ? "test that verifies" : "tests that verify"} nothing
+                </Link>
+                {detail.unlinkedApprovedTestCases === 1 ? "; open it" : "; open one"} and use &ldquo;Link
+                Requirement&rdquo; if it covers this. Otherwise Propose Test Cases above, or write one by hand.
+              </>
+            ) : requirement.status === "APPROVED" ? (
+              " Propose Test Cases above, or write one by hand."
+            ) : null}
           </p>
         ) : (
           <>

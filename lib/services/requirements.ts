@@ -219,9 +219,35 @@ export async function getRequirementDetail(
     inReview: requirement.status === "IN_REVIEW",
   });
 
+  /**
+   * Approved Test Cases in this project that verify no requirement at all.
+   *
+   * The page could offer only "Propose Test Cases" when nothing verified a
+   * requirement -- generate more. A team that reached this screen through
+   * "Cover a page", which is the product's own first suggestion, arrives with
+   * approved tests and no requirement, so the advice was to duplicate work
+   * they had already done. Counting them is what lets the screen say "you
+   * already have some" instead.
+   *
+   * Only counted when the requirement has nothing linked, because that is the
+   * only moment the answer changes what to say.
+   */
+  const unlinkedApprovedTestCases =
+    requirement.testCaseLinks.length === 0
+      ? await client(dependencies).testCase.count({
+          where: {
+            organizationId: context.organization.id,
+            projectId,
+            status: "APPROVED",
+            requirementLinks: { none: {} },
+          },
+        })
+      : 0;
+
   return {
     requirement,
     reviewTrail,
+    unlinkedApprovedTestCases,
     canUpdate: context.can("requirement:update"),
     // Proposing Test Cases creates Test Cases, so the effect decides the gate.
     canProposeTestCases: context.can("testcase:create"),

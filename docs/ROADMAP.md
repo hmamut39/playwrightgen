@@ -20,6 +20,27 @@ has reproduced in isolation. Everything else passed.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **The advice on an uncovered requirement was to duplicate the tests**
+  (2026-10-19): walking the mock company the length of the chain, from "Cover
+  a page" to a link somebody outside the team can read. That flow -- the
+  product's own first suggestion -- produces approved Test Cases and no
+  requirement. Standing on an approved requirement that nothing verified, the
+  only advice was "Propose Test Cases above, or write one by hand", while four
+  approved tests covering exactly those acceptance criteria sat in the same
+  project. The link is made from the Test Case side, and nothing on the
+  requirement screen said so.
+  It now counts approved Test Cases in the project that verify nothing and
+  says "This project already has N approved tests that verify nothing; open
+  one and use Link Requirement if it covers this", before offering to generate
+  more. Drafts are not counted, since linking one would not make it coverage.
+  The rest of this leg held up. The proof link, opened cold with no account,
+  reported VERIFIED 0 / NOT VERIFIED 1 and said why -- "An approved test
+  covers this, but it has never run, so nothing demonstrates the behaviour" --
+  rather than showing three approved tests as green. It carried no test code,
+  set `noindex, nofollow`, linked nowhere into the workspace, and its
+  acceptance form said plainly that the product records the name typed and
+  does not check who anybody is. Every claim the home page makes about that
+  page is true as written.
 - **A team without GitHub could not record a single CI result** (2026-10-19):
   the morning's walk found the CI panel offering GitHub Actions, GitLab CI and
   Jenkins with ready-made configuration, and only the first could be finished;

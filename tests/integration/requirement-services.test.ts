@@ -330,6 +330,72 @@ describe("tenant-safe Requirement workflow", () => {
     expect(detail.reviewTrail.decision).toMatchObject({ kind: "approved", by: "PROJECT_LEAD" });
   });
 
+  /**
+   * Found on 2026-10-19 by walking a mock company from "Cover a page" to a
+   * shareable release. That flow -- the product's own first suggestion --
+   * produces approved Test Cases and no requirement. Arriving at an approved
+   * requirement that nothing verifies, the only advice on the screen was
+   * "Propose Test Cases above, or write one by hand": make more, when four
+   * approved tests covering exactly those criteria were already sitting in
+   * the project. The link is made from the Test Case side, which nobody
+   * standing here had reason to guess.
+   */
+  it("counts approved tests that verify nothing, so the page can say they exist", async () => {
+    const workspace = await createWorkspace();
+    const requirement = await createCompleteRequirement(workspace);
+    await prisma.testCase.create({
+      data: {
+        organizationId: workspace.organization.id,
+        projectId: workspace.project.id,
+        title: "A proven test nobody has linked",
+        objective: "It came from Cover a page.",
+        preconditions: "",
+        steps: ["Do the thing"],
+        expectedResults: ["The thing happened"],
+        status: "APPROVED",
+        ownerUserId: workspace.owner.id,
+        createdByUserId: workspace.owner.id,
+        currentVersionNumber: 1,
+      },
+    });
+
+    const detail = await getRequirementDetail(
+      { projectId: workspace.project.id, requirementId: requirement.id },
+      dependencies(workspace),
+    );
+
+    expect(detail.unlinkedApprovedTestCases).toBe(1);
+  });
+
+  it("does not count a draft test case as one waiting to be linked", async () => {
+    // Suggesting an unapproved test as ready coverage would send somebody to
+    // link something that cannot count yet.
+    const workspace = await createWorkspace();
+    const requirement = await createCompleteRequirement(workspace);
+    await prisma.testCase.create({
+      data: {
+        organizationId: workspace.organization.id,
+        projectId: workspace.project.id,
+        title: "Still a draft",
+        objective: "Not approved.",
+        preconditions: "",
+        steps: ["Do the thing"],
+        expectedResults: ["The thing happened"],
+        status: "DRAFT",
+        ownerUserId: workspace.owner.id,
+        createdByUserId: workspace.owner.id,
+        currentVersionNumber: 1,
+      },
+    });
+
+    const detail = await getRequirementDetail(
+      { projectId: workspace.project.id, requirementId: requirement.id },
+      dependencies(workspace),
+    );
+
+    expect(detail.unlinkedApprovedTestCases).toBe(0);
+  });
+
   it("lets a sole approver approve their own requirement", async () => {
     // Refusing would leave a one-person workspace unable to approve anything.
     const workspace = await createWorkspace();
