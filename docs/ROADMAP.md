@@ -20,6 +20,33 @@ has reproduced in isolation. Everything else passed.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **A security gate that only answers questions about commits** (2026-10-28):
+  a routine build refused to start -- Next.js 16.4.0 was inside the range of a
+  published critical advisory (unauthenticated remote code execution in the
+  image optimisation API, denial of service in App Router server actions).
+  Production had been serving it since the last push on 2026-10-19. Auditing
+  properly rather than fixing only what the build complained about found a
+  second, high against zod: "can exhaust memory while validating oversized
+  constrained collections", which lands squarely on the free tools, the CI
+  ingest and the MCP arguments, since zod is what stands between untrusted
+  input and this server. Both upgraded, 16.4.3 and 4.6.7, each verified and
+  shipped separately.
+  The interesting part is why nobody knew. CI already audits the dependencies
+  that ship, at `--audit-level=high`, which covers critical and would have
+  caught it. It runs on push and pull request. Nothing in the repository had
+  changed for nine days, so nothing triggered it. A push-triggered gate can
+  only answer "is this change safe"; an advisory arrives against code that
+  already shipped and is sitting still, and the quieter a project is the
+  longer it stays blind -- which is backwards, since a quiet project is
+  usually one in production nobody is touching.
+  There is now a daily `Audit` workflow asking the same question on a clock
+  instead of on a commit, at the same threshold deliberately: a second gate
+  with a second opinion teaches people to ignore whichever shouts more.
+  Checking it would not be red on its first morning found one more -- `undici`
+  7.30.0, a TLS certificate validation bypass, reached through `cheerio`, with
+  an existing override pinning `^7.30.0`, the vulnerable version itself.
+  Bumped to `^7.30.1`. Production dependencies are clean at high and above, so
+  the gate passes today and will mean something the day it does not.
 - **The product told its own model something its records contradicted**
   (2026-10-28): following last week's thread. Every question `classifyRuns`
   asks about fault needs a commit on both sides, and a daily live check runs

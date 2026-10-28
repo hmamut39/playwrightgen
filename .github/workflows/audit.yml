@@ -1,0 +1,60 @@
+name: Audit
+
+# CI already audits the dependencies that ship, with the right threshold, and
+# it would have caught this. It never ran.
+#
+# On 2026-10-28 a build refused to start: Next.js 16.4.0 was inside the range
+# of a published critical advisory -- unauthenticated remote code execution in
+# the image optimisation API, and a denial of service in App Router server
+# actions. Production had been serving that version since the last push on
+# 2026-10-19. A high-severity advisory against zod was found in the same audit
+# minutes later.
+#
+# Nothing had changed in the repository. That is the entire point: CI runs on
+# push and pull request, so it can only answer "is this change safe". An
+# advisory is published against code that has already shipped and is sitting
+# still, and a gate that waits for a commit cannot see it. The quieter a
+# project is, the longer it stays blind -- which is backwards.
+#
+# So this asks the same question on a clock instead of on a commit. Daily,
+# because an advisory's cost is the time between publication and hearing about
+# it, and a week of that was enough.
+on:
+  workflow_dispatch:
+  schedule:
+    # Early, daily. The overnight hours belong to whoever reads it at breakfast.
+    - cron: "41 5 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  advisories:
+    name: Audit the dependencies that ship
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # The lockfile is what production installs, so it is what gets audited.
+      - run: npm ci
+
+      # The same threshold CI uses, deliberately. A second gate with a second
+      # opinion would mean one of them is wrong, and the one people would learn
+      # to ignore is whichever shouts more often. Development-only advisories
+      # are left out for the same reason: they do not reach a customer, and a
+      # red light nobody can act on is how this repository previously spent a
+      # day and a half hiding real failures behind an unsatisfiable audit.
+      - name: Audit dependencies that ship
+        run: npm audit --omit=dev --audit-level=high
+
+      # Said, not gated. Worth knowing on the morning somebody has time for it,
+      # never worth waking anyone for: these never reach production.
+      - name: Audit development dependencies
+        continue-on-error: true
+        run: npm audit --audit-level=high
