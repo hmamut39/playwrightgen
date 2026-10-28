@@ -1,6 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  /**
+   * Set by `next upgrade --agent=security` on 2026-10-28, taking 16.4.0 to
+   * 16.4.3. 16.4.0 was inside the range of a published critical advisory --
+   * unauthenticated remote code execution through the image optimisation API
+   * when SVG files are involved, and a denial of service in App Router server
+   * actions. This app uses server actions throughout.
+   */
+  experimental: {
+    agentUpgrade: "security",
+  },
   // The pipeline templates are read from disk at request time, so nothing
   // static analysis can see tells the build they are needed. Without this they
   // are left out of the deployment and the download 500s in production only --
