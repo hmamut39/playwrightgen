@@ -20,6 +20,31 @@ has reproduced in isolation. Everything else passed.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **The product told its own model something its records contradicted**
+  (2026-10-28): following last week's thread. Every question `classifyRuns`
+  asks about fault needs a commit on both sides, and a daily live check runs
+  against an address rather than a revision, so it records none. A test that
+  passed in the morning and failed in the afternoon therefore fell through to
+  "There is no earlier passing evidence for this test case to compare
+  against" -- false, and checked against the records rather than reasoned
+  about: Northwind's own attempts show the same approved version passing at
+  17:03 and failing at 17:51, both with `commitSha` null.
+  Not a harmless sentence. Failure analysis quotes this detail back as
+  EXECUTION HISTORY, so the product was feeding its own model a statement its
+  own database contradicted -- seen on 2026-10-19, where the analysis cited it
+  while reasoning about a test that had demonstrably passed four hours
+  earlier.
+  There is now a branch for a failure after an unattributable pass, which says
+  what is true: the same approved version passed on a date, fails now, and
+  neither run records a revision, so it cannot be compared as a regression.
+  The signal stays NEW_FAILURE -- newly failing is what it is -- because
+  promoting it to REGRESSION would claim exactly the attribution the branch
+  exists for the want of. Checked both ways, plus a case pinning that the
+  attributed path still reports a regression.
+  Also noted, not yet acted on: FLAKY has the same commit requirement, so a
+  team on daily checks alone can never be told a test is unreliable by this
+  classifier. The weekly digest detects it by time instead (`SAME_ROUND_MS`),
+  so the product does know; the release page does not hear about it.
 - **"Nothing is blocking this release", with every approved test failing**
   (2026-10-19): the worst thing found all day, and it took breaking a site to
   find it. Three approved tests failed on the live page every day, Health said

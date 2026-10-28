@@ -169,6 +169,37 @@ export function classifyRuns(
       continue;
     }
 
+    /**
+     * A failure after an earlier pass that cannot be attributed, because the
+     * runs carry no revision to compare.
+     *
+     * Everything above this point asks who is at fault, and every answer
+     * needs a commit on both sides. A daily live check runs against an
+     * address rather than a revision and records none, so a test that passed
+     * this morning and fails this afternoon fell through to "there is no
+     * earlier passing evidence for this test case" -- which was false, and
+     * was the one sentence in this file a reader would quote.
+     *
+     * It was quoted. On 2026-10-19 the failure analysis cited it back as
+     * EXECUTION HISTORY while reasoning about a test that had demonstrably
+     * passed four hours earlier on the same approved version.
+     *
+     * The signal stays NEW_FAILURE: newly failing is exactly what it is, and
+     * promoting it to REGRESSION would claim the attribution this branch
+     * exists because we do not have.
+     */
+    const earlierSameVersionPass = sameVersionPasses
+      .filter((attempt) => attempt.executedAt.getTime() < latest.executedAt.getTime())
+      .sort((a, b) => b.executedAt.getTime() - a.executedAt.getTime())[0];
+
+    if (earlierSameVersionPass) {
+      results.set(testRunId, {
+        signal: "NEW_FAILURE",
+        detail: `The same approved version passed on ${earlierSameVersionPass.executedAt.toISOString().slice(0, 10)} and fails now. Neither run records a revision, so this cannot be compared as a regression.`,
+      });
+      continue;
+    }
+
     results.set(testRunId, {
       signal: "NEW_FAILURE",
       detail: "There is no earlier passing evidence for this test case to compare against.",

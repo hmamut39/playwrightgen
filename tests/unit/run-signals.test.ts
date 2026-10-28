@@ -36,6 +36,57 @@ const signalFor = (facts: AttemptFact[], runId = RUN) =>
   classifyRuns(facts).get(runId)?.signal;
 
 describe("classifyRuns", () => {
+  /**
+   * Found on 2026-10-28, following the same thread as the release-page bug a
+   * week earlier: every question this file asks about fault needs a commit on
+   * both sides, and a daily live check records none.
+   *
+   * A test that passed this morning and fails this afternoon therefore fell
+   * through to "There is no earlier passing evidence for this test case to
+   * compare against", which was false -- the evidence existed, the revision
+   * did not. Northwind's own records show it: the same approved version
+   * passed at 17:03 and failed at 17:51, both with commitSha null.
+   *
+   * It was not a harmless sentence. The failure analysis quotes this detail
+   * back as EXECUTION HISTORY, so the product was feeding its own model a
+   * statement its own records contradicted.
+   */
+  it("does not claim there is no earlier pass when there is one without a commit", () => {
+    const facts = [
+      attempt({ result: "PASSED", commitSha: null }),
+      attempt({ result: "FAILED", commitSha: null, attemptNumber: 2 }),
+    ];
+
+    const result = classifyRuns(facts).get(RUN);
+
+    expect(result?.signal).toBe("NEW_FAILURE");
+    expect(result?.detail).not.toContain("no earlier passing evidence");
+    expect(result?.detail).toMatch(/passed on \d{4}-\d{2}-\d{2} and fails now/);
+    // It must not claim the attribution it does not have: that is what
+    // REGRESSION means, and this run has no revision to pin it to.
+    expect(result?.detail).toMatch(/cannot be compared as a regression/i);
+  });
+
+  it("still says there is no earlier pass when there genuinely is none", () => {
+    // Without this the fix above could have replaced one fixed sentence with
+    // another, and the true case is the one that reads as "nobody knows".
+    const result = classifyRuns([attempt({ result: "FAILED", commitSha: null })]).get(RUN);
+
+    expect(result?.signal).toBe("NEW_FAILURE");
+    expect(result?.detail).toContain("no earlier passing evidence");
+  });
+
+  it("still calls it a regression when the revisions do say who changed", () => {
+    // The attributed path keeps its stronger claim; this fix is about the
+    // case where it cannot be made.
+    const result = classifyRuns([
+      attempt({ result: "PASSED", commitSha: SHA_A }),
+      attempt({ result: "FAILED", commitSha: SHA_B, attemptNumber: 2 }),
+    ]).get(RUN);
+
+    expect(result?.signal).toBe("REGRESSION");
+  });
+
   it("reports a single passing attempt as passing, not stable", () => {
     // One green attempt is one observation. Calling it stable would inflate a
     // single data point into a claim that the behaviour holds over time.
