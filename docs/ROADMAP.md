@@ -28,6 +28,23 @@ genuine `npm audit` failures, closed by the commit after each.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **"Open the proven tests" led to a list that could not tell them apart**
+  (2026-10-31): the Overview says "3 tests are already proven on your page,
+  waiting for a person" and offers a button to open them. It lands on the Test
+  Cases list, where all seven rows read DRAFT / Version 1 / 0 linked
+  requirements / Automation: CANDIDATE. The product computes that exact set of
+  three to write the banner, then sends the person to find them among seven
+  identical rows.
+  The rows now say "Passed on your page". A partial run is deliberately not
+  marked -- it carries a receipt too, and calling it proven is the
+  overstatement the rest of this product exists to avoid -- and the mark stops
+  once the code becomes an automation version, because the Automation column
+  says so from then on and two labels for one fact is how a list starts
+  disagreeing with itself. Scoped to the project, so another tenant's proof
+  cannot appear on these rows.
+  Verified in the browser on the project that produced the fault: exactly
+  three marked, matching the banner's count.
+
 - **The product's own instructions still described the long way round**
   (2026-10-31): with sharing no longer waiting for a requirement, the Overview
   of a fresh project told a new customer two things at once. A banner said

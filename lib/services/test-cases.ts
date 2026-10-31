@@ -165,7 +165,44 @@ export async function listTestCases(
     client(dependencies).testCase.count({ where }),
   ]);
 
-  return buildListResult(items, total, params);
+  /*
+   * Which of these already passed on the live page.
+   *
+   * The Overview says "3 tests are already proven on your page, waiting for
+   * a person" and offers "Open the proven tests". It lands here, on a list
+   * where every row reads DRAFT / Version 1 / 0 linked requirements /
+   * Automation: CANDIDATE, with nothing to tell the three apart from the
+   * rest. The product computes that exact set to write the banner and then
+   * withholds it on the page the banner sends the person to.
+   *
+   * "passed", not merely "ran": a partial run also carries a receipt, and
+   * calling that proven is the overstatement the rest of this product exists
+   * to avoid. Unused, because once the code becomes an automation version
+   * the Automation column says so and this would be a second voice on the
+   * same fact.
+   */
+  const proven = items.length
+    ? new Set(
+        (
+          await client(dependencies).testCaseImportedDraft.findMany({
+            where: {
+              organizationId: context.organization.id,
+              projectId,
+              usedAt: null,
+              runEvidence: { path: ["verdict"], equals: "passed" },
+              testCaseId: { in: items.map((item) => item.id) },
+            },
+            select: { testCaseId: true },
+          })
+        ).map((draft) => draft.testCaseId),
+      )
+    : new Set<string>();
+
+  return buildListResult(
+    items.map((item) => ({ ...item, provenOnLivePage: proven.has(item.id) })),
+    total,
+    params,
+  );
 }
 
 export async function getTestCaseDetail(

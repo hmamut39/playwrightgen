@@ -90,9 +90,23 @@ export default async function TestCasesPage({
                       {testCase.objective || "Draft objective not added yet."}
                     </p>
                   </div>
-                  <span className={`w-fit shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${statusStyle[testCase.status]}`}>
-                    {testCase.status.replace("_", " ")}
-                  </span>
+                  <div className="flex w-fit shrink-0 flex-col items-end gap-1">
+                    <span className={`w-fit rounded-full px-2.5 py-1 text-xs font-medium ${statusStyle[testCase.status]}`}>
+                      {testCase.status.replace("_", " ")}
+                    </span>
+                    {/*
+                      The Overview offers "Open the proven tests" and lands
+                      here, where every row read DRAFT / Version 1 / 0 linked
+                      requirements / Automation: CANDIDATE. The person was
+                      sent to find three tests among a list that gave them no
+                      way to tell which three.
+                    */}
+                    {testCase.provenOnLivePage ? (
+                      <span className="w-fit rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800 ring-1 ring-inset ring-emerald-200">
+                        Passed on your page
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-500">
                   <span>Version {testCase.currentVersionNumber}</span>
