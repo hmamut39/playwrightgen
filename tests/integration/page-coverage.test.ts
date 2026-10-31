@@ -10,6 +10,7 @@ import {
   measureControls,
   PageCoverageError,
   resumePageCoverage,
+  retryFailedPageCoverageItems,
   withTestIds,
 } from "@/lib/services/page-coverage";
 import {
@@ -189,5 +190,118 @@ describe("cover a page: approving, pausing and counting what was reached", () =>
     expect(result.reached).toHaveLength(1);
     expect(result.missed).toEqual([]);
     expect(result.offSite).toEqual([{ role: "link", name: "Remo H. Jansen" }]);
+  });
+  /**
+   * A test that errored was never run.
+   *
+   * On a first run against TodoMVC two of five items errored because the
+   * live browser could not be reached, and the page offered no way back:
+   * the run was finished, so those tests were lost and the person was left
+   * with a draft Test Case holding no code.
+   */
+  it("puts the tests that never ran back in the queue, and nothing else", async () => {
+    const s = await space();
+    const [errored, failed, passed] = s.run.items;
+    await prisma.pageCoverageItem.update({
+      where: { id: errored.id },
+      data: { status: "ERROR", detail: "Something went wrong.", finishedAt: new Date(), checks: 0, fixes: 0 },
+    });
+    await prisma.pageCoverageItem.update({
+      where: { id: failed.id },
+      data: { status: "FAILED", detail: "Still failing after the automatic fixes.", code: "test('x', () => {});" },
+    });
+    await prisma.pageCoverageItem.update({ where: { id: passed.id }, data: { status: "PASSED", checks: 7 } });
+
+    const result = await retryFailedPageCoverageItems(
+      { projectId: s.project.id, coverageId: s.run.id },
+      s.owned,
+    );
+
+    expect(result).toEqual({ requeued: 1 });
+    const items = await prisma.pageCoverageItem.findMany({
+      where: { pageCoverageId: s.run.id },
+      orderBy: { position: "asc" },
+    });
+    // Queued again, and the old non-result cleared so the page does not show
+    // a reason beside a test that is being tried afresh.
+    expect(items[0]).toMatchObject({ status: "QUEUED", detail: null, startedAt: null, finishedAt: null });
+    // A failure is a real result with code a person can finish. Re-running it
+    // would spend the AI allowance on work already done.
+    expect(items[1].status).toBe("FAILED");
+    expect(items[2].status).toBe("PASSED");
+    // The proving loop only picks items up while the run says it is proving.
+    expect(await prisma.pageCoverage.findUniqueOrThrow({ where: { id: s.run.id } })).toMatchObject({
+      status: "PROVING",
+    });
+  });
+
+  it("refuses when nothing errored, rather than re-running a finished plan", async () => {
+    const s = await space();
+    await prisma.pageCoverageItem.updateMany({
+      where: { pageCoverageId: s.run.id },
+      data: { status: "PASSED" },
+    });
+
+    await expect(
+      retryFailedPageCoverageItems({ projectId: s.project.id, coverageId: s.run.id }, s.owned),
+    ).rejects.toMatchObject({ code: "nothing_selected" });
+  });
+
+  it("does not let a viewer try the failed tests again", async () => {
+    const s = await space();
+    await prisma.pageCoverageItem.update({
+      where: { id: s.run.items[0].id },
+      data: { status: "ERROR", detail: "Something went wrong." },
+    });
+
+    // Proving spends the organisation's AI allowance, so it is an act, not a
+    // read, and a viewer cannot perform it.
+    await expect(
+      retryFailedPageCoverageItems({ projectId: s.project.id, coverageId: s.run.id }, s.viewed),
+    ).rejects.toBeTruthy();
+  });
+  /**
+   * One Test Case per planned item, however many attempts it takes.
+   *
+   * Proving created one unconditionally, so a second attempt produced a
+   * second Test Case with the same title and orphaned the first -- empty,
+   * with no code, and no longer pointed at by its own item. Walking a fresh
+   * project found two drafts called "Prevent adding an empty todo", one of
+   * them useless, and nothing on the screen to tell them apart.
+   *
+   * Asserted on the item rather than through proving, which needs a live
+   * browser and the model: what must hold is that a retry leaves the item
+   * pointing at the draft it already had, so the proving loop finds it.
+   */
+  it("keeps the draft Test Case an item already has when it is tried again", async () => {
+    const s = await space();
+    const item = s.run.items[0];
+    const testCase = await prisma.testCase.create({
+      data: {
+        organizationId: s.organization.id,
+        projectId: s.project.id,
+        title: item.title,
+        objective: item.objective,
+        preconditions: "",
+        steps: ["Do it"],
+        expectedResults: ["It happens"],
+        status: "DRAFT",
+        ownerUserId: s.owner.id,
+        createdByUserId: s.owner.id,
+      },
+    });
+    await prisma.pageCoverageItem.update({
+      where: { id: item.id },
+      data: { status: "ERROR", testCaseId: testCase.id, detail: "Something went wrong." },
+    });
+
+    await retryFailedPageCoverageItems({ projectId: s.project.id, coverageId: s.run.id }, s.owned);
+
+    const after = await prisma.pageCoverageItem.findUniqueOrThrow({ where: { id: item.id } });
+    expect(after.status).toBe("QUEUED");
+    // The link survives the requeue. Clearing it here would send the next
+    // attempt off to create the duplicate this exists to prevent.
+    expect(after.testCaseId).toBe(testCase.id);
+    expect(await prisma.testCase.count({ where: { projectId: s.project.id } })).toBe(1);
   });
 });

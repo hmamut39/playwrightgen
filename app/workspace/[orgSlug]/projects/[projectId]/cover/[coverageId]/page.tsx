@@ -11,6 +11,7 @@ import {
   approvePageCoverage,
   getPageCoverage,
   resumePageCoverage,
+  retryFailedPageCoverageItems,
 } from "@/lib/services/page-coverage";
 
 const ITEM_BADGE: Record<string, { text: string; tone: string }> = {
@@ -61,12 +62,18 @@ export default async function PageCoverageDetail({
     await resumePageCoverage({ orgSlug, projectId, coverageId });
     redirect(here);
   }
+  async function retryAction() {
+    "use server";
+    await retryFailedPageCoverageItems({ orgSlug, projectId, coverageId });
+    redirect(here);
+  }
 
   const kept = run.items.filter((item) => !["PROPOSED", "SKIPPED"].includes(item.status));
   const counts = {
     passed: kept.filter((item) => item.status === "PASSED").length,
     partial: kept.filter((item) => item.status === "PARTIAL").length,
-    failing: kept.filter((item) => item.status === "FAILED" || item.status === "ERROR").length,
+    failing: kept.filter((item) => item.status === "FAILED").length,
+    errored: kept.filter((item) => item.status === "ERROR").length,
   };
   const [summary, ...leftOut] = (run.message ?? "").split("\n");
 
@@ -173,10 +180,38 @@ export default async function PageCoverageDetail({
             </div>
           ) : null}
 
+          {/*
+            A test that errored was never run, which is a different thing from
+            a test that failed, and the only useful response to it is to try
+            again. Until now the page said "Something went wrong" and offered
+            no way back, so the run was simply lost.
+          */}
+          {counts.errored > 0 && run.status !== "PROVING" ? (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p className="font-semibold">
+                {counts.errored === 1 ? "One test was not run." : `${counts.errored} tests were not run.`}
+              </p>
+              <p className="mt-1 leading-6">
+                This is not a result: nothing was proved and nothing was disproved. The reason is on each one below.
+                Trying again costs the same as proving {counts.errored === 1 ? "it" : "them"} did.
+              </p>
+              {canAct ? (
+                <form action={retryAction} className="mt-2">
+                  <PendingButton
+                    pendingLabel="Trying again…"
+                    className="rounded-lg bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white"
+                  >
+                    {counts.errored === 1 ? "Try this one again" : "Try these again"}
+                  </PendingButton>
+                </form>
+              ) : null}
+            </div>
+          ) : null}
+
           <section className="mt-6 grid gap-3 sm:grid-cols-3">
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4"><p className="text-2xl font-semibold text-emerald-800">{counts.passed}</p><p className="text-xs text-emerald-800">passed on the live page</p></div>
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4"><p className="text-2xl font-semibold text-amber-800">{counts.partial}</p><p className="text-xs text-amber-800">partly run</p></div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-2xl font-semibold text-slate-800">{counts.failing}</p><p className="text-xs text-slate-600">need a person to finish</p></div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-2xl font-semibold text-slate-800">{counts.failing + counts.errored}</p><p className="text-xs text-slate-600">{counts.errored === 0 ? "need a person to finish" : counts.failing === 0 ? "did not run" : `${counts.failing} need a person to finish · ${counts.errored} did not run`}</p></div>
           </section>
 
           {coverage.total ? (

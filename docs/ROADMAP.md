@@ -28,6 +28,31 @@ genuine `npm audit` failures, closed by the commit after each.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **"Something went wrong" on the first screen a customer sees** (2026-10-31):
+  walking the shortest path on a fresh project -- create it with a page,
+  prove the plan -- two of the five tests came back "Something went wrong
+  while proving this test". No reason, and no way to try again: the run was
+  finished, so those tests were simply lost and the person was left holding a
+  draft Test Case with no code, for a test the product had offered to write.
+  The product knew exactly what had happened. The server log had
+  `LiveRunUnavailableError`: the browser that runs tests on the live page
+  could not be reached. Nothing was wrong with either test. The sentence shown
+  reads as though the AI had written something bad or the customer's page were
+  broken -- and the same condition was already reported honestly over MCP
+  ("Live runs are not available right now; try again shortly"), so an
+  assistant was being told the truth while the person was not.
+  Now the cause is named where the person is standing, an unrecognised cause
+  is admitted as unrecognised rather than invented, and every branch says the
+  test was not run -- the part that is always true and the part a reader needs,
+  because an error with no result reads as a verdict. "Try again" is a real
+  offer: the items that errored go back in the queue, and only those, since a
+  failure is a real result with code a person can finish and re-running it
+  would spend the allowance twice. The summary stopped counting a test that
+  never ran among those that "need a person to finish".
+  Verified on the run that produced the fault: 2 passed / 1 partly run / 2 did
+  not run became 3 passed / 2 partly run / 0 after one click. "Mark a todo as
+  completed" passed with 8 checks. Both lost tests had been fine.
+
 - **A team that followed the product's own advice had nothing to show**
   (2026-10-31): the release page refused to share evidence until a requirement
   was approved, with a note saying there was nothing to share yet. On an empty

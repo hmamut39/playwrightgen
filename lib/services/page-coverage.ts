@@ -16,7 +16,7 @@ import { getPrismaClient } from "@/lib/db/prisma";
 import { extractLocatorNames, normalizeName } from "@/lib/free-tools/locator-names";
 import { capturePageSnapshot } from "@/lib/free-tools/page-snapshot";
 import { runVerdict } from "@/lib/free-tools/preview-run/receipt";
-import { executeLiveRun, prepareLiveRun } from "@/lib/free-tools/preview-run/run-draft";
+import { executeLiveRun, LiveRunUnavailableError, prepareLiveRun } from "@/lib/free-tools/preview-run/run-draft";
 import { firstFailureOf, linesNotRun, proveDraftOnLivePage } from "@/lib/free-tools/prove-loop";
 import { isPublicWebAddress } from "@/lib/free-tools/public-address";
 import { testAccountSchema, type TestAccount } from "@/lib/free-tools/sign-in";
@@ -320,6 +320,72 @@ export async function resumePageCoverage(
   if (updated.count === 0) throw new PageCoverageError("not_found");
 }
 
+/**
+ * What actually went wrong, where the person is standing.
+ *
+ * This said "Something went wrong while proving this test" to everyone. On a
+ * first run against TodoMVC, two of five items landed here and the cause was
+ * recorded in the server log as LiveRunUnavailableError: the browser that
+ * runs tests on the live page could not be reached. Nothing was wrong with
+ * the test or with their page, and the sentence they were shown reads as
+ * though one of the two were -- on the first screen a new customer sees.
+ *
+ * The same condition was already reported honestly over MCP ("Live runs are
+ * not available right now; try again shortly"). An assistant was being told
+ * the truth and the person was not.
+ *
+ * Only a cause that is recognised is named. An unrecognised error keeps a
+ * vague sentence, because inventing a cause would be worse than admitting
+ * there is one -- but every branch says the test was not run, which is the
+ * part the reader needs and the part that is always true.
+ */
+export function whyItDidNotRun(error: unknown) {
+  if (error instanceof LiveRunUnavailableError) {
+    return "The browser that runs tests on the live page could not be reached, so this test has not been run. Nothing is wrong with the test or with your page. Try proving it again.";
+  }
+  if (error instanceof PageCoverageError && error.detail) {
+    return `${error.detail} This test has not been run.`;
+  }
+  return "This test could not be run, and the reason was not one this page recognises. It has been recorded in the server log. Trying again is safe.";
+}
+
+/**
+ * Puts the items that errored back in the queue.
+ *
+ * "Try proving it again" is advice nobody could take: once a run finished,
+ * the page offered no way back, so a test the live browser happened to be
+ * unavailable for was simply lost. The person was left with a draft Test
+ * Case holding no code -- for a test the product had offered to write.
+ *
+ * Only items that errored. A test that genuinely failed has a real result
+ * and code a person can finish, and quietly re-running those would spend the
+ * AI allowance on work already done.
+ */
+export async function retryFailedPageCoverageItems(
+  input: { orgSlug?: string; projectId: string; coverageId: string },
+  dependencies?: Dependencies,
+) {
+  const { workspace, projectId } = await workspaceFor(input, dependencies);
+  const coverageId = z.string().uuid().parse(input.coverageId);
+  const prisma = client(dependencies);
+
+  const run = await prisma.pageCoverage.findUnique({
+    where: { organizationId_projectId_id: { organizationId: workspace.organization.id, projectId, id: coverageId } },
+    select: { id: true },
+  });
+  if (!run) throw new PageCoverageError("not_found");
+
+  const requeued = await prisma.pageCoverageItem.updateMany({
+    where: { pageCoverageId: run.id, status: "ERROR" },
+    data: { status: "QUEUED", startedAt: null, finishedAt: null, detail: null, checks: null, fixes: null },
+  });
+  if (requeued.count === 0) throw new PageCoverageError("nothing_selected");
+
+  // The proving loop only picks items up while the run says it is proving.
+  await prisma.pageCoverage.update({ where: { id: run.id }, data: { status: "PROVING", message: null } });
+  return { requeued: requeued.count };
+}
+
 function requestFor(item: { title: string; objective: string; steps: Prisma.JsonValue; expectedResults: Prisma.JsonValue }) {
   const list = (value: Prisma.JsonValue) => (Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : []);
   return [
@@ -403,22 +469,46 @@ export async function proveNextPageCoverageItem(
   let receipt: string | null = null;
   let testCaseId: string | null = null;
   try {
-    const testCase = await createTestCase(
-      {
-        orgSlug: input.orgSlug,
-        projectId,
-        title: next.title,
-        objective: next.objective,
-        steps,
-        expectedResults: expected,
-        priority: next.priority,
-        type: "END_TO_END",
-        source: "AI_SUGGESTED",
-        tags: ["page-coverage"],
-        automationStatus: "CANDIDATE",
-      },
-      dependencies,
-    );
+    /*
+     * One Test Case per planned item, however many attempts it takes.
+     *
+     * This created one unconditionally, so proving an item a second time
+     * produced a second Test Case with the same title and left the first --
+     * empty, with no code -- orphaned, its own item no longer pointing at it.
+     * A person looking at their Test Cases saw the same test twice and had to
+     * work out which one was real.
+     *
+     * The second attempt is not hypothetical and did not arrive with the
+     * retry button: an item whose proving stalls is already put back in the
+     * queue further up this function, and would have duplicated the same way.
+     *
+     * Checked for existence rather than trusted, because a person may have
+     * deleted the draft in between, and in that case a new one is right.
+     */
+    const kept = next.testCaseId
+      ? await prisma.testCase.findFirst({
+          where: { id: next.testCaseId, organizationId: workspace.organization.id, projectId },
+          select: { id: true },
+        })
+      : null;
+    const testCase =
+      kept ??
+      (await createTestCase(
+        {
+          orgSlug: input.orgSlug,
+          projectId,
+          title: next.title,
+          objective: next.objective,
+          steps,
+          expectedResults: expected,
+          priority: next.priority,
+          type: "END_TO_END",
+          source: "AI_SUGGESTED",
+          tags: ["page-coverage"],
+          automationStatus: "CANDIDATE",
+        },
+        dependencies,
+      ));
     testCaseId = testCase.id;
 
     let runPageUrl = run.pageUrl;
@@ -510,7 +600,7 @@ export async function proveNextPageCoverageItem(
           : { status: "ERROR", checks: 0, fixes: 0, detail: outcome.message ?? "It could not be run." };
   } catch (error) {
     console.error("[page-coverage] proving an item failed", error);
-    summary = { status: "ERROR", checks: 0, fixes: 0, detail: "Something went wrong while proving this test." };
+    summary = { status: "ERROR", checks: 0, fixes: 0, detail: whyItDidNotRun(error) };
   }
 
   // The code goes with the Test Case, with its run evidence when it did not fail.
