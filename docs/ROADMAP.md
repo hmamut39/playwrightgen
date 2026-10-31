@@ -28,6 +28,41 @@ genuine `npm audit` failures, closed by the commit after each.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **Recording a run by hand crashed, and blamed the customer's workspace**
+  (2026-10-31): the release page refuses to share until a run is recorded
+  against an approved version, so this form is the one unavoidable step
+  towards a shared link. Filling in the run name and pressing Create -- what
+  anyone does who has not noticed the picker above it -- produced "This page
+  didn't load. If you just created your workspace, it may still be finishing
+  setup. Trying again usually works. Nothing you entered has been lost."
+  Every clause of that was wrong. The error was
+  `TestRunDomainError: invalid_test_run_input`: the test case field was empty.
+  The workspace was fine, trying again with the same form does the same
+  thing, and the promise about nothing being lost was made by the page that
+  had just replaced the form holding it. A validation failure was being
+  rendered as a crash by the workspace error boundary.
+  Only the run name carried `required`, so the browser let it through; and
+  with exactly one approved test case -- the page says "1 in this project" --
+  the picker still asked the person to choose it. Now it is preselected when
+  there is one, and a rejected form comes back as a form, saying which field
+  and keeping what was typed. The service's 400 is asserted in a test, because
+  that is what the page's catch matches on and a change to it would bring the
+  crash page back silently.
+
+- **"Cover a page is the quickest way there" pointed at the one route that
+  cannot get there** (2026-10-31): the release page's note on what is missing
+  said that whatever the project held. Covering a page proves code on the live
+  page, and this same page says so in its own blocker -- "which proves the
+  code and not the release". A team holding three tests proved that way was
+  being sent back to prove a fourth, when what they needed was a recorded run.
+  The note now names what is actually missing. With no approved test, covering
+  a page genuinely is the quickest way to one. With approved tests and no run,
+  it says so and points at Test Runs: "a test proved on the live page here
+  shows the code works; a run recorded against the approved version is what
+  this page can report".
+  Found by walking to the end of the journey rather than verifying its pieces,
+  which is also what corrected the "step five" claim above.
+
 - **"Open the proven tests" led to a list that could not tell them apart**
   (2026-10-31): the Overview says "3 tests are already proven on your page,
   waiting for a person" and offers a button to open them. It lands on the Test
@@ -101,7 +136,16 @@ genuine `npm audit` failures, closed by the commit after each.
   shows them in the same words as any other test, and each says plainly what
   they do and do not prove -- evidence about behaviour, not about agreed
   intent. Then the gate opens on approved tests alone. That moves a team's
-  first shareable link from about step eighteen to about step five.
+  first shareable link much earlier.
+
+  **Corrected the same day.** That paragraph first said "from about step
+  eighteen to about step five", which was asserted from the pieces and never
+  walked. Walking it end to end stops at a wall: an approved test proved on
+  the live page still cannot be shared, and the release page is right to
+  refuse -- its own blocker says a preview run "proves the code and not the
+  release". Sharing needs a run recorded against the approved version, from a
+  pipeline or entered by hand, and nothing in "cover a page" produces one.
+  What the change actually removed is the requirement, not the run.
   Opening it exposed three claims downstream that would have become false, all
   fixed in the same change and each proven by reverting it:
   - every frozen proof link already shared would have crashed, because a

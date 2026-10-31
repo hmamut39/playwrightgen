@@ -6,17 +6,17 @@ import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { getProject } from "@/lib/services/projects";
 import { PICKER_PAGE_SIZE } from "@/lib/services/list-query";
 import { getTestCaseDetail, listTestCases } from "@/lib/services/test-cases";
-import { createTestRun } from "@/lib/services/test-runs";
+import { createTestRun, TestRunDomainError } from "@/lib/services/test-runs";
 
 export default async function NewTestRunPage({
   params,
   searchParams,
 }: {
   params: Promise<{ orgSlug: string; projectId: string }>;
-  searchParams: Promise<{ testCaseId?: string }>;
+  searchParams: Promise<{ testCaseId?: string; problem?: string; name?: string }>;
 }) {
   const { orgSlug, projectId } = await params;
-  const { testCaseId: preferredTestCaseId } = await searchParams;
+  const { testCaseId: preferredTestCaseId, problem, name: keptName } = await searchParams;
   await requireWorkspaceContext({ orgSlug, projectId, permission: "testrun:create" });
   // Approved only, decided in the query. Reading a page and then keeping
   // the approved ones is not a filter: a project whose hundred most recently
@@ -77,16 +77,46 @@ export default async function NewTestRunPage({
   async function createAction(formData: FormData) {
     "use server";
     const mode = String(formData.get("mode") ?? "MANUAL") as "MANUAL" | "PLAYWRIGHT_BROWSER" | "API";
-    const run = await createTestRun({
-      orgSlug, projectId,
-      testCaseId: String(formData.get("testCaseId") ?? ""),
-      name: String(formData.get("name") ?? ""),
-      mode,
-      environment: String(formData.get("environment") ?? "DEVELOPMENT") as "LOCAL" | "DEVELOPMENT" | "STAGING" | "PRODUCTION" | "OTHER",
-      browser: (mode === "API" ? "NONE" : String(formData.get("browser") ?? "CHROMIUM")) as "NONE" | "CHROMIUM" | "FIREFOX" | "WEBKIT",
-      baseUrl: String(formData.get("baseUrl") ?? "") || null,
-    });
-    redirect(`/workspace/${orgSlug}/projects/${projectId}/test-runs/${run.id}`);
+    const chosenTestCaseId = String(formData.get("testCaseId") ?? "");
+    const runName = String(formData.get("name") ?? "");
+    const here = `/workspace/${orgSlug}/projects/${projectId}/test-runs/new`;
+
+    /*
+     * A form that rejects what was typed has to say so on the form.
+     *
+     * Leaving the test case unchosen -- which the browser allowed, because
+     * only the run name carried `required` -- threw out of the service and
+     * was rendered by the workspace error boundary as "This page didn't
+     * load. If you just created your workspace, it may still be finishing
+     * setup. Trying again usually works." Every clause of that is wrong: the
+     * workspace was fine, the cause was an empty field nobody was told
+     * about, and trying again with the same form does the same thing.
+     *
+     * Back to the form, saying which field and keeping what was typed --
+     * which is what that error page promised and could not deliver, having
+     * replaced the form it was promising about.
+     */
+    let created: { id: string };
+    try {
+      created = await createTestRun({
+        orgSlug, projectId,
+        testCaseId: chosenTestCaseId,
+        name: runName,
+        mode,
+        environment: String(formData.get("environment") ?? "DEVELOPMENT") as "LOCAL" | "DEVELOPMENT" | "STAGING" | "PRODUCTION" | "OTHER",
+        browser: (mode === "API" ? "NONE" : String(formData.get("browser") ?? "CHROMIUM")) as "NONE" | "CHROMIUM" | "FIREFOX" | "WEBKIT",
+        baseUrl: String(formData.get("baseUrl") ?? "") || null,
+      });
+    } catch (error) {
+      if (error instanceof TestRunDomainError && error.status === 400) {
+        const back = new URLSearchParams({ problem: chosenTestCaseId ? "input" : "test-case" });
+        if (runName) back.set("name", runName.slice(0, 300));
+        if (chosenTestCaseId) back.set("testCaseId", chosenTestCaseId);
+        redirect(`${here}?${back.toString()}`);
+      }
+      throw error;
+    }
+    redirect(`/workspace/${orgSlug}/projects/${projectId}/test-runs/${created.id}`);
   }
 
   return (
@@ -113,6 +143,13 @@ export default async function NewTestRunPage({
               test below.
             </p>
           ) : null}
+          {problem ? (
+            <p className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+              {problem === "test-case"
+                ? "Choose the approved test case this run is for. A run is recorded against one test case at the version it was approved at, so there is nothing to record without it."
+                : "Something in this form was not accepted. What you typed is still here; check the run name and the address before trying again."}
+            </p>
+          ) : null}
           <div className="block text-sm font-medium">
             Approved Test Case
             <div className="mt-2 font-normal">
@@ -123,12 +160,18 @@ export default async function NewTestRunPage({
                 search={searchTestCases}
                 placeholder="Search approved test cases"
                 emptyLabel="No approved test case yet."
-                defaultSelectedId={preferredApproved?.id}
+                /*
+                  The page says "1 in this project" and then asked the person
+                  to choose it anyway. Only the run name carried `required`,
+                  so leaving this empty got past the browser and crashed the
+                  server. With one option there is nothing to decide.
+                */
+                defaultSelectedId={preferredApproved?.id ?? (options.length === 1 ? options[0].id : undefined)}
               />
             </div>
           </div>
           <label className="block text-sm font-medium">Run name
-            <input name="name" required maxLength={300} placeholder="For example: Release 2.3 check on staging" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60" />
+            <input name="name" required maxLength={300} defaultValue={keptName ?? ""} placeholder="For example: Release 2.3 check on staging" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60" />
           </label>
           <div className="grid gap-5 sm:grid-cols-3">
             <label className="block text-sm font-medium">Mode<select name="mode" defaultValue="MANUAL" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60"><option value="MANUAL">Manual</option><option value="PLAYWRIGHT_BROWSER">Playwright Browser</option><option value="API">API</option></select></label>

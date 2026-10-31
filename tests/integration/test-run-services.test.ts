@@ -116,6 +116,38 @@ describe("tenant-safe immutable Test Runs", () => {
     }, deps(space))).rejects.toMatchObject({ code: "approved_test_case_required" });
   });
 
+  /**
+   * The contract the New test run form's error handling rests on.
+   *
+   * Leaving the test case unchosen was possible -- only the run name carried
+   * `required` -- and threw out of here into the workspace error boundary,
+   * which told the person "This page didn't load. If you just created your
+   * workspace, it may still be finishing setup. Trying again usually works."
+   * The workspace was fine, the cause was an empty field nobody was told
+   * about, and trying again did the same thing.
+   *
+   * The page now catches a 400 from here and returns to the form saying
+   * which field. If this stops being a 400, that catch silently stops
+   * matching and the crash page comes back, so the status is asserted and
+   * not only the code.
+   */
+  it("rejects a run with no test case as a 400, which the form relies on", async () => {
+    const space = await workspace();
+
+    await expect(createTestRun({
+      projectId: space.project.id, testCaseId: "", name: "Smoke on my machine",
+    }, deps(space))).rejects.toMatchObject({ code: "invalid_test_run_input", status: 400 });
+  });
+
+  it("rejects a run with no name the same way, rather than storing a blank one", async () => {
+    const space = await workspace();
+    const testCase = await approvedTestCase(space);
+
+    await expect(createTestRun({
+      projectId: space.project.id, testCaseId: testCase.id, name: "",
+    }, deps(space))).rejects.toMatchObject({ code: "invalid_test_run_input", status: 400 });
+  });
+
   it("appends immutable evidence attempts and updates only the run aggregate", async () => {
     const space = await workspace();
     const testCase = await approvedTestCase(space);
