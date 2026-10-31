@@ -20,6 +20,52 @@ has reproduced in isolation. Everything else passed.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **A flaky test was shown to an auditor as verified** (2026-10-31): the fifth
+  instance of one pattern, on the surface that matters most. The evidence
+  report computes a run signal for every test case and then showed it to
+  nobody -- not in the verdict, not on the proof page, not in the file a
+  reader keeps, not over MCP. A requirement whose approved test passed most
+  recently, having also failed on that same approved version, was headed
+  VERIFIED with the reason "3 approved tests last ran and passed".
+  Every word true, and together doing the work of a false sentence for the one
+  reader who cannot check the run history: the person outside the team being
+  asked to accept it.
+  The verdict stands -- the last run did pass -- so the fix adds the doubt
+  rather than withdrawing the claim, and it was needed in four places. The
+  reason lives in the service, so correcting it there carried to the proof
+  page, the internal report, the kept file and the MCP tools at once. The
+  per-test line is written four separate times, and each printed "passed", in
+  green, for a test known to be unreproducible. The kept file was the worst of
+  them: the link expires and the file does not.
+  Verified on Northwind's own records, which had exactly this shape.
+- **A flaky test wore a green badge** (2026-10-28): the competitor's post the
+  owner sent advertises flaky detection, which made it worth looking at ours.
+  Two holes, and the second was the worse one.
+  The expected one: FLAKY required a commit hash on both sides, like
+  REGRESSION, so a team on daily live checks -- which run against an address,
+  not a revision -- could never be told a test was unreliable.
+  The unexpected one: flakiness was only ever checked when the *latest* run
+  failed. A test that fails and then passes, which is what flakiness looks
+  like by the time anybody notices, took the passing branch and came out
+  "Passing", or "Stable" once two green revisions had gone by. That hole was
+  there with or without commits. The records held both results and the page
+  showed one, which is the kind of reassurance a release gets signed off on.
+  Both closed by asking, on a green run, whether this approved version has
+  ever been red -- before stability is claimed, since stability is the
+  strongest word on that list and a version that has failed has not earned it.
+  The wording claims only what is certain: "the result is not reproducible.
+  The test did not change between them; whether the application did is not
+  recorded." Without revisions the records genuinely cannot say, so it reports
+  rather than accuses.
+  Verified on Northwind's own data: after the site was restored and the daily
+  check re-run, the passing run reads "Failing before, passing now -- Flaky",
+  and the release page carries the caution. The release finding's title lost
+  "on one revision", which stopped being true the moment this widened.
+  **Fourth instance of one pattern.** Attribution asked first, silence when it
+  cannot be answered: the release page saying nothing was blocking while every
+  test failed, "no earlier passing evidence" for a test that had passed hours
+  earlier, flakiness invisible without commits, and this. Worth watching for
+  in review rather than finding one at a time.
 - **A security gate that only answers questions about commits** (2026-10-28):
   a routine build refused to start -- Next.js 16.4.0 was inside the range of a
   published critical advisory (unauthenticated remote code execution in the

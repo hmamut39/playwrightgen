@@ -97,11 +97,17 @@ function requirementSection(requirement: ReleaseEvidenceReport["requirements"][n
               const result = testCase.latestResult
                 ? RESULT_WORD[testCase.latestResult] ?? testCase.latestResult.toLowerCase()
                 : "never run";
+              // A test that passed last time and has also failed on this same
+              // approved version. The report carried that signal and this
+              // table ignored it, so the cell read "passed", in green, in the
+              // file a reader keeps after the link has expired. The word is
+              // true and on its own it is the wrong impression.
+              const unreliable = testCase.signal === "FLAKY";
               return `<tr>
                 <td>${escape(testCase.title)}${approvalLine(testCase) ? `<br><span class="who">${approvalLine(testCase)}</span>` : ""}</td>
                 <td>${testCase.authoredByAgent ? escape(testCase.authoredByAgent) : "a person"}</td>
                 <td class="num">${testCase.versionNumber}</td>
-                <td class="${testCase.latestResult === "FAILED" ? "bad" : testCase.latestResult === "PASSED" ? "good" : ""}">${result}</td>
+                <td class="${testCase.latestResult === "FAILED" ? "bad" : unreliable ? "" : testCase.latestResult === "PASSED" ? "good" : ""}">${result}${unreliable ? ' <span class="who">(also failed on this version, so not reproducible)</span>' : ""}</td>
                 <td>${testCase.latestExecutedAt ? stamp(testCase.latestExecutedAt) : "&mdash;"}</td>
                 <td class="mono">${testCase.latestCommitSha ? escape(testCase.latestCommitSha.slice(0, 8)) : "&mdash;"}</td>
               </tr>`;

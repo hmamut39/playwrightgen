@@ -75,6 +75,25 @@ export function classifyRuns(
     else passingByTestCase.set(attempt.testCaseId, [attempt]);
   }
 
+  /**
+   * Failing evidence for a Test Case, so a green run can be asked whether this
+   * version has ever been red.
+   *
+   * Flakiness used to be reachable only from the failing branch: a test was
+   * called unreliable when its latest run failed and an earlier run of the
+   * same version had passed. A test that fails and then passes -- which is
+   * what flakiness usually looks like by the time anybody notices -- took the
+   * passing branch and was reported "Passing", or "Stable" once two revisions
+   * had gone green. The record held both results and the page showed one.
+   */
+  const failingByTestCase = new Map<string, AttemptFact[]>();
+  for (const attempt of attempts) {
+    if (isPassing(attempt.result)) continue;
+    const bucket = failingByTestCase.get(attempt.testCaseId);
+    if (bucket) bucket.push(attempt);
+    else failingByTestCase.set(attempt.testCaseId, [attempt]);
+  }
+
   const results = new Map<string, RunSignalResult>();
 
   for (const [testRunId, runAttempts] of byRun) {
@@ -89,6 +108,35 @@ export function classifyRuns(
     }
 
     if (isPassing(latest.result)) {
+      /**
+       * Green now, red before, on the same approved version.
+       *
+       * The version is immutable, so the test did not change between the two.
+       * Whether the application did is not something these records can say --
+       * a daily live check runs against an address rather than a revision --
+       * so this does not accuse anybody. It reports the one thing that is
+       * certain: the result is not reproducible, which is what a team needs
+       * before they trust the green.
+       *
+       * Checked before stability, because "stable" is the strongest claim on
+       * this list and a version that has failed has not earned it.
+       */
+      const earlierFailure = (failingByTestCase.get(latest.testCaseId) ?? [])
+        .filter(
+          (attempt) =>
+            attempt.testCaseVersionId === latest.testCaseVersionId &&
+            attempt.executedAt.getTime() < latest.executedAt.getTime(),
+        )
+        .sort((a, b) => b.executedAt.getTime() - a.executedAt.getTime())[0];
+
+      if (earlierFailure) {
+        results.set(testRunId, {
+          signal: "FLAKY",
+          detail: `The same approved version failed on ${earlierFailure.executedAt.toISOString().slice(0, 10)} and passes now, so the result is not reproducible. The test did not change between them; whether the application did is not recorded.`,
+        });
+        continue;
+      }
+
       // "Stable" is a claim about behaviour holding over time, so it requires
       // the approved version to have passed on more than one revision. A single
       // green attempt is one observation, and reporting it as stability inflates

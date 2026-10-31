@@ -272,7 +272,12 @@ export async function getReleaseReadiness(
     findings.push({
       severity: "CAUTION",
       code: "tests_flaky",
-      title: "Tests producing both outcomes on one revision",
+      // "on one revision" was accurate while flakiness could only be seen when
+      // a pass and a failure shared a commit. It is now also reported when the
+      // same approved version has produced both outcomes with no revision
+      // recorded at all, which is what a daily live check produces, so the
+      // title names the version rather than the revision.
+      title: "Tests producing both outcomes on the same approved version",
       detail:
         "These results are not reproducible, so they neither confirm nor deny the behaviour they cover.",
       href: `${base}/test-runs`,

@@ -241,6 +241,21 @@ export default async function ProofPage({
                         ) : null}
                         {testCase.latestCommitSha ? ` · commit ${testCase.latestCommitSha.slice(0, 8)}` : ""}
                       </p>
+                      {/*
+                        A passing run of a test that has also failed on this
+                        same approved version. The report computed this signal
+                        for every test case and then showed nobody: the line
+                        above said "last run passed" and the verdict above that
+                        said VERIFIED, which is a true sentence doing the work
+                        of a false one for the person deciding whether to
+                        accept it.
+                      */}
+                      {testCase.signal === "FLAKY" ? (
+                        <p className="mt-1 text-xs font-medium text-amber-800">
+                          This test has both passed and failed on this version, so its result is not
+                          reproducible.
+                        </p>
+                      ) : null}
                     </li>
                   ))}
                 </ul>

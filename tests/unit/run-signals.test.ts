@@ -51,6 +51,57 @@ describe("classifyRuns", () => {
    * back as EXECUTION HISTORY, so the product was feeding its own model a
    * statement its own records contradicted.
    */
+  /**
+   * Found on 2026-10-28. Flakiness was only reachable from the failing branch:
+   * a test counted as unreliable when its latest run failed and an earlier run
+   * of the same version had passed. The commoner shape -- fails, then passes,
+   * which is what flakiness looks like by the time anybody notices -- took the
+   * passing branch and came out as "Passing", or "Stable" once two revisions
+   * had gone green.
+   *
+   * The records held both results and the page showed one. A green badge on a
+   * test that failed yesterday is the kind of reassurance that gets a release
+   * signed off.
+   */
+  it("calls a test that failed and now passes flaky, not stable", () => {
+    const facts = [
+      attempt({ result: "FAILED", commitSha: null }),
+      attempt({ result: "PASSED", commitSha: null, attemptNumber: 2 }),
+    ];
+
+    const result = classifyRuns(facts).get(RUN);
+
+    expect(result?.signal).toBe("FLAKY");
+    expect(result?.detail).toMatch(/not reproducible/i);
+    // It must not accuse the application: without revisions these records
+    // cannot say whether anything but the weather changed.
+    expect(result?.detail).toMatch(/whether the application did is not recorded/i);
+  });
+
+  it("does not call it stable when the version has ever failed", () => {
+    // Stability is the strongest claim on the list, and two green revisions
+    // used to be enough to earn it even with a red one in the same history.
+    const result = classifyRuns([
+      attempt({ result: "FAILED", commitSha: SHA_A }),
+      attempt({ result: "PASSED", commitSha: SHA_A, attemptNumber: 2 }),
+      attempt({ result: "PASSED", commitSha: SHA_B, attemptNumber: 3 }),
+    ]).get(RUN);
+
+    expect(result?.signal).not.toBe("STABLE");
+    expect(result?.signal).toBe("FLAKY");
+  });
+
+  it("still calls a clean history stable", () => {
+    // Without this the change above could have made stability unreachable,
+    // which would be the same overstatement in the other direction.
+    const result = classifyRuns([
+      attempt({ result: "PASSED", commitSha: SHA_A }),
+      attempt({ result: "PASSED", commitSha: SHA_B, attemptNumber: 2 }),
+    ]).get(RUN);
+
+    expect(result?.signal).toBe("STABLE");
+  });
+
   it("does not claim there is no earlier pass when there is one without a commit", () => {
     const facts = [
       attempt({ result: "PASSED", commitSha: null }),

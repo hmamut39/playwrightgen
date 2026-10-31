@@ -177,6 +177,88 @@ describe("release evidence report", () => {
     expect(report.requirements[0].testCases[0].latestResult).toBe("PASSED");
   });
 
+  /**
+   * Found on 2026-10-31. The report computed a run signal for every test case
+   * and then showed it to nobody: not in the verdict, not on the proof page,
+   * not in the file a reader keeps. A requirement whose approved test passed
+   * most recently, having also failed on that same approved version, was
+   * headed VERIFIED with the reason "1 approved test last ran and passed".
+   *
+   * Every word of that is true, and together they do the work of a false
+   * sentence for the one reader who cannot go and check the run history: the
+   * person outside the team being asked to accept it.
+   *
+   * The verdict itself stands -- the last run did pass -- so this adds the
+   * doubt rather than withdrawing the claim.
+   */
+  it("says when a verified requirement rests on a result that is not reproducible", async () => {
+    const space = await workspace();
+    const requirement = await approvedRequirement(space);
+    const testCase = await linkedTestCase(space, requirement.id, true);
+    const version = await prisma.testCaseVersion.findFirstOrThrow({
+      where: { testCaseId: testCase.id },
+      orderBy: { versionNumber: "desc" },
+    });
+    // One run, two attempts: failed, then passed. The same approved version
+    // produced both, which is what "not reproducible" means here.
+    const run = await prisma.testRun.create({
+      data: {
+        organizationId: space.organization.id,
+        projectId: space.project.id,
+        testCaseId: testCase.id,
+        testCaseVersionId: version.id,
+        name: "Daily live check",
+        status: "PASSED",
+        latestAttemptNumber: 2,
+        createdByUserId: space.owner.id,
+      },
+    });
+    for (const [attemptNumber, result] of [[1, "FAILED"], [2, "PASSED"]] as const) {
+      await prisma.testRunAttempt.create({
+        data: {
+          organizationId: space.organization.id,
+          projectId: space.project.id,
+          testRunId: run.id,
+          attemptNumber,
+          result,
+          mode: "PLAYWRIGHT_BROWSER",
+          environment: "PRODUCTION",
+          browser: "CHROMIUM",
+          summary: `Daily live check: ${result.toLowerCase()}.`,
+          failureDetails: result === "FAILED" ? "Timed out waiting for the control." : "",
+          stepResults: [],
+          evidence: [],
+          executedByUserId: space.owner.id,
+        },
+      });
+    }
+
+    const report = await getReleaseEvidenceReport({ projectId: space.project.id }, deps(space));
+    const subject = report.requirements[0];
+
+    // The verdict is not withdrawn: the last run genuinely passed.
+    expect(subject.verdict).toBe("VERIFIED");
+    // But the reader is told what the team already knows.
+    expect(subject.reason).toMatch(/also failed on this version/i);
+    expect(subject.reason).toMatch(/not reproducible/i);
+    // And the signal reaches the per-test row the surfaces render from.
+    expect(subject.testCases[0].signal).toBe("FLAKY");
+  });
+
+  it("says nothing about reproducibility when the history is clean", async () => {
+    // Without this the note could be added unconditionally, which would
+    // satisfy the case above while making every verdict read as doubtful.
+    const space = await workspace();
+    const requirement = await approvedRequirement(space);
+    const testCase = await linkedTestCase(space, requirement.id, true);
+    await recordAttempt(space, testCase.id, "PASSED");
+
+    const report = await getReleaseEvidenceReport({ projectId: space.project.id }, deps(space));
+
+    expect(report.requirements[0].verdict).toBe("VERIFIED");
+    expect(report.requirements[0].reason).not.toMatch(/not reproducible/i);
+  });
+
   it("says how old the evidence is, and counts a verdict nobody has rechecked", async () => {
     const space = await workspace();
     const requirement = await approvedRequirement(space);

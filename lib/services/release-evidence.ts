@@ -319,7 +319,18 @@ export async function buildReleaseEvidenceReport(input: {
         reason = `${failing.length} approved test${failing.length === 1 ? "" : "s"} last ran and did not pass.${blockedNote}${neverRanNote}`;
       } else if (passing.length > 0) {
         verdict = "VERIFIED";
-        reason = `${passing.length} approved test${passing.length === 1 ? "" : "s"} last ran and passed.${blockedNote}${neverRanNote}`;
+        // A passing test that has also failed on this same approved version.
+        // The signal was computed for every test case here and shown to
+        // nobody, so a requirement could be headed VERIFIED on the strength of
+        // a run the workspace already knew was not reproducible. The verdict
+        // stands -- the last run did pass -- but a reader deciding whether to
+        // accept this needs the same doubt the team has.
+        const unreliable = passing.filter((testCase) => testCase.signal === "FLAKY").length;
+        const unreliableNote =
+          unreliable > 0
+            ? ` ${unreliable === 1 ? "One of them has" : `${unreliable} of them have`} also failed on this version, so ${unreliable === 1 ? "that result is" : "those results are"} not reproducible.`
+            : "";
+        reason = `${passing.length} approved test${passing.length === 1 ? "" : "s"} last ran and passed.${unreliableNote}${blockedNote}${neverRanNote}`;
         // Said out loud rather than left for a reader to assume: one passing
         // test does not mean six criteria were each checked.
         if (criteriaCount > passing.length) {

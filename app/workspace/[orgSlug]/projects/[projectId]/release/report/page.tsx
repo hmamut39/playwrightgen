@@ -248,15 +248,26 @@ export default async function ReleaseEvidenceReportPage({
                           </td>
                           <td className="py-2.5 pr-3">
                             {testCase.latestResult ? (
-                              <span
-                                className={
-                                  testCase.latestResult === "PASSED"
-                                    ? "font-semibold text-emerald-700"
-                                    : "font-semibold text-red-700"
-                                }
-                              >
-                                {testCase.latestResult.toLowerCase()}
-                              </span>
+                              <>
+                                {/* Green for a pass that has also failed on
+                                    this version reads as settled when the
+                                    workspace knows it is not. The word stays;
+                                    the colour and the qualifier change. */}
+                                <span
+                                  className={
+                                    testCase.signal === "FLAKY"
+                                      ? "font-semibold text-amber-700"
+                                      : testCase.latestResult === "PASSED"
+                                        ? "font-semibold text-emerald-700"
+                                        : "font-semibold text-red-700"
+                                  }
+                                >
+                                  {testCase.latestResult.toLowerCase()}
+                                </span>
+                                {testCase.signal === "FLAKY" ? (
+                                  <span className="block text-xs text-amber-700">not reproducible</span>
+                                ) : null}
+                              </>
                             ) : (
                               <span className="text-slate-400">never run</span>
                             )}
