@@ -8,7 +8,7 @@ import {
   type WorkspaceContextDependencies,
 } from "@/lib/auth/workspace-context";
 import { getPrismaClient } from "@/lib/db/prisma";
-import { evidenceHash } from "@/lib/services/evidence-hash";
+import { evidenceHash, legacyEvidenceHash } from "@/lib/services/evidence-hash";
 import { buildReleaseEvidenceReport, type ReleaseEvidenceReport } from "@/lib/services/release-evidence";
 import { proofTokenHash, readProofToken, readSnapshot } from "@/lib/services/release-proof";
 
@@ -180,5 +180,17 @@ export async function listEvidenceSignatures(
  * still matches it.
  */
 export function stillMatches(signature: { evidenceHash: string }, report: ReleaseEvidenceReport) {
-  return signature.evidenceHash === evidenceHash(report);
+  if (signature.evidenceHash === evidenceHash(report)) return true;
+  /*
+   * A signature recorded before the report carried approved tests that verify
+   * no requirement was given over a page that did not show them. What that
+   * person accepted is the requirements, so that is what "has it changed"
+   * must mean for their signature -- and if the requirements still match,
+   * nothing they were shown has changed.
+   *
+   * Only their signature. Anything accepted from here on is hashed over the
+   * whole page, so an unlinked test that stops passing is reported as a
+   * change to whoever accepted it.
+   */
+  return signature.evidenceHash === legacyEvidenceHash(report);
 }

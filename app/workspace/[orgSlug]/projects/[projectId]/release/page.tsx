@@ -81,12 +81,23 @@ export default async function ReleaseReadinessPage({
   ]);
 
   /**
-   * There is nothing to share until a requirement has been approved. A link to
-   * a page reading "this project has no approved requirements yet" is worse
-   * than no link: it is sent to a manager or an auditor, and it says the team
-   * has nothing rather than that the team has not started.
+   * There is nothing to share until the shared page would say something. A
+   * link to a page reading "this project has no approved requirements yet" is
+   * worse than no link: it is sent to a manager or an auditor, and it says the
+   * team has nothing rather than that the team has not started.
+   *
+   * That used to mean an approved requirement, which closed this to every team
+   * that started where the product tells them to start. "Cover a page" -- the
+   * first thing offered on an empty project -- produces test cases and no
+   * requirement, so a team could approve tests, run them against their real
+   * site, watch them pass, and still find sharing shut with a note implying
+   * they had nothing. They had evidence; the report simply had no column for
+   * it. It has one now, so approved tests are enough to open this on their own
+   * and the shared page says plainly what they do and do not prove.
    */
-  const hasEvidenceToShare = readiness.counts.approvedRequirements > 0;
+  const provenUnlinkedTests =
+    evidenceNow?.unlinkedTests.filter((testCase) => testCase.latestResult !== null).length ?? 0;
+  const hasEvidenceToShare = readiness.counts.approvedRequirements > 0 || provenUnlinkedTests > 0;
 
   /**
    * Hands someone outside the team a read-only copy of this evidence. The link
@@ -267,8 +278,8 @@ export default async function ReleaseReadinessPage({
           </Link>
           {context.can("project:update") && !hasEvidenceToShare ? (
             <p className="mt-3 max-w-xl rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
-              There is nothing to share yet. Evidence becomes shareable once a requirement is approved and a test has
-              verified it &mdash;{" "}
+              There is nothing to share yet. Evidence becomes shareable as soon as one approved test has run &mdash;
+              it does not have to verify a requirement first &mdash;{" "}
               <Link href={`/workspace/${orgSlug}/projects/${projectId}/cover`} className="font-semibold text-cyan-800 underline">
                 cover a page
               </Link>{" "}

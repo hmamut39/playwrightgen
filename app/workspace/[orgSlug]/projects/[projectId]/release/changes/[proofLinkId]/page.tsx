@@ -93,6 +93,64 @@ export default async function SnapshotChangesPage({
         </section>
       ) : null}
 
+      {/*
+        Approved tests that verify no requirement, and how each last ran then
+        and now. The snapshot shows these, so a reader comparing it against
+        the project has to be able to see them move. Kept in its own section
+        and worded as results rather than verdicts, because these tests make
+        no claim about agreed intent.
+      */}
+      {change.tests.moved.length ? (
+        <section className="mt-8">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+            Tests not linked to a requirement, which ran differently
+          </h2>
+          <ul className="mt-3 space-y-2">
+            {change.tests.moved.map((move) => (
+              <li
+                key={move.id}
+                className={`rounded-2xl border p-4 ${move.worse ? "border-red-200 bg-red-50" : "border-slate-200 bg-white"}`}
+              >
+                <p className="font-medium text-slate-950">{move.title}</p>
+                <p className="mt-1 text-xs text-slate-600">
+                  {move.from ? `Last ran ${move.from.toLowerCase()}` : "Had never run"} when the snapshot was taken;{" "}
+                  {move.to ? `now ${move.to.toLowerCase()}` : "has no recorded run now"}.
+                  {move.worse ? " It was passing and is not any more." : ""}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {(change.tests.added.length || change.tests.removed.length) ? (
+        <section className="mt-8">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+            Tests not linked to a requirement, added or gone
+          </h2>
+          <ul className="mt-3 space-y-2">
+            {change.tests.added.map((item) => (
+              <li key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="font-medium text-slate-950">{item.title}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Approved since the snapshot was taken, so the snapshot does not show it.
+                </p>
+              </li>
+            ))}
+            {change.tests.removed.map((item) => (
+              <li key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="font-medium text-slate-950">{item.title}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  The snapshot still shows it. It is no longer an approved test of this project, or it now verifies a
+                  requirement &mdash; either way, anyone reading that link sees something this project has moved on
+                  from.
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {change.added.length ? (
         <section className="mt-8">
           <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">

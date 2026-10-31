@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { changeSummary, compareEvidence } from "@/lib/services/evidence-change";
-import type { EvidenceRequirement, ReleaseEvidenceReport, RequirementVerdict } from "@/lib/services/release-evidence";
+import type {
+  EvidenceRequirement,
+  EvidenceTestCase,
+  ReleaseEvidenceReport,
+  RequirementVerdict,
+} from "@/lib/services/release-evidence";
 
 const requirement = (id: string, title: string, verdict: RequirementVerdict): EvidenceRequirement => ({
   id,
@@ -24,6 +29,7 @@ const report = (requirements: EvidenceRequirement[]): ReleaseEvidenceReport => (
   project: { id: "p", name: "Shop", slug: "shop" },
   organization: { name: "Acme", slug: "acme" },
   generatedAt: new Date("2026-09-20T10:00:00.000Z"),
+  unlinkedTests: [],
   coverage: { shown: requirements.length, total: requirements.length },
   requirements,
   totals: {
@@ -108,5 +114,76 @@ describe("what changed since a snapshot", () => {
       report([requirement("a", "Pay", "UNVERIFIED")]),
     );
     expect(better.moved[0].worse).toBe(false);
+  });
+  /**
+   * Approved tests that verify no requirement are shown on the snapshot, so
+   * this comparison has to account for them. Before it did, one could go from
+   * passing to failing and the page still read "nothing has changed since
+   * this snapshot was taken" -- true of the requirements, and read by a
+   * manager as true of the project.
+   */
+  const test = (id: string, title: string, result: EvidenceTestCase["latestResult"]): EvidenceTestCase => ({
+    id,
+    title,
+    status: "APPROVED",
+    versionNumber: 1,
+    latestResult: result,
+    latestExecutedAt: result ? new Date("2026-09-19T10:00:00.000Z") : null,
+    approvedBy: null,
+    approvedAt: null,
+    latestCommitSha: null,
+    authoredByAgent: null,
+    signal: null,
+  });
+
+  const withTests = (tests: EvidenceTestCase[]): ReleaseEvidenceReport => ({
+    ...report([]),
+    unlinkedTests: tests,
+  });
+
+  it("will not say nothing changed when an unlinked test stopped passing", () => {
+    const change = compareEvidence(
+      withTests([test("t1", "The checkout page loads", "PASSED")]),
+      withTests([test("t1", "The checkout page loads", "FAILED")]),
+    );
+
+    expect(change.same).toBe(false);
+    expect(change.tests.moved).toEqual([
+      { id: "t1", title: "The checkout page loads", from: "PASSED", to: "FAILED", worse: true },
+    ]);
+    expect(changeSummary(change)).toContain("1 unlinked test stopped passing");
+  });
+
+  it("does not call a test that stopped running an improvement", () => {
+    const change = compareEvidence(
+      withTests([test("t1", "The checkout page loads", "PASSED")]),
+      withTests([test("t1", "The checkout page loads", null)]),
+    );
+
+    // A result that went missing is not good news, and the only honest thing
+    // to do with it is report it as the loss it is.
+    expect(change.tests.moved[0]).toMatchObject({ from: "PASSED", to: null, worse: true });
+  });
+
+  it("reports an unlinked test that appeared, and one that is gone", () => {
+    const change = compareEvidence(
+      withTests([test("t1", "Old", "PASSED")]),
+      withTests([test("t2", "New", "PASSED")]),
+    );
+
+    expect(change.tests.added).toEqual([{ id: "t2", title: "New" }]);
+    expect(change.tests.removed).toEqual([{ id: "t1", title: "Old" }]);
+    expect(change.same).toBe(false);
+  });
+
+  it("still says nothing changed when the unlinked tests are identical", () => {
+    const change = compareEvidence(
+      withTests([test("t1", "The checkout page loads", "PASSED")]),
+      withTests([test("t1", "The checkout page loads", "PASSED")]),
+    );
+
+    // The point is not to raise an alarm; it is to stop claiming silence.
+    expect(change.same).toBe(true);
+    expect(changeSummary(change)).toBe("Nothing has changed since this snapshot was taken.");
   });
 });

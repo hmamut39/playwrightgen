@@ -1,5 +1,6 @@
 import { evidenceHash } from "@/lib/services/evidence-hash";
 import type { ReleaseEvidenceReport } from "@/lib/services/release-evidence";
+import { unlinkedTestsNote } from "@/lib/services/release-evidence";
 
 /**
  * The evidence as a file someone can keep.
@@ -73,26 +74,13 @@ function approvalLine(artifact: { approvedBy: string | null; approvedAt: Date | 
     : `approved on ${when} (the trail no longer names who)`;
 }
 
-function requirementSection(requirement: ReleaseEvidenceReport["requirements"][number]) {
-  const meta = [
-    `Version ${requirement.versionNumber}`,
-    requirement.externalReference ? escape(requirement.externalReference) : null,
-    // The sign-off record a reviewing body asks for: who accepted this, and
-    // when. Said here rather than left in an activity log nobody exports.
-    approvalLine(requirement),
-    requirement.criteriaCount
-      ? `${requirement.criteriaCount} acceptance criteri${requirement.criteriaCount === 1 ? "on" : "a"}`
-      : null,
-    ageWord(requirement.ageDays),
-  ]
-    .filter(Boolean)
-    .join(" &middot; ");
-
-  const tests = requirement.testCases.length
+/** The same table, whether or not these tests verify a requirement. */
+function testTable(testCases: ReleaseEvidenceReport["unlinkedTests"]) {
+  return testCases.length
     ? `<table>
         <thead><tr><th>Test case</th><th>Proposed by</th><th>Version</th><th>Last run</th><th>When</th><th>Commit</th></tr></thead>
         <tbody>
-          ${requirement.testCases
+          ${testCases
             .map((testCase) => {
               const result = testCase.latestResult
                 ? RESULT_WORD[testCase.latestResult] ?? testCase.latestResult.toLowerCase()
@@ -115,6 +103,26 @@ function requirementSection(requirement: ReleaseEvidenceReport["requirements"][n
             .join("")}
         </tbody>
       </table>`
+    : "";
+}
+
+function requirementSection(requirement: ReleaseEvidenceReport["requirements"][number]) {
+  const meta = [
+    `Version ${requirement.versionNumber}`,
+    requirement.externalReference ? escape(requirement.externalReference) : null,
+    // The sign-off record a reviewing body asks for: who accepted this, and
+    // when. Said here rather than left in an activity log nobody exports.
+    approvalLine(requirement),
+    requirement.criteriaCount
+      ? `${requirement.criteriaCount} acceptance criteri${requirement.criteriaCount === 1 ? "on" : "a"}`
+      : null,
+    ageWord(requirement.ageDays),
+  ]
+    .filter(Boolean)
+    .join(" &middot; ");
+
+  const tests = requirement.testCases.length
+    ? testTable(requirement.testCases)
     : `<p class="none">No approved test case verifies this requirement.</p>`;
 
   return `<section class="requirement">
@@ -243,6 +251,24 @@ export function evidenceDocument(
       : `<p class="none">This project has no approved requirements yet, so there is nothing to verify.</p>`
   }
   ${report.truncated ? `<p class="none">This report covers ${report.coverage.shown} of the project's ${report.coverage.total} requirements. It is bounded so that a large project produces a report at all, so every figure here describes that first portion and not the whole project.</p>` : ""}
+
+  ${
+    /*
+     * Approved tests that verify no requirement.
+     *
+     * The document was organised by requirement, so these tests -- approved,
+     * run against the real site, with real results -- appeared nowhere in the
+     * file a reader keeps. A team that followed the product's own first
+     * suggestion produces exactly these and no requirement, and had nothing
+     * to hand anybody. Said separately and labelled for what it is: evidence
+     * about behaviour, not about agreed intent.
+     */
+    report.unlinkedTests.length
+      ? `<h2>Approved tests not linked to a requirement</h2>
+  <p class="note">${escape(unlinkedTestsNote(report.unlinkedTests))}</p>
+  ${testTable(report.unlinkedTests)}`
+      : ""
+  }
 
   ${
     options.signatures === null

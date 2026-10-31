@@ -158,6 +158,26 @@ export function readSnapshot(value: unknown): ReleaseEvidenceReport | null {
         stale: totals.stale ?? 0,
       };
     })(),
+    /*
+     * A snapshot kept before the report carried approved tests that verify no
+     * requirement has no such list, and the type cannot say so: the stored
+     * JSON is spread in above, so the field would simply be absent at runtime
+     * while every reader believes it is an array. The proof page reads its
+     * length, so every frozen link shared before today would have thrown.
+     *
+     * Absent means the project had none recorded, which is what an empty list
+     * says. It does not mean there were none -- a snapshot cannot be made to
+     * answer a question nobody was asking when it was taken -- and the page
+     * says nothing about unlinked tests when the list is empty, so it claims
+     * nothing either way.
+     */
+    unlinkedTests: Array.isArray(raw.unlinkedTests)
+      ? (raw.unlinkedTests as ReleaseEvidenceReport["unlinkedTests"]).map((testCase) => ({
+          ...testCase,
+          latestExecutedAt: date(testCase.latestExecutedAt as unknown),
+          approvedAt: date(testCase.approvedAt as unknown),
+        }))
+      : [],
     // A snapshot kept before evidence carried its age still opens; it simply
     // cannot say how old it was, and says so rather than guessing.
     requirements: (raw.requirements as ReleaseEvidenceReport["requirements"]).map((requirement) => ({

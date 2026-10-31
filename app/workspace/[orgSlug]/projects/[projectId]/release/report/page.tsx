@@ -1,7 +1,8 @@
 import Link from "next/link";
 
 import { PrintButton } from "@/components/workspace/print-button";
-import { getReleaseEvidenceReport } from "@/lib/services/release-evidence";
+import type { EvidenceTestCase } from "@/lib/services/release-evidence";
+import { getReleaseEvidenceReport, unlinkedTestsNote } from "@/lib/services/release-evidence";
 import {
   listReleaseMilestones,
   scopeReleaseToMilestone,
@@ -37,6 +38,80 @@ const verdictLabel = {
 
 function shortSha(sha: string | null) {
   return sha ? sha.slice(0, 8) : null;
+}
+
+/**
+ * Approved tests and how each last ran.
+ *
+ * Lifted out of the requirement list so tests that verify no requirement can
+ * be shown identically. Two tables of the same thing, written separately,
+ * disagree eventually -- and here they would disagree about whether a result
+ * is reproducible.
+ */
+function TestTable({ testCases }: { testCases: EvidenceTestCase[] }) {
+  return (
+    <div className="mt-4 overflow-x-auto">
+      <table className="w-full min-w-[36rem] border-collapse text-left text-sm">
+        <thead>
+          <tr className="border-b border-slate-200 text-xs uppercase tracking-[0.16em] text-slate-500">
+            <th className="py-2 pr-3 font-semibold">Test Case</th>
+            <th className="py-2 pr-3 font-semibold">State</th>
+            <th className="py-2 pr-3 font-semibold">Last result</th>
+            <th className="py-2 font-semibold">When · revision</th>
+          </tr>
+        </thead>
+        <tbody>
+          {testCases.map((testCase) => (
+            <tr key={testCase.id} className="border-b border-slate-100 align-top">
+              <td className="py-2.5 pr-3 text-slate-900">
+                {testCase.title}
+                <span className="ml-1.5 text-xs text-slate-400">
+                  v{testCase.versionNumber}
+                </span>
+              </td>
+              <td className="py-2.5 pr-3 text-slate-600">
+                {testCase.status.replace("_", " ").toLowerCase()}
+              </td>
+              <td className="py-2.5 pr-3">
+                {testCase.latestResult ? (
+                  <>
+                    {/* Green for a pass that has also failed on
+                        this version reads as settled when the
+                        workspace knows it is not. The word stays;
+                        the colour and the qualifier change. */}
+                    <span
+                      className={
+                        testCase.signal === "FLAKY"
+              ? "font-semibold text-amber-700"
+              : testCase.latestResult === "PASSED"
+                ? "font-semibold text-emerald-700"
+                : "font-semibold text-red-700"
+                      }
+                    >
+                      {testCase.latestResult.toLowerCase()}
+                    </span>
+                    {testCase.signal === "FLAKY" ? (
+                      <span className="block text-xs text-amber-700">not reproducible</span>
+                    ) : null}
+                  </>
+                ) : (
+                  <span className="text-slate-400">never run</span>
+                )}
+              </td>
+              <td className="py-2.5 text-xs text-slate-500">
+                {testCase.latestExecutedAt
+                  ? <LocalTime value={testCase.latestExecutedAt} />
+                  : "—"}
+                {shortSha(testCase.latestCommitSha)
+                  ? ` · ${shortSha(testCase.latestCommitSha)}`
+                  : ""}
+              </td>
+            </tr>
+                      ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 export default async function ReleaseEvidenceReportPage({
@@ -184,8 +259,9 @@ export default async function ReleaseEvidenceReportPage({
 
       {report.requirements.length === 0 ? (
         <p className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm leading-6 text-slate-600">
-          This project has no requirements, so there is nothing to report. A
-          release cannot be evidenced against intent that was never recorded.
+          {report.unlinkedTests.length
+            ? "This project has no requirements, so nothing here is evidence against recorded intent. The approved tests and their results are below."
+            : "This project has no requirements, so there is nothing to report. A release cannot be evidenced against intent that was never recorded."}
         </p>
       ) : (
         <section className="mt-8 space-y-5">
@@ -224,72 +300,26 @@ export default async function ReleaseEvidenceReportPage({
               <p className="mt-3 text-sm leading-6 text-slate-600">{requirement.reason}</p>
 
               {requirement.testCases.length > 0 ? (
-                <div className="mt-4 overflow-x-auto">
-                  <table className="w-full min-w-[36rem] border-collapse text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-200 text-xs uppercase tracking-[0.16em] text-slate-500">
-                        <th className="py-2 pr-3 font-semibold">Test Case</th>
-                        <th className="py-2 pr-3 font-semibold">State</th>
-                        <th className="py-2 pr-3 font-semibold">Last result</th>
-                        <th className="py-2 font-semibold">When · revision</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {requirement.testCases.map((testCase) => (
-                        <tr key={testCase.id} className="border-b border-slate-100 align-top">
-                          <td className="py-2.5 pr-3 text-slate-900">
-                            {testCase.title}
-                            <span className="ml-1.5 text-xs text-slate-400">
-                              v{testCase.versionNumber}
-                            </span>
-                          </td>
-                          <td className="py-2.5 pr-3 text-slate-600">
-                            {testCase.status.replace("_", " ").toLowerCase()}
-                          </td>
-                          <td className="py-2.5 pr-3">
-                            {testCase.latestResult ? (
-                              <>
-                                {/* Green for a pass that has also failed on
-                                    this version reads as settled when the
-                                    workspace knows it is not. The word stays;
-                                    the colour and the qualifier change. */}
-                                <span
-                                  className={
-                                    testCase.signal === "FLAKY"
-                                      ? "font-semibold text-amber-700"
-                                      : testCase.latestResult === "PASSED"
-                                        ? "font-semibold text-emerald-700"
-                                        : "font-semibold text-red-700"
-                                  }
-                                >
-                                  {testCase.latestResult.toLowerCase()}
-                                </span>
-                                {testCase.signal === "FLAKY" ? (
-                                  <span className="block text-xs text-amber-700">not reproducible</span>
-                                ) : null}
-                              </>
-                            ) : (
-                              <span className="text-slate-400">never run</span>
-                            )}
-                          </td>
-                          <td className="py-2.5 text-xs text-slate-500">
-                            {testCase.latestExecutedAt
-                              ? <LocalTime value={testCase.latestExecutedAt} />
-                              : "—"}
-                            {shortSha(testCase.latestCommitSha)
-                              ? ` · ${shortSha(testCase.latestCommitSha)}`
-                              : ""}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <TestTable testCases={requirement.testCases} />
               ) : null}
             </article>
           ))}
         </section>
       )}
+
+      {!scope && report.unlinkedTests.length ? (
+        <section className="mt-8 break-inside-avoid rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+          <h2 className="text-base font-semibold text-slate-950">
+            Approved tests not linked to a requirement
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            {unlinkedTestsNote(report.unlinkedTests)} They do not count toward the verdicts above; link{" "}
+            {report.unlinkedTests.length === 1 ? "it" : "them"} to a requirement to have{" "}
+            {report.unlinkedTests.length === 1 ? "it" : "them"} counted.
+          </p>
+          <TestTable testCases={report.unlinkedTests} />
+        </section>
+      ) : null}
 
       {report.truncated ? (
         <p className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">

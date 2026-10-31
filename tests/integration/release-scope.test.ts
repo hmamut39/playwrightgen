@@ -52,6 +52,7 @@ const report = (requirements: EvidenceRequirement[]): ReleaseEvidenceReport => (
   organization: { name: "Acme", slug: "acme" },
   generatedAt: new Date("2026-10-11T09:00:00.000Z"),
   requirements,
+  unlinkedTests: [],
   totals: { verified: 0, failing: 0, unverified: 0, stale: 0 },
   truncated: false,
   coverage: { shown: requirements.length, total: requirements.length },

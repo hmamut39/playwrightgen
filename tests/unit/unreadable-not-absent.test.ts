@@ -38,6 +38,7 @@ const report: ReleaseEvidenceReport = {
   organization: { name: "Acme", slug: "acme" },
   generatedAt: new Date("2026-10-11T09:00:00.000Z"),
   requirements: [requirement],
+  unlinkedTests: [],
   totals: { verified: 1, failing: 0, unverified: 0, stale: 0 },
   truncated: false,
   coverage: { shown: 1, total: 1 },

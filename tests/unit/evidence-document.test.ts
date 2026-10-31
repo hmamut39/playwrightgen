@@ -7,6 +7,7 @@ const report = (overrides: Partial<ReleaseEvidenceReport> = {}): ReleaseEvidence
   project: { id: "p1", name: "Shop", slug: "shop" },
   organization: { name: "Acme", slug: "acme" },
   generatedAt: new Date("2026-09-20T14:30:00.000Z"),
+  unlinkedTests: [],
   totals: { verified: 2, failing: 1, unverified: 0, stale: 0 },
   truncated: false,
   coverage: { shown: 3, total: 3 },
@@ -377,5 +378,43 @@ describe("how much the requirement claims", () => {
   it("warns the reader that verified is not a claim about every criterion", () => {
     const html = evidenceDocument(report());
     expect(html).toContain("Verified is not a statement about every acceptance criterion");
+  });
+  /**
+   * The downloadable file is the copy that outlives the link, so a test that
+   * has nowhere to appear here has nowhere to appear at all once the link has
+   * expired.
+   */
+  it("tabulates approved tests that verify no requirement, and says what they prove", () => {
+    const html = evidenceDocument(
+      report({
+        requirements: [],
+        unlinkedTests: [
+          {
+            id: "t9",
+            title: "The checkout page loads",
+            status: "APPROVED",
+            versionNumber: 1,
+            latestResult: "PASSED",
+            latestExecutedAt: new Date("2026-10-30T09:00:00.000Z"),
+            latestCommitSha: "f".repeat(40),
+            approvedBy: "Dana Scully",
+            approvedAt: new Date("2026-10-29T09:00:00.000Z"),
+            authoredByAgent: null,
+            signal: "STABLE",
+          },
+        ],
+      }),
+    );
+
+    expect(html).toContain("Approved tests not linked to a requirement");
+    expect(html).toContain("The checkout page loads");
+    // The claim and its limit in the same breath: a reader must not have to
+    // infer that a passing test nobody tied to a requirement proves intent.
+    expect(html).toContain("not linked to an approved requirement");
+    expect(html).toContain("evidence of how the product behaves");
+  });
+
+  it("says nothing about unlinked tests when there are none", () => {
+    expect(evidenceDocument(report())).not.toContain("not linked to a requirement");
   });
 });

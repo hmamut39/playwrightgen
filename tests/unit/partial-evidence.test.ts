@@ -42,6 +42,7 @@ const report = (overrides: Partial<ReleaseEvidenceReport> = {}): ReleaseEvidence
   organization: { name: "Acme", slug: "acme" },
   generatedAt: new Date("2026-10-11T09:00:00.000Z"),
   requirements: [requirement("A customer can pay")],
+  unlinkedTests: [],
   totals: { verified: 480, failing: 0, unverified: 20, stale: 0 },
   truncated: true,
   coverage: { shown: 500, total: 912 },

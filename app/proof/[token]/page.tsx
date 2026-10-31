@@ -12,7 +12,8 @@ import {
   signEvidence,
 } from "@/lib/services/evidence-signature";
 import { ageWord } from "@/lib/services/evidence-document";
-import { buildReleaseEvidenceReport } from "@/lib/services/release-evidence";
+import type { EvidenceTestCase } from "@/lib/services/release-evidence";
+import { buildReleaseEvidenceReport, unlinkedTestsNote } from "@/lib/services/release-evidence";
 import { EXAMPLE_PROOF_TOKEN, exampleProofClaim, resolveProofLink } from "@/lib/services/release-proof";
 
 /**
@@ -42,6 +43,48 @@ const resultWord: Record<string, string> = {
   BLOCKED: "could not run",
   SKIPPED: "was skipped",
 };
+
+/**
+ * One approved test and how it last ran.
+ *
+ * Lifted out of the requirement list so the tests that verify no requirement
+ * can be shown in identical words. A reader should not have to work out
+ * whether two differently-worded rows mean the same thing.
+ */
+function TestCaseRow({ testCase }: { testCase: EvidenceTestCase }) {
+  return (
+    <li className="rounded-xl bg-slate-50 px-4 py-3 text-sm">
+      <p className="font-medium text-slate-900">{testCase.title}</p>
+      <p className="mt-1 text-xs text-slate-500">
+        Version {testCase.versionNumber}
+        {testCase.authoredByAgent ? ` · proposed by ${testCase.authoredByAgent}` : ""} &middot;{" "}
+        {testCase.latestResult
+          ? `last run ${resultWord[testCase.latestResult] ?? testCase.latestResult.toLowerCase()}`
+          : "never run"}
+        {testCase.latestExecutedAt ? (
+          <>
+            {" "}
+            <LocalTime value={testCase.latestExecutedAt} />
+          </>
+        ) : null}
+        {testCase.latestCommitSha ? ` · commit ${testCase.latestCommitSha.slice(0, 8)}` : ""}
+      </p>
+      {/*
+        A passing run of a test that has also failed on this same approved
+        version. The report computed this signal for every test case and then
+        showed nobody: the line above said "last run passed" and the verdict
+        above that said VERIFIED, which is a true sentence doing the work of a
+        false one for the person deciding whether to accept it.
+      */}
+      {testCase.signal === "FLAKY" ? (
+        <p className="mt-1 text-xs font-medium text-amber-800">
+          This test has both passed and failed on this version, so its result is not reproducible.
+        </p>
+      ) : null}
+    </li>
+  );
+}
+
 
 function Expired() {
   return (
@@ -187,7 +230,9 @@ export default async function ProofPage({
       <section className="mt-8 space-y-4">
         {report.requirements.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">
-            This project has no approved requirements yet, so there is nothing to verify.
+            {report.unlinkedTests.length
+              ? "No requirement has been approved for this project yet, so nothing below is a statement about intended behaviour. The approved tests and their results follow."
+              : "This project has no approved requirements yet, so there is nothing to verify."}
           </p>
         ) : (
           report.requirements.map((requirement) => (
@@ -225,38 +270,7 @@ export default async function ProofPage({
               {requirement.testCases.length ? (
                 <ul className="mt-4 space-y-2">
                   {requirement.testCases.map((testCase) => (
-                    <li key={testCase.id} className="rounded-xl bg-slate-50 px-4 py-3 text-sm">
-                      <p className="font-medium text-slate-900">{testCase.title}</p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        Version {testCase.versionNumber}
-                        {testCase.authoredByAgent ? ` · proposed by ${testCase.authoredByAgent}` : ""} &middot;{" "}
-                        {testCase.latestResult
-                          ? `last run ${resultWord[testCase.latestResult] ?? testCase.latestResult.toLowerCase()}`
-                          : "never run"}
-                        {testCase.latestExecutedAt ? (
-                          <>
-                            {" "}
-                            <LocalTime value={testCase.latestExecutedAt} />
-                          </>
-                        ) : null}
-                        {testCase.latestCommitSha ? ` · commit ${testCase.latestCommitSha.slice(0, 8)}` : ""}
-                      </p>
-                      {/*
-                        A passing run of a test that has also failed on this
-                        same approved version. The report computed this signal
-                        for every test case and then showed nobody: the line
-                        above said "last run passed" and the verdict above that
-                        said VERIFIED, which is a true sentence doing the work
-                        of a false one for the person deciding whether to
-                        accept it.
-                      */}
-                      {testCase.signal === "FLAKY" ? (
-                        <p className="mt-1 text-xs font-medium text-amber-800">
-                          This test has both passed and failed on this version, so its result is not
-                          reproducible.
-                        </p>
-                      ) : null}
-                    </li>
+                    <TestCaseRow key={testCase.id} testCase={testCase} />
                   ))}
                 </ul>
               ) : null}
@@ -264,6 +278,33 @@ export default async function ProofPage({
           ))
         )}
       </section>
+
+      {/*
+        Approved tests that verify no requirement.
+        These were invisible on every evidence surface, because the report was
+        organised by requirement and had no place to put them. A team that
+        started the way the product itself suggests -- "Cover a page", which
+        produces tests and no requirement -- could reach approved, passing,
+        real runs and still have nothing it could show anybody.
+        They are kept apart from the requirements above and said plainly to be
+        about behaviour rather than agreed intent, because a reader deciding
+        whether to accept this has to be able to tell the difference.
+      */}
+      {report.unlinkedTests.length ? (
+        <section className="mt-8" aria-labelledby="unlinked">
+          <h2 id="unlinked" className="text-lg font-semibold text-slate-950">
+            Approved tests not linked to a requirement
+          </h2>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
+            {unlinkedTestsNote(report.unlinkedTests)}
+          </p>
+          <ul className="mt-4 space-y-2">
+            {report.unlinkedTests.map((testCase) => (
+              <TestCaseRow key={testCase.id} testCase={testCase} />
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="mt-10 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6" aria-labelledby="sign-off">
         <h2 id="sign-off" className="text-lg font-semibold text-slate-950">Accept this evidence</h2>

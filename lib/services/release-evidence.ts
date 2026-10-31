@@ -116,6 +116,16 @@ export type ReleaseEvidenceReport = {
   organization: { name: string; slug: string };
   generatedAt: Date;
   requirements: EvidenceRequirement[];
+  /**
+   * Approved tests that verify no requirement, with how each last ran.
+   *
+   * Kept beside `requirements` rather than folded into them: these prove
+   * behaviour, not intent anybody agreed to, and a reader has to be able to
+   * tell which is which. They exist so a project can show what it has before
+   * it has written requirements -- which is exactly where "Cover a page"
+   * leaves a team.
+   */
+  unlinkedTests: EvidenceTestCase[];
   totals: {
     verified: number;
     failing: number;
@@ -158,6 +168,46 @@ export async function getReleaseEvidenceReport(
  * project), so the same report is built here without a workspace context. The
  * caller decides who may see it; this only reads.
  */
+/**
+ * What approved tests that verify no requirement do and do not prove.
+ *
+ * Written once because three surfaces say it -- the shared page, the kept
+ * file and the workspace report -- and a sentence this load-bearing must not
+ * drift between them.
+ *
+ * The first draft of it said these tests "have run against the real site, so
+ * their results are evidence of how the product behaves". Nothing guarantees
+ * that. A project can reach four approved tests and no recorded run at all,
+ * which is where "Cover a page" leaves a team that has not wired up their
+ * pipeline yet -- and that sentence would have gone to an outsider asserting
+ * runs that never happened. Approving a test records an intention to check
+ * something. It does not check it.
+ */
+export function unlinkedTestsNote(tests: Pick<EvidenceTestCase, "latestResult">[]) {
+  const ran = tests.filter((testCase) => testCase.latestResult !== null).length;
+  const never = tests.length - ran;
+  const one = tests.length === 1;
+  const subject = one ? "This test is" : `These ${tests.length} tests are`;
+
+  if (ran === 0) {
+    // "it has ever run" was the first attempt at the singular, which says the
+    // opposite of what it means. Northwind has exactly one such test, so that
+    // is the sentence its page would have carried.
+    return `${subject} approved, and ${one ? "it has never run" : "none of them has ever run"}, so nothing here shows how the product behaves.`;
+  }
+
+  const behaviour =
+    never === 0
+      ? `${subject} approved and ${one ? "has" : "have"} run against the real site, so ${one ? "its result is" : "their results are"} evidence of how the product behaves.`
+      : `${subject} approved. ${ran === 1 ? "One of them has" : `${ran} of them have`} run against the real site, so ${ran === 1 ? "that result is" : "those results are"} evidence of how the product behaves; ${never === 1 ? "one has" : `${never} have`} never run, and ${never === 1 ? "it shows" : "they show"} only that the team approved ${never === 1 ? "it" : "them"}.`;
+
+  const intent = one
+    ? " It is not linked to an approved requirement, so it does not show that the behaviour is what anyone agreed it should be."
+    : " None is linked to an approved requirement, so none shows that the behaviour is what anyone agreed it should be.";
+
+  return behaviour + intent;
+}
+
 export async function buildReleaseEvidenceReport(input: {
   organizationId: string;
   projectId: string;
@@ -173,7 +223,7 @@ export async function buildReleaseEvidenceReport(input: {
     where: { id: organizationId },
     select: { name: true, slug: true },
   });
-  const [project, requirements, requirementTotal, attemptFacts, approvalActivity] = await Promise.all([
+  const [project, requirements, requirementTotal, unlinkedTestCases, attemptFacts, approvalActivity] = await Promise.all([
     prisma.project.findUniqueOrThrow({
       where: { organizationId_id: { organizationId, id: projectId } },
       select: { id: true, name: true, slug: true },
@@ -219,6 +269,38 @@ export async function buildReleaseEvidenceReport(input: {
     // release needs the size of what they are not being shown.
     prisma.requirement.count({
       where: { organizationId, projectId, status: { not: "ARCHIVED" } },
+    }),
+    /**
+     * The report was organised entirely by requirement, so a project that
+     * reached approved, proven tests through "Cover a page" -- the product's
+     * own first suggestion, which produces test cases and no requirement --
+     * had nothing it could show anybody, and sharing was gated shut for that
+     * reason: a link to an empty page tells a manager the team has nothing
+     * rather than that they have not finished.
+     *
+     * The gate was right about the empty page and wrong about the emptiness.
+     * Approved tests that ran on the live site are evidence. They are simply
+     * not evidence about a requirement, so they are carried separately and
+     * labelled as what they are, instead of being withheld until somebody
+     * writes the requirement nobody told them they needed.
+     */
+    prisma.testCase.findMany({
+      where: {
+        organizationId,
+        projectId,
+        status: "APPROVED",
+        requirementLinks: { none: {} },
+      },
+      orderBy: { title: "asc" },
+      take: REQUIREMENT_CAP,
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        currentVersionNumber: true,
+        approvedAt: true,
+        versions: { where: { versionNumber: 1 }, select: { authoredByAgent: true }, take: 1 },
+      },
     }),
     loadAttemptFacts(prisma, { organizationId, projectId }),
     // The name behind each sign-off. The fact and its time come from the
@@ -378,8 +460,28 @@ export async function buildReleaseEvidenceReport(input: {
       };
     });
 
+  // The same shape as a requirement's own test rows, so every surface that
+  // can already render one needs no new vocabulary to render these.
+  const unlinkedTests: EvidenceTestCase[] = unlinkedTestCases.map((testCase) => {
+    const latest = latestByTestCase.get(testCase.id) ?? null;
+    return {
+      id: testCase.id,
+      title: testCase.title,
+      status: testCase.status,
+      versionNumber: testCase.currentVersionNumber,
+      latestResult: latest?.result ?? null,
+      latestExecutedAt: latest?.executedAt ?? null,
+      latestCommitSha: latest?.commitSha ?? null,
+      approvedBy: testCase.approvedAt ? approvedByName.get(testCase.id) ?? null : null,
+      approvedAt: testCase.approvedAt,
+      authoredByAgent: testCase.versions[0]?.authoredByAgent ?? null,
+      signal: latest ? (signals.get(latest.testRunId)?.signal ?? null) : null,
+    };
+  });
+
   return {
     project,
+    unlinkedTests,
     organization: { name: organization.name, slug: organization.slug },
     generatedAt: now,
     requirements: evidence,

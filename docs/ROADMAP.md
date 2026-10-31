@@ -4,22 +4,61 @@ The working plan, kept in the repository so any session can pick up where the
 last one stopped. Update the "Shipped" and "Next" sections at the end of every
 work session.
 
-Last updated: 2026-10-17.
+Last updated: 2026-10-31.
 
 ## Where the product is
 
 Live at https://playwrightgen.com (Vercel, Clerk production, Stripe live,
 Neon Postgres). Every item below was verified in a real browser, and the full
-test suite is 882 tests. The last full run on 2026-10-17 had one failure,
-`project-team.test.ts > lets an invited person in on their first request`,
-which passes on its own and passes beside the file added that day: a
-cross-file flake under the full suite's load against the remote test
-database, of the kind this file already warns about, and not a defect anyone
-has reproduced in isolation. Everything else passed.
+test suite is 971 tests.
+
+**Where the real answer lives.** CI runs the whole suite in about ninety
+seconds; the same run locally takes twenty minutes, because the integration
+tests reach the Neon test database over the network. That gap is why the full
+suite gets skipped locally, and on 2026-10-31 it cost something: `2285207` was
+pushed and reported as validated while CI was red on it. The failure was real
+and was in a file the local run had not touched -- a test asserting that a
+pass after a failure on the same approved version "reads as passing", which is
+exactly the claim that commit set out to stop making. The gate worked and
+nobody read it. So: run the touched tests and the typecheck locally, push,
+then read CI before calling anything done. A red run is never assumed to be a
+flake without reading its log -- on the same day two other red runs were
+genuine `npm audit` failures, closed by the commit after each.
 
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **A team that followed the product's own advice had nothing to show**
+  (2026-10-31): the release page refused to share evidence until a requirement
+  was approved, with a note saying there was nothing to share yet. On an empty
+  project the product's own first suggestion is "Cover a page", which produces
+  approved test cases and no requirement. So a team could do exactly what they
+  were told, approve tests, run them against their real site, watch them pass
+  -- and be told they had nothing. They had evidence. The report simply had no
+  column for it, because it was organised by requirement from end to end.
+  The gate was right that a link to an empty page is worse than no link, and
+  wrong that the page would be empty. The fix is not the gate: the report now
+  carries approved tests that verify no requirement, every evidence surface
+  shows them in the same words as any other test, and each says plainly what
+  they do and do not prove -- evidence about behaviour, not about agreed
+  intent. Then the gate opens on approved tests alone. That moves a team's
+  first shareable link from about step eighteen to about step five.
+  Opening it exposed three claims downstream that would have become false, all
+  fixed in the same change and each proven by reverting it:
+  - every frozen proof link already shared would have crashed, because a
+    snapshot is stored JSON and the ones taken before today have no such list
+    while the type insists they do (three were live);
+  - "Nothing has changed since this snapshot was taken" would have printed
+    while one of those tests went from passing to failing;
+  - "unchanged since they accepted it" would have held against a signature
+    whose accepted page included a test that had since started failing.
+  The last needed care rather than code: folding the tests into every
+  signature's hash would have made three existing signatures read "changed"
+  on a day nothing changed -- one false claim traded for another. A signature
+  given before those tests were shown was given over a page without them, so
+  for that signature the requirements alone are what "has it changed" means.
+  Anything accepted from now on is hashed over the whole page. No migration.
+
 - **A flaky test was shown to an auditor as verified** (2026-10-31): the fifth
   instance of one pattern, on the surface that matters most. The evidence
   report computes a run signal for every test case and then showed it to

@@ -526,4 +526,80 @@ describe("release evidence report", () => {
     expect(report.requirements).toHaveLength(2);
     expect(report.totals).toMatchObject({ verified: 1, unverified: 1 });
   });
+  /**
+   * A project can reach approved, proven tests without ever writing a
+   * requirement -- that is what "Cover a page", the product's own first
+   * suggestion on an empty project, produces. The report used to describe
+   * requirements and nothing else, so those tests and their real results
+   * appeared on no evidence surface and sharing stayed shut.
+   */
+  async function unlinkedApprovedTestCase(
+    space: Awaited<ReturnType<typeof workspace>>,
+    title: string,
+  ) {
+    const testCase = await createTestCase({
+      projectId: space.project.id,
+      title,
+      objective: "Verify the page loads and the form accepts a card.",
+      steps: ["Open the page"],
+      expectedResults: ["The form appears"],
+    }, deps(space));
+    await submitTestCaseForReview({
+      projectId: space.project.id, testCaseId: testCase.id,
+    }, deps(space));
+    await approveTestCase({
+      projectId: space.project.id, testCaseId: testCase.id,
+    }, deps(space));
+    return testCase;
+  }
+
+  it("carries an approved test that verifies no requirement, with how it ran", async () => {
+    const space = await workspace();
+    const testCase = await unlinkedApprovedTestCase(space, "The checkout page loads");
+    await recordAttempt(space, testCase.id, "PASSED");
+
+    const report = await getReleaseEvidenceReport({ projectId: space.project.id }, deps(space));
+
+    // No requirement exists, so there is nothing to verify -- and yet there is
+    // something true to show, which is the whole point.
+    expect(report.requirements).toHaveLength(0);
+    expect(report.unlinkedTests).toHaveLength(1);
+    expect(report.unlinkedTests[0]).toMatchObject({
+      title: "The checkout page loads",
+      status: "APPROVED",
+      latestResult: "PASSED",
+    });
+    expect(report.unlinkedTests[0].latestExecutedAt).toBeInstanceOf(Date);
+  });
+
+  it("does not repeat a test that already verifies a requirement", async () => {
+    const space = await workspace();
+    const requirement = await approvedRequirement(space);
+    const linked = await linkedTestCase(space, requirement.id, true);
+    await recordAttempt(space, linked.id, "PASSED");
+
+    const report = await getReleaseEvidenceReport({ projectId: space.project.id }, deps(space));
+
+    // Shown once, under the requirement it verifies. A test appearing in both
+    // places would read as two tests to anybody counting.
+    expect(report.requirements[0].testCases).toHaveLength(1);
+    expect(report.unlinkedTests).toHaveLength(0);
+  });
+
+  it("leaves out a test that is not approved, linked to nothing or not", async () => {
+    const space = await workspace();
+    await createTestCase({
+      projectId: space.project.id,
+      title: "A draft nobody reviewed",
+      objective: "Verify something.",
+      steps: ["Open the page"],
+      expectedResults: ["It appears"],
+    }, deps(space));
+
+    const report = await getReleaseEvidenceReport({ projectId: space.project.id }, deps(space));
+
+    // The bar did not move. Evidence is still approved work only; what changed
+    // is that approved work no longer needs a requirement to be shown.
+    expect(report.unlinkedTests).toHaveLength(0);
+  });
 });
