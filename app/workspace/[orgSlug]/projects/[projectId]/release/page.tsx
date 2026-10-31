@@ -277,13 +277,37 @@ export default async function ReleaseReadinessPage({
             Open the evidence report →
           </Link>
           {context.can("project:update") && !hasEvidenceToShare ? (
+            /*
+              What is actually missing, which is not always the same thing.
+              This pointed at "cover a page" whatever the project had, and
+              that is the one route which cannot finish the job: covering a
+              page proves the code on the live page, and the release page
+              says so itself in its own blocker -- "which proves the code and
+              not the release". A team holding three tests proved that way
+              was being sent back to do it a fourth time.
+            */
             <p className="mt-3 max-w-xl rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
               There is nothing to share yet. Evidence becomes shareable as soon as one approved test has run &mdash;
-              it does not have to verify a requirement first &mdash;{" "}
-              <Link href={`/workspace/${orgSlug}/projects/${projectId}/cover`} className="font-semibold text-cyan-800 underline">
-                cover a page
-              </Link>{" "}
-              is the quickest way there.
+              it does not have to verify a requirement first.{" "}
+              {readiness.counts.approvedTestCases === 0 ? (
+                <>
+                  <Link href={`/workspace/${orgSlug}/projects/${projectId}/cover`} className="font-semibold text-cyan-800 underline">
+                    Cover a page
+                  </Link>{" "}
+                  is the quickest way to an approved test.
+                </>
+              ) : (
+                <>
+                  This project has {readiness.counts.approvedTestCases} approved test
+                  {readiness.counts.approvedTestCases === 1 ? "" : "s"} and no recorded run. A test proved on the
+                  live page here shows the code works; a run recorded against the approved version is what this
+                  page can report.{" "}
+                  <Link href={`/workspace/${orgSlug}/projects/${projectId}/test-runs`} className="font-semibold text-cyan-800 underline">
+                    Record a run
+                  </Link>
+                  , or let your pipeline report one.
+                </>
+              )}
             </p>
           ) : null}
           {context.can("project:update") && hasEvidenceToShare ? (
