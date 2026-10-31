@@ -365,11 +365,23 @@ describe("Playwright result ingestion from customer CI", () => {
       })),
     );
 
-    // The latest attempt passed, so the run reads as passing; the flaky verdict
-    // appears when the newest attempt is the failing one. It is not "stable"
-    // because both attempts are on one commit, which says nothing about whether
-    // the behaviour survives a change.
-    expect(signals.get(attempts[0].testRunId)?.signal).toBe("PASSING");
+    /*
+     * Both attempts are on the same approved version and the same commit, and
+     * they disagree. This used to read as "passing" on the strength of the
+     * newest attempt alone, and that is what this test asserted.
+     *
+     * It was the wrong claim and it reached an auditor: the evidence page
+     * called the requirement VERIFIED and the row said "last run passed",
+     * both true as written, about a result the records already knew was not
+     * reproducible. The newest attempt is not more true than the one before
+     * it when the test did not change between them.
+     *
+     * So the expectation is stricter now, not looser -- FLAKY is a more
+     * specific claim than PASSING, and the detail has to say why rather than
+     * leaving a reader to infer it.
+     */
+    expect(signals.get(attempts[0].testRunId)?.signal).toBe("FLAKY");
+    expect(signals.get(attempts[0].testRunId)?.detail).toContain("not reproducible");
   });
 
   it("classifies a failure on a newer commit as a regression, not flakiness", async () => {
