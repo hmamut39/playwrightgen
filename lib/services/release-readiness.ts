@@ -199,6 +199,38 @@ export async function getReleaseReadiness(
     });
   }
 
+  /*
+   * A project with no approved requirements at all.
+   *
+   * Every blocking condition here is a comparison against recorded intent:
+   * requirements with nothing verifying them, tests failing against the
+   * version they were approved at. With no requirements, none of them can
+   * fire, so the page reaches "Nothing is blocking this release" by having
+   * nothing to check rather than by checking and finding nothing. The
+   * sentence is true and a manager reads it as the other thing.
+   *
+   * It became worth saying out loud on the day sharing stopped requiring a
+   * requirement: this state is now one a team can send to somebody outside.
+   *
+   * A caution, not a blocker. Refusing to report a release because a team
+   * writes no requirements would be this product inventing a process and
+   * contradicting the evidence it now accepts from tests alone. The verdict
+   * stands; what it rests on is said beside it.
+   */
+  if (quality.counts.approvedRequirements === 0) {
+    findings.push({
+      severity: "CAUTION",
+      code: "requirements_none",
+      title: "No approved requirements",
+      detail:
+        totalAttempts > 0
+          ? "Nothing has been recorded as intended behaviour, so a verdict here is about whether tests passed and not about whether the product does what was agreed. Approve a requirement and link the tests that verify it to make this a statement about intent."
+          : "Nothing has been recorded as intended behaviour, and nothing has run, so there is nothing yet to compare.",
+      href: `${base}/requirements`,
+      count: 1,
+    });
+  }
+
   if (quality.counts.openFailureFindings > 0) {
     findings.push({
       severity: "BLOCKER",
