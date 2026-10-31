@@ -28,6 +28,23 @@ genuine `npm audit` failures, closed by the commit after each.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **The product's own instructions still described the long way round**
+  (2026-10-31): with sharing no longer waiting for a requirement, the Overview
+  of a fresh project told a new customer two things at once. A banner said
+  "3 tests are already proven on your page... this is the step to do next",
+  and immediately under it step 1 of 6 said "Approve a requirement -- nothing
+  counts until a requirement is approved".
+  That sentence was exactly true until that morning. After it, a team can
+  prove tests against their real site and hand somebody a link without any of
+  step one, so "nothing counts" tells a person their work is worth nothing
+  when it is already worth sharing -- the same claim the sharing gate used to
+  enforce, left behind in the prose after the gate itself was opened.
+  Coverage is the thing that waits for a requirement; evidence is not. All
+  three sentences now say which, keeping the true half: nothing counts *as
+  coverage* until a requirement is approved, approved tests that have run are
+  already evidence you can share, and the numbered steps are what turn that
+  evidence into a statement about what the team agreed.
+
 - **"Something went wrong" on the first screen a customer sees** (2026-10-31):
   walking the shortest path on a fresh project -- create it with a page,
   prove the plan -- two of the five tests came back "Something went wrong

@@ -51,10 +51,20 @@ export function SetupChecklist({
         </p>
       </div>
 
+      {/*
+        The chain is in dependency order, and it reads as the only way
+        through. That was true until approved tests became shareable without
+        a requirement: a team can now prove tests and hand somebody a link
+        without any of step one, so leading with "nothing counts" tells a
+        person their work is worth nothing when it is already worth sharing.
+        Coverage is the thing that waits for a requirement, not evidence.
+      */}
       <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-        Each step depends on the one before it. Coverage stays at zero until
-        approved intent is linked to an approved test, and a release cannot be
-        judged until something has actually run.
+        Each step depends on the one before it, and finishing them is what makes a release judgeable: coverage stays
+        at zero until approved intent is linked to an approved test, and nothing can be judged until something has
+        actually run. You do not have to finish the chain to have something to show &mdash; an approved test that has
+        run is evidence you can share today. A requirement is what turns it into a statement about what your team
+        agreed.
       </p>
 
       {setup.provenDrafts.count > 0 ? (
@@ -64,8 +74,9 @@ export function SetupChecklist({
             page, waiting for a person.
           </p>
           <p className="mt-1 text-sm leading-6 text-emerald-900">
-            Each one ran and passed, and is kept as a draft with its code and the record of that run. Nothing counts as
-            coverage until you approve it &mdash; that is the point &mdash; so this is the step to do next.
+            Each one ran and passed, and is kept as a draft with its code and the record of that run. Nothing counts
+            until you approve it &mdash; that is the point &mdash; so this is the step to do next. Approving one is
+            enough to share the evidence; the numbered steps below are what turn it into coverage.
           </p>
           <Link
             href={setup.provenDrafts.href}

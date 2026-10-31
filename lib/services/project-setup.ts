@@ -138,8 +138,13 @@ export async function getProjectSetup(
     {
       key: "requirement",
       title: "Approve a requirement",
+      // "nothing counts until a requirement is approved" was true of the whole
+      // product until approved tests became shareable on their own. It is
+      // still exactly true of coverage, and saying which is the difference
+      // between a person starting here and a person believing they have
+      // nothing until they do.
       detail:
-        "Coverage is measured against intent someone agreed to, so nothing counts until a requirement is approved.",
+        "Coverage is measured against intent someone agreed to, so nothing counts as coverage until a requirement is approved. Approved tests that have run are already evidence you can share.",
       done: approvedRequirements > 0,
       count: approvedRequirements,
       href: latestRequirement

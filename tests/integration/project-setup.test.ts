@@ -239,4 +239,27 @@ describe("project setup chain", () => {
     expect(stepFor(setup, "requirement")?.done).toBe(false);
     expect(setup.completedCount).toBe(0);
   });
+  /**
+   * What the checklist tells a person their work is worth.
+   *
+   * Step one said "nothing counts until a requirement is approved". That was
+   * exactly true of the whole product until approved tests became shareable
+   * on their own -- and then it told a team who had proved tests against
+   * their real site that they had nothing, which is the sentence the sharing
+   * gate used to enforce and no longer does.
+   */
+  it("says what waits for a requirement, rather than that nothing counts", async () => {
+    const space = await workspace();
+
+    const setup = await getProjectSetup({ projectId: space.project.id }, deps(space));
+    const first = setup.steps[0];
+
+    expect(first.key).toBe("requirement");
+    // Still the honest claim: coverage is the thing that waits.
+    expect(first.detail).toContain("nothing counts as coverage");
+    // And the part that stops it reading as "you have nothing".
+    expect(first.detail).toContain("already evidence you can share");
+    // The bare overstatement must not come back.
+    expect(first.detail).not.toMatch(/nothing counts until/);
+  });
 });
