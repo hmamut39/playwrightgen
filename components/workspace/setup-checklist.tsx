@@ -89,12 +89,27 @@ export function SetupChecklist({
 
       {coverHref && canAct && setup.completedCount === 0 && setup.provenDrafts.count === 0 ? (
         <p className="mt-3 max-w-3xl rounded-2xl border border-cyan-200 bg-white px-4 py-3 text-sm leading-6 text-slate-700">
+          {/*
+            What it does, counted against the list beneath it.
+
+            This said "does the first four steps from one address". Steps one
+            and three are approving a requirement and linking a test to it,
+            and Cover a page writes no requirement at all -- measured on a
+            project that did nothing else: 0 approved requirements, 0 links,
+            4 approved tests, 1 automation artifact. So a person took the
+            shortcut on the strength of this sentence and then watched the
+            same screen say 2 of 6.
+
+            The shortcut is still worth offering. It just has to say which
+            steps it reaches, because the list it is sitting on top of counts
+            them.
+          */}
           In a hurry?{" "}
           <Link href={coverHref} className="font-semibold text-cyan-800 underline">
             Cover a page
           </Link>{" "}
-          does the first four steps from one address: it plans the tests a page needs, you approve what to keep, and
-          each one is written and proven on the real page.
+          plans the tests one address needs, writes each one you keep and proves it on the real page. Approving what
+          it brings back is steps two and four. It writes no requirement, so one and three stay yours.
         </p>
       ) : null}
 
