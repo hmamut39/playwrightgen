@@ -18,6 +18,10 @@ import {
 const unique = (prefix: string) => `${prefix}-${randomUUID()}`;
 
 const reading = (overrides: Partial<RequirementFromTicket> = {}): RequirementFromTicket => ({
+  // The model names the kind; isBehaviour is derived from it, so a fixture
+  // that sets one without the other would describe a reading the model
+  // cannot produce.
+  ticketKind: "behaviour",
   isBehaviour: true,
   notBehaviourReason: "",
   title: "A customer can pay with a saved card",
@@ -109,7 +113,12 @@ describe("reading a ticket into a requirement", () => {
       draftRequirementFromTicket(
         { projectId: area.project.id, ticket: "Upgrade the Postgres driver to 8.13 and redeploy." },
         area.as(area.owner, async () =>
-          reading({ isBehaviour: false, notBehaviourReason: "a dependency upgrade", title: "" }),
+          reading({
+            ticketKind: "dependency_upgrade",
+            isBehaviour: false,
+            notBehaviourReason: "a dependency upgrade",
+            title: "",
+          }),
         ),
       ),
     ).rejects.toMatchObject({ code: "not_behaviour" });

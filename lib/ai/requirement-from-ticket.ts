@@ -25,8 +25,30 @@ import { z } from "zod";
  */
 
 export const requirementFromTicketSchema = z.object({
-  /** False when the ticket does not describe product behaviour at all. */
-  isBehaviour: z.boolean(),
+  /**
+   * What the ticket is, named before anything else is written.
+   *
+   * This was a boolean called `isBehaviour`, and it was the first field in
+   * this schema. Structured output is generated in order, so the model
+   * answered it as its very first token -- before writing a title, a
+   * description or a reason, which is where it would have noticed there was
+   * no behaviour to describe. Measured on 2026-11-07 against a ticket reading
+   * "Upgrade Next.js to the latest release": it called that product
+   * behaviour twice in six runs, and the prompt already named "a dependency
+   * upgrade" as the example to refuse.
+   *
+   * Naming the kind first makes the model say what it is looking at before it
+   * decides what to do about it, and an enum gives it somewhere to put a
+   * dependency upgrade other than "behaviour".
+   */
+  ticketKind: z.enum([
+    "behaviour",
+    "dependency_upgrade",
+    "build_or_pipeline",
+    "question_or_discussion",
+    "bug_without_expected_behaviour",
+    "other_not_behaviour",
+  ]),
   /** Why, when it is not: "a dependency upgrade", "a question", "a bug report with no expected behaviour". */
   notBehaviourReason: z.string(),
   /** One sentence, in the product's own words: what a person can do. */
@@ -42,6 +64,15 @@ export const requirementFromTicketSchema = z.object({
 });
 
 export type RequirementFromTicket = z.infer<typeof requirementFromTicketSchema> & {
+  /**
+   * Derived from `ticketKind`, not asked of the model.
+   *
+   * When both existed the model could answer "dependency_upgrade" and still
+   * say the ticket was behaviour, and nothing downstream could tell which
+   * half to believe. One of them has to be the source, and the one that made
+   * the model look at the ticket first is the better one.
+   */
+  isBehaviour: boolean;
   model: string;
   totalTokens: number | null;
 };
@@ -58,7 +89,8 @@ const SYSTEM_PROMPT = [
   "Write only what the ticket supports. Do not invent behaviour, error messages, field names, limits, numbers or wording that the ticket does not contain. Anything the ticket leaves open goes in assumptions, phrased as a question a person can settle, and never in the description or the acceptance criteria.",
   "title: one sentence describing what a person can do, in the product's language, not the ticket's shorthand. description: what the behaviour is, from the ticket only. acceptanceCriteria: how somebody would know it works -- each one observable from outside, one claim per line, no implementation detail.",
   "externalReference: a ticket key or number if the text contains one (for example ABC-123, #482), otherwise an empty string. Do not guess one.",
-  "isBehaviour: false when the ticket does not describe product behaviour a test could verify -- a dependency upgrade, a build failure, a question, a design discussion, a bug report that never says what should happen instead. Then set notBehaviourReason to one plain sentence saying so, leave the other fields empty, and do not force a requirement out of it.",
+  "ticketKind first, before writing anything else: decide what this ticket is. behaviour only when it describes something a person can do that a test could verify. dependency_upgrade for upgrading a library or framework, however much work it is and whatever it says about the pipeline passing afterwards. build_or_pipeline for a broken build or a failing job. question_or_discussion for a question or a design debate. bug_without_expected_behaviour for a bug report that never says what should happen instead. other_not_behaviour for anything else that is not behaviour.",
+  "When ticketKind is anything but behaviour: set notBehaviourReason to one plain sentence saying so, leave title, description, acceptanceCriteria and assumptions empty, and do not force a requirement out of it. Work being verifiable is not the same as being product behaviour -- a pipeline that passes after an upgrade is a check on the work, not something a person can do with the product.",
   "Prefer fewer, sharper acceptance criteria over many vague ones. If the ticket describes several separate behaviours, cover the main one and list the others in assumptions as candidates for their own requirements.",
 ].join(" ");
 
@@ -98,6 +130,8 @@ export async function requirementFromTicket(input: {
 
   return {
     ...response.output_parsed,
+    // Derived, so the kind and the verdict cannot disagree.
+    isBehaviour: response.output_parsed.ticketKind === "behaviour",
     model,
     totalTokens: response.usage?.total_tokens ?? null,
   };
