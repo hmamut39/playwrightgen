@@ -2987,6 +2987,140 @@ genuine `npm audit` failures, closed by the commit after each.
 
 ## Next
 
+Written 2026-11-07, from what this month's work actually found rather than
+from what sounds ambitious. The organising fact: nearly every defect found in
+the last two weeks was the same shape -- *the product knows something and does
+not say it where the person is standing*. Eleven of them now. Not a blank
+page, not a crash: a page that loads perfectly and says something its own
+records contradict. That is the thing to keep hunting, because it is the thing
+this product exists to prevent in its customers' work.
+
+### 1. The evals are red, and have been since 2026-11-02 -- mostly not real
+
+Worked 2026-11-07. Of the three findings, two were the model answering
+differently and one is a real weakness:
+
+- `page-coverage-plan` "adds to what a project already has", reported
+  **REGRESSED**: passed 5 times out of 5 today, with nothing between the two
+  runs touching the code it measures.
+- `automation-generation` "API artifacts use the request fixture": passed 3
+  out of 3.
+- `requirement-from-ticket` "refuses a ticket that is not about behaviour":
+  failed 2 of 3. **This one is real.** Given a dependency-upgrade ticket the
+  model answers `isBehaviour: true` and drafts a requirement for it. The
+  eval's own comment says why it matters: nothing else in the system would
+  notice, and the drafted requirement would look exactly like a real one.
+
+So the gate failed a build on a single sample of a language model -- the
+mistake this product exists to stop its customers making -- and that is why
+the red gate went unread for five days. A gate that cries wolf teaches people
+to ignore it.
+
+Fixed: a regressed case is asked again before it counts. Only the files
+holding one are re-run. A case that passes the second time is reported as NOT
+REPRODUCIBLE and does not fail the build, and is still printed, because an
+eval that answers differently on one input is a problem of its own. Proven
+both ways on 2026-11-07: the flaky case exits 0 with that wording, and a case
+that fails twice still exits 1 with "1 case failed twice".
+
+Still open: the dependency-upgrade refusal. That is a prompt-and-validation
+problem on a real surface, not a gate problem.
+
+### Earlier note, kept
+
+
+The weekly eval gate said "This run is worse than the baseline. Fix it, or
+move the baseline with --accept and say why." Nobody moved it and nobody
+fixed it. Five days.
+
+- **REGRESSED** `page-coverage-plan` -- planning the tests a page needs adds
+  to what a project already has rather than repeating it.
+- **failed** `automation-generation` -- API artifacts use the request fixture
+  rather than a browser page.
+- **failed** `requirement-from-ticket` -- refuses a ticket that is not about
+  behaviour.
+
+This is the same failure as the CI run ignored on 2026-10-31: a gate that
+works, whose answer nobody reads. The regression is the urgent one, because
+a planner that repeats coverage a project already has wastes a customer's AI
+allowance on work they already own.
+
+### 2. Keep sweeping, by claim rather than by page
+
+Reading the thirteen workspace surfaces proves they render. It does not find
+anything: all thirteen rendered on the day the Health page was calling three
+unreproducible tests "nothing is failing". The sweep that works drives the
+journey and checks each sentence against the records behind it. Surfaces not
+yet swept that way: Quality's "what should I fix next", Repositories and the
+CI token, Team and invitations, Billing, and the MCP tools an assistant acts
+on without a person reading the screen at all.
+
+### 3. Whether a passing test proves anything
+
+The deepest gap against this product's own rule, and it is real: a run that
+passed does not establish that any assertion ran. Generation blocks code with
+no `expect(` -- both paths do -- so the obvious hole is closed. But an
+assertion inside a branch that was false, or after an early return, leaves a
+green test that checked nothing, and the evidence chain would call the
+requirement VERIFIED.
+
+Checked on 2026-11-07: `TestRunAttempt.stepResults` holds the test case's own
+step titles ("Verify Task A is visible in the list"), not Playwright's
+`expect` steps. Zero of the recorded steps on any Northwind attempt are
+assertions. So the data to answer this is not currently kept, and the first
+move is to keep it -- the CI reporter already shapes what arrives, so the
+question is what to ask of it, not whether it can be asked.
+
+This is the one idea worth taking from the agent-engineering material the
+owner has been sending: "green tests do not prove the code works; verification
+does". Mutation testing proper is not available here -- the application under
+test is the customer's, live, and not ours to mutate -- but *did the assertion
+execute* is answerable and is most of the value.
+
+### 4. Flakiness, past reporting it
+
+The product now detects a test that passed and failed on one approved
+version, says so on every evidence surface, and as of today no longer lets
+the Health headline claim nothing is failing over it. What it does not do is
+help. A team reading "not reproducible" learns their result is worthless and
+is then on their own. The next honest step is narrow: say what differed
+between the two runs this product already has -- revision, environment,
+browser, time of day, which step failed -- rather than offering an opinion
+about why.
+
+### 5. The limits written down and not yet fixed
+
+- Activity groups by UTC day, so an event in the small hours sits under a
+  neighbouring heading for a reader far west. Grouping has to move to the
+  browser.
+- 1.64 treats elements inside hidden iframes as hidden for `toBeVisible()`.
+  Nothing in this repository exercises it, so the Playwright upgrade could
+  not rule it out for a customer whose tests do.
+- The public example page needs a demo account, which only the owner can
+  make. Raised twice, declined twice; it stays here and is not raised again.
+
+### 6. Declined, with the reason
+
+The owner has sent a great deal of agent-engineering material. Most of it
+describes problems this product does not have:
+
+- **Fine-tuning (LoRA, QLoRA, TinyLoRA)** -- the bottleneck is not the model's
+  weights; it is whether a claim matches a record. A fine-tune would not have
+  found one of the eleven.
+- **RAG, HyDE, retrieval at scale** -- there is no corpus. The product reads a
+  live page and its own database, both small and both authoritative.
+- **Agent frameworks (LangGraph, AgentScope, CrewAI)** -- the AI surfaces here
+  are single-shot with deterministic validation around them, which is the
+  right shape for work a person must approve. A framework would add a
+  dependency and remove nothing.
+
+What was taken from that material: the verification idea in item 3, and the
+"ask a human" boundary, which this product already enforces structurally --
+the MCP server imports no function that can approve anything, and a test
+fails if one appears.
+
+### The earlier list, kept for the record
+
 All three of the 2026-10-13 items are done: this repository's CI is green
 again, the owner merged the proof repository's pull request and gave it a
 BASE_URL, and the pull-request comment has now been seen on a real pull
