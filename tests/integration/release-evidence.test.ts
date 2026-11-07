@@ -602,4 +602,51 @@ describe("release evidence report", () => {
     // is that approved work no longer needs a requirement to be shown.
     expect(report.unlinkedTests).toHaveLength(0);
   });
+  /**
+   * Several people linking the same requirement and test at the same moment.
+   *
+   * Linking reads whether the link exists and then writes it. Both readers
+   * see "not there", both insert, and the unique index makes one lose --
+   * Postgres calls that a write conflict, and the person sees an error for
+   * work that in fact succeeded. The full suite hit exactly that on
+   * 2026-11-07: "Transaction failed due to a write conflict or a deadlock."
+   *
+   * What this test does and does not establish, said plainly because the
+   * difference matters. It holds the contract a caller is owed -- one link,
+   * no error, however many attempts that took -- and it would catch a change
+   * that made concurrent linking throw or duplicate.
+   *
+   * It does NOT reproduce the conflict. Twenty-four callers against the same
+   * pair, with the retry removed, passed three times out of three; the
+   * failure came from the whole suite's load and not from one hot row. So the
+   * retry beneath it is justified by an error seen once in a log and by the
+   * same guard already standing in the billing and GitHub syncs -- not by a
+   * test that fails without it.
+   */
+  it("survives two people linking the same pair at once", async () => {
+    const space = await workspace();
+    const requirement = await approvedRequirement(space);
+    const testCase = await linkedTestCase(space, requirement.id, false);
+    // linkedTestCase already made one link; this is about a second and third
+    // arriving together, which is the shape that conflicts.
+    const again = () =>
+      linkRequirementToTestCase(
+        { projectId: space.project.id, testCaseId: testCase.id, requirementId: requirement.id },
+        deps(space),
+      );
+
+    const results = await Promise.allSettled(Array.from({ length: 8 }, () => again()));
+
+    const rejected = results.filter((r) => r.status === "rejected");
+    expect(
+      rejected.map((r) => (r as PromiseRejectedResult).reason?.message ?? "unknown"),
+      "a caller was told linking failed for work that succeeded",
+    ).toEqual([]);
+
+    // Exactly one link, however many callers asked for it.
+    const links = await prisma.requirementTestCase.count({
+      where: { projectId: space.project.id, requirementId: requirement.id, testCaseId: testCase.id },
+    });
+    expect(links).toBe(1);
+  });
 });

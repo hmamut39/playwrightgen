@@ -633,12 +633,55 @@ export function archiveTestCase(input: TransitionInput, dependencies?: TestCaseD
   return transitionTestCase(input, { permission: "testcase:archive", from: ["DRAFT", "IN_REVIEW", "APPROVED"], to: "ARCHIVED", action: "TEST_CASE_ARCHIVED" }, dependencies);
 }
 
+/** Prisma reports a write conflict or deadlock as P2034. */
+function isWriteConflict(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2034";
+}
+
 export async function linkRequirementToTestCase(
   input: TransitionInput & { requirementId: string }, dependencies?: TestCaseDependencies,
 ) {
   const testCaseId = parseOrThrow(uuidSchema, input.testCaseId);
   const requirementId = parseOrThrow(uuidSchema, input.requirementId);
   const { context, projectId } = await requireProjectContext(input, "testcase:traceability", dependencies);
+
+  /*
+   * Linking reads whether the link exists and then writes it, which two
+   * people doing it at once both pass: each reads "not there", each inserts,
+   * and the unique index makes one of them lose. Postgres reports that as a
+   * write conflict, and the person sees an error for work that succeeded.
+   *
+   * Found on 2026-11-07 by the suite, which hit it under load: "Transaction
+   * failed due to a write conflict or a deadlock. Please retry your
+   * transaction." Reading that as a flaky test would have been the comfortable
+   * answer and the wrong one -- a team of three clicking at once is the
+   * ordinary case this product is for.
+   *
+   * Retried rather than made conditional, because the retry finds the row the
+   * other transaction wrote and returns it, which is what the caller asked
+   * for. The same pattern already guards the billing and GitHub syncs; this
+   * path never got it.
+   */
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await linkOnce({ context, projectId, requirementId, testCaseId, requestId: input.requestId }, dependencies);
+    } catch (error) {
+      if (!isWriteConflict(error) || attempt === 2) throw error;
+    }
+  }
+}
+
+async function linkOnce(
+  input: {
+    context: Awaited<ReturnType<typeof requireProjectContext>>["context"];
+    projectId: string;
+    requirementId: string;
+    testCaseId: string;
+    requestId?: string;
+  },
+  dependencies?: TestCaseDependencies,
+) {
+  const { context, projectId, requirementId, testCaseId } = input;
   return client(dependencies).$transaction(async (transaction) => {
     await findTestCaseOrThrow(transaction, { organizationId: context.organization.id, projectId, testCaseId });
     const requirement = await transaction.requirement.findUnique({ where: {
