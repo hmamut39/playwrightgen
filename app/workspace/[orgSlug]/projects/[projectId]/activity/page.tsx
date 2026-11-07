@@ -20,10 +20,30 @@ import { LocalTime } from "@/components/workspace/local-time";
  * event".
  */
 
-function dayLabel(day: string, today: string, yesterday: string) {
+/**
+ * The heading over a day's events, matching the day it groups.
+ *
+ * `day` is a date with no time, bucketed from each event's UTC date. This
+ * built midnight UTC from it and then formatted that instant in the reader's
+ * own zone, which lands on the previous evening anywhere west of UTC: a run
+ * recorded on Wednesday 28 October at 7:10 PM in New York sat under
+ * "Tuesday, October 27", above a timestamp reading 7:10 PM. One heading
+ * disagreeing with every time beneath it, on the page that says this is the
+ * record the audit trail is built from.
+ *
+ * Formatted in UTC, so the heading names the day it actually grouped.
+ *
+ * The buckets are still UTC days rather than the reader's days, so an event
+ * in the small hours UTC can sit under the neighbouring heading for someone
+ * far west. That is a real limit and a larger change -- grouping has to move
+ * to the browser, where the reader's zone is known -- and it is not fixed
+ * here.
+ */
+export function dayLabel(day: string, today: string, yesterday: string) {
   if (day === today) return "Today";
   if (day === yesterday) return "Yesterday";
   return new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, {
+    timeZone: "UTC",
     weekday: "long",
     year: "numeric",
     month: "long",

@@ -468,7 +468,32 @@ export default async function AutomationArtifactPage({
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h2 className="text-lg font-semibold">Playwright test</h2>
-                      <span className="text-xs text-slate-400">TypeScript · not executed</span>
+                      {/*
+                        What is true of this code, rather than a label fixed
+                        when it was written.
+
+                        This said "TypeScript - not executed" always, directly
+                        under a green badge reading "Passed on the live page -
+                        7 checks" and a line naming the page and the minute it
+                        ran. The free-tool page met this exact contradiction
+                        and fixed it there; the workspace kept it, on the
+                        surface whose output becomes release evidence.
+
+                        A reader who is told two opposite things about the
+                        same code has no way to pick the true one, and the
+                        safe assumption is that the favourable half was
+                        boilerplate. The evidence is already on this page --
+                        liveRun -- so the label reads from it.
+                      */}
+                      <span className="text-xs text-slate-400">
+                        {liveRun?.verdict === "passed"
+                          ? `TypeScript · ran on the live page · ${liveRun.passed} check${liveRun.passed === 1 ? "" : "s"} passed`
+                          : liveRun?.verdict === "partial"
+                            ? "TypeScript · ran on the live page · nothing failed, some steps could not run"
+                            : liveRun
+                              ? "TypeScript · ran on the live page and did not pass"
+                              : "TypeScript · not executed"}
+                      </span>
                     </div>
                     {/* Copying this code is the point of the page: it is meant to
                         end up in a repository. Reading it here and selecting it
@@ -513,8 +538,21 @@ export default async function AutomationArtifactPage({
                         <code className="rounded-lg bg-slate-100 px-1.5 py-0.5 font-mono text-xs">
                           tests/
                         </code>
-                        . PlaywrightGen never runs your tests; they run on your
-                        machines, against your environment, using your secrets.
+                        {/*
+                          True as written, which it was not.
+
+                          "PlaywrightGen never runs your tests" appeared on a
+                          page that had just reported running this one on the
+                          live page, with the address and the minute. The
+                          claim being made is about your environment and your
+                          secrets, and that claim is worth making -- so it now
+                          says that, instead of a broader sentence its own
+                          evidence contradicts.
+                        */}
+                        . PlaywrightGen never runs your tests against your
+                        environment or your secrets: they run on your machines.
+                        Any run reported here happened in a sandboxed browser
+                        against a public address, with nothing of yours in it.
                       </>,
                     ],
                     [

@@ -9,6 +9,7 @@ const readiness = (
     hasExecution?: boolean;
     freshness?: "FRESH" | "AGING" | "STALE" | "MISSING";
     ageDays?: number | null;
+    flaky?: number;
   } = {},
 ) => ({
   releasable: overrides.releasable ?? true,
@@ -18,7 +19,7 @@ const readiness = (
     approvedTestCases: 1,
     testCasesWithCurrentAutomation: 1,
     regressions: overrides.regressions ?? 0,
-    flaky: 0,
+    flaky: overrides.flaky ?? 0,
     openFindings: 0,
   },
   findings: overrides.releasable === false
@@ -66,7 +67,11 @@ describe("project health verdict", () => {
       }),
     ).toEqual({
       verdict: "on-track",
-      reasons: ["nothing failing, but the last evidence is 193 days old"],
+      // The wording changed when flakiness joined this line: both caveats are
+      // built from one stem now, so they can appear together in one sentence
+      // rather than as two fragments that read like a list of excuses. The
+      // claim is the same one it always made.
+      reasons: ["Nothing is failing now, but the last evidence is 193 days old"],
     });
   });
 
@@ -82,5 +87,50 @@ describe("project health verdict", () => {
   it("is on track once something ran and nothing is wrong", () => {
     expect(projectHealthVerdict({ readiness: readiness(), live: null }).verdict).toBe("on-track");
     expect(projectHealthVerdict({ readiness: readiness({ hasExecution: false }), live: { failed: 0, checked: 2 } }).verdict).toBe("on-track");
+  });
+  /**
+   * The one line somebody reads from a phone.
+   *
+   * With no reason to show, this page prints "Tests have run, nothing is
+   * failing, and nothing blocks a release." Northwind read exactly that, in
+   * green, while three of its tests had each passed twice and failed once on
+   * the same approved version -- reported as "3 flaky" one card below, and
+   * described everywhere else in this product as not reproducible.
+   */
+  it("will not say nothing is failing when tests have produced both outcomes", () => {
+    const result = projectHealthVerdict({ readiness: readiness({ flaky: 3 }), live: null });
+
+    // Still on track: flakiness is a caution, not a blocker, and calling it a
+    // problem would cry wolf on a page people glance at.
+    expect(result.verdict).toBe("on-track");
+    expect(result.reasons).toHaveLength(1);
+    expect(result.reasons[0]).toBe(
+      "Nothing is failing now, but 3 tests have both passed and failed on the same approved version",
+    );
+  });
+
+  it("uses the singular for one such test", () => {
+    const result = projectHealthVerdict({ readiness: readiness({ flaky: 1 }), live: null });
+    expect(result.reasons[0]).toBe(
+      "Nothing is failing now, but 1 test has both passed and failed on the same approved version",
+    );
+  });
+
+  it("says both when the evidence is also old", () => {
+    const result = projectHealthVerdict({
+      readiness: readiness({ flaky: 2, freshness: "STALE", ageDays: 40 }),
+      live: null,
+    });
+
+    // Two separate reasons to doubt a green headline; neither hides the other.
+    expect(result.reasons[0]).toBe(
+      "Nothing is failing now, but 2 tests have both passed and failed on the same approved version, and the last evidence is 40 days old",
+    );
+  });
+
+  it("still says nothing at all when there is nothing to say", () => {
+    // The flat sentence is correct when it is true, and this must keep
+    // printing it: a caveat on every project is a caveat nobody reads.
+    expect(projectHealthVerdict({ readiness: readiness(), live: null }).reasons).toEqual([]);
   });
 });

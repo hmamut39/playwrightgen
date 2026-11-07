@@ -4,7 +4,7 @@ The working plan, kept in the repository so any session can pick up where the
 last one stopped. Update the "Shipped" and "Next" sections at the end of every
 work session.
 
-Last updated: 2026-10-31.
+Last updated: 2026-11-07.
 
 ## Where the product is
 
@@ -28,6 +28,48 @@ genuine `npm audit` failures, closed by the commit after each.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **The audit trail filed events under the wrong day** (2026-11-07): the
+  Activity page groups events by their UTC date, then built midnight UTC from
+  that date string and formatted it in the reader's own zone. Anywhere west of
+  UTC that lands on the previous evening, so a run recorded on Wednesday 28
+  October at 7:10 PM in New York sat under "TUESDAY, OCTOBER 27" -- above a
+  timestamp reading 7:10 PM. One heading disagreeing with every time beneath
+  it, on the page that tells the reader this is the record the audit trail is
+  built from and that nothing in it can be edited or removed. A trail whose
+  dates are a day out is worse than none, because it is believed.
+  The heading is formatted in UTC now, so it names the day it grouped. The
+  buckets are still UTC days rather than the reader's, so an event in the
+  small hours can sit under a neighbouring heading far west: that needs
+  grouping moved to the browser and is written down rather than fixed.
+  The CSV export and the kept evidence document were checked at the same time
+  and were already right -- the column is named `recorded_at_utc`, and the
+  document stamps "... UTC" with a comment saying why.
+
+- **A page that contradicted itself about its own evidence** (2026-11-07): the
+  automation page showed a green "Passed on the live page - 7 checks" and,
+  directly beneath the code, the fixed label "TypeScript - not executed". The
+  free-tool page had met this exact contradiction and fixed it, leaving a
+  comment: a reader told two opposite things has no way to pick the true one,
+  and assumes the favourable half was boilerplate. The workspace kept it, on
+  the surface whose output becomes release evidence. The label reads from the
+  run record the page already holds.
+  The same page told the reader "PlaywrightGen never runs your tests" while
+  reporting a run it had made that minute. The claim worth making is about
+  their environment and their secrets, so it says that now, and adds that any
+  run reported there happened in a sandboxed browser against a public address.
+
+- **"Nothing is failing" on a project with three unreproducible tests**
+  (2026-11-07): the Health verdict reads live failures, regressions and
+  release blockers. Flakiness is a caution, not a blocker, so it never reached
+  the verdict -- and with no reason to show, the page prints "Tests have run,
+  nothing is failing, and nothing blocks a release." Northwind read exactly
+  that, in green, while three of its tests had each passed twice and failed
+  once on one approved version, reported as "3 flaky" one card below and as
+  "3 of 9 attempts failed or blocked" on the Quality page.
+  The verdict stays on track, because crying wolf on a glance-from-a-phone
+  screen is its own fault. The headline no longer claims nothing is failing
+  when the records say otherwise.
+
 - **Recording a run by hand crashed, and blamed the customer's workspace**
   (2026-10-31): the release page refuses to share until a run is recorded
   against an approved version, so this form is the one unavoidable step
