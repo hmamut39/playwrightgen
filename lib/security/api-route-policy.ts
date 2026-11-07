@@ -40,6 +40,15 @@ export const API_ROUTE_SECURITY_POLICY = {
     boundary: "authenticated-tenant",
     requiredMarker: "requireWorkspaceContext",
   },
+  "feedback/route.ts": {
+    // Anyone may say what went wrong on the page they are looking at, signed
+    // in or not: a report refused is a report lost. Bounded the same way the
+    // waitlist is -- a size cap before the body is read, one send a minute
+    // per client, a store that forgets -- and it takes only a message and a
+    // path, so there is nothing in it to leak back.
+    boundary: "bounded-public",
+    requiredMarker: "playwrightgen:feedback:limit",
+  },
   "health/route.ts": {
     boundary: "public-status",
     requiredMarker: "HEALTH_CACHE_MS",

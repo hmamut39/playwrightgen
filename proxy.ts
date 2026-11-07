@@ -28,6 +28,11 @@ const JSON_ROUTES = [
   "/api/check-pro",
   "/api/checkout",
   "/api/checkout-session",
+  // Anyone may report what went wrong on a page, signed in or not. It reads
+  // the session when there is one, so that a report can say who sent it --
+  // and it must never be redirected to a sign-in page, because the caller is
+  // a fetch expecting JSON and the person is mid-sentence.
+  "/api/feedback",
   // The free tools are public, but read the session when there is one so a
   // Team customer draws on their workspace's allowance instead of the
   // five-a-day visitor limit.
@@ -66,6 +71,7 @@ export const config = {
     "/api/check-pro",
     "/api/checkout",
     "/api/checkout-session",
+    "/api/feedback",
     "/api/quick-generate",
     "/api/coverage-review",
     "/api/engineering-review",

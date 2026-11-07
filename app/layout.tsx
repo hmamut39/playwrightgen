@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
+import { FeedbackLink } from "@/components/feedback-link";
 import { SiteNavigation } from "@/components/site-navigation";
 import { SiteStructuredData } from "@/components/site-structured-data";
 import {
@@ -83,6 +84,11 @@ export default function RootLayout({
                 <a href="/privacy" className="hover:text-black">
                   Privacy
                 </a>
+                {/* Beside the other three, on every page, because the page
+                    somebody is on when something looks wrong is the page they
+                    will say so from -- and until now the only way to reach
+                    anyone was a GitHub link one click away on About. */}
+                <FeedbackLink />
               </div>
               {/* On every page, because the question is asked from every
                   page and an About link alone answers it one click late. */}
