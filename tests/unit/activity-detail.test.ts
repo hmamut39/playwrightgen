@@ -121,3 +121,49 @@ describe("the trail as a file", () => {
     );
   });
 });
+
+/**
+ * Where a result came from, in the record an auditor is shown.
+ *
+ * A daily live check is this product running an approved test against a
+ * public address. It is not the team's pipeline: CI runs on their machines,
+ * in their environment, with their secrets, and every other surface in this
+ * product is careful to say so.
+ *
+ * "live-check" was missing from the provider map, so the fallback named it
+ * "CI". On 2026-11-07 that covered 25 of the 31 provider-tagged rows in the
+ * whole trail -- on the page that says nothing in it can be edited or
+ * removed, and in the CSV an auditor keeps, while the Repositories page said
+ * "No results have arrived from your CI yet" and was right.
+ */
+describe("where a recorded attempt says it came from", () => {
+  it("calls a daily live check what it is, not CI", () => {
+    const line = activityDetail("TEST_RUN_ATTEMPT_RECORDED", {
+      attemptNumber: 3,
+      result: "PASSED",
+      provider: "live-check",
+    });
+
+    expect(line).toContain("a daily live check");
+    expect(line).not.toContain("CI");
+  });
+
+  it("still names a real pipeline", () => {
+    expect(
+      activityDetail("TEST_RUN_ATTEMPT_RECORDED", { attemptNumber: 1, result: "PASSED", provider: "github_actions" }),
+    ).toContain("GitHub Actions");
+  });
+
+  it("does not call an unknown source CI", () => {
+    // The fallback invented a claim about where evidence came from. An
+    // unknown source is called what it called itself.
+    const line = activityDetail("TEST_RUN_ATTEMPT_RECORDED", {
+      attemptNumber: 1,
+      result: "PASSED",
+      provider: "some_new_runner",
+    });
+
+    expect(line).toContain("some new runner");
+    expect(line).not.toContain("CI");
+  });
+});

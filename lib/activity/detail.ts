@@ -27,6 +27,19 @@ const PROVIDERS: Record<string, string> = {
   jenkins: "Jenkins",
   azure_pipelines: "Azure Pipelines",
   other: "CI",
+  /*
+   * A daily live check is this product running an approved test against a
+   * public address. It is not the team's pipeline, and the difference is one
+   * this product is careful about everywhere else: CI runs on their machines,
+   * in their environment, with their secrets.
+   *
+   * It was missing here, so `PROVIDERS[provider] ?? "CI"` named it CI. On
+   * 2026-11-07 that was 25 of the 31 provider-tagged rows in the whole trail
+   * -- on the page that says nothing in it can be edited or removed, and in
+   * the CSV an auditor keeps. The Repositories page said "No results have
+   * arrived from your CI yet" at the same moment, and was right.
+   */
+  "live-check": "a daily live check",
 };
 
 const ENGINES: Record<string, string> = {
@@ -34,7 +47,8 @@ const ENGINES: Record<string, string> = {
   PLAYWRIGHT_API: "Playwright API",
 };
 
-const words = (value: string) => value.replace(/_/g, " ").toLowerCase();
+// Hyphens as well as underscores, so an unknown provider reads as words.
+const words = (value: string) => value.replace(/[_-]/g, " ").toLowerCase();
 
 export function activityDetail(
   action: ActivityAction,
@@ -80,7 +94,11 @@ export function activityDetail(
       const result = text(data.result);
       if (result) parts.push(words(result));
       const provider = text(data.provider);
-      if (provider) parts.push(PROVIDERS[provider] ?? "CI");
+      // Named, never assumed. The fallback here used to be the literal "CI",
+      // so any source this map did not know was recorded as the team's
+      // pipeline -- a claim about where evidence came from, invented by a
+      // default. An unknown source is now called what it called itself.
+      if (provider) parts.push(PROVIDERS[provider] ?? words(provider));
       const commit = text(data.commitSha);
       if (commit) parts.push(commit.slice(0, 8));
       break;
