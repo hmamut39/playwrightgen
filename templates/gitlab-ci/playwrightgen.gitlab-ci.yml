@@ -65,7 +65,7 @@ playwrightgen:
       # generated one is pasted in, and Playwright treats finding none as an
       # error, so the first pipeline would fail before there was anything to
       # run. The reporting step says that nothing was recorded and why.
-      if npx playwright test --pass-with-no-tests --reporter=json > playwright-report.json; then
+      if npx playwright test --pass-with-no-tests --reporter=json,./ci/playwrightgen-steps.mjs > playwright-report.json; then
         echo "passed" > .playwrightgen-outcome
       else
         echo "failed" > .playwrightgen-outcome

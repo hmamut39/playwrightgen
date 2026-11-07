@@ -97,6 +97,21 @@ function artifactsFor(result) {
   return [...kinds].map((kind) => ({ kind, label: label[kind], url: artifactUrl }));
 }
 
+/**
+ * What playwrightgen-steps.mjs recorded, if it ran.
+ *
+ * Absent is a real answer and not an empty one: a pipeline written before
+ * that file existed reports exactly as it did, and the steps and the
+ * assertion count simply do not travel.
+ */
+const recorded = new Map();
+try {
+  const steps = JSON.parse(readFileSync("playwrightgen-steps.json", "utf8"));
+  for (const test of steps.tests ?? []) recorded.set(test.title, test);
+} catch {
+  // No recorder, or nothing written. Reported without it.
+}
+
 /** Playwright nests specs inside arbitrarily deep suites. */
 function collect(suite, out) {
   for (const spec of suite.specs ?? []) {
@@ -111,9 +126,22 @@ function collect(suite, out) {
       errorMessage: result.error?.message
         ? String(result.error.message).slice(0, 20_000)
         : undefined,
-      steps: (result.steps ?? []).slice(0, 200).map((step) => ({
+      // Playwright's JSON report carries no steps at all -- a result there
+      // has a status, a duration and an error, and nothing about what the
+      // test did. This read `result.steps` and always found nothing, so every
+      // delivery from a pipeline arrived with an empty list and "explain this
+      // failure" had nothing to read for the one kind of run it is for.
+      //
+      // Steps live only in Playwright's reporter API, which is what
+      // playwrightgen-steps.mjs is. Matched back by title, which is the same
+      // string in both files and carries the [pwg:...] marker.
+      steps: (recorded.get(spec.title)?.steps ?? []).slice(0, 200).map((step) => ({
         title: String(step.title).slice(0, 500),
-        status: step.error ? "failed" : "passed",
+        status: step.failed ? "failed" : "passed",
+        // Playwright's own word for what the step was: "expect" for an
+        // assertion. Sent per step rather than as a total, so how many checks
+        // ran is derived from what was recorded and not asserted beside it.
+        category: step.category || undefined,
       })),
       artifacts: artifactsFor(result),
     });

@@ -95,7 +95,7 @@ pipeline {
             // first generated one is pasted in, and Playwright treats
             // finding none as an error, so the first build would fail with
             // nothing to run. The reporting step says so instead.
-            script: 'npx playwright test --pass-with-no-tests --reporter=json > playwright-report.json',
+            script: 'npx playwright test --pass-with-no-tests --reporter=json,./ci/playwrightgen-steps.mjs > playwright-report.json',
             returnStatus: true,
           ) == 0 ? 'passed' : 'failed'
         }

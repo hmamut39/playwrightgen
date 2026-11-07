@@ -76,10 +76,17 @@ function playwrightReport(title: string, status: "passed" | "failed") {
                     ...(status === "failed"
                       ? { error: { message: "expect(locator).toBeVisible() failed" } }
                       : {}),
-                    steps: [
-                      { title: "open the page" },
-                      ...(status === "failed" ? [{ title: "see the heading", error: { message: "no" } }] : []),
-                    ],
+                    /*
+                     * No steps here, deliberately.
+                     *
+                     * This fixture used to carry them, and the test passed on
+                     * the strength of it -- but Playwright's JSON reporter
+                     * has never emitted a `steps` field, so every real
+                     * delivery arrived with an empty list while this said
+                     * otherwise. The steps now travel in a file of their own,
+                     * written by playwrightgen-steps.mjs, which is the only
+                     * place Playwright exposes them.
+                     */
                     attachments: [],
                   },
                 ],
@@ -268,9 +275,16 @@ describe("the reporter a customer commits, against the endpoint it posts to", ()
     space: Awaited<ReturnType<typeof workspace>>,
     report: unknown,
     overrides: Record<string, string> = {},
+    recorded: unknown = null,
   ) {
     const directory = mkdtempSync(join(tmpdir(), "pwg-reporter-"));
     writeFileSync(join(directory, "playwright-report.json"), JSON.stringify(report));
+    // What playwrightgen-steps.mjs leaves beside the report, when a pipeline
+    // runs it. Omitted by passing `recorded: null`, which is a pipeline still
+    // using the reporter from before the recorder existed.
+    if (recorded !== null) {
+      writeFileSync(join(directory, "playwrightgen-steps.json"), JSON.stringify(recorded));
+    }
     const summaryFile = join(directory, "step-summary.md");
     writeFileSync(summaryFile, "");
 
@@ -328,8 +342,22 @@ describe("the reporter a customer commits, against the endpoint it posts to", ()
   it("carries a failure's message and steps through to the attempt", async () => {
     const space = await workspace();
     const { marker } = await approved(space);
+    const title = `${marker} a visitor sees the headline`;
 
-    await runReporter(space, playwrightReport(`${marker} a visitor sees the headline`, "failed"));
+    await runReporter(space, playwrightReport(title, "failed"), {}, {
+      version: 1,
+      tests: [
+        {
+          title,
+          status: "failed",
+          steps: [
+            { title: "open the page", category: "pw:api", failed: false },
+            { title: 'Expect "toBeVisible"', category: "expect", failed: true },
+          ],
+          assertions: 1,
+        },
+      ],
+    });
 
     expect(seen[0], seen[0]?.body).toMatchObject({ status: 200 });
     const attempt = await prisma.testRunAttempt.findFirstOrThrow({
@@ -339,11 +367,34 @@ describe("the reporter a customer commits, against the endpoint it posts to", ()
     expect(attempt.result).toBe("FAILED");
     expect(attempt.failureDetails).toContain("toBeVisible() failed");
     // Stored in the shape the workspace reads, not the shape the reporter
-    // sent: this translation is half of what the seam does.
+    // sent: this translation is half of what the seam does. The kind of each
+    // step survives it, which is what lets a passing test be told from a test
+    // that checked nothing.
     expect(attempt.stepResults).toEqual([
-      { stepIndex: 0, notes: "open the page", result: "PASSED" },
-      { stepIndex: 1, notes: "see the heading", result: "FAILED" },
+      { stepIndex: 0, notes: "open the page", result: "PASSED", category: "pw:api" },
+      { stepIndex: 1, notes: 'Expect "toBeVisible"', result: "FAILED", category: "expect" },
     ]);
+  }, 60_000);
+
+  /**
+   * A pipeline still running the reporter from before the step recorder
+   * existed. It reports exactly as it did: the delivery is recorded, and the
+   * steps simply do not travel. Absent must not read as a test that checked
+   * nothing -- that is a different claim, and a worse one.
+   */
+  it("records a delivery from a pipeline that has no step recorder", async () => {
+    const space = await workspace();
+    const { marker } = await approved(space);
+
+    await runReporter(space, playwrightReport(`${marker} a visitor sees the headline`, "passed"));
+
+    expect(seen[0], seen[0]?.body).toMatchObject({ status: 200 });
+    const attempt = await prisma.testRunAttempt.findFirstOrThrow({
+      where: { projectId: space.project.id },
+      select: { result: true, stepResults: true },
+    });
+    expect(attempt.result).toBe("PASSED");
+    expect(attempt.stepResults).toEqual([]);
   }, 60_000);
 
   it("names the provider the pipeline says it is", async () => {

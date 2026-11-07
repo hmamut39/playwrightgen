@@ -21,6 +21,16 @@ export type CiTemplate = {
 
 /** The shared reporter. One file, three pipelines, one payload shape. */
 const REPORTER = "github-actions/playwrightgen-report.mjs";
+/**
+ * The step recorder, shared the same way.
+ *
+ * Playwright's JSON report carries no steps, so a delivery from a pipeline
+ * arrived with an empty list and failure analysis had nothing to read for the
+ * one kind of run it exists for. Steps live only in the reporter API.
+ */
+const RECORDER = "github-actions/playwrightgen-steps.mjs";
+const RECORDER_SUMMARY =
+  "Records what each test did, which Playwright's JSON report leaves out. Writes one file; sends nothing.";
 const REPORTER_TYPE = "text/javascript; charset=utf-8";
 const REPORTER_SUMMARY =
   "Signs and sends the bounded summary. No repository contents leave your runner.";
@@ -42,6 +52,12 @@ export const CI_TEMPLATES = {
     contentType: REPORTER_TYPE,
     summary: REPORTER_SUMMARY,
   },
+  "github-actions/playwrightgen-steps.mjs": {
+    source: RECORDER,
+    destination: ".github/workflows/playwrightgen-steps.mjs",
+    contentType: REPORTER_TYPE,
+    summary: RECORDER_SUMMARY,
+  },
   "gitlab-ci/playwrightgen.gitlab-ci.yml": {
     source: "gitlab-ci/playwrightgen.gitlab-ci.yml",
     destination: "ci/playwrightgen.gitlab-ci.yml",
@@ -54,6 +70,12 @@ export const CI_TEMPLATES = {
     contentType: REPORTER_TYPE,
     summary: REPORTER_SUMMARY,
   },
+  "gitlab-ci/playwrightgen-steps.mjs": {
+    source: RECORDER,
+    destination: "ci/playwrightgen-steps.mjs",
+    contentType: REPORTER_TYPE,
+    summary: RECORDER_SUMMARY,
+  },
   "jenkins/Jenkinsfile.playwrightgen": {
     source: "jenkins/Jenkinsfile.playwrightgen",
     destination: "Jenkinsfile",
@@ -65,6 +87,12 @@ export const CI_TEMPLATES = {
     destination: "ci/playwrightgen-report.mjs",
     contentType: REPORTER_TYPE,
     summary: REPORTER_SUMMARY,
+  },
+  "jenkins/playwrightgen-steps.mjs": {
+    source: RECORDER,
+    destination: "ci/playwrightgen-steps.mjs",
+    contentType: REPORTER_TYPE,
+    summary: RECORDER_SUMMARY,
   },
 } as const satisfies Record<string, CiTemplate>;
 
@@ -81,21 +109,33 @@ export const CI_PROVIDERS = [
   {
     id: "github-actions",
     name: "GitHub Actions",
-    files: ["github-actions/playwrightgen.yml", "github-actions/playwrightgen-report.mjs"],
+    files: [
+      "github-actions/playwrightgen.yml",
+      "github-actions/playwrightgen-report.mjs",
+      "github-actions/playwrightgen-steps.mjs",
+    ],
     where: "Repository · Settings · Secrets and variables · Actions",
     secretLabel: "add PLAYWRIGHTGEN_TOKEN as a secret, and the other three as variables.",
   },
   {
     id: "gitlab-ci",
     name: "GitLab CI",
-    files: ["gitlab-ci/playwrightgen.gitlab-ci.yml", "gitlab-ci/playwrightgen-report.mjs"],
+    files: [
+      "gitlab-ci/playwrightgen.gitlab-ci.yml",
+      "gitlab-ci/playwrightgen-report.mjs",
+      "gitlab-ci/playwrightgen-steps.mjs",
+    ],
     where: "Project · Settings · CI/CD · Variables",
     secretLabel: "add all four as variables. Mark PLAYWRIGHTGEN_TOKEN as Masked.",
   },
   {
     id: "jenkins",
     name: "Jenkins",
-    files: ["jenkins/Jenkinsfile.playwrightgen", "jenkins/playwrightgen-report.mjs"],
+    files: [
+      "jenkins/Jenkinsfile.playwrightgen",
+      "jenkins/playwrightgen-report.mjs",
+      "jenkins/playwrightgen-steps.mjs",
+    ],
     where: "Manage Jenkins · Credentials",
     secretLabel:
       "add PLAYWRIGHTGEN_TOKEN as a Secret text credential with the id playwrightgen-token. The other three are filled into the Jenkinsfile.",

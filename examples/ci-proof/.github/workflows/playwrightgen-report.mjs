@@ -1,6 +1,9 @@
 // PlaywrightGen result reporter.
 //
-// Copy this file into your repository at .github/workflows/playwrightgen-report.mjs
+// Download this file from your PlaywrightGen project's Repositories tab and
+// commit it beside your pipeline definition. The same file serves GitHub
+// Actions, GitLab CI and Jenkins; the pipeline says which one it is running
+// under through PLAYWRIGHTGEN_PROVIDER.
 //
 // Reads the Playwright JSON report, keeps only the fields PlaywrightGen records
 // as evidence, signs the exact request body with your project token, and posts
@@ -10,20 +13,21 @@ import { createHmac } from "node:crypto";
 import { appendFileSync, readFileSync } from "node:fs";
 
 /**
- * One line on the run's own page, so the answer is where somebody is looking.
+ * One line where somebody is already looking.
  *
- * Everything this script says otherwise is in a collapsed step log, three
- * clicks from the run. What a person wants to know after a push -- did
- * anything get recorded, and if not why -- belongs on the summary GitHub
- * shows first. Writing it is best effort: a missing or unwritable summary
- * file must never affect the report itself.
+ * Everything this script says otherwise is in a collapsed step log, several
+ * clicks from the run. What a person wants after a push -- was anything
+ * recorded, and if not why -- belongs on the page the pipeline shows first.
+ * GitHub Actions gives a file for that; GitLab and Jenkins do not, so there
+ * it stays on the console. Writing it is best effort either way: a missing or
+ * unwritable summary file must never change what is reported.
  */
 const summarise = (line) => {
   console.log(`PlaywrightGen: ${line}`);
   const file = process.env.GITHUB_STEP_SUMMARY;
   if (!file) return;
   try {
-    appendFileSync(file, `**PlaywrightGen** — ${line}\n`);
+    appendFileSync(file, `**PlaywrightGen** -- ${line}\n`);
   } catch {}
 };
 
@@ -71,7 +75,7 @@ const attachmentKind = (attachment) => {
  * One entry per kind of artifact this test produced.
  *
  * Every entry points at the uploaded archive rather than at an individual file,
- * because GitHub exposes a URL for the artifact as a whole and not for its
+ * because CI systems expose a URL for the artifact as a whole and not for its
  * contents. The label says so, so a reviewer following the link knows they are
  * downloading an archive to look inside rather than opening the trace itself.
  */
@@ -93,6 +97,21 @@ function artifactsFor(result) {
   return [...kinds].map((kind) => ({ kind, label: label[kind], url: artifactUrl }));
 }
 
+/**
+ * What playwrightgen-steps.mjs recorded, if it ran.
+ *
+ * Absent is a real answer and not an empty one: a pipeline written before
+ * that file existed reports exactly as it did, and the steps and the
+ * assertion count simply do not travel.
+ */
+const recorded = new Map();
+try {
+  const steps = JSON.parse(readFileSync("playwrightgen-steps.json", "utf8"));
+  for (const test of steps.tests ?? []) recorded.set(test.title, test);
+} catch {
+  // No recorder, or nothing written. Reported without it.
+}
+
 /** Playwright nests specs inside arbitrarily deep suites. */
 function collect(suite, out) {
   for (const spec of suite.specs ?? []) {
@@ -107,9 +126,22 @@ function collect(suite, out) {
       errorMessage: result.error?.message
         ? String(result.error.message).slice(0, 20_000)
         : undefined,
-      steps: (result.steps ?? []).slice(0, 200).map((step) => ({
+      // Playwright's JSON report carries no steps at all -- a result there
+      // has a status, a duration and an error, and nothing about what the
+      // test did. This read `result.steps` and always found nothing, so every
+      // delivery from a pipeline arrived with an empty list and "explain this
+      // failure" had nothing to read for the one kind of run it is for.
+      //
+      // Steps live only in Playwright's reporter API, which is what
+      // playwrightgen-steps.mjs is. Matched back by title, which is the same
+      // string in both files and carries the [pwg:...] marker.
+      steps: (recorded.get(spec.title)?.steps ?? []).slice(0, 200).map((step) => ({
         title: String(step.title).slice(0, 500),
-        status: step.error ? "failed" : "passed",
+        status: step.failed ? "failed" : "passed",
+        // Playwright's own word for what the step was: "expect" for an
+        // assertion. Sent per step rather than as a total, so how many checks
+        // ran is derived from what was recorded and not asserted beside it.
+        category: step.category || undefined,
       })),
       artifacts: artifactsFor(result),
     });
@@ -121,19 +153,28 @@ const results = [];
 for (const suite of report.suites ?? []) collect(suite, results);
 
 if (results.length === 0) {
-  // Nothing ran at all, which on a first push means the tests have not been
-  // written yet. Said as that rather than as an error: the workflow worked.
+  // Nothing ran at all, which on a first pipeline means no test has been
+  // pasted in yet. Said as that rather than as a failure: the pipeline works.
   summarise(
-    "no tests ran, so nothing was reported. Paste the test PlaywrightGen generated into tests/ -- keep its [pwg:...] title marker, which is what ties a result to the approved version.",
+    "no tests ran, so nothing was reported. Paste the test PlaywrightGen generated into your tests folder -- keep its [pwg:...] title marker, which is what ties a result to the approved version.",
   );
   process.exit(0);
 }
+
+// Which CI this ran under. It is recorded with the evidence so a reviewer
+// reading an attempt months later can tell where it came from, which starts
+// to matter as soon as a team runs more than one pipeline. Defaults to GitHub
+// Actions so a workflow written before this existed keeps reporting unchanged.
+const PROVIDERS = new Set(["github_actions", "gitlab_ci", "jenkins", "azure_pipelines", "other"]);
+const provider = PROVIDERS.has(process.env.PLAYWRIGHTGEN_PROVIDER ?? "")
+  ? process.env.PLAYWRIGHTGEN_PROVIDER
+  : "github_actions";
 
 const payload = {
   organizationId,
   projectId,
   run: {
-    provider: "github_actions",
+    provider,
     externalId: process.env.RUN_ID ?? "unknown",
     url: process.env.RUN_URL ?? `${baseUrl}/`,
     commitSha: process.env.COMMIT_SHA ?? "",
@@ -170,11 +211,23 @@ const response = await fetch(`${baseUrl}/api/runs/ingest`, {
 });
 
 const text = await response.text();
+
+// The endpoint explains both outcomes in a sentence: what a delivery
+// recorded, or why it was turned away. A status code and a blob of JSON do
+// not tell a build engineer that their token was rotated.
+let note = text;
+try {
+  const parsed = JSON.parse(text);
+  if (parsed && typeof parsed.message === "string") note = parsed.message;
+} catch {
+  // Not JSON; print whatever came back.
+}
+
 if (!response.ok) {
   // Reporting is observability, not a gate: a PlaywrightGen outage must not
   // turn a green test suite red.
-  summarise(`could not record this run (${response.status}): ${text.slice(0, 300)}`);
+  summarise(`could not record this run: ${note}`);
   process.exit(0);
 }
 
-summarise(text.slice(0, 500));
+summarise(note);

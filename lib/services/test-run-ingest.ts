@@ -64,6 +64,23 @@ export const ingestPayloadSchema = z.object({
             z.object({
               title: z.string().trim().min(1).max(500),
               status: resultStatusSchema,
+              /*
+               * What kind of step this was, in Playwright's own words:
+               * "expect" for an assertion, "pw:api" for an action.
+               *
+               * A passing test and a test that checked nothing are both
+               * green, and only one of them proves anything. Counting the
+               * assertion steps is the first time this product can tell them
+               * apart -- and kept per step rather than as a total, so the
+               * count is derived from what was recorded instead of asserted
+               * beside it.
+               *
+               * Optional, and absent means unknown rather than none: a
+               * pipeline still running the reporter from before the step
+               * recorder existed must not read as a suite that asserts
+               * nothing.
+               */
+              category: z.string().trim().max(40).optional(),
             }),
           )
           .max(200)
@@ -390,6 +407,8 @@ export async function ingestPlaywrightResults(
             stepIndex,
             result: toStepResult(step.status),
             notes: stripControlSequences(step.title).slice(0, 5_000),
+            // Only when the pipeline said so. An absent kind is unknown.
+            ...(step.category ? { category: step.category } : {}),
           })) as Prisma.InputJsonValue,
           // The workflow link first, then whatever the run captured for this
           // specific test. The workflow link stays the first element because

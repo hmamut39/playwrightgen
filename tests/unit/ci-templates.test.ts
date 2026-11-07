@@ -30,9 +30,12 @@ describe("the pipeline files a team downloads", () => {
     }
   });
 
-  it("offers each pipeline a definition and the reporter", () => {
+  it("offers each pipeline a definition, the reporter and the step recorder", () => {
     for (const entry of CI_PROVIDERS) {
-      expect(entry.files.length, `${entry.name} should offer two files`).toBe(2);
+      // Three since the step recorder joined them: Playwright's JSON report
+      // carries no steps, so a pipeline without it delivers results with
+      // nothing about what the test did.
+      expect(entry.files.length, `${entry.name} should offer three files`).toBe(3);
       for (const name of entry.files) {
         expect(names, `${entry.name} offers ${name}, which is not a template`).toContain(name);
       }
@@ -98,10 +101,22 @@ describe("the pipeline files a team downloads", () => {
   it("documents the token as a secret in every pipeline, and never its value", () => {
     for (const name of names) {
       const body = read(name);
-      expect(body).toContain("PLAYWRIGHTGEN_TOKEN");
       // A template is downloaded by anyone with the URL, so it must carry the
       // names of credentials and none of their values.
-      expect(body).not.toMatch(/pwg(p|b)1\./);
+      expect(body, `${name} carries something shaped like a token`).not.toMatch(/pwg(p|b)1\./);
+
+      // The step recorder writes a file and sends nothing, so it has no use
+      // for the token -- and a file that names a credential it does not need
+      // is the start of one that reads it. Everything that does reach the
+      // network must name it, so a person setting the pipeline up can see
+      // what it will use.
+      if (name.endsWith("playwrightgen-steps.mjs")) {
+        expect(body, `${name} should not mention a credential it never uses`).not.toContain(
+          "PLAYWRIGHTGEN_TOKEN",
+        );
+        continue;
+      }
+      expect(body, `${name} does not say which secret it needs`).toContain("PLAYWRIGHTGEN_TOKEN");
     }
   });
 });

@@ -40,6 +40,11 @@ const REPORTERS = [
   "examples/ci-proof/.github/workflows/playwrightgen-report.mjs",
 ];
 
+const RECORDERS = [
+  "templates/github-actions/playwrightgen-steps.mjs",
+  "examples/ci-proof/.github/workflows/playwrightgen-steps.mjs",
+];
+
 describe("the pipeline files a team commits", () => {
   it("does not fail a repository for having no tests yet", () => {
     for (const file of PIPELINES) {
@@ -50,6 +55,29 @@ describe("the pipeline files a team commits", () => {
         expect(invocation, `${file}: ${invocation}`).toContain("--pass-with-no-tests");
       }
     }
+  });
+
+/**
+   * The two copies must be the same file.
+   *
+   * The comment at the top of this file already said drift was the shape of
+   * the problem, and nothing checked for it: on 2026-11-07 the example's
+   * reporter was 180 lines against the template's 233, an older version
+   * entirely. That matters because the example is the repository that proves
+   * the real pipeline works -- so it was proving the behaviour of a reporter
+   * no customer would be given.
+   *
+   * Compared with line endings normalised, because one copy is checked out on
+   * Windows and the difference is not a difference.
+   */
+  it("keeps the example's copies identical to the ones customers download", () => {
+    const flatten = (file: string) => read(file).split("\r\n").join("\n");
+    expect(flatten(REPORTERS[1]), "the example's reporter has drifted from the template").toBe(
+      flatten(REPORTERS[0]),
+    );
+    expect(flatten(RECORDERS[1]), "the example's step recorder has drifted from the template").toBe(
+      flatten(RECORDERS[0]),
+    );
   });
 
   it("still decides the job's own result from the tests", () => {

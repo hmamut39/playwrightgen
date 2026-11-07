@@ -230,7 +230,7 @@ export function CiSetupPanel({
               </span>
               <div className="min-w-0 grid gap-2">
                 <span>
-                  Download both files and commit each one at the path shown. These
+                  Download these files and commit each one at the path shown. They
                   are the same files this deployment is tested against, so what you
                   run is what was verified here.
                 </span>
