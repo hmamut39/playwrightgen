@@ -28,6 +28,10 @@ function attempt(overrides: Partial<AttemptFact> = {}): AttemptFact {
     result: "FAILED",
     commitSha: SHA_A,
     executedAt: new Date(clock),
+    // The same conditions unless a case says otherwise, so a test about
+    // flakiness is about flakiness and not about a browser quietly differing.
+    environment: "STAGING",
+    browser: "CHROMIUM",
     ...overrides,
   };
 }
@@ -73,9 +77,55 @@ describe("classifyRuns", () => {
 
     expect(result?.signal).toBe("FLAKY");
     expect(result?.detail).toMatch(/not reproducible/i);
-    // It must not accuse the application: without revisions these records
-    // cannot say whether anything but the weather changed.
-    expect(result?.detail).toMatch(/whether the application did is not recorded/i);
+    // It must not accuse the application. Where nothing recorded differs
+    // between the two runs, that is said as what it is -- the difference was
+    // in something nobody wrote down -- which is stronger than the old
+    // "whether the application did is not recorded" and leaves a team with
+    // somewhere to look.
+    expect(result?.detail).toMatch(/nothing recorded differs/i);
+  });
+
+  /**
+   * Flaky is where this product used to stop. A team read "not reproducible",
+   * learned their result was worthless, and was then on their own -- while
+   * these same records often hold the reason.
+   */
+  it("says so when the two runs were not in the same browser", () => {
+    const facts = [
+      attempt({ result: "FAILED", browser: "FIREFOX" }),
+      attempt({ result: "PASSED", browser: "CHROMIUM", attemptNumber: 2 }),
+    ];
+
+    const result = classifyRuns(facts).get(RUN);
+
+    expect(result?.signal).toBe("FLAKY");
+    // Not unreproducible: reproducible under conditions nobody compared.
+    expect(result?.detail).toContain("not the same conditions");
+    expect(result?.detail).toContain("failed in Firefox and passed in Chromium");
+  });
+
+  it("says so when they were not against the same environment", () => {
+    const facts = [
+      attempt({ result: "FAILED", environment: "STAGING" }),
+      attempt({ result: "PASSED", environment: "PRODUCTION", attemptNumber: 2 }),
+    ];
+
+    expect(classifyRuns(facts).get(RUN)?.detail).toContain(
+      "failed against staging and passed against production",
+    );
+  });
+
+  it("names every difference it has, not just the first", () => {
+    const facts = [
+      attempt({ result: "FAILED", browser: "WEBKIT", environment: "LOCAL" }),
+      attempt({ result: "PASSED", browser: "CHROMIUM", environment: "PRODUCTION", attemptNumber: 2 }),
+    ];
+
+    const detail = classifyRuns(facts).get(RUN)?.detail ?? "";
+    // A team that fixes the browser and still sees it fail has learned
+    // nothing, if the environment also differed and nobody said.
+    expect(detail).toContain("WebKit");
+    expect(detail).toContain("a local machine");
   });
 
   it("does not call it stable when the version has ever failed", () => {

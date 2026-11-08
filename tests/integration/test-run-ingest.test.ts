@@ -342,6 +342,8 @@ describe("Playwright result ingestion from customer CI", () => {
         attemptNumber: true,
         result: true,
         commitSha: true,
+        environment: true,
+        browser: true,
         sourceRef: true,
         executedAt: true,
         testRun: { select: { testCaseId: true, testCaseVersionId: true } },
@@ -362,6 +364,8 @@ describe("Playwright result ingestion from customer CI", () => {
         result: a.result,
         commitSha: a.commitSha,
         executedAt: a.executedAt,
+        environment: a.environment,
+        browser: a.browser,
       })),
     );
 
@@ -405,6 +409,8 @@ describe("Playwright result ingestion from customer CI", () => {
         attemptNumber: true,
         result: true,
         commitSha: true,
+        environment: true,
+        browser: true,
         executedAt: true,
         testRun: { select: { testCaseId: true, testCaseVersionId: true } },
       },
@@ -419,6 +425,8 @@ describe("Playwright result ingestion from customer CI", () => {
         result: a.result,
         commitSha: a.commitSha,
         executedAt: a.executedAt,
+        environment: a.environment,
+        browser: a.browser,
       })),
     );
 

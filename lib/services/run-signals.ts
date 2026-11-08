@@ -42,6 +42,17 @@ export type AttemptFact = {
   result: "PASSED" | "FAILED" | "BLOCKED";
   commitSha: string | null;
   executedAt: Date;
+  /*
+   * Where it ran and in what.
+   *
+   * Carried because "not reproducible" is where this product used to stop,
+   * and a team reading it learns their result is worthless and is then on
+   * their own. Often something did differ between the two runs -- a test that
+   * failed in Firefox and passes in Chromium is not unreproducible, it is
+   * browser-specific, and that is a different afternoon's work.
+   */
+  environment: string;
+  browser: string;
 };
 
 export type RunSignalResult = {
@@ -132,7 +143,9 @@ export function classifyRuns(
       if (earlierFailure) {
         results.set(testRunId, {
           signal: "FLAKY",
-          detail: `The same approved version failed on ${earlierFailure.executedAt.toISOString().slice(0, 10)} and passes now, so the result is not reproducible. The test did not change between them; whether the application did is not recorded.`,
+          detail:
+            `The same approved version failed on ${earlierFailure.executedAt.toISOString().slice(0, 10)} and passes now, so the result is not reproducible. The test did not change between them.` +
+            whatDiffered(earlierFailure, latest),
         });
         continue;
       }
@@ -304,6 +317,49 @@ export const SIGNAL_ATTEMPT_CAP = 20_000;
  * Ordered newest-first so the cap keeps the most recent evidence, then reversed
  * because `classifyRuns` reasons about attempts in the order they happened.
  */
+const browserWord = (value: string) =>
+  ({ CHROMIUM: "Chromium", FIREFOX: "Firefox", WEBKIT: "WebKit", NONE: "no browser" })[value] ?? value.toLowerCase();
+
+const environmentWord = (value: string) =>
+  ({ LOCAL: "a local machine", DEVELOPMENT: "development", STAGING: "staging", PRODUCTION: "production", OTHER: "another environment" })[
+    value
+  ] ?? value.toLowerCase();
+
+/**
+ * What differed between the run that failed and the run that passed.
+ *
+ * "Not reproducible" is where this used to stop, and a team reading it learns
+ * their result is worthless and is then on their own. Often something did
+ * differ: a test that failed in Firefox and passes in Chromium is not
+ * unreproducible, it is browser-specific, and that is a different afternoon's
+ * work. A failure in Staging that passes in Production is about the
+ * environment, not the test.
+ *
+ * Only what the records hold, and never a cause. When nothing recorded
+ * differs, that is said too -- it is the strongest version of the original
+ * claim and it is worth more than silence, because it tells a team the
+ * difference is in something nobody wrote down.
+ */
+function whatDiffered(failed: AttemptFact, passed: AttemptFact): string {
+  const parts: string[] = [];
+  if (failed.browser !== passed.browser) {
+    parts.push(`it failed in ${browserWord(failed.browser)} and passed in ${browserWord(passed.browser)}`);
+  }
+  if (failed.environment !== passed.environment) {
+    parts.push(
+      `it failed against ${environmentWord(failed.environment)} and passed against ${environmentWord(passed.environment)}`,
+    );
+  }
+  if (failed.commitSha && passed.commitSha && failed.commitSha !== passed.commitSha) {
+    parts.push(`the revision changed, ${failed.commitSha.slice(0, 8)} to ${passed.commitSha.slice(0, 8)}`);
+  }
+  if (parts.length === 0) {
+    return " Nothing recorded differs between the two runs, so whatever changed was not written down.";
+  }
+  const sentence = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+  return ` They are not the same conditions: ${sentence}.`;
+}
+
 export async function loadAttemptFacts(
   prisma: PrismaClient,
   scope: { organizationId: string; projectId?: string; testCaseId?: string; now?: Date },
@@ -325,6 +381,8 @@ export async function loadAttemptFacts(
       result: true,
       commitSha: true,
       executedAt: true,
+      environment: true,
+      browser: true,
       testRun: { select: { testCaseId: true, testCaseVersionId: true } },
     },
     orderBy: { executedAt: "desc" },
@@ -341,6 +399,8 @@ export async function loadAttemptFacts(
       result: row.result,
       commitSha: row.commitSha,
       executedAt: row.executedAt,
+      environment: row.environment,
+      browser: row.browser,
     }))
     .reverse();
 }
