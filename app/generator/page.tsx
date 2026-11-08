@@ -950,7 +950,9 @@ export default defineConfig({
         <li>
           <span className="text-slate-400">2.</span> Point it at your {isApi ? "API" : "app"} in{" "}
           <code className="rounded-lg bg-white/10 px-1.5 py-0.5 font-mono text-xs text-cyan-200">playwright.config.ts</code>:
-          <pre className="mt-2 overflow-x-auto rounded-xl bg-black/40 p-3 font-mono text-xs leading-5 text-slate-200">{config}</pre>
+          <div className="mt-2">
+            <CodeBlock code={config} padding="0.75rem" />
+          </div>
         </li>
         <li>
           <span className="text-slate-400">3.</span> Run{" "}

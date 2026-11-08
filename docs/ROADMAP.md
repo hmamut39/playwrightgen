@@ -28,6 +28,28 @@ genuine `npm audit` failures, closed by the commit after each.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **Generated code was shown as flat white text** (2026-11-08): spotted by the
+  owner while watching "Cover a page" prove four tests on production -- the
+  suite it produces was rendered in one colour, so strings, keywords, comments
+  and locators all looked alike. A reviewer has to parse the structure by eye
+  before judging whether the test is any good, on the page whose whole purpose
+  is judging that. `components/workspace/code-block.tsx` already existed and
+  already said why in its comment; four surfaces simply never used it: the
+  proven suite on the coverage page, the imported draft's code, the
+  `playwright.config.ts` snippet on the generator, and the editor configs on
+  /mcp. The MCP page's three blocks now say which language each is, because
+  one of them is a shell line and highlighting it as JSON colours nothing.
+  Checked by loading each page and counting distinct colours in the block: 7
+  on the coverage page, 4 on /mcp, against 1 before.
+  Looking at that screenshot showed something worse beside it. The card read
+  "Passed - 8 checks" in its badge and "Passed on the live page: 8 steps."
+  one line below -- the same number, two different words, from one card. The
+  badge reads `PageCoverageItem.checks`, which on a row written before
+  assertions were counted holds every operation; the stored sentence had been
+  corrected and the badge had not. A row cannot tell which kind of number it
+  holds, so the badge no longer repeats it: the sentence beneath, which can be
+  worded correctly, keeps the count. Caused by that morning's own fix, and
+  found only by looking at the rendered page.
 - **A refused notice looked exactly like a sent one** (2026-11-08): setting
   `WAITLIST_NOTIFY_EMAIL` and sending a real feedback report through
   production returned 200 and logged `"status":"succeeded"` -- which said

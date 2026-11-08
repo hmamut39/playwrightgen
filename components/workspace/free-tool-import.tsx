@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useEffect, useSyncExternalStore } from "react";
 import { checksPhrase } from "@/lib/free-tools/preview-run/checks-phrase";
+import { CodeBlock } from "@/components/workspace/code-block";
 
 import {
   clearFreeToolHandoff,
@@ -179,7 +180,9 @@ function AttachedCode({ draft }: { draft: NonNullable<FreeToolHandoff["draft"]> 
       </p>
       <details className="mt-3">
         <summary className="cursor-pointer text-xs font-semibold text-cyan-800">Show the code</summary>
-        <pre className="mt-2 max-h-72 overflow-auto rounded-xl bg-slate-950 p-4 text-xs leading-5 text-slate-100">{draft.code}</pre>
+        <div className="mt-2">
+          <CodeBlock code={draft.code} maxHeight="18rem" padding="1rem" />
+        </div>
       </details>
     </div>
   );

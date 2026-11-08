@@ -7,6 +7,7 @@ import { PageCoverageDriver } from "@/components/workspace/page-coverage-driver"
 import { PendingButton } from "@/components/workspace/pending-button";
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
 import { humanLabel } from "@/lib/format/label";
+import { CodeBlock } from "@/components/workspace/code-block";
 import {
   approvePageCoverage,
   getPageCoverage,
@@ -243,9 +244,18 @@ export default async function PageCoverageDetail({
                 <li key={item.id} className={`rounded-2xl border bg-white p-4 shadow-sm ${item.status === "SKIPPED" ? "border-slate-100 opacity-60" : "border-slate-200"}`}>
                   <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
                     <p className="font-semibold text-slate-950">{item.title}</p>
+                    {/*
+                      Status only. The count used to be repeated here as
+                      "8 checks" while the sentence directly beneath it read
+                      "8 steps" -- because `checks` on a row written before
+                      assertions were counted apart holds every operation the
+                      run performed, and the stored sentence was corrected
+                      while this was not. The row cannot tell which kind of
+                      number it holds, so the one place that can word it
+                      correctly keeps it, and this says how it came out.
+                    */}
                     <span className={`w-fit shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${badge.tone}`}>
                       {badge.text}
-                      {item.status === "PASSED" && item.checks ? ` · ${item.checks} checks` : ""}
                     </span>
                   </div>
                   {/*
@@ -291,7 +301,9 @@ export default async function PageCoverageDetail({
               </div>
               <details>
                 <summary className="cursor-pointer px-5 py-3 text-xs font-semibold text-cyan-300">Show the code</summary>
-                <pre className="max-h-96 overflow-auto px-5 pb-5 text-xs leading-5 text-slate-100">{suite}</pre>
+                <div className="px-5 pb-5">
+                  <CodeBlock code={suite} maxHeight="24rem" />
+                </div>
               </details>
             </section>
           ) : null}

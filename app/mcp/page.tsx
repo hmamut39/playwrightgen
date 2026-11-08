@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { ResultActions } from "@/components/free-tools/result-actions";
 import { SHARE_IMAGE, siteUrl } from "@/lib/site";
+import { CodeBlock } from "@/components/workspace/code-block";
 
 const TITLE = "Playwright MCP server for Copilot, Cursor and Claude Code";
 const DESCRIPTION =
@@ -83,6 +84,7 @@ export default function McpPage() {
     {
       editor: "VS Code (Copilot agent mode)",
       file: ".vscode/mcp.json",
+      language: "json",
       code: JSON.stringify(
         {
           inputs: [{ type: "promptString", id: "playwrightgen-token", description: "PlaywrightGen editor token", password: true }],
@@ -95,11 +97,15 @@ export default function McpPage() {
     {
       editor: "Cursor",
       file: "~/.cursor/mcp.json",
+      language: "json",
       code: JSON.stringify({ mcpServers: { playwrightgen: { url, headers: { Authorization: "Bearer YOUR_TOKEN" } } } }, null, 2),
     },
     {
       editor: "Claude Code",
       file: "Terminal",
+      // A shell line, not JSON: highlighting it as JSON colours nothing and
+      // tells the reader the wrong thing about what they are copying.
+      language: "bash",
       code: `claude mcp add --transport http playwrightgen ${url} --header "Authorization: Bearer YOUR_TOKEN"`,
     },
   ];
@@ -222,7 +228,9 @@ export default function McpPage() {
                     showDownload={false}
                   />
                 </div>
-                <pre className="overflow-x-auto p-4 text-xs leading-5 text-slate-100">{config.code}</pre>
+                <div className="p-4 pt-0">
+                  <CodeBlock code={config.code} language={config.language} padding="1rem" />
+                </div>
               </div>
             ))}
           </div>
