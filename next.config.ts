@@ -17,6 +17,24 @@ const nextConfig: NextConfig = {
   // which is the worst place to find out.
   outputFileTracingIncludes: {
     "/ci/[...file]": ["./templates/**/*"],
+    /**
+     * playwright-core reads this at import, by a path the build cannot see.
+     *
+     * Every route that opens a browser -- the live runner, Quick Generate,
+     * draft repair, covering a page, and the MCP server -- failed on the
+     * deployment with `Cannot find module
+     * node_modules/playwright-core/browsers.json`, a 500 with an empty body
+     * before the handler ran. It broke with the upgrade to Playwright 1.65 on
+     * 2026-11-07, which moved the browser registry into `coreBundle.js` and
+     * loads the file through a computed path; 1.58 did not. Tracing pulls in
+     * 90 of the package's files and missed the one kilobyte that decides
+     * whether any of them load.
+     *
+     * It could only fail on a deployment, which is why nothing caught it: the
+     * file is on disk locally, so `npm run dev`, every test and the
+     * production build all pass.
+     */
+    "**": ["./node_modules/playwright-core/browsers.json"],
   },
   /**
    * What the deployed functions do not need to carry.

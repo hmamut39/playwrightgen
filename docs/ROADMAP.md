@@ -28,6 +28,30 @@ genuine `npm audit` failures, closed by the commit after each.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **Everything that opens a browser was dead on production for a day**
+  (2026-11-08): `POST /api/preview-run` on playwrightgen.com answered 500 with
+  an empty body in 0.3s -- before the handler, so no request id and nothing in
+  the response to go on. The runtime log named it: `Cannot find module
+  node_modules/playwright-core/browsers.json`. Playwright 1.65 (upgraded
+  2026-11-07, `f9094f0`) moved the browser registry into `coreBundle.js` and
+  loads that file through a computed path, which Next's file tracing cannot
+  see, so the deployment carried 90 of the package's files and not the one
+  kilobyte that decides whether any of them load. Down with it: Quick Generate,
+  draft repair, covering a page, and the MCP server -- the home page's own
+  "run it on your real page", and the thing an assistant connects to.
+  Found by running a real draft through the production API to verify an
+  unrelated fix, which is the only thing that could have found it: the file is
+  on disk here, so `next dev`, the full test suite and the production build all
+  pass. CI was green the whole time.
+  Fixed with an `outputFileTracingIncludes` entry, verified in the build's own
+  trace files before deploying: 85 of 86 traced functions load playwright-core
+  and all 85 now carry it. `scripts/check-deployment-trace.mjs` reads that
+  trace and fails if a function that loads a package is missing the file the
+  package needs, and CI runs it after the build -- checked by deleting the
+  entry from a trace and watching it fail. It is the first check in the repo
+  that looks at what the deployment will contain rather than at the source.
+  The lesson is narrower than "test production": a dependency upgrade can
+  change what a package reads at runtime, and nothing local can tell.
 - **The product counted actions and called them checks** (2026-11-08): the
   preview runner reported one number -- every operation that passed -- and the
   product showed it as "checks". A `goto`, a `fill` and a `press` were each a

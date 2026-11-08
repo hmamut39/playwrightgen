@@ -97,3 +97,8 @@ jobs:
 
       - name: Build production application
         run: npm run build
+
+      # The build passes with files missing from the deployment, because they
+      # are still on disk here. This reads what the build decided to ship.
+      - name: Check each function carries what it loads
+        run: node scripts/check-deployment-trace.mjs
