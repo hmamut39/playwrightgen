@@ -22,7 +22,7 @@ export const FREE_TOOL_DRAFT_LIMIT = 20;
 const idSchema = z.string().uuid();
 
 /** The outcome of the last live run, with its signed receipt so evidence survives a reload. */
-export type StoredRun = Pick<RunReceipt, "verdict" | "passed" | "failed" | "skipped" | "notReached" | "ranAt" | "pageUrl"> & {
+export type StoredRun = Pick<RunReceipt, "verdict" | "passed" | "checks" | "failed" | "skipped" | "notReached" | "ranAt" | "pageUrl"> & {
   receipt: string | null;
 };
 
@@ -102,6 +102,9 @@ export function readStoredRun(value: Prisma.JsonValue | null): StoredRun | null 
   return {
     verdict: run.verdict,
     passed: run.passed,
+    // Absent on runs recorded before assertions were counted apart from the
+    // actions, which the badge reads as "steps" rather than inventing a number.
+    ...(typeof run.checks === "number" ? { checks: run.checks } : {}),
     failed: typeof run.failed === "number" ? run.failed : 0,
     skipped: typeof run.skipped === "number" ? run.skipped : 0,
     notReached: typeof run.notReached === "number" ? run.notReached : 0,
@@ -120,7 +123,17 @@ export async function listFreeToolDrafts(clerkUserId: string, prisma?: PrismaCli
   });
   return rows.map(({ lastRun, ...row }) => {
     const run = readStoredRun(lastRun);
-    return { ...row, lastRun: run ? { verdict: run.verdict, passed: run.passed, ranAt: run.ranAt } : null };
+    return {
+      ...row,
+      lastRun: run
+        ? {
+            verdict: run.verdict,
+            passed: run.passed,
+            ...(typeof run.checks === "number" ? { checks: run.checks } : {}),
+            ranAt: run.ranAt,
+          }
+        : null,
+    };
   });
 }
 

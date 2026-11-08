@@ -28,6 +28,35 @@ genuine `npm audit` failures, closed by the commit after each.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **The product counted actions and called them checks** (2026-11-08): the
+  preview runner reported one number -- every operation that passed -- and the
+  product showed it as "checks". A `goto`, a `fill` and a `press` were each a
+  check. Measured against real rows in the dev database: a version whose code
+  had 3 assertions said "7 checks", one with 4 said "7", one with 5 said "8".
+  The word sat under "proven on your real page", which is the product's most
+  load-bearing claim, and the same number went to an assistant through the MCP
+  server, into the signed receipt that travels with an imported test, into the
+  daily live-check summary and onto the badge a reviewer reads above an Approve
+  button. A test with no assertions at all could say "6 checks passed".
+  The runner now flags each operation as an assertion or not and counts them
+  separately, so `checks` means what a tester means by it. Verified end to end
+  through `POST /api/preview-run` with code whose assertions can be counted by
+  hand: 3 actions and 2 assertions returned `passed: 5, checks: 2`, and the
+  signed receipt carried both. Yesterday that run would have said 5 checks.
+  Records written before the count existed keep only the operation total, so
+  every label says "7 steps" rather than relabelling a number nobody measured.
+  Two unit tests and an integration test that drives a real browser pin it: one
+  of them asserts that a test which only clicks through a page reports zero
+  checks, because that is the case the old number could never express.
+  Some of those claims were not computed at page load but written into prose
+  and stored -- on a version's summary and a page-coverage item's detail --
+  where they are still shown as current fact. 36 such records in the dev
+  database were corrected by `scripts/fix-frozen-check-wording.mjs`, which
+  changes only the word and leaves the number. **The same script has not been
+  run on production**; it needs the owner's go-ahead, and the count there is
+  whatever the owner's own runs have left behind.
+  CI now installs Chromium before the test run rather than after, because the
+  runner's own counting cannot be checked without a real browser.
 - **The audit trail filed events under the wrong day** (2026-11-07): the
   Activity page groups events by their UTC date, then built midnight UTC from
   that date string and formatted it in the reader's own zone. Anywhere west of

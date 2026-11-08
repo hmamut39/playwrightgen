@@ -21,6 +21,7 @@ const receipt = (over: Partial<ImportedRunEvidence>): ImportedRunEvidence => ({
   pageUrl: "https://demo.playwright.dev/todomvc/",
   verdict: "partial",
   passed: 7,
+  checks: 3,
   failed: 0,
   skipped: 1,
   notReached: 0,
@@ -45,8 +46,18 @@ describe("the badge on imported code", () => {
 
   it("does not put a 'not run' count on a run that finished", () => {
     const label = evidenceLabel(receipt({ verdict: "passed", skipped: 0 }), "page-coverage");
-    expect(label.text).toBe("Passed on the live page · 7 checks");
+    // Three checks out of seven operations. This badge said "7 checks" until
+    // 2026-11-08: it was showing the number of things the test did, under a
+    // word that means the number of things it proved.
+    expect(label.text).toBe("Passed on the live page · 3 checks");
     expect(label.text).not.toContain("not run");
+  });
+
+  it("says steps, not checks, for a run recorded before assertions were counted", () => {
+    // Receipts issued earlier carry only the operation total. The badge has to
+    // report what was kept rather than relabel it.
+    const old = { ...receipt({ verdict: "passed", skipped: 0 }), checks: undefined };
+    expect(evidenceLabel(old, "page-coverage").text).toBe("Passed on the live page · 7 steps");
   });
 
   it("still says plainly when the last run failed", () => {

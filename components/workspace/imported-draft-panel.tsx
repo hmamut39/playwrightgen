@@ -4,6 +4,7 @@ import { CodeBlock } from "@/components/workspace/code-block";
 import { LocalTime } from "@/components/workspace/local-time";
 import { PendingButton } from "@/components/workspace/pending-button";
 import { importedDraftSourceLabel, type ImportedRunEvidence } from "@/lib/services/imported-drafts";
+import { checksPhrase } from "@/lib/free-tools/preview-run/checks-phrase";
 
 type ImportedDraft = {
   source: string;
@@ -23,7 +24,7 @@ type ImportedDraft = {
 export function evidenceLabel(evidence: ImportedRunEvidence | null, source: string) {
   if (!evidence && source === "editor") return { text: "Not run by PlaywrightGen yet", tone: "bg-white text-slate-600 ring-1 ring-slate-200" };
   if (!evidence) return { text: "Not run on the live page before import", tone: "bg-white text-slate-600 ring-1 ring-slate-200" };
-  if (evidence.verdict === "passed") return { text: `Passed on the live page · ${evidence.passed} checks`, tone: "bg-emerald-700 text-white" };
+  if (evidence.verdict === "passed") return { text: `Passed on the live page · ${checksPhrase(evidence)}`, tone: "bg-emerald-700 text-white" };
   if (evidence.verdict === "partial") {
     // The count of what did not run belongs in the label, not only in the
     // word "partly". A reviewer deciding whether to approve read "Partly run

@@ -21,6 +21,7 @@ import {
   verdictFromCounts,
   type ProveRound,
 } from "@/lib/free-tools/prove-loop";
+import { checksPhrase } from "@/lib/free-tools/preview-run/checks-phrase";
 import {
   appendTestAccount,
   EMPTY_TEST_ACCOUNT,
@@ -352,8 +353,14 @@ export default function QuickGeneratePage() {
         setLastRun({ code: outcome.code, receipt: outcome.receipt, verdict: outcome.verdict ?? "failed", passed: 0 });
       }
       if (outcome.verdict) {
-        const passedChecks = (outcome.lastRun as { result?: RunResultPayload } | null)?.result?.counts.passed ?? 0;
-        setLastRun({ code: outcome.code as string, receipt: outcome.receipt, verdict: outcome.verdict, passed: passedChecks });
+        const counts = (outcome.lastRun as { result?: RunResultPayload } | null)?.result?.counts;
+        setLastRun({
+          code: outcome.code as string,
+          receipt: outcome.receipt,
+          verdict: outcome.verdict,
+          passed: counts?.passed ?? 0,
+          ...(typeof counts?.checks === "number" ? { checks: counts.checks } : {}),
+        });
       }
       window.requestAnimationFrame(() => document.getElementById("quick-generate-result")?.scrollIntoView({ behavior: "smooth", block: "start" }));
     } catch {
@@ -389,7 +396,13 @@ export default function QuickGeneratePage() {
     setDraftId(draft.id);
     setLastRun(
       draft.lastRun
-        ? { code: draft.code, receipt: draft.lastRun.receipt, verdict: draft.lastRun.verdict, passed: draft.lastRun.passed }
+        ? {
+            code: draft.code,
+            receipt: draft.lastRun.receipt,
+            verdict: draft.lastRun.verdict,
+            passed: draft.lastRun.passed,
+            ...(typeof draft.lastRun.checks === "number" ? { checks: draft.lastRun.checks } : {}),
+          }
         : null,
     );
     window.requestAnimationFrame(() => document.getElementById("quick-generate-result")?.scrollIntoView({ behavior: "smooth", block: "start" }));
@@ -739,7 +752,7 @@ export default function QuickGeneratePage() {
                     */}
                   <p className="mt-1 text-xs text-slate-400">
                     {provenRun?.verdict === "passed"
-                      ? `Ran on the live page · ${provenRun.passed} check${provenRun.passed === 1 ? "" : "s"} passed · Review before use`
+                      ? `Ran on the live page · ${checksPhrase(provenRun)} passed · Review before use`
                       : provenRun?.verdict === "partial"
                         ? // Nothing failed; some steps could not run here. Calling
                           // that "did not pass" is the same kind of lie as calling
@@ -785,7 +798,7 @@ export default function QuickGeneratePage() {
             <div className="rounded-[2rem] border border-cyan-200 bg-cyan-50 p-6 sm:p-8">
               <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
                 {provenRun?.verdict === "passed" ? (
-                  <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-800">Passed on the live page · {provenRun.passed} checks</p><h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em] text-slate-950">Send this passing test to a project</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">It becomes a Test Case with this code attached{provenRun.receipt ? ", and the passing run goes with it as signed evidence" : ""}. After review and approval, the code becomes its first automation version &mdash; no second generation.</p></div>
+                  <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-800">Passed on the live page · {checksPhrase(provenRun)}</p><h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em] text-slate-950">Send this passing test to a project</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">It becomes a Test Case with this code attached{provenRun.receipt ? ", and the passing run goes with it as signed evidence" : ""}. After review and approval, the code becomes its first automation version &mdash; no second generation.</p></div>
                 ) : (
                   <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-800">Need a trusted artifact?</p><h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em] text-slate-950">Continue through Test Case review in Workspace</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">The plan becomes an AI-suggested Test Case draft and the code goes with it. Review and approve the Test Case, then turn the code into a versioned automation artifact.{livePage?.status === "read" && mode !== "API" ? " Run it on the live page first to bring the passing result with it." : ""}</p></div>
                 )}

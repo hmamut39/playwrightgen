@@ -29,14 +29,14 @@ export type ProveRound =
   | { kind: "generating" }
   | { kind: "generated"; title: string }
   | { kind: "running"; attempt: number }
-  | { kind: "ran"; attempt: number; verdict: RunVerdict; passed: number; failed: number; skipped: number; failingStep?: string }
+  | { kind: "ran"; attempt: number; verdict: RunVerdict; passed: number; checks?: number; failed: number; skipped: number; failingStep?: string }
   | { kind: "fixing"; attempt: number; failingStep: string }
   | { kind: "fixed"; attempt: number; explanation: string }
   | { kind: "done"; reason: "passed" | "partial" | "out_of_fixes" | "not_fixable" | "limit" | "error"; message?: string };
 
 export type ProveGenerateResult = { ok: true; code: string; title: string; payload: unknown } | { ok: false; limit: boolean; message: string };
 export type ProveRunResult =
-  | { ok: true; verdict: RunVerdict; passed: number; failed: number; skipped: number; receipt: string | null; failure: ProveFailure | null; payload: unknown }
+  | { ok: true; verdict: RunVerdict; passed: number; checks?: number; failed: number; skipped: number; receipt: string | null; failure: ProveFailure | null; payload: unknown }
   | { ok: false; limit: boolean; message: string };
 export type ProveFixResult = { ok: true; code: string; explanation: string; payload: unknown } | { ok: false; limit: boolean; message: string };
 
@@ -197,6 +197,7 @@ export async function proveDraftOnLivePage(
       attempt,
       verdict: outcome.verdict,
       passed: outcome.passed,
+      ...(typeof outcome.checks === "number" ? { checks: outcome.checks } : {}),
       failed: outcome.failed,
       skipped: outcome.skipped,
       ...(outcome.failure ? { failingStep: outcome.failure.step } : {}),

@@ -19,6 +19,7 @@ describe("the live run kept with a generated version", () => {
   const run = {
     verdict: "partial",
     passed: 7,
+    checks: 3,
     failed: 0,
     notRun: 2,
     notRunLines: [
@@ -62,7 +63,20 @@ describe("the live run kept with a generated version", () => {
     const read = readAutomationLiveRun(run);
     if (!read) throw new Error("expected a run");
     expect(describeLiveRun(read)).toBe(
-      "Ran on https://shop.example.com/cart: 7 checks passed after 1 automatic fix, 2 steps could not run there.",
+      "Ran on https://shop.example.com/cart: 3 checks passed after 1 automatic fix, 2 steps could not run there.",
     );
+  });
+
+  it("does not call an older record's operation count a check count", () => {
+    // `checks` was added on 2026-11-08. Before it, the only number kept was
+    // every operation the run performed -- goto, fill and press included --
+    // and this sentence called all of them checks. A version recorded then
+    // cannot be told how much it proved, so it is not told.
+    const { checks, ...older } = run;
+    expect(checks).toBe(3);
+    const read = readAutomationLiveRun(older);
+    if (!read) throw new Error("expected a run");
+    expect(read.checks).toBeUndefined();
+    expect(describeLiveRun(read)).toContain("7 steps passed");
   });
 });

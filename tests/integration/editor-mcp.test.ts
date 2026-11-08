@@ -517,13 +517,14 @@ test('customer applies a discount code', async ({ page }) => {
       if (!secret) throw new Error("RUNNER_INGEST_SECRET is needed for this test");
       const passing = {
         tests: [{ name: "customer applies a discount code", status: "passed" as const, steps: [] }],
-        counts: { passed: 3, failed: 0, skipped: 0, notReached: 0 },
+        counts: { passed: 3, checks: 1, checksFailed: 0, failed: 0, skipped: 0, notReached: 0 },
         durationMs: 2_000,
         timedOut: false,
       };
       const receipt = signRunReceipt({ code: draftCode, pageUrl: "https://shop.example.com/", result: passing }, secret);
       const proven = await call(session, "submit_playwright_code", { testCaseId: id, code: draftCode, runReceipt: receipt });
-      expect(proven.result.structuredContent?.evidence).toEqual({ verdict: "passed", passed: 3 });
+      // checks, not passed: three operations ran and one of them was the assertion.
+      expect(proven.result.structuredContent?.evidence).toEqual({ verdict: "passed", passed: 3, checks: 1 });
       expect((await prisma.testCaseImportedDraft.findFirstOrThrow({ where: { testCaseId: id } })).runEvidence).toMatchObject({ verdict: "passed" });
       const mismatched = await call(session, "submit_playwright_code", { testCaseId: id, code: draftCode.replace("SAVE10", "SAVE30"), runReceipt: receipt });
       expect(mismatched.result.structuredContent?.evidence).toBeNull();

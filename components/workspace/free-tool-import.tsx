@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useEffect, useSyncExternalStore } from "react";
+import { checksPhrase } from "@/lib/free-tools/preview-run/checks-phrase";
 
 import {
   clearFreeToolHandoff,
@@ -162,9 +163,9 @@ function AttachedCode({ draft }: { draft: NonNullable<FreeToolHandoff["draft"]> 
           }`}
         >
           {run?.verdict === "passed"
-            ? `Passed on the live page · ${run.passed} checks`
+            ? `Passed on the live page · ${checksPhrase(run)}`
             : run?.verdict === "partial"
-              ? `Partly run on the live page · ${run.passed} checks passed`
+              ? `Partly run on the live page · ${checksPhrase(run)} passed`
               : run?.verdict === "failed"
                 ? "Last live run failed"
                 : "Not run on the live page"}

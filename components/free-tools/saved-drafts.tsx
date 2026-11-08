@@ -2,13 +2,14 @@
 
 import { useAuth } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
+import { checksPhrase } from "@/lib/free-tools/preview-run/checks-phrase";
 
 type DraftSummary = {
   id: string;
   source: string;
   title: string;
   pageUrl: string | null;
-  lastRun: { verdict: "passed" | "partial" | "failed"; passed: number; ranAt: string } | null;
+  lastRun: { verdict: "passed" | "partial" | "failed"; passed: number; checks?: number; ranAt: string } | null;
   updatedAt: string;
 };
 
@@ -21,6 +22,7 @@ export type SavedDraft = {
   lastRun: {
     verdict: "passed" | "partial" | "failed";
     passed: number;
+    checks?: number;
     ranAt: string;
     pageUrl: string;
     receipt: string | null;
@@ -143,7 +145,7 @@ export function SavedDrafts({
                 {draft.lastRun ? (
                   <span className={`rounded-full px-2 py-0.5 font-semibold ring-1 ${RUN_BADGE[draft.lastRun.verdict]}`}>
                     {draft.lastRun.verdict === "passed"
-                      ? `Passed · ${draft.lastRun.passed} checks`
+                      ? `Passed · ${checksPhrase(draft.lastRun)}`
                       : draft.lastRun.verdict === "partial"
                         ? `Partly run · ${draft.lastRun.passed} passed`
                         : "Failed on the live page"}

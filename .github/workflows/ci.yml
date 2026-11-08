@@ -83,11 +83,14 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Run unit and integration tests
-        run: npm run test:run
-
+      # Before the test run, not after: some tests drive a real browser,
+      # because the preview runner's own counting cannot be checked without
+      # one. The download is cached between runs.
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
+
+      - name: Run unit and integration tests
+        run: npm run test:run
 
       - name: Run public browser checks
         run: npm run test:authorization

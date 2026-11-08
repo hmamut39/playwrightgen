@@ -29,6 +29,14 @@ export const runReceiptSchema = z.object({
   pageUrl: z.string().max(2_000),
   verdict: z.enum(["passed", "partial", "failed"]),
   passed: z.number().int().min(0),
+  /**
+   * Assertions that ran and held, when the run counted them.
+   *
+   * Optional because receipts issued before this existed are still valid and
+   * must keep verifying; a reader that finds it absent knows the run's own
+   * total counted actions too, and says so instead of guessing.
+   */
+  checks: z.number().int().min(0).optional(),
   failed: z.number().int().min(0),
   skipped: z.number().int().min(0),
   notReached: z.number().int().min(0),
@@ -78,6 +86,7 @@ export function signRunReceipt(
     pageUrl: input.pageUrl,
     verdict: runVerdict(input.result),
     passed: input.result.counts.passed,
+    checks: input.result.counts.checks,
     failed: input.result.counts.failed,
     skipped: input.result.counts.skipped,
     notReached: input.result.counts.notReached,

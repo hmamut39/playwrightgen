@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { LimitReached, readFreeToolLimit, type FreeToolLimit } from "@/components/free-tools/limit-reached";
+import { checksPhrase } from "@/lib/free-tools/preview-run/checks-phrase";
 
 export type OperationResult = { source: string; status: "passed" | "failed" | "skipped" | "not_reached"; detail?: string };
 export type StepResult = { name: string; status: "passed" | "failed" | "partial" | "not_reached"; operations: OperationResult[] };
@@ -19,7 +20,10 @@ export type CompletedRun = {
   code: string;
   receipt: string | null;
   verdict: "passed" | "partial" | "failed";
+  /** Every operation that passed, assertions and the actions that led to them. */
   passed: number;
+  /** Assertions that held. This is the number a tester would call checks. */
+  checks?: number;
 };
 
 export type FixedDraft = {
@@ -30,7 +34,7 @@ export type FixedDraft = {
 };
 export type RunResult = {
   tests: TestResult[];
-  counts: { passed: number; failed: number; skipped: number; notReached: number };
+  counts: { passed: number; checks?: number; failed: number; skipped: number; notReached: number };
   durationMs: number;
   timedOut: boolean;
 };
@@ -120,6 +124,9 @@ export function PreviewRunPanel({
         receipt: typeof data.receipt === "string" ? data.receipt : null,
         verdict: counts.failed > 0 ? "failed" : counts.skipped > 0 || counts.notReached > 0 || data.result.timedOut ? "partial" : "passed",
         passed: counts.passed,
+        // Without this the banner above would fall back to "7 steps passed":
+        // true, but vaguer than the run knows.
+        ...(typeof counts.checks === "number" ? { checks: counts.checks } : {}),
       });
     } catch {
       setState({ status: "error", message: "The live run could not reach the service." });
@@ -285,8 +292,8 @@ export function PreviewRunPanel({
           ) : (
             <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-4 font-semibold text-emerald-200">
               {shown.result.counts.skipped > 0
-                ? `Every step that could run passed on the live page (${shown.result.counts.passed} checks).`
-                : `Passed on the live page: ${shown.result.counts.passed} checks in ${Math.round(shown.result.durationMs / 1000)}s.`}
+                ? `Every step that could run passed on the live page (${checksPhrase(shown.result.counts)}).`
+                : `Passed on the live page: ${checksPhrase(shown.result.counts)} in ${Math.round(shown.result.durationMs / 1000)}s.`}
             </div>
           )}
 

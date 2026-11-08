@@ -31,7 +31,7 @@ test('adds a todo', async ({ page }) => {
 
 const passingRun = {
   tests: [{ name: "adds a todo", status: "passed" as const, steps: [] }],
-  counts: { passed: 4, failed: 0, skipped: 0, notReached: 0 },
+  counts: { passed: 4, checks: 2, checksFailed: 0, failed: 0, skipped: 0, notReached: 0 },
   durationMs: 3_200,
   timedOut: false,
 };
@@ -131,7 +131,9 @@ describe("code imported with a Test Case from Quick Generate", () => {
     expect(version).toMatchObject({ generationStatus: "SUCCEEDED", model: "imported-draft", promptVersion: "free-tool-import-v1" });
     expect(version.validationStatus).not.toBe("BLOCKED");
     expect(version.code).toContain("getByTestId('todo-title')");
-    expect(version.summary).toContain("passed on the live page before import: 4 checks");
+    // Two checks, not the four operations the run performed. The summary read
+    // "4 checks" until 2026-11-08.
+    expect(version.summary).toContain("passed on the live page before import: 2 checks");
 
     const used = await getImportedDraft(input, space.deps);
     expect(used?.usedInAutomationVersionId).toBe(version.id);

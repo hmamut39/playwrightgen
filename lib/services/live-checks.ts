@@ -1,4 +1,5 @@
 import "server-only";
+import { checksPhrase } from "@/lib/free-tools/preview-run/checks-phrase";
 
 import { clerkClient } from "@clerk/nextjs/server";
 import { z } from "zod";
@@ -640,7 +641,7 @@ async function recordAttempt(
         browser: "CHROMIUM",
         baseUrl: input.liveUrl,
         durationMs: input.durationMs,
-        summary: `Daily live check on ${input.liveUrl}: ${input.counts.passed} checks passed${input.counts.failed ? `, ${input.counts.failed} failed` : ""}${input.counts.skipped + input.counts.notReached ? `, ${input.counts.skipped + input.counts.notReached} not run` : ""}.${input.note ? ` ${input.note}` : ""}`,
+        summary: `Daily live check on ${input.liveUrl}: ${checksPhrase(input.counts)} passed${input.counts.failed ? `, ${input.counts.failed} failed` : ""}${input.counts.skipped + input.counts.notReached ? `, ${input.counts.skipped + input.counts.notReached} not run` : ""}.${input.note ? ` ${input.note}` : ""}`,
         sourceRef: "live-check",
         failureDetails: input.failureDetails,
         stepResults: input.steps.map((step, stepIndex) => ({

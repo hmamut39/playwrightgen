@@ -46,8 +46,8 @@ test("signs in", async ({ page }) => {
 });`;
 
 const run = (counts: Partial<PreviewRunResult["counts"]>): PreviewRunResult => ({
-  tests: [{ name: "t", status: counts.failed ? "failed" : "passed", steps: [{ name: "Test body", status: counts.failed ? "failed" : "passed", operations: [{ source: "await page.goto('/')", status: counts.failed ? "failed" : "passed", detail: counts.failed ? "Timeout 5000ms exceeded." : undefined }] }] }],
-  counts: { passed: 3, failed: 0, skipped: 0, notReached: 0, ...counts },
+  tests: [{ name: "t", status: counts.failed ? "failed" : "passed", steps: [{ name: "Test body", status: counts.failed ? "failed" : "passed", operations: [{ source: "await page.goto('/')", status: counts.failed ? "failed" : "passed", check: false, detail: counts.failed ? "Timeout 5000ms exceeded." : undefined }] }] }],
+  counts: { passed: 3, checks: 1, checksFailed: 0, failed: 0, skipped: 0, notReached: 0, ...counts },
   durationMs: 1_000,
   timedOut: false,
 });

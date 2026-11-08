@@ -22,6 +22,17 @@ export type OperationResult = {
   source: string;
   status: "passed" | "failed" | "skipped" | "not_reached";
   detail?: string;
+  /**
+   * Whether this operation was an assertion.
+   *
+   * Kept because the count beside it is shown to people as "checks", and it
+   * counted every operation: a goto, a fill and a press were each a check. A
+   * generated test with three assertions reported "7 checks passed" under the
+   * words "proven on your real page". In a product about evidence, a check is
+   * a thing the test asserted, and anything else inflates the strongest claim
+   * it makes.
+   */
+  check: boolean;
 };
 
 export type StepResult = {
@@ -42,7 +53,17 @@ export type TestResult = {
 
 export type PreviewRunResult = {
   tests: TestResult[];
-  counts: { passed: number; failed: number; skipped: number; notReached: number };
+  counts: {
+    /** Operations that ran without error, assertions and actions alike. */
+    passed: number;
+    failed: number;
+    skipped: number;
+    notReached: number;
+    /** Assertions that ran and held. This is what "checks" means. */
+    checks: number;
+    /** Assertions that ran and did not hold. */
+    checksFailed: number;
+  };
   durationMs: number;
   timedOut: boolean;
 };
@@ -342,7 +363,11 @@ export async function executePreviewRun(
       name: step.name,
       entries: step.operations.map((operation) => ({
         operation,
-        result: { source: operation.source, status: "not_reached" } as OperationResult,
+        result: {
+          source: operation.source,
+          status: "not_reached",
+          check: operation.op === "expect",
+        } as OperationResult,
       })),
     }));
 
@@ -420,6 +445,8 @@ export async function executePreviewRun(
       failed: all.filter((result) => result.status === "failed").length,
       skipped: all.filter((result) => result.status === "skipped").length,
       notReached: all.filter((result) => result.status === "not_reached").length,
+      checks: all.filter((result) => result.check && result.status === "passed").length,
+      checksFailed: all.filter((result) => result.check && result.status === "failed").length,
     },
     durationMs: Date.now() - startedAt,
     timedOut,

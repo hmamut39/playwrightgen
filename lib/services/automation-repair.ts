@@ -301,8 +301,10 @@ export async function proposeAutomationRepair(
     { maxFixes: 2 },
   );
 
-  const lastRun = outcome.lastRun as { counts?: { passed: number } } | null;
-  const checks = lastRun?.counts?.passed ?? 0;
+  const lastRun = outcome.lastRun as { counts?: { passed: number; checks?: number } } | null;
+  // Assertions, not operations: a goto and a fill are not checks, and this
+  // number is what the message beside the Test Case claims was proved.
+  const checks = lastRun?.counts?.checks ?? 0;
   if (outcome.verdict !== "passed" || !outcome.code) {
     return {
       proved: false,

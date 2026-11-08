@@ -574,9 +574,11 @@ export async function proveNextPageCoverageItem(
     code = outcome.code;
     receipt = outcome.verdict === "failed" ? null : outcome.receipt;
     const lastRun = outcome.lastRun as
-      | ({ counts?: { passed: number } } & Parameters<typeof linesNotRun>[0])
+      | ({ counts?: { passed: number; checks?: number } } & Parameters<typeof linesNotRun>[0])
       | null;
-    const checks = lastRun?.counts?.passed ?? 0;
+    // The assertions the run proved. Rows written before this counted every
+    // operation, so an old row's number is larger than the test's checks.
+    const checks = lastRun?.counts?.checks ?? 0;
     // Which lines the preview refused, not only that it refused some. The
     // reasons differ in the way the reader's decision turns on: a step that
     // needs a credential will run in their pipeline, a step the preview

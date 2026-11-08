@@ -29,6 +29,7 @@ import {
 import { readTestCaseList } from "@/lib/services/test-cases";
 import { checkSelfApproval, describeReviewTrail } from "@/lib/services/approval-policy";
 import { importedDraftSourceLabel, readRunEvidence } from "@/lib/services/imported-drafts";
+import { checksPhrase } from "@/lib/free-tools/preview-run/checks-phrase";
 import { planPreviewRun } from "@/lib/free-tools/preview-run/plan";
 import { repairDraft } from "@/lib/ai/draft-repair";
 import { reserveWaitingOutBurst } from "@/lib/operations/reserve-waiting";
@@ -528,7 +529,13 @@ async function beginAutomationGeneration(
 
 export type AutomationLiveRun = {
   verdict: "passed" | "partial" | "failed";
+  /** Every operation that ran and passed, assertions and actions together. */
   passed: number;
+  /**
+   * Assertions that ran and held, absent on versions recorded before these
+   * were counted apart from the actions that set up for them.
+   */
+  checks?: number;
   failed: number;
   notRun: number;
   /**
@@ -556,6 +563,7 @@ export function readAutomationLiveRun(value: Prisma.JsonValue | null): Automatio
   return {
     verdict: run.verdict,
     passed: run.passed,
+    ...(typeof run.checks === "number" ? { checks: run.checks } : {}),
     failed: typeof run.failed === "number" ? run.failed : 0,
     notRun: typeof run.notRun === "number" ? run.notRun : 0,
     // Absent on every version recorded before this was kept, which reads as
@@ -599,6 +607,7 @@ async function proveGeneratedCode(
             ok: true as const,
             verdict: runVerdict(result),
             passed: result.counts.passed,
+            checks: result.counts.checks,
             failed: result.counts.failed,
             skipped: result.counts.skipped + result.counts.notReached,
             receipt,
@@ -639,9 +648,9 @@ async function proveGeneratedCode(
     );
     if (!outcome.verdict || !outcome.code) return null;
     const lastRun = outcome.lastRun as
-      | ({ counts?: { passed: number; failed: number; skipped: number; notReached: number } } & Parameters<typeof linesNotRun>[0])
+      | ({ counts?: { passed: number; checks?: number; failed: number; skipped: number; notReached: number } } & Parameters<typeof linesNotRun>[0])
       | null;
-    const counts = lastRun?.counts ?? { passed: 0, failed: 0, skipped: 0, notReached: 0 };
+    const counts = lastRun?.counts ?? { passed: 0, checks: undefined, failed: 0, skipped: 0, notReached: 0 };
     return {
       // The pinned version marker survives a fix, but is re-applied in case the
       // model rewrote the test title.
@@ -649,6 +658,7 @@ async function proveGeneratedCode(
       liveRun: {
         verdict: outcome.verdict,
         passed: counts.passed,
+        ...(typeof counts.checks === "number" ? { checks: counts.checks } : {}),
         failed: counts.failed,
         notRun: counts.skipped + counts.notReached,
         notRunLines: lastRun ? linesNotRun(lastRun as never) : [],
@@ -932,9 +942,9 @@ export async function createAutomationFromImportedDraft(
   );
   const proven =
     evidence?.verdict === "passed"
-      ? `It passed on the live page before import: ${evidence.passed} checks at ${evidence.pageUrl}.`
+      ? `It passed on the live page before import: ${checksPhrase(evidence)} at ${evidence.pageUrl}.`
       : evidence?.verdict === "partial"
-        ? `Every step that could run passed on the live page before import (${evidence.passed} checks); ${evidence.skipped + evidence.notReached} did not run there.`
+        ? `Every step that could run passed on the live page before import (${checksPhrase(evidence)}); ${evidence.skipped + evidence.notReached} did not run there.`
         : evidence?.verdict === "failed"
           ? "Its last run on the live page before import failed."
           : draft.source === "editor"
@@ -973,11 +983,11 @@ export async function createAutomationFromImportedDraft(
 /** One sentence for the version summary: what the live run proved. */
 export function describeLiveRun(run: AutomationLiveRun) {
   const fixed = run.fixes ? ` after ${run.fixes} automatic fix${run.fixes === 1 ? "" : "es"}` : "";
-  if (run.verdict === "passed") return `Passed on ${run.pageUrl}: ${run.passed} checks${fixed}.`;
+  if (run.verdict === "passed") return `Passed on ${run.pageUrl}: ${checksPhrase(run)}${fixed}.`;
   if (run.verdict === "partial") {
-    return `Ran on ${run.pageUrl}: ${run.passed} check${run.passed === 1 ? "" : "s"} passed${fixed}, ${run.notRun} step${run.notRun === 1 ? "" : "s"} could not run there.`;
+    return `Ran on ${run.pageUrl}: ${checksPhrase(run)} passed${fixed}, ${run.notRun} step${run.notRun === 1 ? "" : "s"} could not run there.`;
   }
-  return `Did not pass on ${run.pageUrl}${fixed}: ${run.failed} failed after ${run.passed} checks. Review the code before approving.`;
+  return `Did not pass on ${run.pageUrl}${fixed}: ${run.failed} failed after ${run.passed} step${run.passed === 1 ? "" : "s"}. Review the code before approving.`;
 }
 
 /** True when a version has been running so long it will never finish. */

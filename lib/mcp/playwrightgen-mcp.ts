@@ -7,6 +7,7 @@ import { weakeningFindings } from "@/lib/ai/repair-weakening";
 import { generateQuickDraft } from "@/lib/ai/quick-generation";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { capturePageSnapshot, isPublicWebAddress } from "@/lib/free-tools/page-snapshot";
+import { checksPhrase } from "@/lib/free-tools/preview-run/checks-phrase";
 import { runVerdict } from "@/lib/free-tools/preview-run/receipt";
 import {
   firstFailureOf,
@@ -824,9 +825,9 @@ const tools: Tool[] = [
       const icon = { passed: "✓", failed: "✗", skipped: "–", not_reached: "·" } as const;
       const lines: string[] = [
         verdict === "passed"
-          ? `Passed on the live page: ${result.counts.passed} checks in ${Math.round(result.durationMs / 1000)}s.`
+          ? `Passed on the live page: ${checksPhrase(result.counts)} in ${Math.round(result.durationMs / 1000)}s, over ${result.counts.passed} step${result.counts.passed === 1 ? "" : "s"}.`
           : verdict === "partial"
-            ? `Nothing failed, but not every step ran: ${result.counts.passed} passed, ${result.counts.skipped} not run in the preview, ${result.counts.notReached} not reached${result.timedOut ? " (time limit)" : ""}.`
+            ? `Nothing failed, but not every step ran: ${result.counts.passed} passed (${checksPhrase(result.counts)}), ${result.counts.skipped} not run in the preview, ${result.counts.notReached} not reached${result.timedOut ? " (time limit)" : ""}.`
             : `Failed: ${result.counts.passed} passed, ${result.counts.failed} failed, ${result.counts.notReached} not reached.`,
       ];
       for (const test of result.tests) {
@@ -972,19 +973,19 @@ const tools: Tool[] = [
         if (round.kind === "ran") {
           return [
             round.verdict === "passed"
-              ? `Run ${round.attempt}: passed, ${round.passed} checks.`
+              ? `Run ${round.attempt}: passed, ${checksPhrase(round)}.`
               : round.verdict === "partial"
                 ? `Run ${round.attempt}: nothing failed, ${round.skipped} step${round.skipped === 1 ? "" : "s"} could not run here.`
-                : `Run ${round.attempt}: failed at "${round.failingStep ?? "a step"}" after ${round.passed} checks.`,
+                : `Run ${round.attempt}: failed at "${round.failingStep ?? "a step"}" after ${round.passed} step${round.passed === 1 ? "" : "s"}.`,
           ];
         }
         if (round.kind === "fixed") return [`Fixed: ${round.explanation}`];
         return [];
       });
-      const lastRun = outcome.lastRun as { counts?: { passed: number } } | null;
+      const lastRun = outcome.lastRun as { counts?: { passed: number; checks?: number } } | null;
       const verdictLine =
         outcome.verdict === "passed"
-          ? `Passed on the live page: ${lastRun?.counts?.passed ?? 0} checks.`
+          ? `Passed on the live page: ${checksPhrase(lastRun?.counts ?? { passed: 0 })}.`
           : outcome.verdict === "partial"
             ? "Nothing failed, but some steps could not run in the preview; the rest is unproven."
             : outcome.stopped === "out_of_fixes"
@@ -1346,7 +1347,15 @@ const tools: Tool[] = [
           testCaseId: input.testCaseId,
           testCaseStatus: attached.testCaseStatus,
           warnings: attached.warnings,
-          evidence: attached.evidence ? { verdict: attached.evidence.verdict, passed: attached.evidence.passed } : null,
+          // passed counts every operation; checks counts the assertions. An
+          // assistant reading only "passed" reports more checked than was.
+          evidence: attached.evidence
+            ? {
+                verdict: attached.evidence.verdict,
+                passed: attached.evidence.passed,
+                ...(typeof attached.evidence.checks === "number" ? { checks: attached.evidence.checks } : {}),
+              }
+            : null,
           url,
         },
       );
@@ -1354,11 +1363,11 @@ const tools: Tool[] = [
   },
 ];
 
-function evidenceNote(evidence: { verdict: string; passed: number } | null, receipt: string | undefined) {
+function evidenceNote(evidence: { verdict: string; passed: number; checks?: number } | null, receipt: string | undefined) {
   if (evidence) {
     return evidence.verdict === "passed"
-      ? `Its live run is kept as evidence: passed, ${evidence.passed} checks.`
-      : `Its live run is kept as evidence: ${evidence.passed} checks passed, some steps did not run.`;
+      ? `Its live run is kept as evidence: passed, ${checksPhrase(evidence)}.`
+      : `Its live run is kept as evidence: ${checksPhrase(evidence)} passed, some steps did not run.`;
   }
   return receipt ? "The runReceipt was not for this exact code (or has expired), so no run evidence was kept." : null;
 }

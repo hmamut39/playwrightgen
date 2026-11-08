@@ -1,6 +1,7 @@
 "use client";
 
 import type { ProveRound } from "@/lib/free-tools/prove-loop";
+import { checksPhrase } from "@/lib/free-tools/preview-run/checks-phrase";
 
 /**
  * What the loop did, round by round, as it happens.
@@ -30,7 +31,7 @@ function line(round: ProveRound): { icon: string; tone: string; text: string } {
       return { icon: `${round.attempt}`, tone: "text-slate-500", text: `Running it on the live page (attempt ${round.attempt})…` };
     case "ran":
       return round.verdict === "passed"
-        ? { icon: "✓", tone: "text-emerald-600", text: `Passed: ${round.passed} checks.` }
+        ? { icon: "✓", tone: "text-emerald-600", text: `Passed: ${checksPhrase(round)}.` }
         : round.verdict === "partial"
           ? { icon: "–", tone: "text-amber-600", text: `${round.passed} passed, ${round.skipped} could not run here.` }
           : { icon: "✗", tone: "text-red-600", text: `Failed at "${round.failingStep ?? "a step"}" (${round.passed} passed).` };

@@ -6,7 +6,7 @@ const SECRET = "unit-receipt-secret-that-is-long-enough-0000";
 const code = "test('x', async ({ page }) => { await expect(page).toHaveTitle(/Todo/); });";
 const result = {
   tests: [{ name: "x", status: "passed" as const, steps: [] }],
-  counts: { passed: 1, failed: 0, skipped: 0, notReached: 0 },
+  counts: { passed: 1, checks: 1, checksFailed: 0, failed: 0, skipped: 0, notReached: 0 },
   durationMs: 1_234.5,
   timedOut: false,
 };
@@ -37,7 +37,7 @@ describe("signed live-run receipts", () => {
     expect(runVerdict(result)).toBe("passed");
     expect(runVerdict({ ...result, counts: { ...result.counts, skipped: 1 } })).toBe("partial");
     expect(runVerdict({ ...result, timedOut: true })).toBe("partial");
-    expect(runVerdict({ ...result, counts: { passed: 0, failed: 0, skipped: 0, notReached: 0 } })).toBe("partial");
+    expect(runVerdict({ ...result, counts: { passed: 0, checks: 0, checksFailed: 0, failed: 0, skipped: 0, notReached: 0 } })).toBe("partial");
     expect(runVerdict({ ...result, counts: { ...result.counts, failed: 1 } })).toBe("failed");
   });
 });

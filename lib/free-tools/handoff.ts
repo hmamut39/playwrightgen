@@ -29,18 +29,23 @@ export const freeToolHandoffSchema = z.object({
 });
 
 /** What a receipt says, for display only; the server checks the signature on import. */
-export function peekRunReceipt(receipt: string | undefined): { verdict: "passed" | "partial" | "failed"; passed: number; ranAt: string } | null {
+export function peekRunReceipt(receipt: string | undefined): { verdict: "passed" | "partial" | "failed"; passed: number; checks?: number; ranAt: string } | null {
   const body = receipt?.split(".")[1];
   if (!body) return null;
   try {
     const text = atob(body.replace(/-/g, "+").replace(/_/g, "/"));
-    const value = JSON.parse(text) as { verdict?: unknown; passed?: unknown; ranAt?: unknown };
+    const value = JSON.parse(text) as { verdict?: unknown; passed?: unknown; checks?: unknown; ranAt?: unknown };
     if (
       (value.verdict === "passed" || value.verdict === "partial" || value.verdict === "failed") &&
       typeof value.passed === "number" &&
       typeof value.ranAt === "string"
     ) {
-      return { verdict: value.verdict, passed: value.passed, ranAt: value.ranAt };
+      return {
+        verdict: value.verdict,
+        passed: value.passed,
+        ...(typeof value.checks === "number" ? { checks: value.checks } : {}),
+        ranAt: value.ranAt,
+      };
     }
   } catch {
     // Not a receipt this page can read; the import still works without it.

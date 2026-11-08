@@ -5,6 +5,7 @@ import { after } from "next/server";
 import Link from "next/link";
 
 import { AiAllowanceNotice, aiAllowanceNotice } from "@/components/workspace/ai-allowance-notice";
+import { checksPhrase } from "@/lib/free-tools/preview-run/checks-phrase";
 import { StickyReviewBar } from "@/components/workspace/sticky-review-bar";
 import {
   AutomationPullRequestError,
@@ -375,7 +376,7 @@ export default async function AutomationArtifactPage({
                     }`}
                   >
                     {liveRun.verdict === "passed"
-                      ? `Passed on the live page · ${liveRun.passed} checks`
+                      ? `Passed on the live page · ${checksPhrase(liveRun)}`
                       : liveRun.verdict === "partial"
                         ? `Partly run on the live page · ${liveRun.passed} passed`
                         : "Did not pass on the live page"}
@@ -487,7 +488,7 @@ export default async function AutomationArtifactPage({
                       */}
                       <span className="text-xs text-slate-400">
                         {liveRun?.verdict === "passed"
-                          ? `TypeScript · ran on the live page · ${liveRun.passed} check${liveRun.passed === 1 ? "" : "s"} passed`
+                          ? `TypeScript · ran on the live page · ${checksPhrase(liveRun)} passed`
                           : liveRun?.verdict === "partial"
                             ? "TypeScript · ran on the live page · nothing failed, some steps could not run"
                             : liveRun
