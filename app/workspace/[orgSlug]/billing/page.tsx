@@ -4,6 +4,7 @@ import { getOrganizationBillingSnapshot } from "@/lib/services/billing";
 import { LocalTime } from "@/components/workspace/local-time";
 import { PRO_PLAN } from "@/lib/plan";
 import { AI_WORKFLOWS_ENTITLEMENT, FREE_LIMITS, TEAM_LIMITS } from "@/lib/services/entitlements";
+import { planDescription } from "@/lib/services/plan-description";
 
 /**
  * What this workspace pays for and what that gives it.
@@ -27,10 +28,21 @@ export default async function BillingPage({
   const activeSubscription = snapshot.subscriptions.find((subscription) =>
     ["ACTIVE", "TRIALING"].includes(subscription.status),
   );
-  const onTeam = Boolean(
-    snapshot.entitlements.find((entitlement) => entitlement.key === AI_WORKFLOWS_ENTITLEMENT)?.enabled,
-  );
-  const limits = onTeam ? TEAM_LIMITS : FREE_LIMITS;
+  const grant = snapshot.entitlements.find((entitlement) => entitlement.key === AI_WORKFLOWS_ENTITLEMENT);
+  const onTeam = Boolean(grant?.enabled);
+  /*
+   * The allowance this workspace actually has, not the plan's default.
+   *
+   * An entitlement can carry its own ceiling -- the code that grants one says
+   * why: so a single workspace can be raised without editing a constant and
+   * shipping it to everyone. This page read the constant, so a workspace
+   * granted a different number would have been told one figure while the
+   * guard enforced another, and the figure on the billing page is the one a
+   * person plans their day around.
+   */
+  const limits = onTeam
+    ? { ...TEAM_LIMITS, aiDailyLimit: grant?.limitValue ?? TEAM_LIMITS.aiDailyLimit }
+    : FREE_LIMITS;
   const canManage = context.can("organization:manage");
   const checkoutEnabled =
     canManage && process.env.STRIPE_CHECKOUT_ENABLED === "true";
@@ -51,12 +63,22 @@ export default async function BillingPage({
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Current plan</p>
             <p className="mt-1 text-2xl font-semibold text-slate-950">{onTeam ? "Team" : "Free"}</p>
             <p className="mt-2 text-sm text-slate-600">
-              {activeSubscription?.status === "TRIALING"
-                ? "Free trial in progress."
-                : activeSubscription
-                  ? `${PRO_PLAN.priceLabel} ${PRO_PLAN.intervalLabel}.`
-                  : "No subscription. Everything in the workspace works; AI use has a smaller daily allowance."}
+              {planDescription({
+                subscriptionStatus: activeSubscription?.status ?? null,
+                hasSubscription: Boolean(activeSubscription),
+                onTeam,
+                priceLabel: PRO_PLAN.priceLabel,
+                intervalLabel: PRO_PLAN.intervalLabel,
+              })}
             </p>
+            {/* When a granted allowance lapses, said where the plan is read.
+                One that ends without warning is one somebody plans around and
+                then loses mid-week. */}
+            {!activeSubscription && onTeam && grant?.effectiveUntil ? (
+              <p className="mt-1 text-xs text-slate-500">
+                Until <LocalTime value={grant.effectiveUntil} style="date" />, then back to the free allowance.
+              </p>
+            ) : null}
             {activeSubscription?.currentPeriodEnd ? (
               <p className="mt-1 text-xs text-slate-500">
                 {activeSubscription.status === "TRIALING" ? "Trial ends" : "Renews"}{" "}
