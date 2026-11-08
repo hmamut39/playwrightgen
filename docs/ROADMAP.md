@@ -76,9 +76,20 @@ genuine `npm audit` failures, closed by the commit after each.
   and stored -- on a version's summary and a page-coverage item's detail --
   where they are still shown as current fact. 36 such records in the dev
   database were corrected by `scripts/fix-frozen-check-wording.mjs`, which
-  changes only the word and leaves the number. **The same script has not been
-  run on production**; it needs the owner's go-ahead, and the count there is
-  whatever the owner's own runs have left behind.
+  changes only the word and leaves the number.
+  The first version of that script was wrong, and the way it was checked is
+  the part worth keeping. Its expression captured the whole word rather than
+  the plural, so it wrote "19 stepchecks" into all 36 rows. The check after it
+  counted rows still matching `[0-9]+ checks?` and found none -- because
+  "stepchecks" does not match that either -- and reported every record fixed.
+  A count of rows that no longer match the old pattern says nothing about what
+  the new text reads like. The script now prints each sentence as it is and as
+  it would read, both computed by the database, before it changes anything, and
+  reads the text back afterwards instead of trusting the update's own count.
+  Dev is repaired and was verified by reading the sentences.
+  **It has not been run on production.** The production `DATABASE_URL` is a
+  Vercel secret and cannot be pulled, which is correct -- so this one is the
+  owner's to run, with the dry run first.
   CI now installs Chromium before the test run rather than after, because the
   runner's own counting cannot be checked without a real browser.
 - **The audit trail filed events under the wrong day** (2026-11-07): the
