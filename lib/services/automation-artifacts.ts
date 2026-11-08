@@ -685,6 +685,19 @@ async function finishAutomationGeneration(
   dependencies?: Dependencies,
   /** Supplies existing code instead of calling the model. */
   seededResult?: AutomationGenerationResult,
+  /**
+   * The run that proved seeded code, when there is one.
+   *
+   * Code imported from a free-tool draft was already run on the live page --
+   * that is the whole reason it can be used as written -- but the run was
+   * recorded against the draft, so the version was stored with no `liveRun`
+   * and the page beside it read "TypeScript * not executed", directly under a
+   * summary saying it passed on the live page with five checks. Two opposite
+   * statements about one file, which is the fault the comment on that label
+   * was written about; it was fixed for generated code and the imported path
+   * still fell through.
+   */
+  seededLiveRun?: AutomationLiveRun | null,
 ) {
   let result: AutomationGenerationResult | null = null;
   let failureCode: string | null = null;
@@ -729,7 +742,7 @@ async function finishAutomationGeneration(
   }
   // Proving happens before the version is stored, so a reviewer never sees
   // code that was about to change under them.
-  let liveRun: AutomationLiveRun | null = null;
+  let liveRun: AutomationLiveRun | null = seededLiveRun ?? null;
   if (result && !seededResult && pending.engine === "PLAYWRIGHT_BROWSER" && !dependencies?.generator) {
     const proven = await proveGeneratedCode(pending, result.code);
     if (proven) {
@@ -748,7 +761,10 @@ async function finishAutomationGeneration(
       data: {
         generationStatus: result ? "SUCCEEDED" : "FAILED",
         validationStatus: validation.status,
-        summary: liveRun
+        // A seeded summary already says what the run proved, in the words
+        // that fit an import ("before import"), so appending the generated
+        // sentence would state it twice.
+        summary: liveRun && !seededResult
     ? `${result?.summary ?? ""} ${describeLiveRun(liveRun)}`.trim().slice(0, 2_000)
     : result?.summary ?? "Automation generation failed safely.",
         plan: (result?.plan ?? []) as Prisma.InputJsonValue,
@@ -950,6 +966,28 @@ export async function createAutomationFromImportedDraft(
           : draft.source === "editor"
             ? "PlaywrightGen has not run it; check its first CI result."
             : "It was not run on the live page before import.";
+  /**
+   * The import's own evidence, in the shape the version stores.
+   *
+   * `receipt` is null because the signed token is not kept past import -- what
+   * survives is the verified result of checking it against this exact code,
+   * which is what `evidence` is. `fixes` is zero: imported code is used as
+   * written, so nothing was repaired on the way.
+   */
+  const provenRun: AutomationLiveRun | null = evidence
+    ? {
+        verdict: evidence.verdict,
+        passed: evidence.passed,
+        ...(typeof evidence.checks === "number" ? { checks: evidence.checks } : {}),
+        failed: evidence.failed,
+        notRun: evidence.skipped + evidence.notReached,
+        fixes: 0,
+        pageUrl: evidence.pageUrl,
+        ranAt: evidence.ranAt,
+        receipt: null,
+      }
+    : null;
+
   const seeded: AutomationGenerationResult = {
     name: `${pending.generationInput.title} — ${engine === "PLAYWRIGHT_BROWSER" ? "Browser" : "API"}`,
     summary: `Code from ${importedDraftSourceLabel(draft.source)}, used as written. ${proven}`,
@@ -968,7 +1006,7 @@ export async function createAutomationFromImportedDraft(
   };
 
   try {
-    const artifact = await finishAutomationGeneration(pending, dependencies, seeded);
+    const artifact = await finishAutomationGeneration(pending, dependencies, seeded, provenRun);
     await client(dependencies).testCaseImportedDraft.updateMany({
       where: { id: draft.id, usedAt: null },
       data: { usedAt: new Date(), usedInAutomationVersionId: pending.versionId },

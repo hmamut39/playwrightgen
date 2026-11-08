@@ -33,6 +33,7 @@ import { personName } from "@/lib/format/person-name";
 import { PendingButton, PendingNotice } from "@/components/workspace/pending-button";
 import { ReviewTrailPanel } from "@/components/workspace/review-trail";
 import { LocalTime } from "@/components/workspace/local-time";
+import { ProjectNavigation } from "@/components/workspace/project-navigation";
 
 const statusStyle = {
   DRAFT: "bg-slate-100 text-slate-700",
@@ -176,6 +177,7 @@ export default async function AutomationArtifactPage({
 
   return (
     <div className="mx-auto max-w-6xl">
+      <ProjectNavigation organizationSlug={orgSlug} projectId={projectId} />
       <Link
         href={`${base}/automation`}
         className="text-sm font-medium text-cyan-700 hover:text-cyan-900"

@@ -29,6 +29,7 @@ import { PendingButton, PendingNotice } from "@/components/workspace/pending-but
 import { ReviewTrailPanel } from "@/components/workspace/review-trail";
 import { NextStep } from "@/components/workspace/next-step";
 import { LocalTime } from "@/components/workspace/local-time";
+import { ProjectNavigation } from "@/components/workspace/project-navigation";
 
 const statusStyle = {
   DRAFT: "bg-slate-100 text-slate-700",
@@ -248,6 +249,7 @@ export default async function RequirementDetailPage({
 
   return (
     <div className="mx-auto max-w-5xl">
+      <ProjectNavigation organizationSlug={orgSlug} projectId={projectId} />
       <Link
         href={listPath}
         className="text-sm font-medium text-cyan-700 hover:text-cyan-900"

@@ -7,6 +7,7 @@ import { signRunReceipt } from "@/lib/free-tools/preview-run/receipt";
 import {
   createAutomationFromImportedDraft,
   getAutomationArtifactDetail,
+  readAutomationLiveRun,
 } from "@/lib/services/automation-artifacts";
 import { getImportedDraft, recordImportedDraft } from "@/lib/services/imported-drafts";
 import { approveTestCase, createTestCase, submitTestCaseForReview } from "@/lib/services/test-cases";
@@ -134,6 +135,17 @@ describe("code imported with a Test Case from Quick Generate", () => {
     // Two checks, not the four operations the run performed. The summary read
     // "4 checks" until 2026-11-08.
     expect(version.summary).toContain("passed on the live page before import: 2 checks");
+    // The run that proved it, kept on the version and not only in the prose.
+    // Without it the page beside this code read "TypeScript - not executed"
+    // directly under a summary saying it passed on the live page, and a
+    // reader told two opposite things about one file assumes the favourable
+    // half is boilerplate.
+    const run = readAutomationLiveRun(version.liveRun);
+    expect(run).toMatchObject({ verdict: "passed", passed: 4, checks: 2, fixes: 0 });
+    expect(run?.pageUrl).toBe("https://demo.playwright.dev/todomvc/");
+    // Said once. The summary already words it for an import, so the generated
+    // sentence is not appended on top of it.
+    expect(version.summary.match(/passed on the live page/gi)).toHaveLength(1);
 
     const used = await getImportedDraft(input, space.deps);
     expect(used?.usedInAutomationVersionId).toBe(version.id);

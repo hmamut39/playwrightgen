@@ -22,6 +22,7 @@ import { describeAttempts, FAILED_THEN_PASSED } from "@/lib/format/attempt-story
 import { LocalTime } from "@/components/workspace/local-time";
 import { humanLabel } from "@/lib/format/label";
 import { NextStep } from "@/components/workspace/next-step";
+import { ProjectNavigation } from "@/components/workspace/project-navigation";
 
 const resultStyle = {
   NOT_STARTED: "bg-slate-100 text-slate-700", PASSED: "bg-emerald-50 text-emerald-700",
@@ -142,6 +143,7 @@ export default async function TestRunDetailPage({
 
   return (
     <div className="mx-auto max-w-5xl">
+      <ProjectNavigation organizationSlug={orgSlug} projectId={projectId} />
       <Link href={listPath} className="text-sm font-medium text-cyan-700 hover:text-cyan-900">← Test Runs</Link>
       <header className="mt-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
         <div>

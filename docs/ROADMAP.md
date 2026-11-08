@@ -28,6 +28,35 @@ genuine `npm audit` failures, closed by the commit after each.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **Every detail page was a dead end** (2026-11-08): found by the owner while
+  setting up the demo account -- after approving an automation version he had
+  to be sent the Overview URL, because nothing on the page he was standing on
+  could reach it. "How is a real user going to go back from that page?"
+  `ProjectNavigation` carries every part of a project and the list pages all
+  render it; the four pages where the work actually happens -- a test case, an
+  automation version, a requirement, a test run -- did not, so opening one
+  removed the row and left the browser's Back button. The product's own
+  four-step path ends on exactly such a page, so every new person meets this.
+  The row is on those four now, checked by opening a real test case in a
+  browser and reading what it can reach: Overview, Test Runs, Release.
+  `tests/unit/project-navigation-reach.test.ts` fails if a project page is
+  added without it, and names the four so that adding one to the
+  stands-alone list instead of adding the row fails too. Create forms, the
+  shared proof link and the printable report stay standalone, with the reason
+  written beside each.
+- **"Not executed", under a line saying it passed** (2026-11-08): the owner's
+  screenshot of an approved automation version showed the code labelled
+  "TypeScript * not executed" directly beneath "It passed on the live page
+  before import: 5 checks". The label reads the version's `liveRun`, which is
+  recorded when PlaywrightGen generates and proves code -- and left null when
+  code is imported from a free-tool draft, although that code's whole claim is
+  that it already ran. The comment on that label was written about this exact
+  fault being fixed once; the imported path still fell through it.
+  The import's verified receipt is now kept as the version's run, with `fixes`
+  zero because imported code is used as written and `receipt` null because the
+  signed token is not kept past import -- what survives is the result of
+  checking it. The summary is not doubled: a seeded summary already words it
+  for an import.
 - **Generated code was shown as flat white text** (2026-11-08): spotted by the
   owner while watching "Cover a page" prove four tests on production -- the
   suite it produces was rendered in one colour, so strings, keywords, comments

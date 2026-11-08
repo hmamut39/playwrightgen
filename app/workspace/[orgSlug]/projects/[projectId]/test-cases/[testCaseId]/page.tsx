@@ -40,6 +40,7 @@ import { ReviewTrailPanel } from "@/components/workspace/review-trail";
 import { NextStep } from "@/components/workspace/next-step";
 import { LocalTime } from "@/components/workspace/local-time";
 import { ImportedDraftPanel } from "@/components/workspace/imported-draft-panel";
+import { ProjectNavigation } from "@/components/workspace/project-navigation";
 
 const statusStyle = {
   DRAFT: "bg-slate-100 text-slate-700", IN_REVIEW: "bg-amber-50 text-amber-800",
@@ -238,6 +239,7 @@ export default async function TestCaseDetailPage({
 
   return (
     <div className="mx-auto max-w-5xl">
+      <ProjectNavigation organizationSlug={orgSlug} projectId={projectId} />
       <Link href={listPath} className="text-sm font-medium text-violet-700 hover:text-violet-900">← Test Cases</Link>
       <AiAllowanceNotice notice={notice} orgSlug={orgSlug} spentOn={await spendBehindNotice(notice, { orgSlug, projectId })} />
       <header className="mt-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
