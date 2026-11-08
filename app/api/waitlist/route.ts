@@ -8,6 +8,7 @@ import {
   validateRedisEnvironment,
   validateResendEnvironment,
 } from "@/lib/env";
+import { providerFailureReason } from "@/lib/ai/provider-availability";
 import { publicAiClientFingerprint } from "@/lib/operations/public-ai-guard";
 import { createOperationalResponder } from "@/lib/operations/webhook-telemetry";
 
@@ -41,12 +42,15 @@ const defaultDependencies: WaitlistDependencies = {
   createStore: (config) => new Redis(config),
   async notify({ apiKey, email, recipient }) {
     const resend = new Resend(apiKey);
-    await resend.emails.send({
+    // Checked, not assumed: Resend reports a refusal in the result rather than
+    // by throwing. See the same note on the feedback route.
+    const result = await resend.emails.send({
       from: "PlaywrightGen <onboarding@resend.dev>",
       to: recipient,
       subject: "New PlaywrightGen waitlist signup",
       text: `A new user joined the PlaywrightGen team-access waitlist: ${email}`,
     });
+    if (result.error) throw new Error(result.error.message);
   },
   now: () => Date.now(),
 };
@@ -130,12 +134,20 @@ export async function handleWaitlistRequest(
 
     const recipient = process.env.WAITLIST_NOTIFY_EMAIL?.trim();
     if (recipient && added > 0) {
-      const { RESEND_API_KEY } = validateResendEnvironment();
-      await dependencies.notify({
-        apiKey: RESEND_API_KEY,
-        email: parsed.data.email,
-        recipient,
-      });
+      try {
+        const { RESEND_API_KEY } = validateResendEnvironment();
+        await dependencies.notify({
+          apiKey: RESEND_API_KEY,
+          email: parsed.data.email,
+          recipient,
+        });
+      } catch (error) {
+        // They are on the list; the notice about it is a separate thing. This
+        // used to fall to the outer catch, which answered "The waitlist is
+        // temporarily unavailable" to somebody who had just been added -- so
+        // they would sign up again, and the only record of why was nothing.
+        responder.note("notice_not_sent", providerFailureReason(error));
+      }
     }
 
     return respond(

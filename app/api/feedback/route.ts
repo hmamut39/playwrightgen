@@ -5,6 +5,7 @@ import { Redis } from "@upstash/redis";
 import { Resend } from "resend";
 import { z } from "zod";
 
+import { providerFailureReason } from "@/lib/ai/provider-availability";
 import { validateRedisEnvironment, validateResendEnvironment } from "@/lib/env";
 import { publicAiClientFingerprint } from "@/lib/operations/public-ai-guard";
 import { createOperationalResponder } from "@/lib/operations/webhook-telemetry";
@@ -62,12 +63,18 @@ const defaultDependencies: FeedbackDependencies = {
   createStore: (config) => new Redis(config) as unknown as FeedbackStore,
   async notify({ apiKey, recipient, subject, text }) {
     const resend = new Resend(apiKey);
-    await resend.emails.send({
+    // Resend answers a refused send with an error object rather than by
+    // throwing, so an unchecked call cannot tell "delivered" from "rejected".
+    // The sender here is Resend's shared sandbox address, which is allowed to
+    // reach only the account owner's own email -- exactly the setting that
+    // gets this wrong quietly.
+    const result = await resend.emails.send({
       from: "PlaywrightGen <onboarding@resend.dev>",
       to: recipient,
       subject,
       text,
     });
+    if (result.error) throw new Error(result.error.message);
   },
   now: () => Date.now(),
 };
@@ -158,9 +165,13 @@ export async function handleFeedbackRequest(
           subject: `PlaywrightGen feedback${path ? ` from ${path}` : ""}`,
           text: [`From: ${who}`, `Page: ${path ?? "(not given)"}`, "", parsed.data.message].join("\n"),
         });
-      } catch {
+      } catch (error) {
         // Kept, not sent. Losing the report because a mail server was slow
-        // would be the one outcome worse than not being told.
+        // would be the one outcome worse than not being told -- so the person
+        // still gets their thank you. But a refused notice used to end here in
+        // silence, which meant the inbox could be empty for weeks while every
+        // request logged "succeeded" and the owner believed reports arrived.
+        responder.note("notice_not_sent", providerFailureReason(error));
       }
     }
 

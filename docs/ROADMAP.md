@@ -28,6 +28,27 @@ genuine `npm audit` failures, closed by the commit after each.
 ## Shipped (most recent first)
 
 ### Found by using the product as a team would
+- **A refused notice looked exactly like a sent one** (2026-11-08): setting
+  `WAITLIST_NOTIFY_EMAIL` and sending a real feedback report through
+  production returned 200 and logged `"status":"succeeded"` -- which said
+  nothing about whether mail went out. Resend reports a refusal in its result
+  rather than by throwing, and neither `/api/feedback` nor `/api/waitlist`
+  looked at it, so a rejected send ran straight through the happy path.
+  The sender is Resend's shared sandbox address, which may only reach the
+  account owner's own email, so the likeliest failure in production was also
+  the quietest: reports kept piling into the store while an empty inbox read
+  as "nobody has anything to say". For the waitlist it was worse in the other
+  direction -- a thrown error fell to the outer catch and answered "The
+  waitlist is temporarily unavailable" to somebody who had just been added,
+  who would then sign up again.
+  Both now check the result, and a refused notice is recorded against the same
+  request id as the response through a new `responder.note(...)`, with the
+  provider's own words and never the message or the address. The person still
+  gets their thank you, because the report is kept either way.
+  `lib/services/alert-email.ts` already did this correctly, which is how the
+  shape of the fix was known. The feedback route had no test at all; it has
+  three now, and both new tests were checked by disabling the recording and
+  watching them fail.
 - **Everything that opens a browser was dead on production for a day**
   (2026-11-08): `POST /api/preview-run` on playwrightgen.com answered 500 with
   an empty body in 0.3s -- before the handler, so no request id and nothing in

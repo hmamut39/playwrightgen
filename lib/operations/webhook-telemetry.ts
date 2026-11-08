@@ -43,6 +43,27 @@ export function createOperationalResponder(input: {
         },
       });
     },
+
+    /**
+     * Something went wrong that the caller is deliberately not told about.
+     *
+     * A request can succeed for the person and still fail at something the
+     * owner needs to know about -- a notice that was refused by the mail
+     * provider, say. Reporting that to the sender would be noise, and
+     * swallowing it means nobody ever learns. This records it against the
+     * same request id as the response, so the two line up in the log.
+     */
+    note(code: string, reason?: string) {
+      logOperationalEvent("warn", {
+        event: input.event,
+        requestId,
+        status: "failed",
+        code,
+        durationMs: Math.max(0, Date.now() - startedAt),
+        surface: input.surface,
+        ...(reason ? { reason } : {}),
+      });
+    },
   };
 }
 
