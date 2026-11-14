@@ -28,6 +28,14 @@ export type OrganizationLimits = {
   plan: "FREE" | "TEAM";
   aiDailyLimit: number;
   aiMinuteLimit: number;
+  /**
+   * When this workspace's opening allowance runs out, if it is on one.
+   *
+   * Null for a workspace that pays and for one past its first days. The plan
+   * says TEAM either way, because that is what the ceiling is; this is how a
+   * page can say the rest of the truth, which is that it ends.
+   */
+  trialEndsAt: Date | null;
 };
 
 /**
@@ -53,9 +61,46 @@ export const FREE_LIMITS = { aiDailyLimit: 20, aiMinuteLimit: 4 } as const;
  */
 export const TEAM_LIMITS = { aiDailyLimit: 60, aiMinuteLimit: 12 } as const;
 
+/**
+ * How long a new workspace keeps the Team ceiling, for nothing.
+ *
+ * The free allowance is twenty AI actions a day. One "Cover a page" of four
+ * tests costs up to twelve -- one to write each test and up to two more to fix
+ * it -- so three people evaluating together spend the whole day in their first
+ * ten minutes, on the feature the home page leads with, and meet "This
+ * workspace has used today's AI allowance. It resets at midnight UTC": true,
+ * well worded, and the end of their evaluation.
+ *
+ * Until now the only remedy was `scripts/grant-trial-allowance.mjs`, run by
+ * hand against production for each workspace. That does not survive strangers
+ * signing up while the owner is asleep, which is exactly what January is.
+ *
+ * Derived from the workspace's own creation date rather than written into a
+ * row. Nothing has to be granted, nothing has to be cleaned up, and there is
+ * no way to leave somebody on a free Team plan nobody remembers giving them --
+ * the three ways the stored version goes wrong. It also needs no migration,
+ * so it cannot be half-deployed.
+ */
+export const TRIAL_DAYS = 14;
+
 function numeric(value: string | undefined, fallback: number): number {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+/**
+ * The same, for a number where zero is a decision rather than a mistake.
+ *
+ * `numeric` refuses zero and falls back, which is right for a ceiling -- a
+ * limit of none would lock everyone out, and reading it from an environment
+ * variable is exactly how that happens by accident. A length of trial is not a
+ * ceiling: zero days means a deployment that does not want to give anything
+ * away, and silently turning that into fourteen would be the opposite of what
+ * whoever typed it asked for.
+ */
+function days(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
 /**
@@ -111,6 +156,21 @@ export async function getOrganizationLimits(input: {
     entitlement = null;
   }
 
+  // When the workspace was made, for the opening allowance. Read in its own
+  // try for the same reason as the entitlement: a lookup that fails must fall
+  // back to the free allowance rather than throw, and the safe direction is
+  // never to grant more because a query failed.
+  let createdAt: Date | null = null;
+  try {
+    const organization = await prisma.organization.findUnique({
+      where: { id: input.organizationId },
+      select: { createdAt: true },
+    });
+    createdAt = organization?.createdAt ?? null;
+  } catch {
+    createdAt = null;
+  }
+
   const paid = entitlement ? isEffective(entitlement, now) : false;
 
   // Environment overrides stay available for both tiers, because the operator
@@ -121,11 +181,30 @@ export async function getOrganizationLimits(input: {
   const teamMinute = numeric(source.ORGANIZATION_AI_TEAM_MINUTE_LIMIT, TEAM_LIMITS.aiMinuteLimit);
 
   if (!paid) {
-    return { plan: "FREE", aiDailyLimit: freeDaily, aiMinuteLimit: freeMinute };
+    // The opening allowance. Read from when the workspace was made, so it
+    // ends on its own and there is nothing to revoke. Zero days turns it off
+    // for a deployment that does not want to give anything away.
+    const trialDays = days(source.ORGANIZATION_TRIAL_DAYS, TRIAL_DAYS);
+    const endsAt =
+      trialDays > 0 && createdAt
+        ? new Date(createdAt.getTime() + trialDays * 24 * 60 * 60 * 1_000)
+        : null;
+    if (endsAt && endsAt > now) {
+      return {
+        plan: "TEAM",
+        aiDailyLimit: teamDaily,
+        aiMinuteLimit: teamMinute,
+        trialEndsAt: endsAt,
+      };
+    }
+    return { plan: "FREE", aiDailyLimit: freeDaily, aiMinuteLimit: freeMinute, trialEndsAt: null };
   }
 
   return {
     plan: "TEAM",
+    // Paid, so there is no trial to end. A workspace that subscribed during
+    // its first fortnight should not be told its allowance expires on Friday.
+    trialEndsAt: null,
     // A per-organization limitValue lets support raise a single customer's
     // ceiling without a deploy, which is otherwise the moment somebody edits a
     // constant and ships it to everyone.

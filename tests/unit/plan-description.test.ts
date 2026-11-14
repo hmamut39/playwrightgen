@@ -45,3 +45,40 @@ describe("what the billing card says about the plan", () => {
     ).toBe("Free trial in progress.");
   });
 });
+
+describe("a workspace on its opening allowance", () => {
+  const base = {
+    hasSubscription: false,
+    onTeam: true,
+    priceLabel: "$19",
+    intervalLabel: "a month",
+  };
+
+  it("does not imply somebody decided something about them", () => {
+    // "Granted to this workspace rather than paid for" is what the sentence
+    // says when the owner has raised one workspace by hand. Every brand-new
+    // workspace would have read it, and invited the reader to wonder who.
+    const said = planDescription({ ...base, trialEndsAt: new Date("2026-11-28T00:00:00.000Z") });
+
+    expect(said).toBe("Every new workspace starts with the Team allowance. This one still has it.");
+    expect(said).not.toContain("granted to this workspace");
+  });
+
+  it("keeps the granted wording for one that really was granted", () => {
+    const said = planDescription({ ...base, trialEndsAt: null });
+
+    expect(said).toContain("granted to this workspace rather than paid for");
+  });
+
+  it("says the price when they pay, trial or not", () => {
+    // Subscribing inside the first fortnight is paying, and being told about
+    // an allowance that ends would read as a countdown they had just removed.
+    const said = planDescription({
+      ...base,
+      hasSubscription: true,
+      trialEndsAt: new Date("2026-11-28T00:00:00.000Z"),
+    });
+
+    expect(said).toBe("$19 a month.");
+  });
+});

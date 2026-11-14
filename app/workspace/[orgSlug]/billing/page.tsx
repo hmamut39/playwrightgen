@@ -3,7 +3,7 @@ import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
 import { getOrganizationBillingSnapshot } from "@/lib/services/billing";
 import { LocalTime } from "@/components/workspace/local-time";
 import { PRO_PLAN } from "@/lib/plan";
-import { AI_WORKFLOWS_ENTITLEMENT, FREE_LIMITS, TEAM_LIMITS } from "@/lib/services/entitlements";
+import { AI_WORKFLOWS_ENTITLEMENT, getOrganizationLimits } from "@/lib/services/entitlements";
 import { planDescription } from "@/lib/services/plan-description";
 
 /**
@@ -29,7 +29,17 @@ export default async function BillingPage({
     ["ACTIVE", "TRIALING"].includes(subscription.status),
   );
   const grant = snapshot.entitlements.find((entitlement) => entitlement.key === AI_WORKFLOWS_ENTITLEMENT);
-  const onTeam = Boolean(grant?.enabled);
+  /*
+   * Read from the guard, not from the row.
+   *
+   * This page decided the plan from whether an entitlement existed. A new
+   * workspace has none and now has the Team ceiling anyway for its first
+   * fortnight, so the page would have said "Free -- 20 a day" while the guard
+   * allowed 60: the billing card describing a plan the workspace is not on,
+   * which is the fault this page was last fixed for on 2026-11-07.
+   */
+  const allowed = await getOrganizationLimits({ organizationId: context.organization.id });
+  const onTeam = allowed.plan === "TEAM";
   /*
    * The allowance this workspace actually has, not the plan's default.
    *
@@ -40,9 +50,7 @@ export default async function BillingPage({
    * guard enforced another, and the figure on the billing page is the one a
    * person plans their day around.
    */
-  const limits = onTeam
-    ? { ...TEAM_LIMITS, aiDailyLimit: grant?.limitValue ?? TEAM_LIMITS.aiDailyLimit }
-    : FREE_LIMITS;
+  const limits = { aiDailyLimit: allowed.aiDailyLimit, aiMinuteLimit: allowed.aiMinuteLimit };
   const canManage = context.can("organization:manage");
   const checkoutEnabled =
     canManage && process.env.STRIPE_CHECKOUT_ENABLED === "true";
@@ -67,6 +75,7 @@ export default async function BillingPage({
                 subscriptionStatus: activeSubscription?.status ?? null,
                 hasSubscription: Boolean(activeSubscription),
                 onTeam,
+                trialEndsAt: allowed.trialEndsAt,
                 priceLabel: PRO_PLAN.priceLabel,
                 intervalLabel: PRO_PLAN.intervalLabel,
               })}
@@ -74,9 +83,9 @@ export default async function BillingPage({
             {/* When a granted allowance lapses, said where the plan is read.
                 One that ends without warning is one somebody plans around and
                 then loses mid-week. */}
-            {!activeSubscription && onTeam && grant?.effectiveUntil ? (
+            {!activeSubscription && onTeam && (grant?.effectiveUntil || allowed.trialEndsAt) ? (
               <p className="mt-1 text-xs text-slate-500">
-                Until <LocalTime value={grant.effectiveUntil} style="date" />, then back to the free allowance.
+                Until <LocalTime value={grant?.effectiveUntil ?? allowed.trialEndsAt!} style="date" />, then back to the free allowance.
               </p>
             ) : null}
             {activeSubscription?.currentPeriodEnd ? (

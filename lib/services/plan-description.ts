@@ -28,9 +28,22 @@ export function planDescription(input: {
   /** What a paid plan costs, for the one case that is paying. */
   priceLabel: string;
   intervalLabel: string;
+  /**
+   * When a new workspace's opening allowance runs out, if it is on one.
+   *
+   * Added 2026-11-14 with the opening allowance itself. Without a branch for
+   * it, every brand-new workspace would read "The Team allowance, granted to
+   * this workspace rather than paid for" -- which is what the sentence says
+   * when somebody has been given one by hand, and invites a reader to think
+   * a person decided something about them.
+   */
+  trialEndsAt?: Date | null;
 }): string {
   if (input.subscriptionStatus === "TRIALING") return "Free trial in progress.";
   if (input.hasSubscription) return `${input.priceLabel} ${input.intervalLabel}.`;
+  if (input.onTeam && input.trialEndsAt) {
+    return "Every new workspace starts with the Team allowance. This one still has it.";
+  }
   if (input.onTeam) return "The Team allowance, granted to this workspace rather than paid for.";
   return "No subscription. Everything in the workspace works; AI use has a smaller daily allowance.";
 }

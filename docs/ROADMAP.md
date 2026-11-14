@@ -3163,15 +3163,28 @@ their first ten minutes, on the feature the home page leads with, and meet
 "This workspace has used today's AI allowance" -- true, well worded, and the
 end of their evaluation.
 
-The only remedy today is `scripts/grant-trial-allowance.mjs`, which the owner
-runs by hand against production for each workspace. That does not survive
-strangers signing up while he is asleep. Needed before January:
+Done 2026-11-14. Every workspace now starts with the Team ceiling for its
+first fourteen days -- sixty a day instead of twenty -- and it ends by itself.
 
-- A trial allowance a new workspace receives without anybody touching a
-  database: its first days at the Team ceiling, expiring on its own, because a
-  trial with no end date is a free plan nobody remembers granting.
-- When the allowance does run out, a sentence saying what to do about it, not
-  only what stopped.
+Derived from the workspace's own creation date rather than written into a row.
+Nothing is granted, nothing has to be cleaned up, there is no way to leave
+somebody on a free Team plan nobody remembers giving them, and it needs no
+migration, so it cannot be half-deployed. `ORGANIZATION_TRIAL_DAYS=0` turns it
+off for a deployment that does not want to give anything away; that needed a
+second number parser, because the existing one refuses zero -- right for a
+ceiling, where none would lock everyone out, and wrong for a length of time,
+where zero is a decision.
+
+The billing card now reads the guard instead of the entitlement row. Without
+that it would have said "Free -- 20 a day" to a workspace the guard was
+allowing 60, which is the exact fault that page was last fixed for a week
+earlier. The sentence under "Current plan" gained a case too: every new
+workspace would otherwise have read "The Team allowance, granted to this
+workspace rather than paid for", which is what it says when the owner raises
+one by hand, and invites a reader to wonder who decided that about them.
+
+`scripts/grant-trial-allowance.mjs` stays for the case it was built for: a
+workspace that needs longer than a fortnight, decided one at a time.
 
 ### 3. The product must do for itself what it sells
 
