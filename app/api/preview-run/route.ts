@@ -16,6 +16,7 @@ import {
   PublicAiRateLimitError,
   reservePublicAiRequest,
 } from "@/lib/operations/public-ai-guard";
+import { somebodyGotStuck } from "@/lib/operations/stuck-signal";
 import { logOperationalEvent } from "@/lib/operations/safe-telemetry";
 import { recordFreeToolDraftRun } from "@/lib/services/free-tool-drafts";
 
@@ -107,6 +108,10 @@ export async function POST(req: Request) {
       );
     }
     if (error instanceof LiveRunUnavailableError) {
+      // Running a test on a real page is what the home page leads with. If no
+      // browser can be opened, the product's headline promise is down for
+      // everybody, and the visitor is told only "not available right now".
+      await somebodyGotStuck({ what: "browser_unavailable", where: "preview-run" });
       return NextResponse.json({ error: "Live runs are not available right now." }, { status: 503 });
     }
     logOperationalEvent("error", {

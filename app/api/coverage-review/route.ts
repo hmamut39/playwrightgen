@@ -19,6 +19,7 @@ import { capturePageSnapshot, isPublicWebAddress, type PageSnapshot } from "@/li
 import { readTestAccount } from "@/lib/free-tools/sign-in";
 import { saveFreeToolDraft } from "@/lib/services/free-tool-drafts";
 import { measureSurfaceCoverage, readControls } from "@/lib/free-tools/surface-coverage";
+import { somebodyGotStuck } from "@/lib/operations/stuck-signal";
 
 const lenses = new Set<CoverageReviewInput["lens"]>(["COVERAGE", "FLAKY", "ARCHITECTURE", "ASSERTIONS"]);
 
@@ -167,6 +168,7 @@ export async function POST(req: Request) {
     // See the note in quick-generate/route.ts: an exhausted account cannot be
     // retried into working, so it is not reported as a failed attempt.
     const outOfCredit = isProviderOutOfCredit(error);
+    if (outOfCredit) await somebodyGotStuck({ what: "provider_out_of_credit", where: "coverage-review" });
     const configurationFailure =
       outOfCredit ||
       error instanceof EnvironmentValidationError ||

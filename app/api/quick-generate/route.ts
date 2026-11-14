@@ -18,6 +18,7 @@ import {
 import { readTestAccount } from "@/lib/free-tools/sign-in";
 import { saveFreeToolDraft } from "@/lib/services/free-tool-drafts";
 import { logOperationalEvent } from "@/lib/operations/safe-telemetry";
+import { somebodyGotStuck } from "@/lib/operations/stuck-signal";
 
 const MAX_TEXT_FILE_BYTES = 250_000;
 const MAX_TEXT_CONTEXT = 500_000;
@@ -199,6 +200,7 @@ export async function POST(req: Request) {
     // again", and the provider's own sentence goes to the log so the person
     // who can fix it finds out without reading code.
     const outOfCredit = isProviderOutOfCredit(error);
+    if (outOfCredit) await somebodyGotStuck({ what: "provider_out_of_credit", where: "quick-generate" });
     const configurationFailure =
       outOfCredit ||
       error instanceof EnvironmentValidationError ||

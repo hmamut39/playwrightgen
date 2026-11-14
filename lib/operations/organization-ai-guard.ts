@@ -4,6 +4,7 @@ import { Redis } from "@upstash/redis";
 import { z } from "zod";
 
 import { validateRedisEnvironment } from "@/lib/env";
+import { somebodyGotStuck } from "@/lib/operations/stuck-signal";
 import { getOrganizationLimits } from "@/lib/services/entitlements";
 
 type EnvironmentSource = Readonly<Record<string, string | undefined>>;
@@ -130,6 +131,17 @@ export async function reserveOrganizationAiRequest(input: {
   );
 
   if (!allowed) {
+    // The day's allowance, not the minute's. A burst limit clears in sixty
+    // seconds and the person carries on; a spent day is where an evaluation
+    // stops, and the owner can do something about that one -- but only if he
+    // hears about it while the week is still running.
+    if (reason !== 1) {
+      await somebodyGotStuck({
+        what: "daily_allowance_exhausted",
+        where: input.surface,
+        organizationId,
+      });
+    }
     throw new OrganizationAiRateLimitError(
       reason === 1 ? "organization_burst_limit" : "organization_daily_limit",
       reason === 1 ? 60 : secondsUntilUtcDayEnd(now),

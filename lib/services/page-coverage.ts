@@ -29,6 +29,7 @@ import {
 } from "@/lib/operations/organization-ai-guard";
 import { recordImportedDraft } from "@/lib/services/imported-drafts";
 import { createTestCase } from "@/lib/services/test-cases";
+import { somebodyGotStuck } from "@/lib/operations/stuck-signal";
 
 /**
  * "Cover this page": plan the test cases one page needs, let a person keep the
@@ -171,6 +172,7 @@ export async function startPageCoveragePlan(
       // workspace does, so it is the worst possible place to send somebody
       // away rewriting a sentence that was never the problem.
       const outOfCredit = isProviderOutOfCredit(error);
+    if (outOfCredit) await somebodyGotStuck({ what: "provider_out_of_credit", where: "cover-a-page" });
       console.error(
         "[page-coverage] planning failed:",
         outOfCredit ? providerFailureReason(error) : error,

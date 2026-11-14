@@ -3211,8 +3211,29 @@ is missing is the unprompted signal: a sign-up whose first run failed, an
 allowance exhausted mid-evaluation, a page opened and abandoned. In a
 one-week trial, learning this afterwards is learning it too late.
 
-Narrow and sufficient: the handful of moments that mean "somebody wanted this
-to work and it did not", reaching the owner the same day.
+Done 2026-11-14. `lib/operations/stuck-signal.ts` tells the owner within the
+hour about the three moments that *end* an evaluation rather than every error:
+a workspace spending its daily allowance, the model provider out of credit,
+and no browser being available for a live run. Each mail says what happened
+and what to do about it -- the allowance one carries the workspace id and the
+exact `grant-trial-allowance` command, because a notice without a next step is
+just a worry.
+
+Three rules keep it from becoming noise or a leak, and each has a test: one
+mail per kind per hour held in Redis, so the fourth person to hit the same
+wall does not fill an inbox that then gets filtered; nothing a person wrote
+ever travels, because the message is built from a fixed table plus a surface
+name and an internal id; and it never throws, because it runs inside a request
+that is already refusing somebody.
+
+It needed no new configuration -- it uses the address feedback already proved
+working on 2026-11-08 -- and `OWNER_ALERT_EMAIL` overrides it if the two should
+ever go to different places.
+
+What is still missing is the quieter half: a sign-up whose first run simply
+did not satisfy them, and who left without hitting any limit at all. That one
+needs a judgment about what counts as abandonment and is not worth guessing at
+before there are strangers to observe.
 
 ### 5. Housekeeping, because it protects the four above
 
