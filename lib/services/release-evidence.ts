@@ -208,6 +208,61 @@ export function unlinkedTestsNote(tests: Pick<EvidenceTestCase, "latestResult">[
   return behaviour + intent;
 }
 
+/**
+ * The three numbers at the top, and what they are about.
+ *
+ * They counted requirements, always. A project that reached approved, proven
+ * tests through "Cover a page" -- the product's own first suggestion, which
+ * produces test cases and no requirement -- met "Verified 0, Failing 0, Not
+ * verified 0" above a paragraph of negatives, with its one true good fact
+ * below all of it under the heading "not linked to a requirement".
+ *
+ * Every sentence on that page was accurate and the page read as empty. It is
+ * the one page whose whole job is to convince somebody outside the team, and
+ * the owner met it on 2026-11-08 the first time he shared his own.
+ *
+ * So when there is nothing to count, the numbers describe what is there
+ * instead. `subject` says which, because "Passed 1" and "Verified 1" are
+ * different claims and a reader must not have to guess which they are reading.
+ * Shared by the page and the downloadable file, which carry the same tiles and
+ * would otherwise drift apart.
+ */
+export type EvidenceTotalsDisplay = {
+  subject: "requirements" | "tests";
+  tiles: { label: string; value: number; tone: "good" | "bad" | "neutral" }[];
+};
+
+export function evidenceTotalsDisplay(
+  report: Pick<ReleaseEvidenceReport, "totals" | "requirements" | "unlinkedTests">,
+): EvidenceTotalsDisplay {
+  // Only when there is genuinely nothing else to say. A project with one
+  // requirement keeps the requirement figures, because that is the stronger
+  // claim and swapping it for a test count would be the overstatement running
+  // the other way.
+  if (report.requirements.length === 0 && report.unlinkedTests.length > 0) {
+    const tests = report.unlinkedTests;
+    return {
+      subject: "tests",
+      tiles: [
+        { label: "Passed", value: tests.filter((t) => t.latestResult === "PASSED").length, tone: "good" },
+        { label: "Failing", value: tests.filter((t) => t.latestResult === "FAILED").length, tone: "bad" },
+        // Approving a test records an intention to check something; it does
+        // not check it. A reader has to be able to see how much of this page
+        // is intention.
+        { label: "Never run", value: tests.filter((t) => t.latestResult === null).length, tone: "neutral" },
+      ],
+    };
+  }
+  return {
+    subject: "requirements",
+    tiles: [
+      { label: "Verified", value: report.totals.verified, tone: "good" },
+      { label: "Failing", value: report.totals.failing, tone: "bad" },
+      { label: "Not verified", value: report.totals.unverified, tone: "neutral" },
+    ],
+  };
+}
+
 export async function buildReleaseEvidenceReport(input: {
   organizationId: string;
   projectId: string;

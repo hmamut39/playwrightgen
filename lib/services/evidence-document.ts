@@ -1,6 +1,6 @@
 import { evidenceHash } from "@/lib/services/evidence-hash";
 import type { ReleaseEvidenceReport } from "@/lib/services/release-evidence";
-import { unlinkedTestsNote } from "@/lib/services/release-evidence";
+import { evidenceTotalsDisplay, unlinkedTestsNote } from "@/lib/services/release-evidence";
 
 /**
  * The evidence as a file someone can keep.
@@ -175,6 +175,10 @@ export function evidenceDocument(
   // A reader holding this file and a reader looking at the page can compare
   // this and know whether they are looking at the same evidence.
   const reference = evidenceHash(report).slice(0, 12);
+  // The same decision the shared page makes, from the same function: a file
+  // kept or printed must not describe the project differently from the link
+  // it was downloaded from.
+  const totals = evidenceTotalsDisplay(report);
   const taken = options.frozen
     ? `Snapshot taken ${stamp(report.generatedAt)}. It shows what was true at that moment.`
     : `Read ${stamp(report.generatedAt)}. It shows the project as it stood at that moment.`;
@@ -233,10 +237,9 @@ export function evidenceDocument(
   <p class="sub">${escape(report.organization.name)}</p>
   <p class="note">${taken}<br>Document reference ${reference}</p>
 
+  <p class="note">${totals.subject === "tests" ? "Approved tests" : "Requirements"}</p>
   <div class="totals">
-    <div class="total"><span>Verified</span><strong>${report.totals.verified}</strong></div>
-    <div class="total"><span>Failing</span><strong>${report.totals.failing}</strong></div>
-    <div class="total"><span>Not verified</span><strong>${report.totals.unverified}</strong></div>
+    ${totals.tiles.map((tile) => `<div class="total"><span>${escape(tile.label)}</span><strong>${tile.value}</strong></div>`).join("")}
   </div>
   ${
     report.totals.stale

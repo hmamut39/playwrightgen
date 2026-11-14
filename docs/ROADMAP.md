@@ -3230,16 +3230,24 @@ that fails twice still exits 1 with "1 case failed twice".
 Still open: the dependency-upgrade refusal. That is a prompt-and-validation
 problem on a real surface, not a gate problem.
 
-**The harness cannot be run locally (found 2026-11-14).** Every eval file
-fails before collection with `TypeError: Cannot read properties of undefined
-(reading 'config')`, pointing at its own first `describe(`. A four-line file
-with a minimal config reproduces it. Ruled out: dotenv's export shape, the
-setup file (an empty one fails the same way), `describe.skipIf`, every option
-in the evals config, duplicate vitest installs, and a stale `node_modules/
-.vite` cache. The standing lead is the runtime: the workflow pins Node 20 and
-this machine runs Node 24, and the evals do run green-and-red in CI, which is
-why nothing looked broken. It matters because item 1 is about making this gate
-trustworthy, and nobody can iterate on a gate they cannot run.
+**Nothing could be run locally, and only CI knew (found 2026-11-14).** It
+looked at first like the evals: every eval file failed before collection with
+`TypeError: Cannot read properties of undefined (reading 'config')`. It is not
+the evals. The whole test suite fails the same way -- 95 files, 642 tests, the
+message "Vitest failed to find the current suite" -- on a machine where they
+all passed six days earlier, with the working tree clean and `npm ci` run from
+the unchanged lockfile.
+
+The cause is the runtime. vitest 4.1.11 does not work under the Node 24 now
+installed here; `npx vitest@latest` (5.1.0) runs all 642 green on the same
+machine, same tree. CI pins Node 20, so CI stayed green the entire time and
+nothing announced that the developer's own machine had stopped being able to
+check anything. For a product whose subject is exactly that gap, it is worth
+writing down as the house's own instance of it.
+
+The fix is a vitest 4 to 5 bump, which is a dependency change and needs the
+owner's go-ahead; auto mode declined it, correctly. Until then: run with
+`npx vitest@latest`, and treat CI as the authority it already was.
 
 ### Earlier note, kept
 
@@ -3293,6 +3301,19 @@ test is the customer's, live, and not ours to mutate -- but *did the assertion
 execute* is answerable and is most of the value.
 
 ### 3b. The three a stranger meets first (promised 2026-11-08)
+
+The first is done (2026-11-14). The shared evidence page counted requirements
+always, so a project that reached approved, proven tests through "Cover a
+page" -- the product's own first suggestion, which makes test cases and no
+requirement -- led with "Verified 0, Failing 0, Not verified 0". The numbers
+now describe what is there when there is nothing else to count: Passed,
+Failing, Never run, with the word "Approved tests" above them so a reader
+cannot mistake one claim for the other. The decision is one function shared by
+the page and the downloadable file, which carried the same tiles and would
+otherwise drift. A project with even one requirement keeps the requirement
+figures, because that is the stronger claim and swapping it would be the same
+overstatement running the other way.
+
 
 Found by the owner setting up the demo account on production, and none of it
 is theoretical -- he walked into all three in one evening.

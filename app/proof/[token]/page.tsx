@@ -13,7 +13,7 @@ import {
 } from "@/lib/services/evidence-signature";
 import { ageWord } from "@/lib/services/evidence-document";
 import type { EvidenceTestCase } from "@/lib/services/release-evidence";
-import { buildReleaseEvidenceReport, unlinkedTestsNote } from "@/lib/services/release-evidence";
+import { buildReleaseEvidenceReport, evidenceTotalsDisplay, unlinkedTestsNote } from "@/lib/services/release-evidence";
 import { EXAMPLE_PROOF_TOKEN, exampleProofClaim, resolveProofLink } from "@/lib/services/release-proof";
 
 /**
@@ -24,6 +24,13 @@ import { EXAMPLE_PROOF_TOKEN, exampleProofClaim, resolveProofLink } from "@/lib/
  * workspace, and no test code. It answers one question, "what was tested and
  * how did it last run", in a form someone outside the team can read.
  */
+
+/** The three tiles' colours, kept out of the markup so the decision stays one place. */
+const TOTAL_TONE: Record<"good" | "bad" | "neutral", string> = {
+  good: "text-emerald-800",
+  bad: "text-red-700",
+  neutral: "text-slate-700",
+};
 
 export const metadata: Metadata = {
   title: "Test evidence",
@@ -127,6 +134,9 @@ export default async function ProofPage({
     }).catch(() => null));
   if (!report) return <Expired />;
   const frozen = Boolean(claim.snapshot);
+  // Works on a frozen snapshot too: an older one carries the same fields, so
+  // a link shared last month leads the same way this one does.
+  const totals = evidenceTotalsDisplay(report);
   // Null rather than an empty list: this page is read by somebody outside
   // the team, and a failed read shown as no acceptances is a claim.
   const signatures = example ? [] : await readLinkSignatures(decodeURIComponent(token)).catch(() => null);
@@ -178,9 +188,10 @@ export default async function ProofPage({
           </p>
         ) : null}
         <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600">
-          Each requirement below is shown with the approved tests that verify it and how those tests last ran. Every
-          result was recorded when the test ran, against the approved version it ran. This page is a copy of that
-          record: it cannot be edited here, and it shows no test code.
+          {totals.subject === "tests"
+            ? "Below are this project's approved tests and how each one last ran. Every result was recorded when the test ran, against the approved version it ran. No requirement has been approved yet, so none of it states what the product was agreed to do."
+            : "Each requirement below is shown with the approved tests that verify it and how those tests last ran. Every result was recorded when the test ran, against the approved version it ran."}{" "}
+          This page is a copy of that record: it cannot be edited here, and it shows no test code.
           {frozen ? "" : " It is read fresh each time this link is opened, so it follows the project."}
         </p>
         <a
@@ -194,17 +205,23 @@ export default async function ProofPage({
         </p>
       </header>
 
-      <section className="mt-8 grid gap-3 sm:grid-cols-3" aria-label="Totals">
-        {[
-          ["Verified", report.totals.verified, "text-emerald-800"],
-          ["Failing", report.totals.failing, "text-red-700"],
-          ["Not verified", report.totals.unverified, "text-slate-700"],
-        ].map(([label, value, tone]) => (
-          <div key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">{label}</p>
-            <p className={`mt-2 text-3xl font-semibold ${tone}`}>{value}</p>
-          </div>
-        ))}
+      <section className="mt-8" aria-label="Totals">
+        {/*
+          What the numbers are about, said above them. "Passed 1" and
+          "Verified 1" are different claims and a reader must not have to work
+          out which one they are reading.
+        */}
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+          {totals.subject === "tests" ? "Approved tests" : "Requirements"}
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          {totals.tiles.map((tile) => (
+            <div key={tile.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">{tile.label}</p>
+              <p className={`mt-2 text-3xl font-semibold ${TOTAL_TONE[tile.tone]}`}>{tile.value}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       {report.truncated ? (
