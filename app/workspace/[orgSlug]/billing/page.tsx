@@ -83,9 +83,17 @@ export default async function BillingPage({
             {/* When a granted allowance lapses, said where the plan is read.
                 One that ends without warning is one somebody plans around and
                 then loses mid-week. */}
-            {!activeSubscription && onTeam && (grant?.effectiveUntil || allowed.trialEndsAt) ? (
+            {/*
+              The date that explains why they are on Team *now*.
+              Reading the grant first printed "Until 8 November" -- a date a
+              week in the past -- to a workspace whose expired grant had been
+              replaced by the opening allowance. The guard only reports
+              trialEndsAt when no entitlement is in force, so when it is set
+              it is the reason, and the lapsed row is history.
+            */}
+            {!activeSubscription && onTeam && (allowed.trialEndsAt || grant?.effectiveUntil) ? (
               <p className="mt-1 text-xs text-slate-500">
-                Until <LocalTime value={grant?.effectiveUntil ?? allowed.trialEndsAt!} style="date" />, then back to the free allowance.
+                Until <LocalTime value={allowed.trialEndsAt ?? grant!.effectiveUntil!} style="date" />, then back to the free allowance.
               </p>
             ) : null}
             {activeSubscription?.currentPeriodEnd ? (
