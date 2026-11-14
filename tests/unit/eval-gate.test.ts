@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { compareWithBaseline, gateReport } from "@/scripts/eval-gate.mjs";
+import { acceptedBaseline, compareWithBaseline, coverageNote, gateReport } from "@/scripts/eval-gate.mjs";
 
 /**
  * The gate decides whether an eval run may pass, so it is worth more than the
@@ -136,5 +136,88 @@ describe("what an eval run is allowed to be", () => {
 
     const comparison = compareWithBaseline(current, baseline);
     expect(comparison.regressions.map((entry) => entry.file)).toEqual(["live-page.eval.ts"]);
+  });
+});
+
+/**
+ * What accepting a run does to the baseline.
+ *
+ * `--accept` wrote the run's cases and nothing else. Running one file on
+ * purpose is ordinary -- the gate's own confirm step re-runs single files --
+ * so accepting after a filtered run replaced a baseline of the whole suite
+ * with a baseline of that file. Every other case became one nobody had seen
+ * before, and those cannot regress, by design, so they stopped being gated.
+ *
+ * Found on 2026-11-14: the committed baseline held 12 cases from three files
+ * while the suite ran 57 from thirteen. The gate was watching a fifth of what
+ * it reported on, and said "no case did worse than the baseline" either way.
+ */
+describe("moving the baseline", () => {
+  const baselineOf = (cases: Array<{ file: string; name: string; status: string }>) => ({ cases });
+
+  it("keeps the cases a filtered run never measured", () => {
+    const before = baselineOf([
+      { file: "review.eval.ts", name: "a", status: "passed" },
+      { file: "other.eval.ts", name: "b", status: "passed" },
+      { file: "other.eval.ts", name: "c", status: "failed" },
+    ]);
+    const moved = acceptedBaseline(run([{ name: "a", status: "failed" }]), before);
+
+    expect(moved.cases).toHaveLength(3);
+    expect(moved.updated).toBe(1);
+    expect(moved.added).toBe(0);
+    expect(moved.untouched).toBe(2);
+    // The one that ran moves. The two that did not stay exactly as they were.
+    expect(moved.cases.find((entry) => entry.name === "a")?.status).toBe("failed");
+    expect(moved.cases.find((entry) => entry.name === "c")?.status).toBe("failed");
+  });
+
+  it("adds a case the baseline has never seen", () => {
+    const moved = acceptedBaseline(
+      run([{ name: "a", status: "passed" }, { name: "new one", status: "failed" }]),
+      baselineOf([{ file: "review.eval.ts", name: "a", status: "passed" }]),
+    );
+
+    expect(moved.added).toBe(1);
+    expect(moved.updated).toBe(1);
+    expect(moved.cases.find((entry) => entry.name === "new one")?.status).toBe("failed");
+  });
+
+  it("carries no failure text into the baseline", () => {
+    // The baseline records what a case is expected to do. One run's error
+    // message is not that, and would turn every comparison into a diff of
+    // provider prose.
+    const moved = acceptedBaseline(
+      run([{ name: "a", status: "failed", failure: "Timeout 5000ms exceeded" }]),
+      baselineOf([{ file: "review.eval.ts", name: "a", status: "passed" }]),
+    );
+
+    expect(Object.keys(moved.cases[0]).sort()).toEqual(["file", "name", "status"]);
+  });
+});
+
+describe("saying how much of a run the baseline judges", () => {
+  it("counts the cases nothing has an opinion about", () => {
+    const measured = run([
+      { name: "a", status: "passed" },
+      { name: "b", status: "passed" },
+      { name: "c", status: "passed" },
+    ]);
+    const comparison = compareWithBaseline(measured, {
+      cases: [{ file: "review.eval.ts", name: "a", status: "passed" }],
+    });
+
+    expect(coverageNote(comparison, measured)).toContain("2 of 3");
+  });
+
+  it("says nothing when the baseline judges all of it", () => {
+    // Silence is the right output for a gate that is doing its job; a line
+    // printed every run is a line nobody reads on the run that matters.
+    const measured = run([{ name: "a", status: "passed" }]);
+    const comparison = compareWithBaseline(measured, {
+      cases: [{ file: "review.eval.ts", name: "a", status: "passed" }],
+    });
+
+    expect(coverageNote(comparison, measured)).toBeNull();
   });
 });

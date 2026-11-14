@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "nod
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { compareWithBaseline, gateReport } from "./eval-gate.mjs";
+import { acceptedBaseline, compareWithBaseline, coverageNote, gateReport } from "./eval-gate.mjs";
 
 /**
  * Runs the evals and keeps the score, so one run can be compared with the next.
@@ -165,17 +165,16 @@ report(run, previous);
 
 const baseline = readBaseline();
 if (accept || !baseline) {
-  writeFileSync(
-    BASELINE,
-    JSON.stringify(
-      { blessedAt: run.ranAt, cases: run.cases.map(({ file, name, status }) => ({ file, name, status })) },
-      null,
-      2,
-    ),
-  );
+  // Merged, not replaced. Accepting a run that measured one file used to
+  // throw away the baseline for the other twelve, and the cases it forgot
+  // became cases nobody had ever seen -- which cannot regress, by design, so
+  // they stopped being gated and nothing said so.
+  const moved = acceptedBaseline(run, baseline);
+  writeFileSync(BASELINE, JSON.stringify({ blessedAt: run.ranAt, cases: moved.cases }, null, 2));
   console.log(
     baseline
-      ? "\nBaseline moved to this run, by hand. Every case here is now what is expected."
+      ? `\nBaseline moved by hand: ${moved.updated} updated, ${moved.added} added, ` +
+        `${moved.untouched} left alone because this run did not measure them.`
       : "\nNo baseline existed. This run is now the baseline; check it reads the way you meant.",
   );
   process.exit(0);
@@ -215,6 +214,12 @@ console.log(
     ? "\nNo case did worse than the baseline twice."
     : "\nNo case did worse than the baseline.",
 );
+// How much of the run that sentence covers. It was true on 2026-11-14 of a
+// baseline holding 12 of the suite's 57 cases: the other 45 were measured,
+// printed one by one as "new", and judged by nothing. A reassurance has to
+// say what it is reassuring about.
+const coverage = coverageNote(comparison, run);
+if (coverage) console.log(coverage);
 // Deliberately not vitest's code: a case this suite expects to fail is not
 // a failure of the run, and a gate that cannot tell the two apart gates
 // nothing.

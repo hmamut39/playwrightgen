@@ -3249,6 +3249,31 @@ The fix is a vitest 4 to 5 bump, which is a dependency change and needs the
 owner's go-ahead; auto mode declined it, correctly. Until then: run with
 `npx vitest@latest`, and treat CI as the authority it already was.
 
+**The gate was watching a fifth of the suite (found and fixed 2026-11-14).**
+The committed baseline held 12 cases from three files; the suite runs 57 from
+thirteen. The other 45 were measured every week, printed one by one as "new",
+and judged by nothing -- a case nobody has seen before cannot regress, which
+is right, and means an absent baseline entry is an ungated case.
+
+The mechanism was `--accept`. It wrote the run's cases and nothing else, and
+running one file on purpose is ordinary -- the gate's own confirm step re-runs
+single files. So one accept after a filtered run replaced a baseline of the
+whole suite with a baseline of that file, permanently and silently, and the
+three files in the committed baseline are exactly the three someone last ran.
+
+Accepting now moves the cases a run measured and leaves the rest where they
+were, reporting all three numbers. The run also prints how much of itself the
+baseline has an opinion about, because "no case did worse than the baseline"
+was true of a gate watching a fifth of the suite and read as the opposite.
+Both tested in `tests/unit/eval-gate.test.ts`, which spends no model calls.
+
+Still to do: move the baseline onto the whole suite. That is a judgment about
+which of today's six failures are expected -- two are skipped for want of a
+browser key, two pass on repetition, one was a bug in a new eval of mine and
+is fixed, one is a real intermittent fabrication in requirement review -- and
+it should be made deliberately, with the reason written down, which is what
+`--accept` is for.
+
 ### Earlier note, kept
 
 

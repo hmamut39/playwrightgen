@@ -84,3 +84,58 @@ export function gateReport(comparison) {
       !comparison.ranNothing,
   };
 }
+
+/**
+ * The baseline after accepting a run, which may have measured only some of it.
+ *
+ * `--accept` used to write the run's cases and nothing else. Running one file
+ * on purpose is ordinary -- the gate's own confirm step re-runs single files
+ * -- so an accept after a filtered run replaced a baseline of the whole suite
+ * with a baseline of that file, and every other case became one nobody had
+ * ever seen. Those cannot regress, by design, so they stopped being gated,
+ * silently and permanently.
+ *
+ * That is what happened here. On 2026-11-14 the committed baseline held 12
+ * cases from three files while the suite ran 57 from thirteen: the gate was
+ * watching a fifth of the thing it reports on, and its output said "no case
+ * did worse than the baseline" either way.
+ *
+ * So accepting moves the cases this run actually measured and leaves the rest
+ * where they were. Cases are matched on file and name, which is what every
+ * other comparison here uses.
+ */
+export function acceptedBaseline(run, baseline) {
+  const kept = new Map((baseline?.cases ?? []).map((entry) => [key(entry), entry]));
+  let updated = 0;
+  let added = 0;
+  for (const entry of run.cases) {
+    const bare = { file: entry.file, name: entry.name, status: entry.status };
+    if (kept.has(key(entry))) updated += 1;
+    else added += 1;
+    kept.set(key(entry), bare);
+  }
+  return {
+    cases: [...kept.values()],
+    updated,
+    added,
+    // Cases the baseline knows and this run did not measure. They are kept,
+    // and saying how many is the difference between accepting a run and
+    // accepting a narrower gate without noticing.
+    untouched: kept.size - updated - added,
+  };
+}
+
+/**
+ * How much of this run the baseline has an opinion about.
+ *
+ * The per-case "new" lines were already printed, one each. Forty-five of them
+ * scroll past as a list nobody counts, and the summary line underneath still
+ * read "no case did worse than the baseline" -- true, and true of a gate
+ * watching a fifth of the suite.
+ */
+export function coverageNote(comparison, run) {
+  const total = run.cases.length;
+  const ungated = comparison.unseen.length;
+  if (total === 0 || ungated === 0) return null;
+  return `${ungated} of ${total} cases are not in the baseline, so they were measured and not gated. Move the baseline with --accept to start judging them.`;
+}
