@@ -3324,14 +3324,40 @@ is theoretical -- he walked into all three in one evening.
   under the heading "not linked to a requirement". Every sentence is accurate
   and the page reads as empty. It is the one page whose whole job is to
   convince.
-- **"Add a single todo" was the only one of four that failed**, after two
-  automatic fixes, on the simplest behaviour the demo page has. The harder
-  three passed. Until that is understood, a stranger's first run is a 75%.
+- ~~**"Add a single todo" was the only one of four that failed**~~ --
+  investigated 2026-11-14 and not reproducible: the same intent, through the
+  same generate-run-fix path, wrote a passing test first time (7 steps, 4
+  checks). That generation was unlucky, not a defect, and the page itself is
+  a field of traps worth knowing: `getByRole('listitem')` matches four
+  elements on TodoMVC because the All/Active/Completed filters are list items
+  too, and there is no `status` role at all -- the counter is a `strong` and a
+  text node, so `getByRole('status')` finds nothing. Both confirmed against
+  the real page with plain Playwright, so the preview runner is not
+  misreporting either.
+  What the investigation did find is in **3c** below, and it is the better
+  finding.
 - **The onboarding's four steps skip two.** Step 4 says "approve, then switch
   on daily checks", but between approving a test case and any check running
   there are two unnamed steps: make the proven code the automation, and
   approve that. Nothing on the page says so, and the evidence page reads
   "never run" until both are done.
+
+### 3c. A failed run was the one told least (done 2026-11-14)
+
+Covering a page has three outcomes. A partial one lists every line the preview
+refused and why. A passing one says what it proved. The failed one -- the only
+outcome that asks a person to do something -- said "still failing after the
+automatic fixes; the code is kept for a person to finish" and stopped, while
+the failure sat in hand: `firstFailureOf` was already imported in that file
+and already used, thirty lines earlier, to feed the automatic fixer.
+
+So the person was sent to open a draft and work out for themselves what two
+automatic attempts had already been told. The owner met it on the demo.
+
+The failing line and the page's own words now sit under that sentence, where
+the page already renders the partial outcome's lines. Pulled into
+`failedCoverageDetail` so the decision is tested rather than reached only by
+spending two model calls against a live page.
 
 ### 4. Flakiness, past reporting it
 

@@ -386,6 +386,35 @@ export async function retryFailedPageCoverageItems(
   return { requeued: requeued.count };
 }
 
+/**
+ * What a person is told when covering a page could not get a test passing.
+ *
+ * The partial outcome lists every line that could not run and why. This one --
+ * the only outcome that asks a person to do something -- said "still failing
+ * after the automatic fixes" and stopped, while the failure sat in hand:
+ * `firstFailureOf` was already imported in this file and already used to feed
+ * the fixer. The person was sent to open a draft and work out for themselves
+ * what two automatic attempts had already been told.
+ *
+ * The owner met it on 2026-11-08, setting up the demo: one of four tests on
+ * the demo page failed and the card gave him nothing to go on.
+ *
+ * Pulled out so the decision can be tested rather than reached only by
+ * spending two model calls against a live page.
+ */
+export function failedCoverageDetail(input: {
+  stopped: string | null;
+  failure: { line: string; reason: string } | null;
+}): string {
+  if (input.stopped === "limit") return "Stopped when the AI allowance ran out.";
+  const head = "Still failing after the automatic fixes; the code is kept for a person to finish.";
+  if (!input.failure) return head;
+  // The page's own words, which can run long, in a list row.
+  const reason = input.failure.reason.replace(/\s+/g, " ").trim().slice(0, 240);
+  return `${head}
+- ${input.failure.line}${reason ? ` -- ${reason}` : ""}`;
+}
+
 function requestFor(item: { title: string; objective: string; steps: Prisma.JsonValue; expectedResults: Prisma.JsonValue }) {
   const list = (value: Prisma.JsonValue) => (Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : []);
   return [
@@ -598,7 +627,15 @@ export async function proveNextPageCoverageItem(
             ].join("\n"),
           }
         : outcome.verdict === "failed"
-          ? { status: "FAILED", checks, fixes: outcome.fixesUsed, detail: outcome.stopped === "limit" ? "Stopped when the AI allowance ran out." : "Still failing after the automatic fixes; the code is kept for a person to finish." }
+          ? {
+              status: "FAILED",
+              checks,
+              fixes: outcome.fixesUsed,
+              detail: failedCoverageDetail({
+                stopped: outcome.stopped,
+                failure: lastRun ? firstFailureOf(lastRun) : null,
+              }),
+            }
           : { status: "ERROR", checks: 0, fixes: 0, detail: outcome.message ?? "It could not be run." };
   } catch (error) {
     console.error("[page-coverage] proving an item failed", error);
