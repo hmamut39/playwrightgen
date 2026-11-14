@@ -3184,10 +3184,25 @@ November and it stayed broken for a day: CI was green the whole time, because
 CI tests the repository and nobody was testing the deployment. It was found by
 accident, while verifying something else.
 
-Needed: a daily run against production that uses the product the way a person
-does -- generate, run it on a real page, read the evidence -- and says so when
-it stops working. The honest version is the product watching itself, which is
-also the demo.
+Done 2026-11-14. `scripts/watch-production.mjs` opens the deployment the way
+a visitor does, twice a day, and names what broke rather than that something
+did: the site answers and its components are healthy, the home page still
+offers the worked example, a real test runs in a real browser on a real page
+and proves at least one assertion, the public evidence page still has
+something on it, and the MCP endpoint loads rather than 500s. Each step says
+what it proves, because "the canary failed" is the same unhelpful sentence as
+"still failing after the automatic fixes".
+
+Every step is asked twice before it counts: a watcher that cries wolf gets
+turned off, and then it is worse than nothing because somebody believes it is
+watching. It uses no dependencies and no secrets -- everything it touches is
+what a stranger with no account can reach, which is the point of the
+measurement.
+
+Checked both ways. Against production: five of five ok, exit 0. Against a path
+that does not exist: five of five broke, exit 1 -- and that negative run found
+a bug in the watcher itself, because the MCP step accepted a 404 as proof the
+module had loaded. A step that cannot go red is a step that is not watching.
 
 ### 4. When somebody gets stuck, know the same day
 

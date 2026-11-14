@@ -1,0 +1,45 @@
+name: Watch production
+
+# The product sells this sentence: daily checks run on your site and tell you
+# the day one breaks. Nothing ran them on playwrightgen.com.
+#
+# On 2026-11-07 an upgrade moved a file the build cannot see, every route that
+# opens a browser began answering 500, and it stayed broken for a day with CI
+# green the whole time -- correctly, because CI tests the repository and
+# nobody was testing the deployment.
+#
+# Twice a day, not hourly: this opens a real browser through Browserless on
+# the owner's plan, and a watcher that costs more than it saves gets turned
+# off. Twice is enough to find a bad deploy within hours instead of a day.
+on:
+  workflow_dispatch:
+    inputs:
+      site:
+        description: "Which deployment to use"
+        required: false
+        default: "https://playwrightgen.com"
+  schedule:
+    - cron: "23 7,19 * * *"
+
+# A failing run must not queue behind the next one; the newest answer is the
+# only one worth having.
+concurrency:
+  group: watch-production
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    name: Use the deployment the way a person does
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # No install. The watcher uses nothing but fetch, on purpose: a
+      # dependency tree is one more thing that can fail and make this lie.
+      - name: Use it
+        run: node scripts/watch-production.mjs --site "${{ inputs.site || 'https://playwrightgen.com' }}"
