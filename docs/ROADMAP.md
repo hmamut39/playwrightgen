@@ -3155,6 +3155,28 @@ January has that rate, and it costs nothing but attention. It is first because
 everything else is a guess about what a stranger meets, and this is a
 measurement of it.
 
+### 1a. First walk under the new rule (2026-11-14)
+
+Walked the surfaces a stranger meets without an account: the home page, Quick
+Generate, Coverage Review, pricing, /mcp and /proof/example. All six load, no
+errors, and the limit screen is good -- "You've used today's 5 free runs...
+free runs reset in 6h 48m (midnight UTC)", with the upgrade beside it.
+
+Two things worth recording.
+
+The generate button relabels itself from "Generate Playwright draft" to
+"Generate & prove on the live page" once a page URL is given. That is the
+product telling you what it is about to do, and it is right.
+
+The defect: both form-taking endpoints answered **500, "Quick Generate failed.
+Please try again"** to a request they could not read at all -- JSON sent to a
+form endpoint, a truncated upload, the wrong content type. The status says the
+server broke when the request did, and the advice is to retry something that
+cannot succeed however many times it is sent. The JSON routes next door have
+always answered 400 and said what was missing. On a product sold to
+developers this is the first thing somebody poking at the API meets, and it
+told them the service was down. Fixed, with a test.
+
 ### 2. The first week has to survive its own limits
 
 A new workspace gets 20 AI actions a day. One "Cover a page" of four tests

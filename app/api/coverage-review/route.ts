@@ -32,7 +32,28 @@ export async function POST(req: Request) {
   const startedAt = Date.now();
 
   try {
-    const formData = await req.formData();
+    /**
+     * A body that cannot be read is the caller's mistake, not a failure here.
+     *
+     * This read sat inside the handler's outer try, so anything unreadable --
+     * JSON sent to a form endpoint, a truncated upload, the wrong content
+     * type -- fell through to "Coverage Review failed. Please try again.", with a 500
+     * beside it. Both halves were wrong: the status says the server broke
+     * when the request did, and the advice is to retry something that cannot
+     * succeed however many times it is sent. The JSON routes next door have
+     * always answered 400 and said what was missing.
+     *
+     * Found on 2026-11-14 by walking the public surfaces as a stranger would.
+     */
+    let formData: FormData;
+    try {
+      formData = await req.formData();
+    } catch {
+      return NextResponse.json(
+        { error: "Send this as a form submission, not JSON." },
+        { status: 400 },
+      );
+    }
     const lens = String(formData.get("lens") || "COVERAGE") as CoverageReviewInput["lens"];
     const pageUrl = String(formData.get("pageUrl") || "").trim();
     const requirement = String(formData.get("requirement") || "").trim();
