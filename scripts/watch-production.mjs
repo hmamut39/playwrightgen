@@ -97,8 +97,24 @@ const steps = [
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ code: PROBE, pageUrl: "https://demo.playwright.dev/todomvc/" }),
       });
-      // The shape of the 2026-11-07 outage: a 500 with an empty body, before
-      // the handler, so there is nothing in the response to go on.
+      /**
+       * Out of runs is not out of order.
+       *
+       * The free tools allow ten live runs a day per address. A 429 means the
+       * route loaded, the limiter answered and the handler ran -- the
+       * deployment is working; this address simply cannot prove the browser
+       * part right now. Calling that BROKE is how a watcher starts crying
+       * wolf, and a watcher nobody believes is worse than none, because
+       * somebody still thinks it is watching.
+       *
+       * It cannot hide the failure this exists to catch: the 2026-11-07
+       * outage answered 500 before the handler ran, never 429.
+       */
+      if (response.status === 429) {
+        return { ok: true, note: "the route is alive, but this address has used today's runs, so the browser was not exercised" };
+      }
+      // The shape of that outage: a 500 with an empty body, before the
+      // handler, so there is nothing in the response to go on.
       if (!response.ok) {
         const body = (await response.text()).slice(0, 200);
         return { ok: false, why: `POST /api/preview-run answered ${response.status}${body ? `: ${body}` : " with an empty body"}` };
@@ -153,10 +169,13 @@ const steps = [
 console.log(`Using ${site} the way a person does.\n`);
 
 const failures = [];
+/** Steps that answered, but could not be put fully to the test from here. */
+const unmeasured = [];
 for (const step of steps) {
   const result = await twice(step.run);
   if (result.ok) {
     console.log(`  ok    ${step.name}${result.note ? ` -- ${result.note}` : ""}`);
+    if (/not exercised/.test(result.note ?? "")) unmeasured.push(step.name);
     if (result.flaked) console.log(`        (first attempt failed: ${result.flaked})`);
   } else {
     console.log(`  BROKE ${step.name}`);
@@ -167,7 +186,14 @@ for (const step of steps) {
 }
 
 if (failures.length === 0) {
-  console.log("\nEverything a stranger would touch is working.");
+  // A step that could not be measured must not be reported as one that was.
+  // "Everything is working", over a run where no browser was ever opened, is
+  // the overstatement this whole product exists to prevent.
+  console.log(
+    unmeasured.length === 0
+      ? "\nEverything a stranger would touch is working."
+      : `\nNothing is broken, but ${unmeasured.length} step${unmeasured.length === 1 ? "" : "s"} could not be fully measured from here this run.`,
+  );
   process.exit(0);
 }
 
