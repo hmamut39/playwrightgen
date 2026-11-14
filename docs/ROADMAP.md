@@ -3336,11 +3336,18 @@ is theoretical -- he walked into all three in one evening.
   misreporting either.
   What the investigation did find is in **3c** below, and it is the better
   finding.
-- **The onboarding's four steps skip two.** Step 4 says "approve, then switch
-  on daily checks", but between approving a test case and any check running
-  there are two unnamed steps: make the proven code the automation, and
-  approve that. Nothing on the page says so, and the evidence page reads
-  "never run" until both are done.
+- ~~**The onboarding's four steps skip two.**~~ Fixed 2026-11-14. Step 4 said
+  "approve, then switch on daily checks", which names two of the four actions
+  a person has to take: between approving a test case and any check running,
+  the proven code must become the test's automation and that must be approved
+  too, because daily checks select automation with an approved version and
+  approving a test case creates none. A team following the steps exactly
+  approves its tests, turns the switch on, and nothing runs -- which is what
+  the owner met, his evidence page reading "never run" with daily checks
+  showing On. `tests/unit/daily-checks-promise.test.ts` already guarded this
+  sentence against the behaviour after it over-promised in October; it now
+  also checks the query it has to keep up with. Checked by putting the old
+  wording back and watching it fail.
 
 ### 3c. A failed run was the one told least (done 2026-11-14)
 

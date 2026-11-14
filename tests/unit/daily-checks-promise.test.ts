@@ -53,6 +53,23 @@ describe("the four steps shown to a new workspace", () => {
     expect(stepsBlock).toMatch(/switch on daily checks/i);
   });
 
+  it("says the proven code must become the automation first", () => {
+    // Corrected again on 2026-11-14. "Approve, then switch on daily checks"
+    // named two of the four actions a person has to take. Daily checks select
+    // automation artifacts with an approved version -- approving a test case
+    // creates none -- so a team following the steps exactly approves its
+    // tests, turns the switch on, and nothing runs. The owner walked into it
+    // setting up the demo: his public evidence page read "never run" with
+    // daily checks showing On.
+    const live = read("lib/services/live-checks.ts");
+    // The behaviour this sentence has to keep up with.
+    expect(live).toMatch(/approvedVersionNumber:\s*\{\s*not:\s*null\s*\}/);
+
+    const stepsBlock = steps.slice(steps.indexOf("const FIRST_STEPS"), steps.indexOf("];", steps.indexOf("const FIRST_STEPS")));
+    expect(stepsBlock).toMatch(/automation/i);
+    expect(stepsBlock).toMatch(/approve that too/i);
+  });
+
   it("does not promise it on the MCP page either", () => {
     // The same sentence sat in a list headed "what the workspace adds once a
     // proposed test has been approved", where it read as approval being

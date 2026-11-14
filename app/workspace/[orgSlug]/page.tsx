@@ -190,7 +190,15 @@ const FIRST_STEPS = [
     // following these four steps exactly would approve their tests, believe
     // the site was being watched, and find out otherwise on the day it broke
     // -- which is the one day this product exists to tell them about.
-    detail: "Approving turns a test into evidence. Then switch on daily checks, and it runs them on your site every day and tells you the day one breaks.",
+    // Corrected again on 2026-11-14. "Approve, then switch on daily checks"
+    // named two of four actions. Between them a person must make the proven
+    // code the test's automation and approve that too, because daily checks
+    // run approved automation, not approved test intent -- the query reads
+    // `approvedVersionNumber: { not: null }`. The owner walked into the gap
+    // setting up the demo: he approved his test, turned the switch on, and
+    // the public evidence page still read "never run", because nothing it
+    // could run existed yet.
+    detail: "Approving turns a test into evidence. To have it run, make the proven code its automation and approve that too, then switch on daily checks — it runs them on your site every day and tells you the day one breaks.",
   },
 ];
 
