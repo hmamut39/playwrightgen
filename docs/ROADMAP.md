@@ -3273,7 +3273,9 @@ before there are strangers to observe.
 ### 5. Housekeeping, because it protects the four above
 
 - vitest 4 to 5. The suite has not run on the owner's machine since Node 24
-  arrived; CI stayed green and said nothing, so the gap went unnoticed.
+  arrived; CI stayed green and said nothing, so the gap went unnoticed. Waiting
+  on one command from the owner, `npm install -D vitest@5 @vitest/coverage-v8@5
+  @types/node@22`; the workflow side of it is done.
 - Move the eval baseline onto the whole suite, deliberately, with the reason
   for each expected failure written down.
 - The limits already written down and not yet fixed: activity grouped by UTC
@@ -3408,14 +3410,43 @@ the unchanged lockfile.
 
 The cause is the runtime. vitest 4.1.11 does not work under the Node 24 now
 installed here; `npx vitest@latest` (5.1.0) runs all 642 green on the same
-machine, same tree. CI pins Node 20, so CI stayed green the entire time and
-nothing announced that the developer's own machine had stopped being able to
-check anything. For a product whose subject is exactly that gap, it is worth
+machine, same tree. The CI test job runs Node 22, where 4.1.11 is fine, so CI
+stayed green the entire time and nothing announced that the developer's own
+machine had stopped being able to check anything. For a product whose subject is exactly that gap, it is worth
 writing down as the house's own instance of it.
 
 The fix is a vitest 4 to 5 bump, which is a dependency change and needs the
 owner's go-ahead; auto mode declined it, correctly. Until then: run with
 `npx vitest@latest`, and treat CI as the authority it already was.
+
+**The one-package command cannot work, for two reasons (2026-11-14).** The
+owner ran `npm install -D vitest@5` and npm refused with ERESOLVE. Both causes
+are real and neither is visible from the command:
+
+- `@vitest/coverage-v8@4.1.11` pins its peer to `vitest@"4.1.11"` exactly, not
+  a range. Bumping vitest alone leaves a package in the tree demanding the
+  version being replaced, so the two must move together.
+- vitest 5 declares `@types/node@"^22.0.0 || >=24.0.0"`. This repository pins
+  `^20`, which was already a major behind the Node 22 its own CI job runs on.
+
+So the command is three packages:
+
+```
+npm install -D vitest@5 @vitest/coverage-v8@5 @types/node@22
+```
+
+Verified before asking for it, rather than after: `npx vitest@5.1.0 run` was
+run over the whole suite on this machine and exited 0. The runner is not the
+risk; `@types/node` 20 to 22 is, and typecheck is the thing to read first
+afterwards.
+
+vitest 5's engines are `^22.12 || ^24 || >=26`, which turned up a trap waiting
+on the other side of that install: `evals.yml`, `audit.yml` and
+`watch-production.yml` still pinned Node 20, so the eval run would have broken
+the moment the bump landed. All three now say 22, with the reason written above
+the step. Node 20 passed end of life in April 2026; only the main CI job had
+been moved off it, and a scheduled job that nobody reads is precisely where
+that kind of rot survives.
 
 **The gate was watching a fifth of the suite (found and fixed 2026-11-14).**
 The committed baseline held 12 cases from three files; the suite runs 57 from

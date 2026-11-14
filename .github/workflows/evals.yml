@@ -18,9 +18,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Node 22, because the test runner requires it.
+      #
+      # vitest 5 declares engines ^22.12 || ^24; Node 20 reached end of life in
+      # April 2026 and would install with an engine warning and then run on an
+      # unsupported runtime. The main CI job has been on 22 for a while; these
+      # workflows were left behind, which is exactly how a scheduled job rots
+      # unnoticed -- nobody reads a green cron.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - run: npm ci
