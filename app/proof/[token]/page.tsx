@@ -246,11 +246,15 @@ export default async function ProofPage({
 
       <section className="mt-8 space-y-4">
         {report.requirements.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">
-            {report.unlinkedTests.length
-              ? "No requirement has been approved for this project yet, so nothing below is a statement about intended behaviour. The approved tests and their results follow."
-              : "This project has no approved requirements yet, so there is nothing to verify."}
-          </p>
+          // Said once. When there are tests to show, the paragraph under the
+          // title already says no requirement has been approved; repeating it
+          // in a dashed box directly above them made the page argue with
+          // itself about whether it had anything.
+          report.unlinkedTests.length ? null : (
+            <p className="rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">
+              This project has no approved requirements yet, so there is nothing to verify.
+            </p>
+          )
         ) : (
           report.requirements.map((requirement) => (
             <article key={requirement.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
