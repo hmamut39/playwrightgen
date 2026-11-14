@@ -3123,6 +3123,103 @@ genuine `npm audit` failures, closed by the commit after each.
 
 ## Next
 
+## The plan to 31 December 2026
+
+Written 2026-11-14. The goal, in the owner's words: in January, people he does
+not know try this for a week, unaided, and the feedback they give is worth
+having. Everything below is ordered by what stands between today and that, and
+measured against what the repository actually does rather than what would
+sound ambitious.
+
+The organising evidence is recent and uncomfortable. On 8 November the owner
+used his own product for one evening, as a new person would, and found eight
+defects: flat uncoloured code, a badge contradicting the sentence beneath it,
+four detail pages with no way out, a version labelled "not executed" above a
+line saying it passed, an evidence page leading with three zeros, a failed run
+that would not say what failed, onboarding naming two of four steps, and no
+route to Overview without being sent a URL. Every one was the same shape, and
+every one had been there for weeks with CI green.
+
+Nobody had walked the product as a stranger. That is the whole finding, and it
+sets the plan.
+
+### 1. The first hour has to work for somebody who is not you
+
+Walk it start to finish on production, as a new person, once a week, on a site
+that is not TodoMVC. Sign up, cover a page, approve, share the evidence. Fix
+what the walk finds in the same sitting, and write down what was walked so the
+next walk starts somewhere else.
+
+One evening of this yielded eight defects. No other activity available before
+January has that rate, and it costs nothing but attention. It is first because
+everything else is a guess about what a stranger meets, and this is a
+measurement of it.
+
+### 2. The first week has to survive its own limits
+
+A new workspace gets 20 AI actions a day. One "Cover a page" of four tests
+costs up to twelve. Three people evaluating together spend the day's budget in
+their first ten minutes, on the feature the home page leads with, and meet
+"This workspace has used today's AI allowance" -- true, well worded, and the
+end of their evaluation.
+
+The only remedy today is `scripts/grant-trial-allowance.mjs`, which the owner
+runs by hand against production for each workspace. That does not survive
+strangers signing up while he is asleep. Needed before January:
+
+- A trial allowance a new workspace receives without anybody touching a
+  database: its first days at the Team ceiling, expiring on its own, because a
+  trial with no end date is a free plan nobody remembers granting.
+- When the allowance does run out, a sentence saying what to do about it, not
+  only what stopped.
+
+### 3. The product must do for itself what it sells
+
+It promises customers: daily checks run on your site and tell you the day one
+breaks. Nothing watches playwrightgen.com. There are two scheduled workflows
+-- a dependency audit and the weekly evals -- and neither opens the product.
+
+That is exactly why Playwright 1.65 took out every browser-opening route on 7
+November and it stayed broken for a day: CI was green the whole time, because
+CI tests the repository and nobody was testing the deployment. It was found by
+accident, while verifying something else.
+
+Needed: a daily run against production that uses the product the way a person
+does -- generate, run it on a real page, read the evidence -- and says so when
+it stops working. The honest version is the product watching itself, which is
+also the demo.
+
+### 4. When somebody gets stuck, know the same day
+
+Feedback now reaches the inbox, and the inbox was proved on 8 November. What
+is missing is the unprompted signal: a sign-up whose first run failed, an
+allowance exhausted mid-evaluation, a page opened and abandoned. In a
+one-week trial, learning this afterwards is learning it too late.
+
+Narrow and sufficient: the handful of moments that mean "somebody wanted this
+to work and it did not", reaching the owner the same day.
+
+### 5. Housekeeping, because it protects the four above
+
+- vitest 4 to 5. The suite has not run on the owner's machine since Node 24
+  arrived; CI stayed green and said nothing, so the gap went unnoticed.
+- Move the eval baseline onto the whole suite, deliberately, with the reason
+  for each expected failure written down.
+- The limits already written down and not yet fixed: activity grouped by UTC
+  day, and iframe visibility in Playwright 1.64+.
+
+### What is deliberately not being built before January
+
+No new surfaces. The product has enough of them; what it lacks is confidence
+that the ones it has hold up in front of somebody who did not build them.
+Every item above makes the existing product more trustworthy and none of it
+adds something a stranger would have to learn.
+
+Specifically declined, with the reasons recorded in section 6 and in the
+2026-11-14 review: retrieval and vector search, fine-tuning, agent frameworks,
+inference optimisation, and testing agents rather than web applications.
+
+
 Written 2026-11-07, from what this month's work actually found rather than
 from what sounds ambitious. The organising fact: nearly every defect found in
 the last two weeks was the same shape -- *the product knows something and does
