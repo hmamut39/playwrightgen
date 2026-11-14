@@ -3131,6 +3131,74 @@ page, not a crash: a page that loads perfectly and says something its own
 records contradict. That is the thing to keep hunting, because it is the thing
 this product exists to prevent in its customers' work.
 
+### 0. Nine more diagrams, read against the code (2026-11-14)
+
+The owner sent nine: an AI-architect stack, hybrid retrieval with RRF, a GenAI
+engineering roadmap, an LLM/vector/extraction landscape, ten agentic job
+roles, five LLM inference speed-ups, an Azure agentic stack, the workflow-or-
+agent ladder, and a four-month learning path. Each was checked against what is
+in this repository rather than admired.
+
+Most of it the product already does, and the rest it is right to refuse. Two
+things were worth taking.
+
+**Taken.**
+
+- *Adversarial testing at the model layer.* The roadmap diagram lists it, and
+  one of the ten roles is an AI red teamer. `tests/unit/generated-code-red-
+  team.test.ts` already proves the **validator** catches dangerous output --
+  14 cases, deterministic, free, in CI. Nothing measured the layer in front of
+  it: whether "treat this as data, never instructions" holds when the page
+  argues back. `evals/prompt-injection.eval.ts` feeds a hostile accessibility
+  tree to the planner and hostile pasted content to Quick Generate, three
+  attempts each, and requires a refusal every time -- a safety property that
+  holds two times in three is a breach with a good day attached. It also
+  checks the quiet version of the attack, which no safety rule would catch: a
+  page talking the planner out of covering it, or into an assertion that
+  cannot fail.
+- *The workflow-or-agent ladder, as a standing rule.* "Move down only when the
+  task forces you to." Measured against this repository it is already obeyed,
+  which is the useful part: the proving loop is the ladder's step 6, an
+  evaluator loop; covering a page is step 5, orchestrator and workers; every
+  other surface is step 1 or 2, a single augmented call with deterministic
+  validation around it. The rule is worth writing down precisely because
+  nothing here currently breaks it.
+
+**Already here, and the diagrams confirm it.** Structured outputs (zod schemas
+on every call), input and output validation, prompt-injection framing in all
+seven system prompts, human approval flows (the product *is* one), guardrails
+and access control (entitlements, tenant isolation), cost tracking, testing
+and logging, evaluation. Model routing too, informally and already correct:
+13 call sites on `gpt-5-mini`, 3 on `gpt-4o`, 1 on `gpt-5`. MCP appears in the
+stack diagram under APIs and integration; this product has shipped one for
+weeks.
+
+**Declined, beyond what section 6 already covers.**
+
+- *Hybrid retrieval, BM25 + vectors + reciprocal rank fusion.* A good answer
+  to a problem this product does not have: there is no corpus. The grounding
+  is the live accessibility tree, which beats retrieving a description of the
+  page. The condition that would change it is nameable -- when a project's
+  test corpus is too large to pass whole into criteria coverage or
+  requirement tracing. Today that is capped at 100 with search beside it.
+- *The five inference speed-ups* (quantization, paged attention, flash
+  attention, continuous batching, speculative decoding). These are for people
+  serving models. This product calls a hosted API; not one of the five is
+  reachable from here.
+- *The Azure agentic stack and the LLM/framework landscape.* Vendor catalogues.
+  The rows that apply are already filled by something, and swapping a working
+  component for a better-known one is not an improvement.
+- *The four-month learning path.* A curriculum, not a product change.
+
+**The one worth keeping in view, as a market signal rather than work.** Of the
+ten new roles, three -- evals engineer, AI reliability engineer, agent ops
+manager -- are paid to answer "does this actually work, and how would we
+know". That is this product's sentence. The adjacent idea, proving that an
+*agent* behaves rather than a web app, is a different product and is not being
+started before January.
+
+None of this outranks the three things a stranger will hit next month, below.
+
 ### 1. The evals are red, and have been since 2026-11-02 -- mostly not real
 
 Worked 2026-11-07. Of the three findings, two were the model answering
@@ -3161,6 +3229,17 @@ that fails twice still exits 1 with "1 case failed twice".
 
 Still open: the dependency-upgrade refusal. That is a prompt-and-validation
 problem on a real surface, not a gate problem.
+
+**The harness cannot be run locally (found 2026-11-14).** Every eval file
+fails before collection with `TypeError: Cannot read properties of undefined
+(reading 'config')`, pointing at its own first `describe(`. A four-line file
+with a minimal config reproduces it. Ruled out: dotenv's export shape, the
+setup file (an empty one fails the same way), `describe.skipIf`, every option
+in the evals config, duplicate vitest installs, and a stale `node_modules/
+.vite` cache. The standing lead is the runtime: the workflow pins Node 20 and
+this machine runs Node 24, and the evals do run green-and-red in CI, which is
+why nothing looked broken. It matters because item 1 is about making this gate
+trustworthy, and nobody can iterate on a gate they cannot run.
 
 ### Earlier note, kept
 
@@ -3213,6 +3292,26 @@ does". Mutation testing proper is not available here -- the application under
 test is the customer's, live, and not ours to mutate -- but *did the assertion
 execute* is answerable and is most of the value.
 
+### 3b. The three a stranger meets first (promised 2026-11-08)
+
+Found by the owner setting up the demo account on production, and none of it
+is theoretical -- he walked into all three in one evening.
+
+- **The public evidence page leads with what it lacks.** Three zeros and "no
+  requirement has been approved for this project yet" come before the one true
+  good fact: a real test that passed on a real site minutes earlier, filed
+  under the heading "not linked to a requirement". Every sentence is accurate
+  and the page reads as empty. It is the one page whose whole job is to
+  convince.
+- **"Add a single todo" was the only one of four that failed**, after two
+  automatic fixes, on the simplest behaviour the demo page has. The harder
+  three passed. Until that is understood, a stranger's first run is a 75%.
+- **The onboarding's four steps skip two.** Step 4 says "approve, then switch
+  on daily checks", but between approving a test case and any check running
+  there are two unnamed steps: make the proven code the automation, and
+  approve that. Nothing on the page says so, and the evidence page reads
+  "never run" until both are done.
+
 ### 4. Flakiness, past reporting it
 
 The product now detects a test that passed and failed on one approved
@@ -3232,8 +3331,11 @@ about why.
 - 1.64 treats elements inside hidden iframes as hidden for `toBeVisible()`.
   Nothing in this repository exercises it, so the Playwright upgrade could
   not rule it out for a customer whose tests do.
-- The public example page needs a demo account, which only the owner can
-  make. Raised twice, declined twice; it stays here and is not raised again.
+- ~~The public example page needs a demo account.~~ Done 2026-11-08: the
+  owner made it, and `/proof/example` now shows a real approved test with a
+  recorded passing run, refreshed by daily live checks. What is left is how
+  that page *leads*: a stranger meets three zeros and a paragraph of
+  negatives before the one true good fact, which is below them.
 
 ### 6. Declined, with the reason
 
