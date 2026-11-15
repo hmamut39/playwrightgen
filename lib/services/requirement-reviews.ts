@@ -23,7 +23,7 @@ import {
 // "verification of no page reload", which tells a reviewer nothing about
 // where to look first -- and a review where everything is urgent is a
 // review with no signal in it.
-const PROMPT_VERSION = "requirement-review-v2";
+const PROMPT_VERSION = "requirement-review-v3";
 const SCHEMA_VERSION = "requirement-review-schema-v1";
 const uuidSchema = z.string().uuid();
 

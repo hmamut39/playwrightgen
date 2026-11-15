@@ -203,12 +203,21 @@ describe("quoting the requirement", () => {
   });
 
   it("keeps an empty quote only where there is nothing to quote", () => {
-    // A missing criterion has nothing to cite by definition; an ambiguity
-    // claim that cites nothing is a remark nobody can check, so it goes --
-    // and the rest of the review stays, which is the whole difference
-    // between this and what shipped before 2026-10-12.
+    /*
+     * An unanswered question has nothing to cite by definition; an ambiguity
+     * claim that cites nothing is a remark nobody can check, so it goes --
+     * and the rest of the review stays, which is the whole difference between
+     * this and what shipped before 2026-10-12.
+     *
+     * This used to allow MISSING_ACCEPTANCE_CRITERIA here too. On 2026-11-15
+     * that exemption was measured letting a HIGH-severity invention through,
+     * so a claim that a criterion is missing now has to quote the nearest
+     * criterion that exists whenever there are criteria to check against. The
+     * cases for it are in "a criterion said to be missing" below; what is
+     * asserted here is that narrowing it left the other two alone.
+     */
     const allowed = prepareRequirementReview(
-      review(suggestion({ category: "MISSING_ACCEPTANCE_CRITERIA", evidenceQuote: "" })),
+      review(suggestion({ category: "UNANSWERED_QUESTION", evidenceQuote: "" })),
       input,
     );
     expect(allowed.review.suggestions).toHaveLength(1);
@@ -220,5 +229,123 @@ describe("quoting the requirement", () => {
     );
     expect(unsupported.review.suggestions).toHaveLength(0);
     expect(unsupported.droppedWithoutQuote).toBe(1);
+  });
+});
+
+/**
+ * The one claim nothing checked.
+ *
+ * Every suggestion has to point at the customer's own words, except the two
+ * that assert an absence. A missing criterion has nothing to quote by
+ * definition -- and an absence cannot be contradicted by the text, so that
+ * exemption is the gap invention comes through.
+ *
+ * Measured on 2026-11-15 against a requirement with six criteria covering the
+ * behaviour: a HIGH-severity "Missing criteria for address validation failure
+ * message", when the fourth criterion already said a failed validation
+ * "leaves the stored address unchanged and names the rejected field on
+ * screen". The highest severity the product has, spent on a problem that was
+ * not there, on the surface whose whole value is that a reviewer can trust
+ * what it flags.
+ *
+ * So the claim has to be shown against the criteria rather than asserted over
+ * them: quote the nearest criterion that does exist, and the existing rule
+ * about quotes does the rest.
+ */
+describe("a criterion said to be missing", () => {
+  const withCriteria = {
+    title: "A customer can change the delivery address before dispatch",
+    description: "A signed-in customer can change the delivery address of an order not yet dispatched.",
+    acceptanceCriteria:
+      "Saving an address that fails validation leaves the stored address unchanged and names the rejected field on screen.",
+    externalReference: null,
+  };
+
+  it("is left out when it never looked at the criteria", () => {
+    const prepared = prepareRequirementReview(
+      review(suggestion({ category: "MISSING_ACCEPTANCE_CRITERIA", evidenceQuote: "" })),
+      withCriteria,
+    );
+
+    expect(prepared.droppedUnchecked).toBe(1);
+    expect(prepared.review.suggestions).toHaveLength(0);
+    expect(prepared.review.summary).toContain("without quoting the nearest criterion");
+    expect(prepared.review.summary).toContain("not asserted over them");
+  });
+
+  it("is kept when it quotes the criterion it checked against", () => {
+    // The behaviour wanted: the model shows its working, and the quote is
+    // checked against the text by the rule every other category already obeys.
+    const prepared = prepareRequirementReview(
+      review(
+        suggestion({
+          category: "MISSING_ACCEPTANCE_CRITERIA",
+          evidenceField: "ACCEPTANCE_CRITERIA",
+          evidenceQuote: "names the rejected field on screen",
+        }),
+      ),
+      withCriteria,
+    );
+
+    expect(prepared.droppedUnchecked).toBe(0);
+    expect(prepared.review.suggestions).toHaveLength(1);
+  });
+
+  it("still refuses a quote of a criterion that does not exist", () => {
+    // Quoting is not a loophole: an invented criterion is still a fabrication.
+    const prepared = prepareRequirementReview(
+      review(
+        suggestion({
+          category: "MISSING_ACCEPTANCE_CRITERIA",
+          evidenceField: "ACCEPTANCE_CRITERIA",
+          evidenceQuote: "the courier must be notified within one hour",
+        }),
+      ),
+      withCriteria,
+    );
+
+    expect(prepared.droppedFabricated).toBe(1);
+    expect(prepared.review.suggestions).toHaveLength(0);
+  });
+
+  it("keeps it with no quote when there are no criteria to compare against", () => {
+    // The exemption is narrowed, not removed. A requirement that lists no
+    // acceptance criteria genuinely has nothing to quote, and "there are no
+    // acceptance criteria" is the most useful thing a review can say about it.
+    const prepared = prepareRequirementReview(
+      review(suggestion({ category: "MISSING_ACCEPTANCE_CRITERIA", evidenceQuote: "" })),
+      { ...withCriteria, acceptanceCriteria: "   " },
+    );
+
+    expect(prepared.droppedUnchecked).toBe(0);
+    expect(prepared.review.suggestions).toHaveLength(1);
+  });
+
+  it("leaves an unanswered question alone", () => {
+    // A question about the requirement is not a claim about its contents, and
+    // narrowing one rule at a time is what keeps this measurable.
+    const prepared = prepareRequirementReview(
+      review(suggestion({ category: "UNANSWERED_QUESTION", evidenceQuote: "" })),
+      withCriteria,
+    );
+
+    expect(prepared.droppedUnchecked).toBe(0);
+    expect(prepared.review.suggestions).toHaveLength(1);
+  });
+
+  it("tells all three kinds of weak evidence apart in one summary", () => {
+    const prepared = prepareRequirementReview(
+      review(
+        suggestion({ category: "EDGE_CASE", evidenceQuote: "" }),
+        suggestion({ evidenceQuote: "the courier must be notified within one hour" }),
+        suggestion({ category: "MISSING_ACCEPTANCE_CRITERIA", evidenceQuote: "" }),
+      ),
+      withCriteria,
+    );
+
+    expect(prepared.droppedWithoutQuote).toBe(1);
+    expect(prepared.droppedFabricated).toBe(1);
+    expect(prepared.droppedUnchecked).toBe(1);
+    expect(prepared.review.suggestions).toHaveLength(0);
   });
 });

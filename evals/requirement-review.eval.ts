@@ -132,11 +132,27 @@ describe.skipIf(!ready)("reviewing a requirement", () => {
 
     // The half that can fail. Twelve confident suggestions look exactly like
     // twelve real ones to everybody downstream.
+    /*
+     * Printed in full, not by title.
+     *
+     * On 2026-11-15 this failed with "Missing criteria for address validation
+     * failure message" and that was the whole of it -- not the category, not
+     * the severity, and not whether it had quoted anything. The fix for the
+     * exemption it came through had to be designed without knowing whether
+     * the suggestion carried a quote at all. A failure message on a
+     * measurement is the only record of what the model did, so it says
+     * everything the next person needs.
+     */
+    const serious = review.suggestions.filter((suggestion) => suggestion.severity === "HIGH");
     expect(
-      review.suggestions.filter((suggestion) => suggestion.severity === "HIGH"),
-      `invented serious problems in a sound requirement: ${review.suggestions
-        .filter((suggestion) => suggestion.severity === "HIGH")
-        .map((suggestion) => suggestion.title)
+      serious,
+      `invented serious problems in a sound requirement: ${serious
+        .map(
+          (suggestion) =>
+            `[${suggestion.category}] ${suggestion.title} -- quote: ${
+              suggestion.evidenceQuote ? `"${suggestion.evidenceQuote}"` : "(none)"
+            } in ${suggestion.evidenceField}`,
+        )
         .join(" | ")}`,
     ).toHaveLength(0);
     expect(
