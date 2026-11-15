@@ -1,5 +1,7 @@
 import { parseArgs } from "node:util";
 
+import { healthVerdict } from "./health-verdict.mjs";
+
 /**
  * Uses the deployment the way a person does, once a day, and says what broke.
  *
@@ -65,16 +67,16 @@ async function twice(attempt) {
 const steps = [
   {
     name: "the site answers",
-    proves: "the deployment is up and its database and dependencies report healthy",
+    proves: "the deployment is up, and every critical component answered for itself",
     async run() {
       const response = await fetch(`${site}/api/health`);
-      if (!response.ok) return { ok: false, why: `GET /api/health answered ${response.status}` };
-      const body = await response.json();
-      const unhealthy = (body.components ?? []).filter((part) => part.status && part.status !== "healthy");
-      if (unhealthy.length) {
-        return { ok: false, why: `unhealthy: ${unhealthy.map((part) => part.name).join(", ")}` };
-      }
-      return { ok: true, note: `${(body.components ?? []).length} components healthy` };
+      // Parsed before the status is judged, so a 503 can say what the report
+      // said. A body that is not JSON at all is a verdict of its own.
+      const body = await response
+        .clone()
+        .json()
+        .catch(() => null);
+      return healthVerdict({ ok: response.ok, status: response.status, body });
     },
   },
   {
