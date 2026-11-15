@@ -221,3 +221,114 @@ describe("saying how much of a run the baseline judges", () => {
     expect(coverageNote(comparison, measured)).toBeNull();
   });
 });
+
+/**
+ * A weakness the baseline permits has to keep saying so.
+ *
+ * The gate had four things to say about a case: it regressed, it recovered,
+ * nobody had seen it before, or it stopped running. A case the baseline
+ * already expected to be failing fell through all four and was printed
+ * nowhere. That is how the live-page pair came to be skipped in CI for weeks
+ * without one line of output about it, and how four model weaknesses sat in
+ * a run whose summary line read "no case did worse than the baseline".
+ *
+ * It is the product's own fault class, aimed at the product: something is
+ * known and not said where the person is standing.
+ */
+describe("a failure the baseline already permits", () => {
+  it("is reported every run, with the reason somebody wrote down", () => {
+    const comparison = compareWithBaseline(
+      run([{ name: "invents no problems", status: "failed" }]),
+      {
+        ranAt: "2026-10-15T22:00:00.000Z",
+        cases: [
+          {
+            file: "review.eval.ts",
+            name: "invents no problems",
+            status: "failed",
+            note: "the model quotes text that is not in the requirement",
+          },
+        ],
+      },
+    );
+    const gate = gateReport(comparison);
+
+    // Not a regression and not a recovery, so the gate still holds.
+    expect(comparison.regressions).toHaveLength(0);
+    expect(gate.ok).toBe(true);
+    // But it is said out loud, with the reason attached.
+    expect(comparison.stillFailing).toHaveLength(1);
+    expect(gate.lines.join("\n")).toContain("the model quotes text that is not in the requirement");
+  });
+
+  it("says so plainly when nobody wrote a reason", () => {
+    const comparison = compareWithBaseline(
+      run([{ name: "runs on a real page", status: "skipped" }]),
+      run([{ name: "runs on a real page", status: "skipped" }]),
+    );
+    const gate = gateReport(comparison);
+
+    expect(gate.ok).toBe(true);
+    expect(gate.lines.join("\n")).toContain("no reason recorded");
+  });
+
+  it("stops saying it once the case passes", () => {
+    const comparison = compareWithBaseline(
+      run([{ name: "invents no problems", status: "passed" }]),
+      run([{ name: "invents no problems", status: "failed" }]),
+    );
+
+    expect(comparison.stillFailing).toHaveLength(0);
+    expect(comparison.recoveries).toHaveLength(1);
+  });
+});
+
+describe("accepting a run that still has failures in it", () => {
+  it("names the failures it is about to permit without a reason", () => {
+    const moved = acceptedBaseline(
+      run([
+        { name: "invents no problems", status: "failed" },
+        { name: "quotes the requirement", status: "passed" },
+      ]),
+      null,
+    );
+
+    expect(moved.unexplained.map((entry) => entry.name)).toEqual(["invents no problems"]);
+  });
+
+  it("carries a written reason forward so accepting again does not lose it", () => {
+    const baseline = {
+      ranAt: "2026-10-15T22:00:00.000Z",
+      cases: [
+        {
+          file: "review.eval.ts",
+          name: "invents no problems",
+          status: "failed",
+          note: "the model quotes text that is not in the requirement",
+        },
+      ],
+    };
+    const moved = acceptedBaseline(run([{ name: "invents no problems", status: "failed" }]), baseline);
+
+    expect(moved.unexplained).toHaveLength(0);
+    expect(moved.cases[0].note).toBe("the model quotes text that is not in the requirement");
+  });
+
+  it("drops the reason when the case starts passing, rather than keeping a stale one", () => {
+    const baseline = {
+      ranAt: "2026-10-15T22:00:00.000Z",
+      cases: [
+        {
+          file: "review.eval.ts",
+          name: "invents no problems",
+          status: "failed",
+          note: "the model quotes text that is not in the requirement",
+        },
+      ],
+    };
+    const moved = acceptedBaseline(run([{ name: "invents no problems", status: "passed" }]), baseline);
+
+    expect(moved.cases[0].note).toBeUndefined();
+    expect(moved.unexplained).toHaveLength(0);
+  });
+});

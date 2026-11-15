@@ -20,19 +20,29 @@
 const key = (entry) => `${entry.file}::${entry.name}`;
 
 export function compareWithBaseline(run, baseline) {
-  const expected = new Map((baseline?.cases ?? []).map((entry) => [key(entry), entry.status]));
+  const known = new Map((baseline?.cases ?? []).map((entry) => [key(entry), entry]));
 
   /** @type {EvalCase[]} */ const regressions = [];
   /** @type {EvalCase[]} */ const recoveries = [];
   /** @type {EvalCase[]} */ const unseen = [];
+  // Cases the baseline already expects to be failing or skipped, and which
+  // still are. The gate said nothing about these at all: not a regression,
+  // not a recovery, not new. A weakness written into the baseline once went
+  // quiet forever, which is how a known gap becomes an unknown one -- the
+  // same fault this product sells the cure for.
+  /** @type {EvalCase[]} */ const stillFailing = [];
   for (const entry of run.cases) {
-    const was = expected.get(key(entry));
-    if (was === undefined) {
+    const previous = known.get(key(entry));
+    if (previous === undefined) {
       unseen.push(entry);
       continue;
     }
+    const was = previous.status;
     if (was === "passed" && entry.status !== "passed") regressions.push(entry);
     if (was !== "passed" && entry.status === "passed") recoveries.push(entry);
+    if (was !== "passed" && entry.status !== "passed") {
+      stillFailing.push({ ...entry, note: previous.note });
+    }
   }
 
   // A case the baseline expects from a file this run did report, which did
@@ -54,7 +64,7 @@ export function compareWithBaseline(run, baseline) {
   // a suite that failed to start pass quietly, which is the worst of both.
   const ranNothing = run.cases.length === 0 && (baseline?.cases ?? []).length > 0;
 
-  return { regressions, recoveries, unseen, missing, ranNothing };
+  return { regressions, recoveries, unseen, missing, ranNothing, stillFailing };
 }
 
 /** One line per thing worth knowing, and whether the gate holds. */
@@ -63,6 +73,13 @@ export function gateReport(comparison) {
   for (const entry of comparison.regressions) {
     lines.push(`  REGRESSED  ${entry.file} · ${entry.name}`);
     if (entry.failure) lines.push(`    ${entry.failure.split("\n")[0]}`);
+  }
+  // Said every run, on purpose. An expected failure is not a reason to fail
+  // the gate, but it is a reason to keep reading it out: the reason is the
+  // decision somebody made, and it should have to be re-read to survive.
+  for (const entry of comparison.stillFailing ?? []) {
+    const reason = entry.note ? entry.note : "no reason recorded -- add a note to evals/results/baseline.json";
+    lines.push(`  still      ${entry.file} · ${entry.name} (${entry.status}) -- ${reason}`);
   }
   for (const entry of comparison.recoveries) lines.push(`  recovered  ${entry.file} · ${entry.name}`);
   for (const entry of comparison.unseen) {
@@ -109,15 +126,26 @@ export function acceptedBaseline(run, baseline) {
   let updated = 0;
   let added = 0;
   for (const entry of run.cases) {
+    const existing = kept.get(key(entry));
     const bare = { file: entry.file, name: entry.name, status: entry.status };
-    if (kept.has(key(entry))) updated += 1;
+    // The reason a case is allowed to be failing travels with it, and only
+    // while it is still failing. A case that starts passing drops its note
+    // instead of carrying a stale explanation for a gap that closed.
+    if (entry.status !== "passed" && existing?.note) bare.note = existing.note;
+    if (existing) updated += 1;
     else added += 1;
     kept.set(key(entry), bare);
   }
+  const cases = [...kept.values()];
   return {
-    cases: [...kept.values()],
+    cases,
     updated,
     added,
+    // Accepting a run freezes its failures as expected. Doing that without
+    // writing down why is how twelve cases came to be gated and forty-five
+    // ignored: the decision gets made and then forgotten. These are the
+    // cases the baseline now permits and nobody has explained.
+    unexplained: cases.filter((entry) => entry.status !== "passed" && !entry.note),
     // Cases the baseline knows and this run did not measure. They are kept,
     // and saying how many is the difference between accepting a run and
     // accepting a narrower gate without noticing.

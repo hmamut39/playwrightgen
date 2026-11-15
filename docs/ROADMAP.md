@@ -3272,10 +3272,13 @@ before there are strangers to observe.
 
 ### 5. Housekeeping, because it protects the four above
 
-- vitest 4 to 5. The suite has not run on the owner's machine since Node 24
-  arrived; CI stayed green and said nothing, so the gap went unnoticed. Waiting
-  on one command from the owner, `npm install -D vitest@5 @vitest/coverage-v8@5
-  @types/node@22`; the workflow side of it is done.
+- vitest 4 to 5. Done and merged: CI runs 146 files and 1082 tests green on
+  vitest 5. The owner's machine still needs `--pool=vmThreads`, for a vitest 5
+  bug this repository triggers that is written up below and deliberately not
+  chased further.
+- Turn the live-page evals on in CI. They are the only measurement that a
+  generated test passes against a real page, they have never run there, and
+  all they need is `BROWSERLESS_API_KEY` as a repository secret.
 - Move the eval baseline onto the whole suite, deliberately, with the reason
   for each expected failure written down.
 - The limits already written down and not yet fixed: activity grouped by UTC
@@ -3447,6 +3450,92 @@ the moment the bump landed. All three now say 22, with the reason written above
 the step. Node 20 passed end of life in April 2026; only the main CI job had
 been moved off it, and a scheduled job that nobody reads is precisely where
 that kind of rot survives.
+
+**The bump landed, and the machine still cannot run its own tests (2026-11-15).**
+The owner ran the three-package command. It installed: vitest 5.1.0,
+`@vitest/coverage-v8` 5.1.0, `@types/node` 22.20.5. Typecheck is clean, so the
+`@types/node` major -- the part worth worrying about -- cost nothing. Lint is
+unchanged at four pre-existing warnings.
+
+CI is the authority and CI is green: **146 files, 1082 tests, all passing on
+vitest 5** under Node 22. That went to main through a pull request rather than
+a push, deliberately, because the local result disagreed and the point of last
+week's outage was that a green pipeline and a working product are two
+different claims.
+
+Locally every file still fails collection with `Vitest failed to find the
+current suite`, under both the `forks` and `threads` pools. `--pool=vmThreads`
+passes. What the afternoon ruled out, each by experiment rather than by
+reading:
+
+- Not two copies of vitest. A probe printed `import.meta.resolve("vitest")`
+  from the setup file and the test file: identical path, and the module
+  namespace object compared `===` across both. The error then fired on the
+  test file's own `it()` call, so the test file is being imported outside a
+  collection context -- not importing the wrong vitest.
+- Not the half-updated tree. Two of vitest's dependencies had resolved to
+  stale hoisted versions (`magic-string` 0.30 against its `^1.4`, `picomatch`
+  2.3 against its `^4.0`). `npm ci` rebuilt the tree with correct nested
+  copies and the failure did not move.
+- Not the vite pre-bundle cache, the repo `tsconfig.json`, the absent `type`
+  field, the `resolve.alias` entries, a root `.env.local`, the PostCSS config,
+  whether `node_modules` sits inside the root, or whether `vitest` is a
+  declared dependency of the package being tested. Each was tested by copying
+  it into a minimal project that passes, or by removing it from the repo run.
+- It is the root. Identical files, identical content: `--root .` fails,
+  `--root <subdirectory>` passes. A minimal project with a setup file passes
+  on this machine under the default pool, so it is not Windows and not Node 24
+  on their own.
+
+So it is a vitest 5 bug this repository triggers, and the diagnosis is
+timeboxed there rather than chased further. CI runs the real pool and remains
+the authority; locally `--pool=vmThreads` is the way in.
+
+**What the evals actually measure (2026-11-15).** The baseline watched 12 of
+57 cases; before moving it onto the rest, the last run's artifact was read
+rather than assumed. It scored 51/57: four failed, two were skipped.
+
+The four failures are not harness noise. They are the product's intelligence
+falling short, each in a way a customer would meet:
+
+- `automation-generation` -- an API-only artifact comes back with BLOCKING
+  validation findings, because the model opens a browser page instead of using
+  Playwright's `request` fixture.
+- `page-coverage-plan` -- asked to plan what a page still needs, it proposes
+  behaviour the project already covers instead of narrowing the list.
+- `requirement-review` -- `invalid_output_quote_not_found`: reviewing a clean
+  requirement, the model quotes text that is not in it.
+- `prompt-injection` -- recorded as failing, and **this one is already fixed.**
+  The run recorded at 14:18Z; the commit that narrowed that assertion to the
+  actionable plan fields landed at 14:22Z. The failure string in the artifact
+  is the whole plan object, which only the pre-fix version searched. Freezing
+  it into the baseline as a known weakness would have written down something
+  untrue, so the baseline waits for a fresh run instead.
+
+The two skipped cases matter most of all, and nothing had ever said they were
+skipped. `live-page.eval.ts` is the only eval that checks a generated test
+actually passes against a real page -- the product's headline claim -- and it
+is gated on `BROWSERLESS_API_KEY`. The repository has exactly one Actions
+secret, `OPENAI_API_KEY`. So that pair has never run in CI, and the run's
+summary still read 51/57 as though 57 were measured.
+
+**The gate now has to keep saying it.** It could report four things about a
+case: regressed, recovered, never seen before, stopped running. A case the
+baseline already expected to be failing or skipped matched none of them and
+was printed nowhere, which is how a weakness written down once goes quiet
+forever. So:
+
+- every non-passing case the baseline permits is printed every run, with the
+  reason somebody wrote in its `note`;
+- a permitted failure with no note prints `no reason recorded`, rather than
+  nothing;
+- `--accept` carries a note forward while the case is still failing, drops it
+  when the case starts passing, and lists by name every failure it is about to
+  permit without a reason.
+
+None of this fails the gate. An expected failure is not a regression. It is
+simply no longer allowed to be silent -- which is the fault class this product
+sells the cure for, pointed at the product.
 
 **The gate was watching a fifth of the suite (found and fixed 2026-11-14).**
 The committed baseline held 12 cases from three files; the suite runs 57 from

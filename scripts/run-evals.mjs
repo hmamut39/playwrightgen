@@ -177,6 +177,21 @@ if (accept || !baseline) {
         `${moved.untouched} left alone because this run did not measure them.`
       : "\nNo baseline existed. This run is now the baseline; check it reads the way you meant.",
   );
+  // Accepting a run makes its failures expected. Said out loud, because the
+  // alternative is a baseline that quietly permits a weakness nobody chose.
+  if (moved.unexplained.length > 0) {
+    const plural = moved.unexplained.length === 1 ? "" : "s";
+    console.log("");
+    console.log(
+      `${moved.unexplained.length} case${plural} the baseline now permits without a reason:`,
+    );
+    for (const entry of moved.unexplained) {
+      console.log(`  ${entry.file} · ${entry.name} (${entry.status})`);
+    }
+    console.log('Add a "note" to each in evals/results/baseline.json saying why it is');
+    console.log("allowed to be like that. Until then the gate prints them every run as");
+    console.log("having no reason recorded, which is the honest thing for it to say.");
+  }
   process.exit(0);
 }
 

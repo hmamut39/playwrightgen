@@ -121,6 +121,7 @@ export function prepareRequirementReview(
 ): {
   review: z.infer<typeof requirementReviewSchema>;
   droppedWithoutQuote: number;
+  droppedFabricated: number;
   relabelled: number;
 } {
   const fields = {
@@ -132,6 +133,8 @@ export function prepareRequirementReview(
 
   const kept: typeof review.suggestions = [];
   let droppedWithoutQuote = 0;
+  /** Suggestions quoting words that appear nowhere in the requirement. */
+  let droppedFabricated = 0;
   /** Suggestions whose quote was real but filed under the wrong field. */
   let relabelled = 0;
   /**
@@ -193,20 +196,54 @@ export function prepareRequirementReview(
       appearsIn(field, spellings),
     );
     if (!actualField) {
-      throw new RequirementReviewProviderError("invalid_output_quote_not_found");
+      /*
+       * A fabricated quote loses its own suggestion, not the whole review.
+       *
+       * Refusing everything was the stricter reading and it cost the customer
+       * more than it protected them. One invented quote among several threw
+       * away the review, the service turned it into a 502, and the page said
+       * "the AI review did not finish" with no reason in it -- while the
+       * suggestion directly above, with no quote at all, was being dropped
+       * politely and counted in the summary. Worse evidence was treated more
+       * gently than none.
+       *
+       * Measured on 2026-11-14: reviewing a requirement that has nothing
+       * wrong with it failed this way. The model, pressed to find a problem
+       * where there is none, invents one and quotes words the customer never
+       * wrote -- so the case the eval calls "does not invent problems in a
+       * requirement that has none" was reaching people as an error page.
+       *
+       * The rule it enforces is unchanged and absolute: nothing reaches the
+       * reviewer attributed to words the customer did not write. Dropping the
+       * suggestion keeps that in full. It also keeps the suggestions that did
+       * quote the customer correctly, and says in the summary how many were
+       * left out and why, which an error page cannot do.
+       */
+      droppedFabricated += 1;
+      continue;
     }
     relabelled += 1;
     kept.push({ ...suggestion, evidenceField: actualField });
   }
 
-  const note =
+  const noQuoteNote =
     droppedWithoutQuote > 0
       ? ` ${droppedWithoutQuote} further suggestion${droppedWithoutQuote === 1 ? "" : "s"} quoted nothing in this requirement and ${droppedWithoutQuote === 1 ? "was" : "were"} left out: a remark nobody can check against the text is not evidence.`
       : "";
+  // Said separately from the one above, because they are different faults and
+  // a reader deserves to know which happened. Quoting nothing is a lazy
+  // remark; quoting words that are not there is the model inventing the
+  // customer's own text, and it is the louder sentence of the two.
+  const fabricatedNote =
+    droppedFabricated > 0
+      ? ` ${droppedFabricated} suggestion${droppedFabricated === 1 ? "" : "s"} quoted words that are not in this requirement and ${droppedFabricated === 1 ? "was" : "were"} left out: a review may not attribute words to you that you did not write.`
+      : "";
+  const note = `${noQuoteNote}${fabricatedNote}`;
 
   return {
     review: { summary: `${review.summary}${note}`.slice(0, 2_000), suggestions: kept },
     droppedWithoutQuote,
+    droppedFabricated,
     // Not said in the summary: the reviewer is shown the field the quote
     // really came from, so there is nothing left for them to act on. It is
     // returned because a rise in it is worth seeing from outside.

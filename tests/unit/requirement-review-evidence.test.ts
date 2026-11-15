@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { prepareRequirementReview, RequirementReviewProviderError } from "@/lib/ai/requirement-review";
+import { prepareRequirementReview } from "@/lib/ai/requirement-review";
 
 /**
  * The rule: a suggestion must quote the requirement, so nothing can be
@@ -49,17 +49,53 @@ describe("quoting the requirement", () => {
     ).not.toThrow();
   });
 
-  it("still refuses a quote the requirement does not contain", () => {
-    try {
-      prepareRequirementReview(
-        review(suggestion({ evidenceQuote: "the shopper must verify their email" })),
-        input,
-      );
-      throw new Error("it should have refused");
-    } catch (error) {
-      expect(error).toBeInstanceOf(RequirementReviewProviderError);
-      expect((error as RequirementReviewProviderError).code).toBe("invalid_output_quote_not_found");
-    }
+  it("drops a quote the requirement does not contain, and keeps the rest of the review", () => {
+    /*
+     * This used to throw, and the throw reached people as an error page.
+     *
+     * The rule is unchanged: a suggestion quoting words the customer never
+     * wrote does not reach the reviewer. What changed is the blast radius.
+     * Refusing the whole review turned one invented quote into a 502 and the
+     * sentence "the AI review did not finish", with nothing in it to act on
+     * -- while a suggestion with no quote at all, which is weaker evidence,
+     * was already being dropped politely and counted in the summary.
+     *
+     * The eval named it on 2026-11-14: "reviewing a requirement does not
+     * invent problems in a requirement that has none" failed with
+     * invalid_output_quote_not_found. A model pressed to find fault in a
+     * clean requirement invents one, and the customer got an error instead of
+     * a review that said nothing was wrong.
+     */
+    const prepared = prepareRequirementReview(
+      review(
+        suggestion({ evidenceQuote: "a shopper's todo items" }),
+        suggestion({ evidenceQuote: "the shopper must verify their email" }),
+      ),
+      input,
+    );
+
+    expect(prepared.droppedFabricated).toBe(1);
+    // The fabrication is gone; the suggestion that quoted correctly survives.
+    expect(prepared.review.suggestions).toHaveLength(1);
+    expect(prepared.review.suggestions[0]?.evidenceQuote).toContain("todo items");
+    expect(prepared.review.summary).toContain("quoted words that are not in this requirement");
+    expect(prepared.review.summary).toContain("did not write");
+  });
+
+
+  it("still tells the two kinds of bad evidence apart in the summary", () => {
+    const prepared = prepareRequirementReview(
+      review(
+        suggestion({ category: "EDGE_CASE", evidenceQuote: "" }),
+        suggestion({ evidenceQuote: "the shopper must verify their email" }),
+      ),
+      input,
+    );
+
+    expect(prepared.droppedWithoutQuote).toBe(1);
+    expect(prepared.droppedFabricated).toBe(1);
+    expect(prepared.review.summary).toContain("quoted nothing in this requirement");
+    expect(prepared.review.summary).toContain("quoted words that are not in this requirement");
   });
 
   it("keeps the suggestions that quote, and says what it dropped", () => {
@@ -124,20 +160,40 @@ describe("quoting the requirement", () => {
   });
 
   it("does not let trimming admit a word the requirement never contained", () => {
-    expect(() =>
-      prepareRequirementReview(
-        review(suggestion({ evidenceQuote: "is stored with the spaces and emailed to support." })),
-        input,
-      ),
-    ).toThrow(RequirementReviewProviderError);
+    // Trailing punctuation is trimmed so that ending a quotation early still
+    // counts. "emailed to support" is not in the requirement at all, and no
+    // amount of trimming may let it through.
+    const prepared = prepareRequirementReview(
+      review(suggestion({ evidenceQuote: "is stored with the spaces and emailed to support." })),
+      input,
+    );
+
+    expect(prepared.review.suggestions).toHaveLength(0);
+    expect(prepared.droppedFabricated).toBe(1);
+    expect(JSON.stringify(prepared.review)).not.toContain("emailed to support");
   });
 
-  it("still refuses the whole review when a quote was invented", () => {
-    // Dropping one unsupported remark is a kindness. Keeping a review that
-    // attributes words to the customer is not.
-    expect(() =>
-      prepareRequirementReview(review(suggestion({ evidenceQuote: "the shopper must verify their email" })), input),
-    ).toThrow(RequirementReviewProviderError);
+  it("never passes on an invented quote, and no longer takes the review down with it", () => {
+    /*
+     * The guarantee and the blast radius are different things.
+     *
+     * The guarantee is absolute and tested here by looking at everything that
+     * comes back: words the customer did not write appear nowhere in it. What
+     * changed on 2026-11-15 is what happens to the rest. Throwing turned one
+     * invented quote into a 502 and a page reading "the AI review did not
+     * finish", which told the reviewer nothing and left them with no review
+     * at all.
+     */
+    const prepared = prepareRequirementReview(
+      review(suggestion({ evidenceQuote: "the shopper must verify their email" })),
+      input,
+    );
+
+    expect(JSON.stringify(prepared.review)).not.toContain("verify their email");
+    expect(prepared.review.suggestions).toHaveLength(0);
+    expect(prepared.droppedFabricated).toBe(1);
+    // And the reviewer is told, rather than left to wonder.
+    expect(prepared.review.summary).toContain("1 suggestion quoted words that are not in this requirement");
   });
 
   it("says nothing extra when every suggestion quoted something", () => {

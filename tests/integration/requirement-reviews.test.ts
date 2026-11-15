@@ -139,7 +139,22 @@ describe("advisory AI Requirement Review", () => {
     ).toBe(1);
   });
 
-  it("rejects unsupported evidence and records a safe failed run", async () => {
+  it("stores none of an invented quote, and still completes the review", async () => {
+    /*
+     * This asserted a 502 and a FAILED run until 2026-11-15.
+     *
+     * What must never happen is storing a suggestion that attributes words to
+     * the customer they did not write, and that is asserted here twice: no
+     * suggestion row at all, and the invented sentence present nowhere in the
+     * run that was saved. Both hold.
+     *
+     * What changed is the rest of it. One invented quote used to fail the
+     * whole run, and the reviewer met "the AI review did not finish" with no
+     * reason in it. The eval found this as "reviewing a requirement does not
+     * invent problems in a requirement that has none": a model pressed to
+     * find fault in a clean requirement makes one up, so the ordinary case of
+     * a well-written requirement was reaching people as an error.
+     */
     const state = await workspace();
     const invalid = async () => ({
       ...(await validReviewer()),
@@ -151,14 +166,21 @@ describe("advisory AI Requirement Review", () => {
       ],
     });
 
-    await expect(
-      runRequirementReview(
-        { projectId: state.project.id, requirementId: state.requirement.id },
-        dependencies(state, state.owner, invalid),
-      ),
-    ).rejects.toMatchObject({ code: "requirement_review_failed", status: 502 });
-    expect(await prisma.aiRun.findFirst()).toMatchObject({ status: "FAILED" });
+    const run = await runRequirementReview(
+      { projectId: state.project.id, requirementId: state.requirement.id },
+      dependencies(state, state.owner, invalid),
+    );
+
+    expect(run.status).toBe("SUCCEEDED");
+    expect(run.suggestions).toHaveLength(0);
     expect(await prisma.aiSuggestion.count()).toBe(0);
+
+    const saved = await prisma.aiRun.findFirst();
+    expect(saved?.status).toBe("SUCCEEDED");
+    // The words the model invented reached no column.
+    expect(JSON.stringify(saved)).not.toContain("text that does not exist");
+    // And the reviewer is told why there is nothing to look at.
+    expect(saved?.summary).toContain("quoted words that are not in this requirement");
   });
 
   it("lets the people who write requirements review them, but not a viewer", async () => {
