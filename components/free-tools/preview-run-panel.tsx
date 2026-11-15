@@ -90,7 +90,12 @@ export function PreviewRunPanel({
   const [env, setEnv] = useState<Record<string, string>>(() => ({ ...(initialEnv ?? {}) }));
   const suppliedEnv = Object.fromEntries(envNames.filter((name) => env[name]).map((name) => [name, env[name]]));
   const [state, setState] = useState<
-    { status: "idle" } | { status: "running" } | { status: "done"; result: RunResult } | { status: "error"; message: string }
+    | { status: "idle" }
+    | { status: "running" }
+    | { status: "done"; result: RunResult }
+    | { status: "error"; message: string }
+    // An allowance that is spent, which is not a run that broke.
+    | { status: "limit"; limit: FreeToolLimit }
   >({ status: "idle" });
 
   // The page's own loop may have run this code already, in which case its
@@ -114,6 +119,14 @@ export function PreviewRunPanel({
       });
       const data = await response.json();
       if (!response.ok) {
+        // An allowance that is spent is not a run that broke. Shown as the
+        // offer the other free tools show, because the sentence underneath it
+        // is the same sentence.
+        const reached = readFreeToolLimit(response.status, data);
+        if (reached) {
+          setState({ status: "limit", limit: reached });
+          return;
+        }
         setState({ status: "error", message: data.error || "The live run could not be completed." });
         return;
       }
@@ -243,6 +256,9 @@ export function PreviewRunPanel({
       {shown.status === "error" ? (
         <p role="alert" className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-red-200">{shown.message}</p>
       ) : null}
+      {/* Shown in place of the error it used to be: the same offer the other
+          free tools make when a visitor reaches the end of a day's runs. */}
+      {shown.status === "limit" ? <LimitReached limit={shown.limit} returnTo="/generator" /> : null}
 
       {shown.status === "done" ? (
         <div className="mt-4 space-y-4" aria-live="polite">

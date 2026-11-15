@@ -102,6 +102,20 @@ export async function POST(req: Request) {
             error.code === "burst_limit"
               ? "Wait a minute before the next run."
               : "You've used today's 10 live runs. They reset at midnight UTC.",
+          /*
+           * The same shape every other free tool returns.
+           *
+           * This body carried only a message, so readFreeToolLimit could not
+           * recognise it and the panel fell back to a generic error. The
+           * sentence was right and the frame was wrong: somebody who has just
+           * run ten tests on a live page is the most engaged visitor this
+           * product has, and they were the only one not shown what the others
+           * are -- when it resets, and the plan that lifts it.
+           */
+          code: error.code,
+          plan: "PUBLIC" as const,
+          retryAfterSeconds: error.retryAfterSeconds,
+          upgrade: error.code === "daily_limit",
           remaining: 0,
         },
         { status: 429, headers: { "retry-after": String(error.retryAfterSeconds), "x-request-id": requestId } },

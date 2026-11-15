@@ -59,9 +59,18 @@ export function LimitReached({ limit, returnTo }: { limit: FreeToolLimit; return
       <div className="bg-slate-950 px-5 py-5 text-white sm:px-6">
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">Free runs used for today</p>
         <h3 className="mt-1 text-xl font-semibold">Keep going with the Team plan</h3>
+        {/*
+          * The route's own sentence, not a copy of it.
+          *
+          * This said "today's 5 free runs" in fixed text while the message
+          * beside it came from whichever route refused. The two agreed only
+          * because every tool happened to allow five. Live runs allow ten, so
+          * the first surface to disagree would have been told the wrong
+          * number by the panel and the right one by the API.
+          */}
         <p className="mt-1 text-sm leading-6 text-slate-300">
-          You&rsquo;ve used today&rsquo;s 5 free runs of this tool. Team gives your whole workspace a daily AI
-          allowance for every tool, plus everything that turns drafts into evidence.
+          {limit.error || "You’ve used today’s free runs of this tool."} Team gives your whole
+          workspace a daily AI allowance for every tool, plus everything that turns drafts into evidence.
         </p>
       </div>
       <div className="px-5 py-5 sm:px-6">
