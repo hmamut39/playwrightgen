@@ -138,18 +138,48 @@ describe.skipIf(!ready)("planning the tests one page needs", () => {
       ],
     });
 
-    // Matched on the behaviour, not on a keyword. The first version of this
-    // flagged "Invite fails with invalid email format" as a repeat of "An
-    // admin invites a new member by email", which is the validation case the
-    // instructions ask for once the happy path is covered -- the planner was
-    // right and the eval was wrong.
+    /*
+     * Matched on the behaviour, not on a keyword. The first version of this
+     * flagged "Invite fails with invalid email format" as a repeat of "An
+     * admin invites a new member by email", which is the validation case the
+     * instructions ask for once the happy path is covered -- the planner was
+     * right and the eval was wrong.
+     *
+     * It was wrong a second way until 2026-11-15, and that one made this case
+     * flake. The filter also matched every item whenever the plan held more
+     * than four, a clause that does not look at the item it is filtering --
+     * so a plan of five tests that repeated nothing was reported as five
+     * repeats, under a message saying they "proposed the covered behaviour
+     * again". Untrue of every one of them.
+     *
+     * The threshold contradicted the fixture it ran against, which asks for
+     * maxItems: 6. Asking for up to six and failing at five is not a
+     * measurement of the planner; it is a measurement of which number the
+     * sampling happened to land on, and across four runs this case reported
+     * fail, pass, pass, fail on the same input.
+     *
+     * So the promise is asserted, and only the promise: a plan told what is
+     * already covered does not propose those behaviours again, and does not
+     * pad itself by proposing the same new thing twice.
+     */
     const happyPath = /^an admin (?:invites|changes|removes)\b/i;
-    const repeats = plan.items.filter(
-      (item) => happyPath.test(item.title) || plan.items.length > 4,
-    );
+    const repeats = plan.items.filter((item) => happyPath.test(item.title));
     expect(
       repeats.map((item) => item.title),
-      "proposed the covered behaviour again, or filled the list instead of narrowing it",
+      "proposed a behaviour the project already covers",
     ).toEqual([]);
+
+    // Padding, measured as padding. Two items for one behaviour is the thing
+    // "filled the list" was reaching for, and unlike a count it is true or
+    // false regardless of how many the planner returns.
+    const titles = plan.items.map((item) => item.title.trim().toLowerCase());
+    const duplicated = titles.filter((title, index) => titles.indexOf(title) !== index);
+    expect(duplicated, "proposed the same test twice").toEqual([]);
+
+    // The cap it was given is the cap it must honour.
+    expect(
+      plan.items.length,
+      `asked for at most ${page.maxItems} and returned ${plan.items.length}`,
+    ).toBeLessThanOrEqual(page.maxItems);
   }, 180_000);
 });

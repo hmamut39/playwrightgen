@@ -3699,6 +3699,37 @@ tell anybody whether the product got worse, and two of the suite's thirteen
 files do. Worth fixing next, and worth fixing before trusting any single
 run's score to a decimal.
 
+**Both flaky cases traced, and neither was flakiness (2026-11-15).** They were
+two different real faults, and the method for both was the same: read what the
+failing run had already printed instead of re-running it.
+
+`automation-generation` had been printing its cause in every run --
+`status=BLOCKED findings=unsupported_dependency` -- while the assertion
+message threw the code away and kept the count. The rule behind it allowed
+only @playwright/test, and read `output.dependencies`, a field the model fills
+in itself. So it trusted a self-report, which means an artifact importing axios
+while declaring only @playwright/test passed the check that exists to stop
+precisely that. And it blocked on the declaration alone, failing a runnable
+artifact because the model had over-listed in a field nobody runs.
+`importedPackages()` now reads what the code imports and that is what blocks;
+a package only declared is a warning that the list does not match the code.
+
+`page-coverage-plan` was the eval being wrong, twice over. Its filter matched
+every item whenever the plan held more than four -- a clause that never looks
+at the item it is filtering -- so a plan of five tests repeating nothing was
+reported as five repeats, under a message saying they "proposed the covered
+behaviour again". Untrue of every one of them. And the threshold contradicted
+the fixture it ran against, which asks for `maxItems: 6`: asking for up to six
+and failing at five measures which number the sampling landed on, not the
+planner. It now asserts the promise and only the promise -- no behaviour the
+project already covers, no test proposed twice, and the cap it was given
+honoured.
+
+Worth keeping in view: an eval that is wrong is more dangerous than one that
+is missing, because its red is believed and its green is trusted. Both of
+these were read as "the model is unreliable here" for a fortnight. Neither
+was.
+
 **The gate was watching a fifth of the suite (found and fixed 2026-11-14).**
 The committed baseline held 12 cases from three files; the suite runs 57 from
 thirteen. The other 45 were measured every week, printed one by one as "new",
