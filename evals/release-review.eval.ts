@@ -114,11 +114,28 @@ describe("Release Review report quality", () => {
     // failure that would cost a team the most.
     try {
       const { result } = await run("thin", thin);
-      expect(result.overallScore).toBeLessThan(60);
-      expect(result.productionReadiness.reason.length).toBeGreaterThan(20);
+      expect(
+        result.overallScore,
+        `rated a two-sentence submission ${result.overallScore} out of 100: "${result.productionReadiness.reason.slice(0, 160)}"`,
+      ).toBeLessThan(60);
+      expect(result.productionReadiness.reason.length, "scored it without saying why").toBeGreaterThan(20);
     } catch (error) {
-      // Refusing thin evidence is an acceptable outcome; inventing is not.
-      expect(error).toBeInstanceOf(ReleaseReviewProviderError);
+      /*
+       * Refusing thin evidence is an acceptable outcome; inventing is not.
+       *
+       * The assertions above are inside this try, so a failing one arrives
+       * here as an AssertionError. Asserting the type alone turned "rated a
+       * two-sentence submission 78 out of 100" into "expected AssertionError
+       * to be an instance of ReleaseReviewProviderError", which says nothing
+       * about the model and sends the reader to the wrong file. A measurement
+       * that loses its own evidence on the way out is the fault this suite
+       * found in automation-generation on 2026-11-15, where four runs went by
+       * without anyone learning which rule had fired.
+       *
+       * So only a refusal is swallowed. Everything else is rethrown exactly
+       * as it was raised.
+       */
+      if (!(error instanceof ReleaseReviewProviderError)) throw error;
     }
   }, 180_000);
 });
