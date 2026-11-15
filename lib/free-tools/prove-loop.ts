@@ -23,7 +23,19 @@
 
 export type RunVerdict = "passed" | "partial" | "failed";
 
-export type ProveFailure = { step: string; line: string; reason: string; pageTree: string; skippedEarlier: string[] };
+export type ProveFailure = {
+  step: string;
+  line: string;
+  reason: string;
+  pageTree: string;
+  skippedEarlier: string[];
+  /**
+   * Environment variables an earlier line needed and the preview did not
+   * have. A failure that follows one of these is a consequence of the
+   * preview's own limits, not of a broken test, and no fix can mend it.
+   */
+  environmentNeeded: string[];
+};
 
 export type ProveRound =
   | { kind: "generating" }
@@ -32,7 +44,11 @@ export type ProveRound =
   | { kind: "ran"; attempt: number; verdict: RunVerdict; passed: number; checks?: number; failed: number; skipped: number; failingStep?: string }
   | { kind: "fixing"; attempt: number; failingStep: string }
   | { kind: "fixed"; attempt: number; explanation: string }
-  | { kind: "done"; reason: "passed" | "partial" | "out_of_fixes" | "not_fixable" | "limit" | "error"; message?: string };
+  | {
+      kind: "done";
+      reason: "passed" | "partial" | "needs_environment" | "out_of_fixes" | "not_fixable" | "limit" | "error";
+      message?: string;
+    };
 
 export type ProveGenerateResult = { ok: true; code: string; title: string; payload: unknown } | { ok: false; limit: boolean; message: string };
 export type ProveRunResult =
@@ -107,6 +123,43 @@ export function linesNotRun(result: RunLike, limit = 6): LineNotRun[] {
   return [...seen].slice(0, limit).map(([line, reason]) => ({ line, reason }));
 }
 
+/** The reason the preview gives for a value it was never given. */
+const NEEDS_ENVIRONMENT = /^needs ([A-Z][A-Z0-9_]*) from your environment$/;
+
+/**
+ * The environment variables this run needed and did not have.
+ *
+ * A visitor types "log in with standard_user and secret_sauce". The generator
+ * does the right thing and refuses to put a password in the file, emitting
+ * `process.env.E2E_PASSWORD` instead. The preview then has no environment, so
+ * it skips that line -- and says so, in the panel, beside the step: "needs
+ * E2E_PASSWORD from your environment".
+ *
+ * Then the login does not happen, the next step fails on a page that never
+ * changed, and the run came out as "Ran on the live page and did not pass".
+ * Measured on 2026-11-15 against saucedemo.com: two fix attempts were spent
+ * on it, the second explaining accurately that the page still showed "Epic
+ * sadface: Username is required", and the third call returned 429. The draft
+ * was never broken. The product knew the cause, printed it one line below the
+ * verdict, and drew the opposite conclusion in the sentence people read.
+ *
+ * So the names are collected and the loop stops on them: there is nothing to
+ * repair, and the page can say what it needs instead of what it failed.
+ */
+export function environmentNeeded(result: RunLike): string[] {
+  const names = new Set<string>();
+  for (const test of result.tests) {
+    for (const step of test.steps) {
+      for (const operation of step.operations) {
+        if (operation.status !== "skipped") continue;
+        const match = NEEDS_ENVIRONMENT.exec((operation.detail ?? "").trim());
+        if (match) names.add(match[1]);
+      }
+    }
+  }
+  return [...names];
+}
+
 /**
  * The first failing step, with the page as it was and the earlier lines that
  * could not run, which is everything a fix needs.
@@ -128,6 +181,10 @@ export function firstFailureOf(result: RunLike): ProveFailure | null {
           .filter((operation) => operation.status === "skipped")
           .map((operation) => operation.source.slice(0, 300))
           .slice(0, 20),
+        // Read from the whole run rather than only the lines before the
+        // failure: a credential skipped in a later step is still the reason
+        // this product cannot prove the test here.
+        environmentNeeded: environmentNeeded(result),
       };
     }
   }
@@ -217,6 +274,29 @@ export async function proveDraftOnLivePage(
     if (fixesUsed >= maxFixes) {
       report({ kind: "done", reason: "out_of_fixes" });
       return { code, verdict, receipt, fixesUsed, runs, stopped: "out_of_fixes", generated: generated.payload, lastRun };
+    }
+
+    if (outcome.failure.environmentNeeded.length > 0) {
+      // Not fixable, and not the draft's fault. Spending the visitor's fix
+      // allowance here produced two correct diagnoses of a cause neither of
+      // them could remove, and then a 429.
+      const names = outcome.failure.environmentNeeded;
+      const message =
+        `The preview has no ${names.join(" or ")}, so the step that needs ` +
+        `${names.length === 1 ? "it" : "them"} did not run and the test could not get past it. ` +
+        "The draft is not wrong; supply the values below and run it again.";
+      report({ kind: "done", reason: "needs_environment", message });
+      return {
+        code,
+        verdict,
+        receipt,
+        fixesUsed,
+        runs,
+        stopped: "needs_environment",
+        message,
+        generated: generated.payload,
+        lastRun,
+      };
     }
 
     report({ kind: "fixing", attempt, failingStep: outcome.failure.step });

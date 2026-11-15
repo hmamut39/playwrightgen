@@ -3580,6 +3580,51 @@ secret. Until it exists, the only eval that checks a generated test passes
 against a real page cannot run in CI, and the product's headline claim is the
 one thing the measurements do not cover.
 
+**The walk on a site that is not TodoMVC (2026-11-15).** The standing item is
+to use the product as a stranger would, weekly, on something harder than the
+demo page everything is tested against. This one went to saucedemo.com and
+typed what a person would type: "log in with the username standard_user and
+the password secret_sauce, then check the products page lists the Sauce Labs
+Backpack."
+
+What happened, in order:
+
+1. The generator did the right thing and refused to put a password in the
+   file. It emitted `process.env.E2E_USERNAME` and `process.env.E2E_PASSWORD`,
+   and said so in its assumptions.
+2. The preview runner has no environment. It skipped those two lines and
+   said exactly why, in the panel, beside the step: "needs E2E_PASSWORD from
+   your environment".
+3. So the login never happened, the next step failed against a page that had
+   not changed, and the run came back failed.
+4. The loop then spent two fix attempts on it. The second explained,
+   correctly, that the page still read "Epic sadface: Username is required".
+   The third call to `/api/repair-draft` returned 429.
+5. The heading over the draft read **"Ran on the live page and did not pass ·
+   Review before use"** -- of a draft that was not wrong, with the real cause
+   printed one line below it.
+
+A stranger waited 151 seconds on the first attempt and 58 on the second, and
+was sent to review a draft whose only fault was that this product cannot run
+it without a credential it has a panel for.
+
+It is the house fault class in its purest form so far: the product knew, wrote
+the reason on the screen, and drew the opposite conclusion in the one sentence
+people read. Nothing was hidden; the conclusion was simply wrong.
+
+**Fixed the same day.** `environmentNeeded()` reads the variables a run needed
+and did not have, `firstFailureOf` carries them onto the failure so no caller
+can miss them, and the loop stops on them with a new reason,
+`needs_environment`, instead of spending a fix on a cause no fix can remove.
+The heading now reads "Ran on the live page as far as it could · needs
+E2E_USERNAME and E2E_PASSWORD from your environment, which the preview does
+not have · Supply them below and run it again", and the round-by-round list
+says the same. The workspace repair path reads the run the same way, because
+it reaches the same wall. Five tests, built from the run this walk produced.
+
+The fix allowance is the quieter half of it. Two model calls per visitor were
+being spent on every login test anybody asked for.
+
 **The gate was watching a fifth of the suite (found and fixed 2026-11-14).**
 The committed baseline held 12 cases from three files; the suite runs 57 from
 thirteen. The other 45 were measured every week, printed one by one as "new",

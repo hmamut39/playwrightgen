@@ -15,6 +15,11 @@ import { checksPhrase } from "@/lib/free-tools/preview-run/checks-phrase";
 const DONE_TEXT: Record<Extract<ProveRound, { kind: "done" }>["reason"], string> = {
   passed: "Passed on the live page.",
   partial: "Nothing failed, but some steps could not run here.",
+  // Not a failure of the draft, so it does not read like one. Before this,
+  // the loop spent two fix attempts here and the list showed them being
+  // spent, each one correctly describing a cause it could not remove.
+  needs_environment:
+    "Stopped: it needs a value from your environment that the preview does not have, so the test could not get past that step. Supply it below and run it again.",
   out_of_fixes: "Still failing after the fixes included in one attempt. The draft and the failure are below; you can fix and run again.",
   not_fixable: "The run failed without a step that could be fixed automatically.",
   limit: "Stopped: today's free runs are used up.",

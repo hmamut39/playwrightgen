@@ -12,7 +12,7 @@ import { weakeningFindings } from "@/lib/ai/repair-weakening";
 import { getPrismaClient } from "@/lib/db/prisma";
 import { executeLiveRun, prepareLiveRun } from "@/lib/free-tools/preview-run/run-draft";
 import { runVerdict } from "@/lib/free-tools/preview-run/receipt";
-import { proveDraftOnLivePage, type ProveFailure } from "@/lib/free-tools/prove-loop";
+import { environmentNeeded, proveDraftOnLivePage, type ProveFailure } from "@/lib/free-tools/prove-loop";
 import { reserveOrganizationAiRequest } from "@/lib/operations/organization-ai-guard";
 import { recordImportedDraft } from "@/lib/services/imported-drafts";
 
@@ -169,6 +169,10 @@ function firstFailure(result: Awaited<ReturnType<typeof executeLiveRun>>["result
             reason: operation.detail ?? "It did not pass.",
             pageTree: test.failureSnapshot ?? "",
             skippedEarlier: [],
+            // The repair path reaches the same wall as the free tool: a step
+            // skipped for a missing credential makes the step after it fail,
+            // and no proposed repair can supply the value.
+            environmentNeeded: environmentNeeded(result),
           };
         }
       }

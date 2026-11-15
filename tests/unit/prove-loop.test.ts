@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   assertsErrorPage,
+  environmentNeeded,
+  firstFailureOf,
   linesNotRun,
   proveDraftOnLivePage,
   type ProveFailure,
@@ -15,6 +17,7 @@ const failure: ProveFailure = {
   reason: "locator.waitFor: Timeout 5000ms exceeded.",
   pageTree: '- button "Add to cart"',
   skippedEarlier: [],
+  environmentNeeded: [],
 };
 
 const failed = (passed: number): ProveRunResult => ({
@@ -234,5 +237,139 @@ describe("what did not run, and why", () => {
     };
     expect(linesNotRun(many)).toHaveLength(6);
     expect(linesNotRun(many, 2)).toHaveLength(2);
+  });
+});
+
+/**
+ * A password the preview was never given, and the conclusion drawn from it.
+ *
+ * Walked on 2026-11-15 as a stranger would: "log in with the username
+ * standard_user and the password secret_sauce" against saucedemo.com. The
+ * generator did the right thing and refused to put the password in the file,
+ * emitting process.env.E2E_PASSWORD. The preview has no environment, so it
+ * skipped that line and said so beside the step -- "needs E2E_PASSWORD from
+ * your environment" -- the login did not happen, and the next step failed on
+ * a page that had not changed.
+ *
+ * The product then spent two fix attempts on it. The second explained,
+ * accurately, that the page still read "Epic sadface: Username is required".
+ * The third call came back 429. And the heading over the draft said "Ran on
+ * the live page and did not pass", of a draft that was not wrong, with the
+ * real cause printed one line below it.
+ *
+ * Nothing in the loop can mend a missing credential, so it stops, says which
+ * value it needs, and keeps the allowance.
+ */
+const skippedForEnvironment = {
+  tests: [
+    {
+      failureSnapshot: '- text "Epic sadface: Username is required"',
+      steps: [
+        {
+          name: "Fill username and password and submit",
+          operations: [
+            { source: "await page.goto('https://www.saucedemo.com/')", status: "passed" },
+            {
+              source: "await usernameField.fill(USERNAME)",
+              status: "skipped",
+              detail: "needs E2E_USERNAME from your environment",
+            },
+            {
+              source: "await passwordField.fill(PASSWORD)",
+              status: "skipped",
+              detail: "needs E2E_PASSWORD from your environment",
+            },
+          ],
+        },
+        {
+          name: "Wait for navigation to inventory",
+          operations: [
+            {
+              source: "await expect(page).toHaveURL(/inventory/)",
+              status: "failed",
+              detail: "expect(page).toHaveURL: Timeout 5000ms exceeded.",
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+describe("a value the preview was never given", () => {
+  it("names each variable once, in the order the test needed them", () => {
+    expect(environmentNeeded(skippedForEnvironment)).toEqual(["E2E_USERNAME", "E2E_PASSWORD"]);
+  });
+
+  it("ignores a step skipped for any other reason", () => {
+    expect(
+      environmentNeeded({
+        tests: [
+          {
+            steps: [
+              {
+                name: "Intercept",
+                operations: [
+                  {
+                    source: "await page.route('**/api', (route) => route.fulfill())",
+                    status: "skipped",
+                    detail: "page.route() is not run in the preview",
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    ).toEqual([]);
+  });
+
+  it("carries the variables onto the failure, so a caller cannot miss them", () => {
+    const failure = firstFailureOf(skippedForEnvironment);
+
+    expect(failure?.step).toBe("Wait for navigation to inventory");
+    expect(failure?.environmentNeeded).toEqual(["E2E_USERNAME", "E2E_PASSWORD"]);
+  });
+
+  it("stops rather than spending a fix on it, and says what it needs", async () => {
+    const { dependencies, rounds, calls } = harness([
+      {
+        ok: true as const,
+        verdict: "failed" as const,
+        passed: 5,
+        failed: 1,
+        skipped: 2,
+        receipt: null,
+        failure: firstFailureOf(skippedForEnvironment),
+        payload: { round: "needs env" },
+      },
+    ]);
+
+    const outcome = await proveDraftOnLivePage(dependencies);
+
+    // The allowance is not spent on a cause no fix can remove.
+    expect(calls.filter((call) => call.startsWith("fix:"))).toEqual([]);
+    expect(outcome.fixesUsed).toBe(0);
+    expect(outcome.runs).toBe(1);
+    expect(outcome.stopped).toBe("needs_environment");
+    // And the message names the values rather than the failing step.
+    expect(outcome.message).toContain("E2E_USERNAME");
+    expect(outcome.message).toContain("E2E_PASSWORD");
+    expect(outcome.message).toContain("The draft is not wrong");
+
+    const done = rounds.find((round) => round.kind === "done");
+    expect(done).toMatchObject({ reason: "needs_environment" });
+    expect(rounds.some((round) => round.kind === "fixing")).toBe(false);
+  });
+
+  it("still fixes an ordinary failure, so the stop is narrow", async () => {
+    // The guard must not swallow the loop's whole purpose: a failure with no
+    // missing value is repaired exactly as before.
+    const { dependencies, calls } = harness([failed(3), passedRun]);
+
+    const outcome = await proveDraftOnLivePage(dependencies);
+
+    expect(calls.filter((call) => call.startsWith("fix:"))).toHaveLength(1);
+    expect(outcome.stopped).toBe("passed");
   });
 });

@@ -16,6 +16,7 @@ import { PreviewRunPanel, type CompletedRun, type RunResult } from "@/components
 import { ProveRounds } from "@/components/free-tools/prove-rounds";
 import { SavedDrafts, type SavedDraft } from "@/components/free-tools/saved-drafts";
 import {
+  environmentNeeded,
   firstFailureOf,
   proveDraftOnLivePage,
   verdictFromCounts,
@@ -468,6 +469,18 @@ export default function QuickGeneratePage() {
       }
     : null;
   const provenRun = result && lastRun?.code === result.code ? lastRun : null;
+  /*
+   * Values the preview was never given, named rather than counted.
+   *
+   * A visitor asking for a login test gets a draft that reads
+   * process.env.E2E_PASSWORD, which is the right code to ship and impossible
+   * to run here. The preview skipped that line and said so beside the step,
+   * the login therefore did not happen, the next step failed on a page that
+   * had not changed, and this heading read "Ran on the live page and did not
+   * pass". The draft was not wrong, and the cause was already on the screen
+   * one line further down.
+   */
+  const missingEnvironment = provenRunResult ? environmentNeeded(provenRunResult) : [];
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
@@ -753,15 +766,21 @@ export default function QuickGeneratePage() {
                   <p className="mt-1 text-xs text-slate-400">
                     {provenRun?.verdict === "passed"
                       ? `Ran on the live page · ${checksPhrase(provenRun)} passed · Review before use`
-                      : provenRun?.verdict === "partial"
-                        ? // Nothing failed; some steps could not run here. Calling
-                          // that "did not pass" is the same kind of lie as calling
-                          // it proven, and the rest of this product is careful
-                          // about the difference.
-                          `Ran on the live page · nothing failed, some steps could not run · Review before use`
-                        : provenRun
-                          ? "Ran on the live page and did not pass · Review before use"
-                          : "Generated, not executed · Review before use"}
+                      : provenRun && missingEnvironment.length > 0
+                        ? // Named, because "did not pass" sends somebody to
+                          // read a draft that was never the problem. Checked
+                          // before "partial" as well: which value is missing
+                          // is more use than knowing that something was.
+                          `Ran on the live page as far as it could · needs ${missingEnvironment.join(" and ")} from your environment, which the preview does not have · Supply ${missingEnvironment.length === 1 ? "it" : "them"} below and run it again`
+                        : provenRun?.verdict === "partial"
+                          ? // Nothing failed; some steps could not run here. Calling
+                            // that "did not pass" is the same kind of lie as calling
+                            // it proven, and the rest of this product is careful
+                            // about the difference.
+                            `Ran on the live page · nothing failed, some steps could not run · Review before use`
+                          : provenRun
+                            ? "Ran on the live page and did not pass · Review before use"
+                            : "Generated, not executed · Review before use"}
                   </p>
                 </div>
                 <ResultActions content={result.code} filename="playwright-draft.spec.ts" tone="dark" />
