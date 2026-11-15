@@ -3660,6 +3660,45 @@ quote, by design -- a missing criterion has nothing to quote -- and that is
 the gap this false positive comes through. Every other category must point at
 the customer's own words. This one asserts an absence, which nothing checks.
 
+**That fix was tried and it did not work (2026-11-15).** The exemption was
+narrowed: a claim that a criterion is missing now has to quote the nearest
+criterion that exists, so the claim is checked against the text like every
+other category. The theory was that being made to show its working would stop
+the model asserting an absence that is not there.
+
+It complied, and the claim survived. Measured at 18:52Z, the suggestion came
+back quoting criterion four in full --
+
+    "Saving an address that fails validation leaves the stored address
+     unchanged and names the rejected field on screen."
+
+-- under the title "Missing acceptance criterion for address validation
+feedback", at the highest severity this product has. The model quoted the
+text that refutes its own claim.
+
+So the hypothesis is disproved rather than pending, and it is written down as
+disproved. The quote requirement stays, because a reviewer can now see the
+contradiction at a glance and that is strictly better than an unsupported
+assertion, but it is not the fix and must not be recorded as one.
+
+What is deliberately not being done: capping the severity of this category,
+or routing it to AMBIGUITY, so that the eval goes green. Either would make the
+measurement pass without the product inventing one problem fewer, and a
+measurement bent to fit is worth less than no measurement at all. The case
+stays red with the evidence beside it.
+
+**The flaky pair is confirmed (2026-11-15).** `automation-generation` and
+`page-coverage-plan` have now failed, passed and failed again across three
+runs, with nothing touching either surface between them. The gate handled it
+exactly as designed: it re-ran both, both passed, and it reported NOT
+REPRODUCIBLE rather than calling the run a regression.
+
+That is the confirm step earning its place, and it is also a measurement
+problem of its own. A case that answers differently on the same input cannot
+tell anybody whether the product got worse, and two of the suite's thirteen
+files do. Worth fixing next, and worth fixing before trusting any single
+run's score to a decimal.
+
 **The gate was watching a fifth of the suite (found and fixed 2026-11-14).**
 The committed baseline held 12 cases from three files; the suite runs 57 from
 thirteen. The other 45 were measured every week, printed one by one as "new",
