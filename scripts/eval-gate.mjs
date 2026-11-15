@@ -41,7 +41,12 @@ export function compareWithBaseline(run, baseline) {
     if (was === "passed" && entry.status !== "passed") regressions.push(entry);
     if (was !== "passed" && entry.status === "passed") recoveries.push(entry);
     if (was !== "passed" && entry.status !== "passed") {
-      stillFailing.push({ ...entry, note: previous.note });
+      // "skipped" and "failed" are both not-passing and are not the same
+      // news. A case that was never measured and now fails has started being
+      // measured, which is the point -- and the reason written beside it in
+      // the baseline ("not measured in CI") is now false. Flattening the two
+      // into one word is how a stale reason survives being read every week.
+      stillFailing.push({ ...entry, note: previous.note, wasStatus: was });
     }
   }
 
@@ -79,6 +84,13 @@ export function gateReport(comparison) {
   // decision somebody made, and it should have to be re-read to survive.
   for (const entry of comparison.stillFailing ?? []) {
     const reason = entry.note ? entry.note : "no reason recorded -- add a note to evals/results/baseline.json";
+    if (entry.wasStatus && entry.wasStatus !== entry.status) {
+      lines.push(
+        `  changed    ${entry.file} · ${entry.name} (${entry.wasStatus} -> ${entry.status}) -- ` +
+          `the baseline's reason may no longer hold: ${reason}`,
+      );
+      continue;
+    }
     lines.push(`  still      ${entry.file} · ${entry.name} (${entry.status}) -- ${reason}`);
   }
   for (const entry of comparison.recoveries) lines.push(`  recovered  ${entry.file} · ${entry.name}`);

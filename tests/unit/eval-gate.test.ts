@@ -332,3 +332,66 @@ describe("accepting a run that still has failures in it", () => {
     expect(moved.unexplained).toHaveLength(0);
   });
 });
+
+/**
+ * A case that stops being skipped and starts failing.
+ *
+ * Both are "not passing", and they are not the same news. live-page.eval.ts
+ * was skipped in every CI run for weeks because the repository had no
+ * BROWSERLESS_API_KEY, and the baseline said so in its reason. The moment the
+ * key was added, that case started being measured -- and if it fails, the
+ * reason written beside it is false, while the gate would have gone on
+ * printing it every week under the word "still".
+ */
+describe("a case that moves between two kinds of not passing", () => {
+  const baselineWith = (status: string) => ({
+    ranAt: "2026-11-15T16:07:49.513Z",
+    cases: [
+      {
+        file: "live-page.eval.ts",
+        name: "generated tests pass on a page in a folder Quick Generate",
+        status,
+        note: "Not measured in CI: the eval needs BROWSERLESS_API_KEY.",
+      },
+    ],
+  });
+
+  const ranAs = (status: string) => ({
+    ranAt: "2026-11-15T18:00:00.000Z",
+    score: { passed: 0, total: 1 },
+    cases: [
+      {
+        file: "live-page.eval.ts",
+        name: "generated tests pass on a page in a folder Quick Generate",
+        status,
+      },
+    ],
+  });
+
+  it("says it changed, and that the written reason may no longer hold", () => {
+    const comparison = compareWithBaseline(ranAs("failed"), baselineWith("skipped"));
+    const gate = gateReport(comparison);
+
+    const said = gate.lines.join("\n");
+    expect(said).toContain("changed");
+    expect(said).toContain("skipped -> failed");
+    expect(said).toContain("may no longer hold");
+    // Starting to measure something is not a regression, so it does not fail
+    // the gate -- it asks to be read.
+    expect(gate.ok).toBe(true);
+  });
+
+  it("still says only 'still' when nothing about it moved", () => {
+    const gate = gateReport(compareWithBaseline(ranAs("skipped"), baselineWith("skipped")));
+
+    expect(gate.lines.join("\n")).toContain("still ");
+    expect(gate.lines.join("\n")).not.toContain("changed");
+  });
+
+  it("calls it a recovery when it passes, whatever it was before", () => {
+    const comparison = compareWithBaseline(ranAs("passed"), baselineWith("skipped"));
+
+    expect(comparison.recoveries).toHaveLength(1);
+    expect(comparison.stillFailing).toHaveLength(0);
+  });
+});
