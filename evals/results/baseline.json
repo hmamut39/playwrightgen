@@ -1,5 +1,5 @@
 {
-  "blessedAt": "2026-11-15T16:07:49.513Z",
+  "blessedAt": "2026-11-15T18:09:09.855Z",
   "cases": [
     {
       "file": "draft-repair.eval.ts",
@@ -55,7 +55,7 @@
       "file": "requirement-review.eval.ts",
       "name": "reviewing a requirement does not invent problems in a requirement that has none",
       "status": "failed",
-      "note": "Measured at 2026-11-15T16:07Z, which is before the fix. It failed with invalid_output_quote_not_found: the model invented a problem in a sound requirement, quoted words the customer never wrote, and the whole review was refused. Commit 69ef7b4 drops the invented suggestion instead of refusing the review, so the next run should report this as a recovery. If it does not, the weakness is real and the note must change."
+      "note": "A real, measured weakness, kept failing rather than explained away. Measured 2026-11-15T18:09Z on a requirement with six criteria covering the behaviour: the model returned one HIGH-severity suggestion, 'Missing criteria for address validation failure message', when criterion four already says a failed validation 'leaves the stored address unchanged and names the rejected field on screen'. It is a false positive at the highest severity, on the surface whose whole value is that a reviewer can trust what it flags. Note that this is a different failure from the one recorded before: until 69ef7b4 the same case died with invalid_output_quote_not_found, because an invented quote refused the entire review. That is fixed; what is left is the model inventing a problem, which is the thing the case is named for."
     },
     {
       "file": "requirement-review.eval.ts",
@@ -160,14 +160,12 @@
     {
       "file": "live-page.eval.ts",
       "name": "eval: generated tests pass on a page in a folder Quick Generate",
-      "status": "skipped",
-      "note": "Not measured in CI: the eval needs BROWSERLESS_API_KEY and OPENAI_API_KEY is the only repository secret. This is the only eval that checks a generated test passes against a real page, so this line is the headline claim going unmeasured -- not a weakness that was accepted."
+      "status": "passed"
     },
     {
       "file": "live-page.eval.ts",
       "name": "eval: generated tests pass on a page in a folder workspace automation",
-      "status": "skipped",
-      "note": "Not measured in CI, same cause as the Quick Generate case above: BROWSERLESS_API_KEY is not a repository secret."
+      "status": "passed"
     },
     {
       "file": "prompt-injection.eval.ts",

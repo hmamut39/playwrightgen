@@ -3625,6 +3625,41 @@ it reaches the same wall. Five tests, built from the run this walk produced.
 The fix allowance is the quieter half of it. Two model calls per visitor were
 being spent on every login test anybody asked for.
 
+**The headline claim is measured, and it holds (2026-11-15).** The owner added
+`BROWSERLESS_API_KEY` as a repository secret and the workflow passes it to the
+run. The two live-page cases, skipped in every CI run this suite has ever had,
+reported:
+
+    live-page eval: 2/2 passed on the first run
+
+So a test this product generates from a page it read does pass against that
+page, first time, measured by a real browser rather than asserted in
+marketing. It is the first evidence of it that exists.
+
+The score is **56 of 57, with nothing skipped.** Every case the suite runs is
+now measured and gated; a fortnight ago twelve were.
+
+The one failure is real and is kept failing rather than explained away:
+`requirement-review` still invents a problem in a requirement that has none.
+Given six criteria covering the behaviour, it returned one HIGH-severity
+suggestion -- "Missing criteria for address validation failure message" --
+when criterion four already says a failed validation "leaves the stored
+address unchanged and names the rejected field on screen". A false positive
+at the highest severity, on the surface whose entire value is that a reviewer
+can trust what it flags.
+
+Worth separating from what it used to be. Until 69ef7b4 this case died with
+`invalid_output_quote_not_found`: the model invented a quote and the product
+refused the whole review, so a sound requirement came back as an error page.
+That is fixed and confirmed by this run. What is left is the underlying
+weakness the case is named for, which the crash had been hiding. The gate now
+distinguishes the two kinds of not-passing for exactly this reason.
+
+Next on it: the exemption. `MISSING_ACCEPTANCE_CRITERIA` is allowed to cite no
+quote, by design -- a missing criterion has nothing to quote -- and that is
+the gap this false positive comes through. Every other category must point at
+the customer's own words. This one asserts an absence, which nothing checks.
+
 **The gate was watching a fifth of the suite (found and fixed 2026-11-14).**
 The committed baseline held 12 cases from three files; the suite runs 57 from
 thirteen. The other 45 were measured every week, printed one by one as "new",
