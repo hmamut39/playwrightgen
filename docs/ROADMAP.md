@@ -3537,6 +3537,35 @@ None of this fails the gate. An expected failure is not a regression. It is
 simply no longer allowed to be silent -- which is the fault class this product
 sells the cure for, pointed at the product.
 
+**The baseline now judges all 57, and two of the four failures were never
+weaknesses (2026-11-15).** A fresh run was dispatched rather than accepting
+yesterday's artifact, because one of its failures had already been fixed four
+minutes after it was recorded. It scored 54/57.
+
+Against yesterday's 51/57, with no change to any prompt or model between them:
+
+- `prompt-injection` passes. The fix to measure only the actionable plan
+  fields was right, and freezing it as a known weakness would have recorded a
+  fiction.
+- `automation-generation` passes. `page-coverage-plan` passes. Neither was
+  touched. So both are flaky rather than broken -- which is its own defect,
+  and the reason the gate re-runs a regression before calling it one. A
+  measurement that answers differently on the same input cannot be the thing
+  that tells you whether the product got worse.
+- `requirement-review` still fails, and is the one that was real. It is fixed
+  in 69ef7b4; the baseline says so and expects the next run to report a
+  recovery. If the next run does not, the note is wrong and has to change.
+
+The baseline holds 57 cases, every non-passing one carrying a written reason,
+and the coverage note is silent for the first time -- it has nothing left to
+warn about. What it used to say, every run, was that 45 of 57 cases were
+measured and judged by nothing.
+
+The one thing left needs the owner: `BROWSERLESS_API_KEY` as a repository
+secret. Until it exists, the only eval that checks a generated test passes
+against a real page cannot run in CI, and the product's headline claim is the
+one thing the measurements do not cover.
+
 **The gate was watching a fifth of the suite (found and fixed 2026-11-14).**
 The committed baseline held 12 cases from three files; the suite runs 57 from
 thirteen. The other 45 were measured every week, printed one by one as "new",
