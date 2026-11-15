@@ -40,6 +40,7 @@ jobs:
         id: provider
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          BROWSERLESS_API_KEY: ${{ secrets.BROWSERLESS_API_KEY }}
         run: |
           if [ -z "$OPENAI_API_KEY" ]; then
             echo "No OPENAI_API_KEY is configured for this repository, so the evals cannot run."
@@ -47,6 +48,17 @@ jobs:
             echo "ready=no" >> "$GITHUB_OUTPUT"
           else
             echo "ready=yes" >> "$GITHUB_OUTPUT"
+          fi
+          # Said out loud either way. live-page.eval.ts skips itself without
+          # this key, and it is the only eval that checks a generated test
+          # passes against a real page -- the product's headline claim. It was
+          # skipped in every CI run until 2026-11-15 and the score still read
+          # "51/57" as though 57 had been measured. A measurement that does
+          # not happen has to announce itself.
+          if [ -z "$BROWSERLESS_API_KEY" ]; then
+            echo "::warning::No BROWSERLESS_API_KEY, so the live-page evals will skip. Nothing here measures whether a generated test passes on a real page."
+          else
+            echo "BROWSERLESS_API_KEY is present, so the live-page evals will run."
           fi
 
       # Fails only when a case that the committed baseline expects to pass
@@ -58,6 +70,9 @@ jobs:
         if: steps.provider.outputs.ready == 'yes'
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # The live-page evals connect to a remote browser over CDP, so they
+          # need no browser installed here -- only this.
+          BROWSERLESS_API_KEY: ${{ secrets.BROWSERLESS_API_KEY }}
         run: npm run evals
 
       - name: Keep the scores for comparison
