@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { PrismaClient } from "@/generated/prisma/client";
-import { groupActivityByDay, listProjectActivity } from "@/lib/services/activity-feed";
+import { listProjectActivity } from "@/lib/services/activity-feed";
 import {
   approveRequirement,
   createRequirement,
@@ -154,32 +154,11 @@ describe("project activity feed", () => {
   });
 });
 
-describe("grouping activity by day", () => {
-  const entry = (id: string, iso: string) => ({
-    id,
-    action: "REQUIREMENT_APPROVED" as const,
-    targetType: "REQUIREMENT" as const,
-    targetId: "t",
-    actorName: "Owner",
-    createdAt: new Date(iso),
-    summary: "approved a requirement",
-    detail: null,
-    href: null,
-  });
+/*
+ * The day grouping that was tested here moved to
+ * components/workspace/activity-days.tsx and is tested in
+ * tests/unit/activity-day-heading.test.ts. It bucketed on the UTC date,
+ * which cannot agree with timestamps rendered in the reader's zone, so the
+ * cases it could express were the ones where the bug does not show.
+ */
 
-  it("keeps one group per calendar day, in the order given", () => {
-    const groups = groupActivityByDay([
-      entry("a", "2026-09-07T10:00:00Z"),
-      entry("b", "2026-09-07T09:00:00Z"),
-      entry("c", "2026-09-06T18:00:00Z"),
-    ]);
-
-    expect(groups.map((group) => group.day)).toEqual(["2026-09-07", "2026-09-06"]);
-    expect(groups[0].entries).toHaveLength(2);
-    expect(groups[1].entries).toHaveLength(1);
-  });
-
-  it("returns nothing for an empty feed", () => {
-    expect(groupActivityByDay([])).toEqual([]);
-  });
-});

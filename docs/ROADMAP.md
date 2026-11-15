@@ -173,10 +173,24 @@ genuine `npm audit` failures, closed by the commit after each.
   it, on the page that tells the reader this is the record the audit trail is
   built from and that nothing in it can be edited or removed. A trail whose
   dates are a day out is worse than none, because it is believed.
-  The heading is formatted in UTC now, so it names the day it grouped. The
-  buckets are still UTC days rather than the reader's, so an event in the
-  small hours can sit under a neighbouring heading far west: that needs
-  grouping moved to the browser and is written down rather than fixed.
+  The heading was formatted in UTC so that it named the day it had grouped,
+  which fixed the heading and left the buckets wrong -- every timestamp on the
+  page renders in the reader's zone, so an event in the small hours UTC still
+  sat under a heading its own timestamp disagreed with. The contradiction
+  moved rather than went, and that is how it stood until 2026-11-15, written
+  down as a known limit.
+  **Fixed (2026-11-15).** Grouping moved to the browser, where the reader's
+  zone is knowable, in `components/workspace/activity-days.tsx`: the buckets
+  and the heading now live in one file because the two had to agree and did
+  not. The server renders UTC days and the first render in the browser matches
+  it -- React calls the server snapshot while hydrating -- and then it regroups
+  into the reader's days. Per-event markup is still rendered on the server and
+  passed through untouched; only the buckets and their headings moved.
+  `groupActivityByDay` is gone rather than left unused: a shared helper that
+  buckets on the UTC date is an invitation to put the bug back. Fourteen tests
+  cover it, including the server's own render and the New York late evening,
+  the Tokyo early morning and Auckland -- every case is invisible in UTC, and
+  UTC is where CI runs.
   The CSV export and the kept evidence document were checked at the same time
   and were already right -- the column is named `recorded_at_utc`, and the
   document stamps "... UTC" with a comment saying why.
@@ -3281,8 +3295,8 @@ before there are strangers to observe.
   all they need is `BROWSERLESS_API_KEY` as a repository secret.
 - Move the eval baseline onto the whole suite, deliberately, with the reason
   for each expected failure written down.
-- The limits already written down and not yet fixed: activity grouped by UTC
-  day, and iframe visibility in Playwright 1.64+.
+- The limits already written down and not yet fixed: iframe visibility in
+  Playwright 1.64+. Activity grouped by UTC day was fixed on 2026-11-15.
 
 ### What is deliberately not being built before January
 

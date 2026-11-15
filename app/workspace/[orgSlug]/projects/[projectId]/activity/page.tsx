@@ -1,9 +1,10 @@
 import Link from "next/link";
 
+import { ActivityDays, type ActivityDayEntry } from "@/components/workspace/activity-days";
 import { ListEmptyState, ListPagination } from "@/components/workspace/list-controls";
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
 import { personName } from "@/lib/format/person-name";
-import { groupActivityByDay, listProjectActivity } from "@/lib/services/activity-feed";
+import { listProjectActivity } from "@/lib/services/activity-feed";
 import { LocalTime } from "@/components/workspace/local-time";
 
 /**
@@ -20,36 +21,14 @@ import { LocalTime } from "@/components/workspace/local-time";
  * event".
  */
 
-/**
- * The heading over a day's events, matching the day it groups.
- *
- * `day` is a date with no time, bucketed from each event's UTC date. This
- * built midnight UTC from it and then formatted that instant in the reader's
- * own zone, which lands on the previous evening anywhere west of UTC: a run
- * recorded on Wednesday 28 October at 7:10 PM in New York sat under
- * "Tuesday, October 27", above a timestamp reading 7:10 PM. One heading
- * disagreeing with every time beneath it, on the page that says this is the
- * record the audit trail is built from.
- *
- * Formatted in UTC, so the heading names the day it actually grouped.
- *
- * The buckets are still UTC days rather than the reader's days, so an event
- * in the small hours UTC can sit under the neighbouring heading for someone
- * far west. That is a real limit and a larger change -- grouping has to move
- * to the browser, where the reader's zone is known -- and it is not fixed
- * here.
+/*
+ * The headings and the buckets live together in
+ * components/workspace/activity-days.tsx, and in the browser, because only
+ * the browser knows the reader's time zone. Keeping the label here and the
+ * grouping in a service is what let the two disagree twice: the heading was
+ * fixed to name the UTC day it grouped, while every timestamp beneath it went
+ * on rendering in the reader's zone.
  */
-export function dayLabel(day: string, today: string, yesterday: string) {
-  if (day === today) return "Today";
-  if (day === yesterday) return "Yesterday";
-  return new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, {
-    timeZone: "UTC",
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
 
 export default async function ProjectActivityPage({
   params,
@@ -68,9 +47,43 @@ export default async function ProjectActivityPage({
   const basePath = `/workspace/${orgSlug}/projects/${projectId}/activity`;
 
   const now = new Date();
-  const today = now.toISOString().slice(0, 10);
-  const yesterday = new Date(now.getTime() - 86_400_000).toISOString().slice(0, 10);
-  const days = groupActivityByDay(activity.items);
+
+  // Rendered here and passed through: the grouping component decides which
+  // day a row belongs under and nothing else about it.
+  const rows: ActivityDayEntry[] = activity.items.map((entry) => {
+    const line = (
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-5 py-4">
+        <p className="min-w-0 text-sm leading-6 text-slate-700">
+          <span className="font-semibold text-slate-950">
+            {entry.actorName ? personName(entry.actorName) : "The system"}
+          </span>{" "}
+          {entry.summary}
+          {entry.detail ? (
+            // The row already knew this; the feed used to drop it and print
+            // the verb alone.
+            <span className="text-slate-500"> &middot; {entry.detail}</span>
+          ) : null}
+        </p>
+        <span className="shrink-0 text-xs text-slate-500">
+          <LocalTime value={entry.createdAt} style="time" />
+        </span>
+      </div>
+    );
+
+    return {
+      id: entry.id,
+      iso: entry.createdAt.toISOString(),
+      // Linked only where the target has a page of its own. A row that looks
+      // clickable and goes nowhere teaches people to stop clicking.
+      node: entry.href ? (
+        <Link href={entry.href} className="block transition hover:bg-slate-50">
+          {line}
+        </Link>
+      ) : (
+        line
+      ),
+    };
+  });
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -115,52 +128,7 @@ export default async function ProjectActivityPage({
         />
       ) : (
         <>
-          <div className="mt-8 space-y-8">
-            {days.map(({ day, entries }) => (
-              <section key={day}>
-                <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  {dayLabel(day, today, yesterday)}
-                </h2>
-                <ol className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                  {entries.map((entry) => {
-                    const line = (
-                      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-5 py-4">
-                        <p className="min-w-0 text-sm leading-6 text-slate-700">
-                          <span className="font-semibold text-slate-950">
-                            {entry.actorName ? personName(entry.actorName) : "The system"}
-                          </span>{" "}
-                          {entry.summary}
-                          {entry.detail ? (
-                            // The row already knew this; the feed used to
-                            // drop it and print the verb alone.
-                            <span className="text-slate-500"> &middot; {entry.detail}</span>
-                          ) : null}
-                        </p>
-                        <span className="shrink-0 text-xs text-slate-500">
-                          <LocalTime value={entry.createdAt} style="time" />
-                        </span>
-                      </div>
-                    );
-
-                    return (
-                      <li key={entry.id} className="border-b border-slate-100 last:border-b-0">
-                        {/* Linked only where the target has a page of its own.
-                            A row that looks clickable and goes nowhere teaches
-                            people to stop clicking. */}
-                        {entry.href ? (
-                          <Link href={entry.href} className="block transition hover:bg-slate-50">
-                            {line}
-                          </Link>
-                        ) : (
-                          line
-                        )}
-                      </li>
-                    );
-                  })}
-                </ol>
-              </section>
-            ))}
-          </div>
+          <ActivityDays entries={rows} nowIso={now.toISOString()} />
 
           <ListPagination meta={activity} basePath={basePath} noun="events" />
         </>

@@ -162,21 +162,11 @@ export async function listProjectActivity(
   return buildListResult(entries, total, params);
 }
 
-/**
- * Groups entries by calendar day.
- *
- * A flat list of timestamps makes a reader do the arithmetic of "was this today
- * or last week", which is the only question they came with.
+/*
+ * There was a groupActivityByDay here, bucketing on the UTC date. The reader's
+ * day is not the server's day, and every timestamp on the page renders in the
+ * reader's zone, so bucketing here could only ever file an event under a
+ * heading its own timestamp disagreed with. The grouping lives in
+ * components/workspace/activity-days.tsx now, in the browser, beside the
+ * heading it has to agree with.
  */
-export function groupActivityByDay(
-  entries: ActivityEntry[],
-): Array<{ day: string; entries: ActivityEntry[] }> {
-  const groups = new Map<string, ActivityEntry[]>();
-  for (const entry of entries) {
-    const day = entry.createdAt.toISOString().slice(0, 10);
-    const bucket = groups.get(day);
-    if (bucket) bucket.push(entry);
-    else groups.set(day, [entry]);
-  }
-  return [...groups.entries()].map(([day, grouped]) => ({ day, entries: grouped }));
-}
