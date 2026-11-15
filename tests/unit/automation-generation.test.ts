@@ -37,13 +37,40 @@ describe("automation artifact validation", () => {
 
   it("blocks unsafe capabilities, focused tests, and unsupported dependencies", () => {
     const result = browserResult();
-    result.code += `\nimport { exec } from "node:child_process";\ntest.only("unsafe", async () => { eval("x") });`;
+    // shelljs is imported by the code, not merely listed. The rule used to
+    // read the model's own dependencies field, so it blocked a declaration
+    // and passed an artifact that imported a package while declaring none.
+    result.code += `\nimport { exec } from "node:child_process";\nimport shell from "shelljs";\ntest.only("unsafe", async () => { eval("x") });`;
     result.dependencies.push("shelljs");
     const validation = validateAutomationGeneration("PLAYWRIGHT_BROWSER", result);
     expect(validation.status).toBe("BLOCKED");
     expect(validation.findings.map((finding) => finding.code)).toEqual(
       expect.arrayContaining(["focused_test", "unsafe_execution", "unsafe_node_module", "unsupported_dependency"]),
     );
+  });
+
+  it("blocks a package the code imports even when the artifact declares none", () => {
+    // The hole the old rule left open: the declaration said the right thing
+    // and the code did not, and only the declaration was read.
+    const result = browserResult();
+    result.code += `\nimport axios from "axios";`;
+    const validation = validateAutomationGeneration("PLAYWRIGHT_BROWSER", result);
+
+    expect(validation.status).toBe("BLOCKED");
+    expect(validation.findings.map((finding) => finding.code)).toContain("unsupported_dependency");
+  });
+
+  it("warns, rather than blocks, when only the list is wrong", () => {
+    // A runnable artifact whose dependencies field over-lists. It used to
+    // fail review over a field nobody runs, and that is how this eval case
+    // came to report nothing, nothing, warnings and BLOCKED on four runs of
+    // the same input.
+    const result = browserResult();
+    result.dependencies.push("dotenv");
+    const validation = validateAutomationGeneration("PLAYWRIGHT_BROWSER", result);
+
+    expect(validation.status).not.toBe("BLOCKED");
+    expect(validation.findings.map((finding) => finding.code)).toContain("declared_dependency_unused");
   });
 
   it("warns about hard waits and brittle locators", () => {

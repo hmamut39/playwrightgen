@@ -83,6 +83,37 @@ function uniqueFindings(findings: AutomationValidationFinding[]) {
   );
 }
 
+/**
+ * The npm packages a piece of generated code imports.
+ *
+ * Covers the three spellings that reach a module: `from "x"`, a bare
+ * `import "x"`, and `require("x")` or `import("x")` as calls. Relative paths
+ * are not packages, and `node:` builtins are not something to install -- the
+ * dangerous ones are blocked by generatedCodeSafetyFindings, which is where
+ * that judgement belongs.
+ *
+ * A scoped package keeps two segments (@playwright/test) and a plain one
+ * keeps the first (playwright-core/foo -> playwright-core), so a deep import
+ * is attributed to the package it comes from rather than read as a package of
+ * its own.
+ */
+export function importedPackages(code: string): string[] {
+  const specifiers = [
+    ...code.matchAll(/\bfrom\s*["'`]([^"'`]+)["'`]/g),
+    ...code.matchAll(/\bimport\s*["'`]([^"'`]+)["'`]/g),
+    ...code.matchAll(/\b(?:import|require)\s*\(\s*["'`]([^"'`]+)["'`]\s*\)/g),
+  ].map((match) => match[1]);
+
+  const packages = new Set<string>();
+  for (const specifier of specifiers) {
+    if (specifier.startsWith(".") || specifier.startsWith("/")) continue;
+    if (specifier.startsWith("node:")) continue;
+    const segments = specifier.split("/");
+    packages.add(specifier.startsWith("@") ? segments.slice(0, 2).join("/") : segments[0]);
+  }
+  return [...packages];
+}
+
 export function validateAutomationGeneration(
   engine: AutomationEngine,
   output: z.infer<typeof automationGenerationSchema>,
@@ -159,13 +190,43 @@ export function validateAutomationGeneration(
     warn("weak_assertion", "Prefer a user-visible or contract-specific assertion over toBeTruthy.");
   }
 
-  const unsupportedDependencies = output.dependencies.filter(
-    (dependency) => dependency !== "@playwright/test",
-  );
-  if (unsupportedDependencies.length > 0) {
+  /*
+   * What the code imports, not what the model says it imports.
+   *
+   * This rule read `output.dependencies`, a field the model fills in itself,
+   * and blocked when it listed anything but @playwright/test. Two faults in
+   * one. It trusted a self-report, so an artifact importing axios while
+   * declaring only @playwright/test passed the check that exists to stop
+   * exactly that. And it blocked on the declaration alone, so an artifact
+   * whose code was clean failed review because the model had over-listed in a
+   * field nobody runs.
+   *
+   * The second one is how the eval came to flake. Across four runs this case
+   * reported: nothing, two warnings, nothing, and BLOCKED on
+   * unsupported_dependency -- a case that answers differently on the same
+   * input, which cannot tell anybody whether the product got worse.
+   *
+   * So the code is the authority and the declaration is cross-checked against
+   * it. A package the code actually imports still blocks. A package only
+   * declared is a warning, because the artifact is runnable and the list is
+   * merely wrong.
+   */
+  const imported = importedPackages(output.code);
+  const unsupportedImports = imported.filter((name) => name !== "@playwright/test");
+  if (unsupportedImports.length > 0) {
     block(
       "unsupported_dependency",
-      `Only @playwright/test is allowed in this milestone; remove ${unsupportedDependencies.join(", ")}.`,
+      `Only @playwright/test is allowed in this milestone; the code imports ${unsupportedImports.join(", ")}.`,
+    );
+  }
+
+  const declaredNotImported = output.dependencies.filter(
+    (dependency) => dependency !== "@playwright/test" && !imported.includes(dependency),
+  );
+  if (declaredNotImported.length > 0) {
+    warn(
+      "declared_dependency_unused",
+      `The artifact lists ${declaredNotImported.join(", ")} but imports nothing from ${declaredNotImported.length === 1 ? "it" : "them"}; the list should match the code.`,
     );
   }
 
