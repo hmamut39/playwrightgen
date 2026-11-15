@@ -23,6 +23,7 @@ import {
   type ProveRound,
 } from "@/lib/free-tools/prove-loop";
 import { checksPhrase } from "@/lib/free-tools/preview-run/checks-phrase";
+import { liveRunHeadline } from "@/lib/free-tools/preview-run/run-headline";
 import {
   appendTestAccount,
   EMPTY_TEST_ACCOUNT,
@@ -755,32 +756,16 @@ export default function QuickGeneratePage() {
                   <p className="text-sm font-semibold text-white">Playwright TypeScript draft</p>
                   {/*
                     * What is true of this code, rather than a label fixed at
-                    * the time it was written. A visitor who had just been
-                    * told "Passed on the live page · 8 checks" read
-                    * "Generated, not executed" two lines below it, and the
-                    * only safe thing to conclude from a product that
-                    * contradicts itself is that the better half was
-                    * boilerplate. The caveat is right whenever nothing has
-                    * run this exact code, which is most of the time.
+                    * the time it was written. The wording lives in
+                    * lib/free-tools/preview-run/run-headline.ts with tests on
+                    * the exact words, because this one sentence decides what
+                    * a visitor believes they have and it has been wrong
+                    * twice -- once contradicting the line above it, once
+                    * calling a credential the preview does not have a failure
+                    * of the draft.
                     */}
                   <p className="mt-1 text-xs text-slate-400">
-                    {provenRun?.verdict === "passed"
-                      ? `Ran on the live page · ${checksPhrase(provenRun)} passed · Review before use`
-                      : provenRun && missingEnvironment.length > 0
-                        ? // Named, because "did not pass" sends somebody to
-                          // read a draft that was never the problem. Checked
-                          // before "partial" as well: which value is missing
-                          // is more use than knowing that something was.
-                          `Ran on the live page as far as it could · needs ${missingEnvironment.join(" and ")} from your environment, which the preview does not have · Supply ${missingEnvironment.length === 1 ? "it" : "them"} below and run it again`
-                        : provenRun?.verdict === "partial"
-                          ? // Nothing failed; some steps could not run here. Calling
-                            // that "did not pass" is the same kind of lie as calling
-                            // it proven, and the rest of this product is careful
-                            // about the difference.
-                            `Ran on the live page · nothing failed, some steps could not run · Review before use`
-                          : provenRun
-                            ? "Ran on the live page and did not pass · Review before use"
-                            : "Generated, not executed · Review before use"}
+                    {liveRunHeadline(provenRun, missingEnvironment)}
                   </p>
                 </div>
                 <ResultActions content={result.code} filename="playwright-draft.spec.ts" tone="dark" />
