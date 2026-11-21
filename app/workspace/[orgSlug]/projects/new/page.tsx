@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+
+import { CreateProjectButton } from "@/components/workspace/create-project-button";
 import { after } from "next/server";
 
 import { NotAllowed } from "@/components/workspace/not-allowed";
@@ -109,7 +111,7 @@ export default async function NewProjectPage({
           Description <span className="font-normal text-slate-500">(optional)</span>
           <textarea name="description" rows={4} maxLength={10000} placeholder="What the product does and who uses it." className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-500/60" />
         </label>
-        <button type="submit" className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">Create project</button>
+        <CreateProjectButton />
       </form>
     </div>
   );
