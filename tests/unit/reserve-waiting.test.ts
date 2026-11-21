@@ -11,8 +11,8 @@ import { reserveWaitingOutBurst, waitRoomMs } from "@/lib/operations/reserve-wai
  * "Carry on". Half a minute after signing up, the product handed back a job
  * it had been asked to finish.
  */
-const burst = (seconds = 42) => new OrganizationAiRateLimitError("organization_burst_limit", seconds);
-const daily = () => new OrganizationAiRateLimitError("organization_daily_limit", 3_600);
+const burst = (seconds = 42) => new OrganizationAiRateLimitError("organization_burst_limit", seconds, 12);
+const daily = () => new OrganizationAiRateLimitError("organization_daily_limit", 3_600, 0);
 
 describe("one AI request, through a minute limit", () => {
   it("waits the minute out and carries on by itself", async () => {

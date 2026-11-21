@@ -55,6 +55,14 @@ export class OrganizationAiRateLimitError extends Error {
   constructor(
     readonly code: "organization_burst_limit" | "organization_daily_limit",
     readonly retryAfterSeconds: number,
+    /**
+     * The workspace's runs left today at the moment of the refusal, which is
+     * not zero when it was only the minute that was over. See the same note
+     * on PublicAiRateLimitError: the figure was dropped here too, and a
+     * workspace reading "0 left today" after one quick second click is being
+     * told its day is gone when it is not.
+     */
+    readonly remaining: number,
   ) {
     super(code);
     this.name = "OrganizationAiRateLimitError";
@@ -145,6 +153,7 @@ export async function reserveOrganizationAiRequest(input: {
     throw new OrganizationAiRateLimitError(
       reason === 1 ? "organization_burst_limit" : "organization_daily_limit",
       reason === 1 ? 60 : secondsUntilUtcDayEnd(now),
+      Math.max(0, dailyLimit - dailyCount),
     );
   }
 

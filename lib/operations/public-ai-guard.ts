@@ -50,6 +50,19 @@ export class PublicAiRateLimitError extends Error {
     readonly code: "burst_limit" | "daily_limit",
     readonly retryAfterSeconds: number,
     readonly requestId: string,
+    /**
+     * Runs left today at the moment of the refusal.
+     *
+     * Carried because it was thrown away, and what filled the silence was a
+     * zero. A visitor who clicked twice inside a minute was refused for the
+     * minute and told "0 of 5 drafts left today" -- their day spent, on the
+     * front page of the product, by a message that had no idea. Three of
+     * five were left. Found by walking the free generator on production as a
+     * stranger on 2026-11-21.
+     *
+     * Zero on a daily refusal, which is the one case where zero is true.
+     */
+    readonly remaining: number,
   ) {
     super(code);
     this.name = "PublicAiRateLimitError";
@@ -135,6 +148,9 @@ export async function reservePublicAiRequest(input: {
       reason === 1 ? "burst_limit" : "daily_limit",
       reason === 1 ? 60 : secondsUntilUtcDayEnd(now),
       requestId,
+      // The count the script already returned, rather than an assumption
+      // about it. A minute's refusal says nothing about the day.
+      Math.max(0, dailyLimit - dailyCount),
     );
   }
 

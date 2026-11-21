@@ -18,11 +18,11 @@ import { TestCaseProposalDomainError } from "@/lib/services/test-case-proposals"
  */
 describe("what a spent AI allowance tells the person", () => {
   it("reads the guard's own error, with the wait it carries", () => {
-    expect(readAiAllowanceLimit(new OrganizationAiRateLimitError("organization_daily_limit", 3_836))).toEqual({
+    expect(readAiAllowanceLimit(new OrganizationAiRateLimitError("organization_daily_limit", 3_836, 0))).toEqual({
       kind: "daily",
       retryAfterSeconds: 3_836,
     });
-    expect(aiAllowanceMessage(new OrganizationAiRateLimitError("organization_daily_limit", 3_836))).toBe(
+    expect(aiAllowanceMessage(new OrganizationAiRateLimitError("organization_daily_limit", 3_836, 0))).toBe(
       "This workspace has used today’s AI requests. They return in 1h 4m, at midnight UTC.",
     );
   });
@@ -39,7 +39,7 @@ describe("what a spent AI allowance tells the person", () => {
   });
 
   it("tells somebody who can retry to retry, and somebody who cannot not to", () => {
-    expect(aiAllowanceMessage(new OrganizationAiRateLimitError("organization_burst_limit", 40))).toContain(
+    expect(aiAllowanceMessage(new OrganizationAiRateLimitError("organization_burst_limit", 40, 12))).toContain(
       "works again in 1 min",
     );
     const daily = aiAllowanceMessage(new TestCaseProposalDomainError("organization_daily_limit", 429));
@@ -57,7 +57,7 @@ describe("what a spent AI allowance tells the person", () => {
   });
 
   it("carries the wait through the query string a redirect uses", () => {
-    expect(aiAllowanceNotice(new OrganizationAiRateLimitError("organization_daily_limit", 600))).toBe("ai-daily:600");
+    expect(aiAllowanceNotice(new OrganizationAiRateLimitError("organization_daily_limit", 600, 0))).toBe("ai-daily:600");
     expect(aiAllowanceNotice(new AutomationArtifactDomainError("organization_burst_limit", 429))).toBe("ai-burst");
     expect(aiAllowanceNotice(new Error("nope"))).toBeNull();
   });

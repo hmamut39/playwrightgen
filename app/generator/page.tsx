@@ -497,7 +497,17 @@ export default function QuickGeneratePage() {
                 Turn test intent into a reviewable Playwright draft
               </h1>
               <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-300">
-                Supply the behavior and evidence you actually have. PlaywrightGen returns a test plan, executable draft, assumptions, and deterministic safety checks—without claiming the code ran or passed.
+                {/*
+                  * What this does, as it does it today.
+                  *
+                  * This read "without claiming the code ran or passed", which
+                  * was true before the live run existed and is the opposite
+                  * of the button underneath it: "Generate & prove on the live
+                  * page". A visitor was told in one paragraph that nothing is
+                  * run, and offered a run in the next. Whichever they
+                  * believed, the page had lied to them once.
+                  */}
+                Supply the behavior and evidence you actually have. PlaywrightGen returns a test plan, executable draft, assumptions and deterministic safety checks — and, when you give it a page, opens that page in a real browser, runs the draft against it and tells you what passed.
               </p>
             </div>
             <div className="grid gap-2 text-sm text-slate-300">
@@ -837,10 +847,33 @@ export default function QuickGeneratePage() {
                 </div>
               ))}
             </div>
+            {/*
+              * What happens to a visitor's work, said accurately.
+              *
+              * This read "Nothing is stored and nothing is executed", and by
+              * 2026-11-21 both halves were false on the same screen that
+              * said them. The draft IS executed -- in a real browser, on the
+              * page they gave, which is the product's headline claim -- and
+              * it IS stored when they are signed in, which the line directly
+              * above this one offers them ("Sign in to keep your drafts and
+              * live runs").
+              *
+              * A promise about somebody's data is the worst kind to leave
+              * stale: a reader who notices is right to stop believing the
+              * rest of the page, and a reader who does not has been misled
+              * about where their work went.
+              */}
             <p className="mt-6 text-xs leading-5 text-slate-500">
-              Nothing is stored and nothing is executed. This is a disposable
-              starting point; turning it into evidence your team can rely on
-              happens in Workspace, where intent is reviewed and approved first.
+              Signed out, nothing you send here is kept after the answer comes
+              back — only what the run cost us to serve: the tool, the model
+              and the number of tokens, with nothing of what you sent and
+              nothing that identifies you. Signed in, your drafts and their
+              live runs are saved to your account so you can come back to
+              them. The draft is run
+              against the page you give — in a browser we open, never on your
+              machines — and this is still a starting point: turning it into
+              evidence your team can rely on happens in Workspace, where intent
+              is reviewed and approved first.
             </p>
           </section>
         )}

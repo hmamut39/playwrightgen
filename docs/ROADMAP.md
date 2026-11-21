@@ -3730,6 +3730,52 @@ is missing, because its red is believed and its green is trusted. Both of
 these were read as "the model is unreliable here" for a fortnight. Neither
 was.
 
+**The front door told a visitor their day was spent when it was not
+(2026-11-21).** Found by using the free generator on production the way a
+stranger would, on a real shop rather than the demo page, and reading what it
+said back.
+
+Click Generate twice inside a minute and the request is refused for the
+*minute*. But `freeToolLimitBody` reported `remaining: 0` for **every**
+refusal, and the page writes whatever it is sent straight onto "N of 5 drafts
+left today". So the screen read **"0 of 5 drafts left today"** beside **"That
+was quick -- wait a minute before the next run"**: two sentences contradicting
+each other, and the one anybody acts on is the number. Three of five were
+still theirs. A visitor who believed it left, and nothing about that is
+recoverable later.
+
+Both limiters already had the figure. The Lua script returns the daily count
+on a refusal, and the comment above it had already reasoned the hard part
+out: *"the binding constraint is the one a wait cannot lift"*. The count was
+then dropped by the error class and replaced with a zero two layers further
+up. The paying side had the identical bug, where it reads as a workspace
+being told its day is gone after one quick second click.
+
+Now `PublicAiRateLimitError`, `OrganizationAiRateLimitError` and
+`FreeToolLimitError` all carry the real remaining, and the body reports it.
+Five tests, including the two that would have caught this: a burst refusal
+with three left says three, and a daily refusal still says zero.
+
+**And the same page contradicted itself about what it does with a visitor's
+work.** Under a button reading "Generate & prove on the live page", and under
+a line offering "Sign in to keep your drafts and live runs", the footer said:
+
+> Nothing is stored and nothing is executed.
+
+Both halves false, on the same screen that said them. The intro paragraph
+still promised "without claiming the code ran or passed", which was true
+before the live run existed and is the opposite of the product's headline
+claim now. A stale promise about somebody's data is the worst kind to leave:
+a reader who notices is right to stop believing the rest of the page, and a
+reader who does not has been misled about where their work went. Both now say
+what actually happens -- including that a signed-out run keeps only what it
+cost to serve, with nothing of what was sent and nothing identifying.
+
+The method is the one that keeps working, and it is the only one that finds
+this class of fault: use the product until it claims something, then check
+whether the claim was true. A build, a test suite and a deployment were all
+green through every minute of this.
+
 **What a stranger's week costs, which nothing could answer (2026-11-21).**
 The workspace has kept token counts since its first version. The free tools
 -- the ones a stranger meets, the ones that decide whether this is affordable

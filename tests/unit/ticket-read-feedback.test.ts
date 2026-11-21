@@ -14,7 +14,7 @@ import { waitLabel } from "@/lib/wait-label";
  */
 describe("what a failed ticket read tells the person", () => {
   it("says a daily limit is a limit, and for how long", () => {
-    const failure = ticketReadFeedback(new OrganizationAiRateLimitError("organization_daily_limit", 3_836));
+    const failure = ticketReadFeedback(new OrganizationAiRateLimitError("organization_daily_limit", 3_836, 0));
     expect(failure).toEqual({ code: "daily_limit", retryAfterSeconds: 3_836 });
     expect(waitLabel(failure!.retryAfterSeconds!)).toBe("1h 4m");
   });
@@ -22,7 +22,7 @@ describe("what a failed ticket read tells the person", () => {
   it("separates too-many-at-once from nothing-left-today", () => {
     // They need opposite things: one waits a minute, the other comes back
     // tomorrow or writes the requirement by hand.
-    expect(ticketReadFeedback(new OrganizationAiRateLimitError("organization_burst_limit", 45))).toEqual({
+    expect(ticketReadFeedback(new OrganizationAiRateLimitError("organization_burst_limit", 45, 12))).toEqual({
       code: "burst_limit",
       retryAfterSeconds: 45,
     });

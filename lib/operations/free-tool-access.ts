@@ -45,6 +45,8 @@ export class FreeToolLimitError extends Error {
     readonly plan: "TEAM" | "PUBLIC",
     readonly code: "burst_limit" | "daily_limit",
     readonly retryAfterSeconds: number,
+    /** Runs left today at the refusal; zero only when the day really is spent. */
+    readonly remaining: number,
   ) {
     super(code);
     this.name = "FreeToolLimitError";
@@ -118,6 +120,7 @@ export async function reserveFreeToolRun(
             "TEAM",
             error.code === "organization_burst_limit" ? "burst_limit" : "daily_limit",
             error.retryAfterSeconds,
+            error.remaining,
           );
         }
         throw error;
@@ -133,7 +136,7 @@ export async function reserveFreeToolRun(
     };
   } catch (error) {
     if (error instanceof PublicAiRateLimitError) {
-      throw new FreeToolLimitError("PUBLIC", error.code, error.retryAfterSeconds);
+      throw new FreeToolLimitError("PUBLIC", error.code, error.retryAfterSeconds, error.remaining);
     }
     throw error;
   }
@@ -154,7 +157,21 @@ export function freeToolLimitBody(error: FreeToolLimitError) {
     retryAfterSeconds: error.retryAfterSeconds,
     // The page offers the Team plan only when paying would actually help.
     upgrade: error.plan === "PUBLIC" && error.code === "daily_limit",
-    remaining: 0,
+    /*
+     * What is actually left, not a zero.
+     *
+     * This read `remaining: 0` for every refusal, and the page writes
+     * whatever it is sent straight onto "N of 5 drafts left today". So a
+     * visitor who clicked twice inside a minute -- refused for the minute,
+     * with three of five still theirs -- was told on the product's own front
+     * door that their day was spent. The message beside it said "wait a
+     * minute", advice that contradicted the number next to it. Anybody who
+     * believed the number simply left.
+     *
+     * Found on 2026-11-21 by using the free generator on production as a
+     * stranger would, and reading what it said back.
+     */
+    remaining: error.remaining,
   };
 }
 

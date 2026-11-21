@@ -50,7 +50,26 @@ describe("public AI usage guard", () => {
     ).rejects.toMatchObject({
       code: "burst_limit",
       retryAfterSeconds: 60,
+      /*
+       * Two of five spent, so three are left -- and the refusal has to say
+       * so. The script has always returned this count and the error dropped
+       * it, which is how a visitor refused for the minute came to be told on
+       * the front page that their day was gone.
+       */
+      remaining: 3,
     });
+  });
+
+  it("reports no runs left when it is the day that is over", async () => {
+    await expect(
+      reservePublicAiRequest({
+        request: request(),
+        surface: "coverage-review",
+        requestId: "123e4567-e89b-42d3-a456-426614174000",
+        source,
+        execute: vi.fn().mockResolvedValue([0, 1, 5, 2]),
+      }),
+    ).rejects.toMatchObject({ code: "daily_limit", remaining: 0 });
   });
 
   it("uses a secret HMAC so stored keys do not contain a reversible raw IP", () => {
