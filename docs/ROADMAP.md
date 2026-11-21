@@ -3730,6 +3730,53 @@ is missing, because its red is believed and its green is trusted. Both of
 these were read as "the model is unreliable here" for a fortnight. Neither
 was.
 
+**A new team followed its own instructions, all the way (2026-11-21).**
+The first walk read the empty screens. This one does the work: write a
+requirement, submit it, approve it, let the AI propose test cases, approve
+one, generate the code, and read what the run on the real page says.
+
+**It holds.** Empty project to proven Playwright code in **under six
+minutes**, with the product's own "Next step" panel correct at every stage:
+
+- the requirement &rarr; *"Submit it for review"*
+- submitted &rarr; *"Approve it, or request changes. Once approved, AI can
+  propose the test cases that verify it."*
+- approved &rarr; *"Let AI propose test cases"*, which proposed three,
+  including a negative one worth having: *"Press Enter with an empty or
+  whitespace-only input does not create a new todo"*
+- the approved test case &rarr; *"Generate the Playwright code. It takes about
+  half a minute, and a person reviews it before it is trusted."*
+- generated &rarr; **5 checks passed, 2 steps could not run there**, with the
+  code, its plan and its assumptions on screen.
+
+**The fault it surfaced is one this repository has fixed before.** The badge
+over that result read:
+
+> Partly run on the live page · 16 passed
+
+directly above the sentence *"5 checks passed, 2 steps could not run there"*.
+Sixteen is every operation the runner performed -- each goto, fill and press.
+Five is the assertions. Two numbers about one run, on one screen, with nothing
+saying which is which.
+
+`checksPhrase` exists because of exactly this, and its comment says why: *"In
+a testing product a check is an assertion, and the number beside the product's
+most load-bearing claim has to be the one a tester would count."* The
+`passed` branch of that ternary was corrected when it was written; the
+`partial` branch beside it was not. That is what happens when a rule lives
+in a helper each caller may or may not reach for, so all three verdicts now go
+through one function, and a test fails if the page starts counting anything
+itself again.
+
+**Two of my own mistakes, kept because the method is the point.** The Create
+project button was given a hint saying the planning "takes about a minute",
+on the belief that it ran inline. Timed: press to redirect is **two seconds**,
+and the planning happens on the next screen. The hint would have been a new
+false claim shipped while fixing an old one, and only measuring caught it.
+And four selector slips in the walk itself -- the navigation's own "Test
+Cases" link, then the "New test case" button -- each of which looked like a
+product fault for a minute before it was read properly.
+
 **A new team member's first screens, walked at last (2026-11-21).** The
 authenticated checks that existed only confirmed that pages load, against a
 project that already has everything in it. Nobody had ever arrived at an

@@ -6,6 +6,7 @@ import Link from "next/link";
 
 import { AiAllowanceNotice, aiAllowanceNotice } from "@/components/workspace/ai-allowance-notice";
 import { checksPhrase } from "@/lib/free-tools/preview-run/checks-phrase";
+import { automationLiveRunBadge } from "@/lib/workspace/automation-live-run-badge";
 import { costOfProving, provenCostNote, usdForUse, usdLabel } from "@/lib/ai/model-cost";
 import { StickyReviewBar } from "@/components/workspace/sticky-review-bar";
 import {
@@ -414,11 +415,7 @@ export default async function AutomationArtifactPage({
                           : "bg-red-50 text-red-700"
                     }`}
                   >
-                    {liveRun.verdict === "passed"
-                      ? `Passed on the live page · ${checksPhrase(liveRun)}`
-                      : liveRun.verdict === "partial"
-                        ? `Partly run on the live page · ${liveRun.passed} passed`
-                        : "Did not pass on the live page"}
+                    {automationLiveRunBadge(liveRun).text}
                   </span>
                 ) : null}
                 <span className={`rounded-full px-2.5 py-1 ${currentVersion.generationStatus === "SUCCEEDED" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
