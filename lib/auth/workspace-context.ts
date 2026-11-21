@@ -16,6 +16,18 @@ import {
   provisionWorkspaceFromClerk,
 } from "@/lib/auth/workspace-provisioning";
 
+/**
+ * Whether a path segment could be a project at all.
+ *
+ * Shape only. Whether it exists, and whether this person may see it, are the
+ * database's answer and are asked immediately afterwards; this just keeps a
+ * value that cannot be a uuid from reaching a uuid column, where the failure
+ * is a 500 rather than a 404.
+ */
+export function isProjectId(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
 export type WorkspacePermission =
   | "organization:read"
   | "organization:manage"
@@ -341,6 +353,26 @@ export async function requireWorkspaceContext(
   let projectMembership: ProjectMembership | null = null;
 
   if (input.projectId) {
+    /*
+     * An address that could not be a project is not found, not broken.
+     *
+     * The id goes straight into a findUnique against a uuid column, so
+     * anything that is not a uuid makes PostgreSQL reject the query and the
+     * page answers 500. What the reader then sees is "This page didn't load
+     * -- if you just created your workspace, it may still be finishing
+     * setup. Trying again usually works." Every word of that is false for a
+     * mistyped or stale URL: nothing is finishing, and trying again will
+     * never work.
+     *
+     * Found on 2026-11-21 while walking the workspace as a new member: a
+     * script followed /projects/new as though it were a project id and every
+     * tab under it answered 500 with that message. A person following a
+     * stale link gets the same, and is told to wait for something that is
+     * not happening.
+     */
+    if (!isProjectId(input.projectId)) {
+      notFound();
+    }
     project = await prisma.project.findUnique({
       where: {
         organizationId_id: {

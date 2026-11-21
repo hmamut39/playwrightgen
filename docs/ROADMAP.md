@@ -3730,6 +3730,57 @@ is missing, because its red is believed and its green is trusted. Both of
 these were read as "the model is unreliable here" for a fortnight. Neither
 was.
 
+**A new team member's first screens, walked at last (2026-11-21).** The
+authenticated checks that existed only confirmed that pages load, against a
+project that already has everything in it. Nobody had ever arrived at an
+empty workspace and tried to get somewhere.
+
+A walk now does: it creates a real Clerk user and organization, materialises
+them through this repository's own `clerk:reconcile` command, signs in,
+creates a project through the form, and reads every project screen out loud.
+
+**The signed-in product reads well.** Overview, Quality, Requirements, Test
+Cases, Automation, Cover a page, Test Runs, Reviews, Release, Health and Team
+each explain themselves with nothing in the project. The Team page says the
+thing most products would hide: *"Right now only one person can approve here,
+so they can still approve their own work until a lead joins."*
+
+**The fault it found came from the walk going wrong.** The script followed
+`/projects/new` as though it were a project id, and every tab under it
+answered **500** with:
+
+> This page didn't load. If you just created your workspace, it may still be
+> finishing setup. Trying again usually works.
+
+False in every particular for a mistyped or stale address. Nothing is
+finishing; trying again will never work. A person waits, retries, and
+concludes the product is broken when their link was simply wrong -- and
+anybody can fill the error log by typing a URL.
+
+The cause is that each service parses the id and **throws** before
+`requireWorkspaceContext` reaches the `notFound()` it already had: a
+thrown validation error is a 500. The guard belongs where every tab passes,
+so it is a layout at `projects/[projectId]` -- shape only, no second query,
+nineteen tabs covered without touching any of them. The bare framework 404 is
+replaced with what happened and a way back, careful not to overcorrect: the
+page cannot tell a deleted project from a typo, so it says both and claims
+neither. Verified in a browser: 404, the real copy, a working link.
+
+**Four things about running any of this locally, written down because they
+each cost an hour:**
+
+- Sign-in works on `localhost:3000` and not on `127.0.0.1:3000`. The app
+  redirects to the former, so on the latter the session cookie never comes
+  back and every page bounces to sign-in with no error anywhere.
+- A password sign-in from a headless browser is refused with
+  `needs_client_trust`. Neither `setupClerkTestingToken` nor a token query
+  parameter lifted it. The sign-in ticket that `scripts/audit-phone.mjs`
+  already uses works first time.
+- Clerk rejects `.test` email domains outright.
+- An organization reaches PostgreSQL by webhook, which cannot arrive on a
+  laptop, so a local walk needs `clerk:reconcile` -- which did it first
+  time, and is the reason that command exists.
+
 **The welcome screen's promise, checked against every other screen
 (2026-11-21).** After the generator's two false claims were found by accident,
 the same class was hunted on purpose: every public page's claims against the
