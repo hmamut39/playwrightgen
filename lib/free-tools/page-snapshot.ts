@@ -25,6 +25,8 @@ import { signInWithTestAccount, type TestAccount } from "@/lib/free-tools/sign-i
  * (see sign-in.ts); then it is read as that account sees it.
  */
 
+import { redactPersonalData, type PersonalDataFound } from "@/lib/ai/personal-data";
+
 export { isPublicWebAddress } from "@/lib/free-tools/public-address";
 import { readLinkTargets, type LinkTarget } from "@/lib/free-tools/surface-coverage";
 
@@ -42,6 +44,14 @@ export type PageSnapshot =
       truncated: boolean;
       /** Roles counted from the tree, for a one-line summary to the reader. */
       counts: { buttons: number; links: number; fields: number; headings: number };
+      /**
+       * Personal data masked out of the tree before anything read it.
+       *
+       * Carried on the snapshot rather than worked out again by each caller,
+       * because the masking happens here and the count is only true of what
+       * happened here.
+       */
+      redacted: PersonalDataFound;
       /** Present when a test account signed in first: the login form's tree. */
       signedIn?: { loginForm: string };
     }
@@ -142,18 +152,34 @@ export async function capturePageSnapshot(
       // so they come out of the tree. A link's address is still the only way
       // to tell a control of this page from a way off it, so it is kept here.
       const linkTargets = readLinkTargets(fullAria);
-      const aria = fullAria.replace(/^\s*- \/url: .*$/gm, "").replace(/\n{2,}/g, "\n");
+      const withLinks = fullAria.replace(/^\s*- \/url: .*$/gm, "").replace(/\n{2,}/g, "\n");
+      /*
+       * Masked here, once, because this is the only place the page's own text
+       * enters the product. Every caller -- the free generator, page
+       * coverage, the workspace -- reads this tree and sends it to a model,
+       * and a rule applied at each of them is a rule that will be missed at
+       * one of them. That is how the sending address came to be written out
+       * in three files and changed in one.
+       *
+       * The signed-in login form is masked too: it is a page like any other
+       * and a test account's own details are no less personal.
+       */
+      const masked = redactPersonalData(withLinks);
+      const aria = masked.text;
       return {
         ok: true,
         finalUrl,
         title: title.slice(0, 300),
         aria: aria.slice(0, MAX_ARIA_CHARS),
+        redacted: masked.found,
         testIds: [...new Set(testIds)].map((id) => id.slice(0, 100)),
         elementHints,
         linkTargets,
         truncated: aria.length > MAX_ARIA_CHARS,
         counts: countRoles(aria),
-        ...(signedIn ? { signedIn } : {}),
+        ...(signedIn
+          ? { signedIn: { loginForm: redactPersonalData(signedIn.loginForm).text } }
+          : {}),
       };
     } finally {
       await browser.close().catch(() => {});

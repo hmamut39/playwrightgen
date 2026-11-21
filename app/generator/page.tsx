@@ -22,6 +22,7 @@ import {
   verdictFromCounts,
   type ProveRound,
 } from "@/lib/free-tools/prove-loop";
+import { redactionNote } from "@/lib/ai/personal-data";
 import { checksPhrase } from "@/lib/free-tools/preview-run/checks-phrase";
 import { liveRunHeadline } from "@/lib/free-tools/preview-run/run-headline";
 import {
@@ -62,6 +63,7 @@ type LivePage =
       truncated: boolean;
       excerpt: string;
       signedIn?: boolean;
+      redacted?: { emails: number; longNumbers: number; phones: number; total: number };
     }
   | { status: "not_read"; reason: string; httpStatus?: number };
 
@@ -889,6 +891,20 @@ function LivePagePanel({ livePage, result }: { livePage: LivePage; result: Quick
             {livePage.counts.buttons} buttons · {livePage.counts.fields} fields · {livePage.counts.links} links ·{" "}
             {livePage.counts.headings} headings, {livePage.signedIn ? "seen signed in with your test account" : "seen signed out"}
           </p>
+          {/*
+            * What was taken out of the page before the model saw it.
+            *
+            * The masking happens whether or not this line is here; the line is
+            * what makes it a promise rather than a surprise. It also says what
+            * the masking cannot catch, because a visitor who reads "personal
+            * data removed" and assumes names were included has been told
+            * something untrue by implication.
+            */}
+          {livePage.redacted && livePage.redacted.total > 0 ? (
+            <p className="mt-2 rounded-lg bg-white/70 px-3 py-2 text-xs leading-5 text-emerald-900">
+              {redactionNote(livePage.redacted)}
+            </p>
+          ) : null}
         </div>
         {check && check.checked > 0 ? (
           <span

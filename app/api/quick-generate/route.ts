@@ -163,6 +163,10 @@ export async function POST(req: Request) {
               truncated: snapshot.truncated,
               excerpt: snapshot.aria.slice(0, 4_000),
               signedIn: Boolean(snapshot.signedIn),
+              // Said to the visitor, not merely done for them. A product that
+              // masks a customer's data and keeps quiet about it has taken a
+              // decision on their behalf without telling them which.
+              redacted: snapshot.redacted,
             }
           : { status: "not_read", reason: snapshot.reason, httpStatus: snapshot.status }
         : null,
