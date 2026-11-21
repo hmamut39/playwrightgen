@@ -3730,6 +3730,56 @@ is missing, because its red is believed and its green is trusted. Both of
 these were read as "the model is unreliable here" for a fortnight. Neither
 was.
 
+**Twelve thousand tokens answers no question anybody has (2026-11-21).**
+Every AI run in this product has stored its token counts since the first
+version -- `AiRun`, `AutomationArtifactVersion` and `FailureAnalysis` each
+keep input, output and total -- and nothing had ever turned them into money.
+Two places on the automation page printed "12430 tokens", which answers
+neither "can we afford to run this across every test we own" nor "is it
+cheaper than writing the test by hand". Those are the two questions anybody
+evaluating this product actually has.
+
+The automation page now says what the model work cost, in money, where the
+token count already was. The figure is **cost per proven test**, and the
+honest version of it divides everything spent by the tests that came out the
+other end: a version that failed on the live page was paid for too, so the
+total covers every attempt and the divisor is the proven ones. Counting only
+the successes would quote a price nobody can buy at.
+
+Three things it cannot know, and says instead of guessing:
+
+- **Whether a prompt was served from the provider's cache.** Cached input is a
+  tenth of the price on gpt-5-mini and the stored counts do not separate it, so
+  every figure is an upper bound and the sentence says so.
+- **What a model costs today.** The rates were read from
+  developers.openai.com/api/docs/pricing on 2026-11-21 and that date is
+  printed with the money, because a price copied into a repository is a claim
+  about the outside world and one with no date on it stays wrong for a year.
+- **What an unknown model costs.** A model missing from the table prices as
+  nothing rather than as something plausible, and the note says how many
+  versions fell out, so the total is never read as complete. `gpt-5` is a
+  prefix of `gpt-5-mini`, so the lookup takes the longest match -- a
+  shortest-match rule would bill the cheap model at five times its input rate
+  and nothing on the screen would look wrong.
+
+Checked against the dev database rather than against fixtures I wrote myself,
+and all four cases turned up in six real artifacts: a proven version at
+**$0.0027** -- a quarter of a cent for a test that passes on a real page --
+three imported drafts carrying no counts at all, a generated version never run
+live, and one whose live run came back `partial`. That last one is the
+important one: **partial is not proven**, it is counted as an attempt, and the
+note reads "none proven on your live page yet, so there is no cost per proven
+test". Nothing failed in that run, but steps did not run, and the repair
+service already refuses to call that proof.
+
+**Still invisible: what a stranger's week costs.** The free tools keep no
+token counts at all -- `FreeToolDraft` has code, payload and the last run,
+and no usage -- so the one number the January trial needs, what a visitor
+costs for a week of unaided use, cannot be worked out from the database today.
+Closing that means storing usage on an anonymous run, which is a schema change
+and a migration, so it is the next piece of this and not a quiet addition to
+it.
+
 **The score was hiding ten unstable cases (2026-11-21).** The gate compares
 one run with a blessed baseline, which answers "is this run allowed". Nothing
 answered "has this case been telling the truth", and that is what the score

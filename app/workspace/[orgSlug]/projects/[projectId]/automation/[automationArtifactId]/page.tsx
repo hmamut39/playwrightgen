@@ -6,6 +6,7 @@ import Link from "next/link";
 
 import { AiAllowanceNotice, aiAllowanceNotice } from "@/components/workspace/ai-allowance-notice";
 import { checksPhrase } from "@/lib/free-tools/preview-run/checks-phrase";
+import { costOfProving, provenCostNote, usdForUse, usdLabel } from "@/lib/ai/model-cost";
 import { StickyReviewBar } from "@/components/workspace/sticky-review-bar";
 import {
   AutomationPullRequestError,
@@ -97,6 +98,42 @@ export default async function AutomationArtifactPage({
     (version) => version.versionNumber === artifact.currentVersionNumber,
   );
   const liveRun = currentVersion ? readAutomationLiveRun(currentVersion.liveRun) : null;
+  /*
+   * What it cost to get this test to pass on the real page.
+   *
+   * Over every version, not only the one that worked: an attempt that failed
+   * on the live page was paid for too, and a figure that counted only the
+   * successes would quote a price nobody can buy at. The versions are already
+   * loaded for the history below, so this costs no query.
+   */
+  const cost = costOfProving(
+    artifact.versions.map((version) => ({
+      model: version.model,
+      inputTokens: version.inputTokens,
+      outputTokens: version.outputTokens,
+      proven: readAutomationLiveRun(version.liveRun)?.verdict === "passed",
+    })),
+  );
+  const costNote = provenCostNote(cost);
+  /** The model, the tokens and the money, for one line of the history. */
+  const versionLabel = (version: {
+    model: string;
+    totalTokens: number | null;
+    inputTokens: number | null;
+    outputTokens: number | null;
+  }) => {
+    if (version.model === "imported-draft") return "Imported code, no AI generation";
+    const usd = usdForUse(version);
+    const tokens = `${version.model} · ${version.totalTokens ?? "—"} tokens`;
+    return usd === null ? tokens : `${tokens} · ${usdLabel(usd)}`;
+  };
+  const currentCost = currentVersion
+    ? usdForUse({
+        model: currentVersion.model,
+        inputTokens: currentVersion.inputTokens,
+        outputTokens: currentVersion.outputTokens,
+      })
+    : null;
   const plan = currentVersion ? readAutomationPlan(currentVersion.plan) : [];
   const findings = currentVersion
     ? readAutomationValidationFindings(currentVersion.validationFindings)
@@ -329,7 +366,7 @@ export default async function AutomationArtifactPage({
                 <p className="mt-2 text-xs text-slate-400">
                   {currentVersion.model === "imported-draft"
                     ? "Imported code, no AI generation"
-                    : `${currentVersion.model} · ${currentVersion.promptVersion} · ${currentVersion.totalTokens ?? "—"} tokens`}{" "}
+                    : `${currentVersion.model} · ${currentVersion.promptVersion} · ${currentVersion.totalTokens ?? "—"} tokens${currentCost === null ? "" : ` · ${usdLabel(currentCost)}`}`}{" "}
                   ·{" "}
                   <LocalTime value={currentVersion.startedAt} />
                 </p>
@@ -687,6 +724,21 @@ export default async function AutomationArtifactPage({
         <p className="mt-1 text-sm text-slate-500">
           Generated content is append-only. Approval points to one exact version.
         </p>
+        {/*
+          * What the model work behind this test cost.
+          *
+          * The token counts have been stored since the first version and were
+          * printed as "12430 tokens", a number that answers neither "can we
+          * afford this across every test we own" nor "is it cheaper than
+          * writing the test by hand". Both limits of the figure are stated in
+          * the sentence itself rather than left to be discovered: the rate is
+          * dated, and a cached prompt would make it cheaper than this.
+          */}
+        {costNote ? (
+          <p className="mt-3 rounded-xl bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
+            {costNote}
+          </p>
+        ) : null}
         <div className="mt-5 divide-y divide-slate-200 border-y border-slate-200">
           {artifact.versions.map((version) => (
             <details key={version.id} className="py-4">
@@ -705,7 +757,7 @@ export default async function AutomationArtifactPage({
               <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
                 <p>{version.summary}</p>
                 <p className="mt-2 text-xs text-slate-400">
-                  {version.model === "imported-draft" ? "Imported code, no AI generation" : `${version.model} · ${version.totalTokens ?? "—"} tokens`}
+                  {versionLabel(version)}
                 </p>
               </div>
             </details>
