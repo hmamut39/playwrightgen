@@ -21,12 +21,20 @@ export type AlertEmail = { to: string; subject: string; text: string };
 export type EmailSender = (message: AlertEmail) => Promise<boolean>;
 
 /**
- * Who the mail comes from. Until a sending domain is verified this is
- * Resend's shared address, which only delivers to the account owner; the
- * feature is built and tested against that, and changing one environment
- * variable turns it on for everyone.
+ * Who the mail comes from, for everything this product sends.
+ *
+ * Until a sending domain is verified this is Resend's shared address, which
+ * delivers only to the account owner. One environment variable moves every
+ * message to the verified domain -- and that was not true until 2026-11-21.
+ * It was read here, while the feedback and waitlist routes each wrote
+ * "onboarding@resend.dev" into their own call, so setting the variable would
+ * have moved the alerts and quietly left those two behind. Whoever set it
+ * would have had every reason to believe all three had moved.
+ *
+ * Exported so there is one answer to the question instead of three copies of
+ * it, two of which could not be changed by the setting meant to change them.
  */
-function sender() {
+export function emailSender() {
   return process.env.LIVE_CHECKS_EMAIL_FROM?.trim() || "PlaywrightGen <onboarding@resend.dev>";
 }
 
@@ -57,7 +65,7 @@ export const sendAlertEmail: EmailSender = async (message) => {
   try {
     const resend = new Resend(apiKey);
     const result = await resend.emails.send({
-      from: sender(),
+      from: emailSender(),
       to: message.to,
       subject: message.subject,
       text: message.text,

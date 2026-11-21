@@ -2,6 +2,8 @@ import { Buffer } from "node:buffer";
 
 import { Redis } from "@upstash/redis";
 import { Resend } from "resend";
+
+import { emailSender } from "@/lib/services/alert-email";
 import { z } from "zod";
 
 import {
@@ -45,7 +47,9 @@ const defaultDependencies: WaitlistDependencies = {
     // Checked, not assumed: Resend reports a refusal in the result rather than
     // by throwing. See the same note on the feedback route.
     const result = await resend.emails.send({
-      from: "PlaywrightGen <onboarding@resend.dev>",
+      // Shared, for the reason given on the feedback route: a sender written
+      // out here cannot be moved by the setting that exists to move it.
+      from: emailSender(),
       to: recipient,
       subject: "New PlaywrightGen waitlist signup",
       text: `A new user joined the PlaywrightGen team-access waitlist: ${email}`,

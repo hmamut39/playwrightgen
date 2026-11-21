@@ -3,6 +3,8 @@ import { Buffer } from "node:buffer";
 import { auth } from "@clerk/nextjs/server";
 import { Redis } from "@upstash/redis";
 import { Resend } from "resend";
+
+import { emailSender } from "@/lib/services/alert-email";
 import { z } from "zod";
 
 import { providerFailureReason } from "@/lib/ai/provider-availability";
@@ -65,11 +67,13 @@ const defaultDependencies: FeedbackDependencies = {
     const resend = new Resend(apiKey);
     // Resend answers a refused send with an error object rather than by
     // throwing, so an unchecked call cannot tell "delivered" from "rejected".
-    // The sender here is Resend's shared sandbox address, which is allowed to
-    // reach only the account owner's own email -- exactly the setting that
-    // gets this wrong quietly.
+    // The sender is shared with every other message this product sends, so
+    // verifying a domain moves all of them at once. This route used to write
+    // Resend's sandbox address here itself, which is allowed to reach only
+    // the account owner -- so setting LIVE_CHECKS_EMAIL_FROM moved the alerts
+    // and left this one behind, silently.
     const result = await resend.emails.send({
-      from: "PlaywrightGen <onboarding@resend.dev>",
+      from: emailSender(),
       to: recipient,
       subject,
       text,
