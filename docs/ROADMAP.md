@@ -3730,6 +3730,51 @@ is missing, because its red is believed and its green is trusted. Both of
 these were read as "the model is unreliable here" for a fortnight. Neither
 was.
 
+**The welcome screen's promise, checked against every other screen
+(2026-11-21).** After the generator's two false claims were found by accident,
+the same class was hunted on purpose: every public page's claims against the
+code.
+
+**The public pages held.** Sixteen MCP tools is sixteen. The protocol list --
+2026-07-28 back to 2024-11-05 -- matches `SUPPORTED_PROTOCOL_VERSIONS`.
+Team's "60 AI operations per day" matches `TEAM_LIMITS`. Slack and Discord
+are both really accepted. "Only on public pages" is enforced on every path
+that opens one: the snapshot, the run, the sign-in and both MCP tools. The
+shared evidence link really does expire, really can be revoked, and really
+carries `robots: { index: false }`. Credentials really are blanked out of
+what a run reports.
+
+So the rot was not general. It was where the product had changed most and the
+copy had not followed -- which is a sharper rule than "audit the pages": look
+where the behaviour moved.
+
+**Then the signed-in side, starting with what it promises about itself.** The
+welcome screen says:
+
+> Every screen after this tells you what to do next.
+
+That is a claim about twenty-eight other pages. Four of them render the
+`NextStep` panel; the rest rely on their empty states, and every list's
+empty state offers a link out -- except **Automation**, which said "Open an
+approved Test Case and choose the Browser or API engine" and linked nowhere.
+True, and useless to the person most likely to read it: a project with no
+automation usually has no approved test case either, so the sentence named a
+thing they did not have and did not say how to get one.
+
+It now depends on what is actually missing, from two counts taken only when
+the list is empty:
+
+- **No test cases at all** -- the chain starts earlier than this page, with a
+  link to it.
+- **Test cases, none approved** -- "Waiting on an approval, not on you writing
+  more", with a link to the review queue. The old message would have sent
+  somebody to write a fifth draft when four were already waiting for a person.
+- **Approved ones ready** -- the original instruction, now followable.
+
+A test checks the promise rather than trusting it: every list page's empty
+state must offer a link, and a second test asserts the welcome screen still
+makes the promise, so the guard cannot outlive the rule it guards.
+
 **The front door told a visitor their day was spent when it was not
 (2026-11-21).** Found by using the free generator on production the way a
 stranger would, on a real shop rather than the demo page, and reading what it

@@ -7,6 +7,8 @@ import {
 import { ProjectNavigation } from "@/components/workspace/project-navigation";
 import { EditorSetupPanel } from "@/components/workspace/editor-setup-panel";
 import { listAutomationArtifacts } from "@/lib/services/automation-artifacts";
+import { automationEmptyState } from "@/lib/services/automation-empty-state";
+import { listTestCases } from "@/lib/services/test-cases";
 import { getEditorSetup } from "@/lib/services/editor-access";
 
 const statusStyle = {
@@ -38,6 +40,26 @@ export default async function AutomationPage({
   ]);
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
   const base = `/workspace/${orgSlug}/projects/${projectId}`;
+
+  /*
+   * What to say when there is nothing here, which depends on why.
+   *
+   * Two counts, and only when the list is empty, so a project with
+   * automation pays nothing for them. A page size of one because only the
+   * total is wanted.
+   */
+  const emptyState = artifacts.items.length
+    ? null
+    : automationEmptyState(
+        await (async () => {
+          const [all, approved] = await Promise.all([
+            listTestCases({ orgSlug, projectId, pageSize: 1 }),
+            listTestCases({ orgSlug, projectId, statuses: ["APPROVED"], pageSize: 1 }),
+          ]);
+          return { testCases: all.total, approved: approved.total };
+        })(),
+        base,
+      );
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -116,10 +138,18 @@ export default async function AutomationPage({
           })
         ) : (
           <div className="rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/40 p-8 text-center">
-            <h2 className="text-lg font-semibold">No automation artifacts yet</h2>
-            <p className="mt-2 text-sm text-slate-600">
-              Open an approved Test Case and choose the Browser or API engine.
+            <h2 className="text-lg font-semibold">{emptyState?.title}</h2>
+            <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">
+              {emptyState?.detail}
             </p>
+            {emptyState ? (
+              <Link
+                href={emptyState.action.href}
+                className="mt-5 inline-flex rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
+              >
+                {emptyState.action.label}
+              </Link>
+            ) : null}
           </div>
         )}
       </section>
