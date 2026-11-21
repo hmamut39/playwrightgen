@@ -37,6 +37,15 @@ export type DraftRepairInput = {
 };
 
 export type DraftRepairResult = z.infer<typeof draftRepairSchema> & {
+  /**
+   * Which model did it, as the other AI surfaces already report.
+   *
+   * Added when the free tools started keeping what they cost: a token count
+   * without the model that produced it cannot be turned into money, because
+   * the rates differ by a factor of eight across the models this product can
+   * be configured to use.
+   */
+  model: string;
   validation: ReturnType<typeof validateQuickGeneration>;
   locatorCheck: LocatorCheck;
   provider: { inputTokens: number | null; outputTokens: number | null; totalTokens: number | null; requestId: string | null };
@@ -125,6 +134,7 @@ export async function repairDraft(input: DraftRepairInput, options: { requestId?
   return {
     ...response.output_parsed,
     code,
+    model,
     // Against the page the test is for, like the first draft was. Without the
     // address the origin rules are skipped, so a repair was the one step where
     // a request to another site went unexamined -- and a repair is a rewrite

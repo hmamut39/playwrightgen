@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { z } from "zod";
 
 import { DraftRepairProviderError, repairDraft } from "@/lib/ai/draft-repair";
@@ -12,6 +12,7 @@ import {
 } from "@/lib/operations/free-tool-access";
 import { recordFreeToolDraftCode } from "@/lib/services/free-tool-drafts";
 import { logOperationalEvent } from "@/lib/operations/safe-telemetry";
+import { recordPublicAiUsage } from "@/lib/services/public-ai-usage";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -64,6 +65,27 @@ export async function POST(req: Request) {
       totalTokens: provider.totalTokens,
       providerRequestId: provider.requestId,
     });
+    /*
+     * Recorded under its own name, though the allowance it spent is
+     * quick-generate's.
+     *
+     * The log line above says "quick-generate" because that is the pool a
+     * repair draws from -- five calls a day across generating and repairing
+     * together. For cost they are not the same thing: a repair carries the
+     * failing test, the page at the moment it failed and the page as it
+     * started, so it is the dearer of the two. Recording both under one name
+     * would have hidden that, and the report's ceiling treats the pool
+     * correctly by naming its surfaces rather than by sharing a label.
+     */
+    after(() =>
+      recordPublicAiUsage({
+        surface: "draft-repair",
+        model: result.model,
+        inputTokens: provider.inputTokens,
+        outputTokens: provider.outputTokens,
+        totalTokens: provider.totalTokens,
+      }),
+    );
     if (draftId && quota.userId) {
       await recordFreeToolDraftCode({ clerkUserId: quota.userId, draftId, code: result.code }).catch((error: unknown) =>
         console.error("[repair-draft] could not update the saved draft", error),

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 
 import {
   CoverageReviewProviderError,
@@ -15,6 +15,7 @@ import {
   reserveFreeToolRun,
 } from "@/lib/operations/free-tool-access";
 import { logOperationalEvent } from "@/lib/operations/safe-telemetry";
+import { recordPublicAiUsage } from "@/lib/services/public-ai-usage";
 import { capturePageSnapshot, isPublicWebAddress, type PageSnapshot } from "@/lib/free-tools/page-snapshot";
 import { readTestAccount } from "@/lib/free-tools/sign-in";
 import { saveFreeToolDraft } from "@/lib/services/free-tool-drafts";
@@ -123,6 +124,22 @@ export async function POST(req: Request) {
       totalTokens: provider.totalTokens,
       providerRequestId: provider.requestId,
     });
+    /*
+     * The same counts, kept rather than only logged.
+     *
+     * A log is gone in a day, so what a week of somebody trying the free
+     * tools costs had no answer anywhere. Scheduled with after(), so the
+     * visitor waits for nothing, and it cannot fail the request.
+     */
+    after(() =>
+      recordPublicAiUsage({
+        surface: "coverage-review",
+        model: result.model,
+        inputTokens: provider.inputTokens,
+        outputTokens: provider.outputTokens,
+        totalTokens: provider.totalTokens,
+      }),
+    );
 
     const body = {
       result,

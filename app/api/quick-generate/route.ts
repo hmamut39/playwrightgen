@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 
 import {
   generateQuickDraft,
@@ -18,6 +18,7 @@ import {
 import { readTestAccount } from "@/lib/free-tools/sign-in";
 import { saveFreeToolDraft } from "@/lib/services/free-tool-drafts";
 import { logOperationalEvent } from "@/lib/operations/safe-telemetry";
+import { recordPublicAiUsage } from "@/lib/services/public-ai-usage";
 import { somebodyGotStuck } from "@/lib/operations/stuck-signal";
 
 const MAX_TEXT_FILE_BYTES = 250_000;
@@ -150,6 +151,22 @@ export async function POST(req: Request) {
       totalTokens: provider.totalTokens,
       providerRequestId: provider.requestId,
     });
+    /*
+     * The same counts, kept rather than only logged.
+     *
+     * A log is gone in a day, so what a week of somebody trying the free
+     * tools costs had no answer anywhere. Scheduled with after(), so the
+     * visitor waits for nothing, and it cannot fail the request.
+     */
+    after(() =>
+      recordPublicAiUsage({
+        surface: "quick-generate",
+        model: result.model,
+        inputTokens: provider.inputTokens,
+        outputTokens: provider.outputTokens,
+        totalTokens: provider.totalTokens,
+      }),
+    );
 
     const body = {
       result,

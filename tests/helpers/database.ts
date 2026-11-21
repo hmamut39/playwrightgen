@@ -82,6 +82,10 @@ export async function cleanPhase1ATables(
         client.pageCoverage.deleteMany(),
         client.testCaseImportedDraft.deleteMany(),
         client.freeToolDraft.deleteMany(),
+        // The free-tool cost ledger. Nothing references it and nothing it
+        // references, so it can go anywhere in here; left beside the other
+        // free-tool table so it is found when that one is.
+        client.publicAiUsage.deleteMany(),
         client.testCaseVersion.deleteMany(),
         client.testCase.deleteMany(),
         client.aiSuggestion.deleteMany(),

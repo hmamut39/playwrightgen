@@ -1263,6 +1263,43 @@ model FreeToolDraft {
   @@index([clerkUserId, updatedAt])
 }
 
+/// What the free tools cost to run, one row per model call.
+///
+/// The workspace has kept token counts since its first version. The free
+/// tools -- the ones a stranger meets, the ones that decide whether this is
+/// affordable to give away -- kept none, so the question "what does a week of
+/// somebody trying this cost" had no answer anywhere. The counts were written
+/// to the application log and nowhere else, and a log is gone in a day.
+///
+/// Deliberately anonymous. No visitor, no address, no page URL, not even a
+/// hashed one: this is a cost ledger, not a record of who did what, and an
+/// identifier here would be a new piece of personal data collected for a
+/// question that does not need it. What it cannot answer is therefore
+/// "what did one person cost", and the report says so rather than implying
+/// otherwise; the per-visitor figure is worked out from the published daily
+/// limits and the measured cost per run.
+///
+/// It cannot answer "cost per proven free test" either, and the first version
+/// of this table pretended otherwise with a `proven` column. Nothing could
+/// ever have filled it: generating a draft and proving it on the live page
+/// are two separate requests, and the one that proves it opens a browser and
+/// calls no model at all. Linking them would need exactly the identifier
+/// this table refuses to keep. The column was dropped by the migration after
+/// the one that added it, which is the honest trail.
+model PublicAiUsage {
+  id           String   @id @default(uuid()) @db.Uuid
+  /// quick-generate, coverage-review, release-review, draft-repair.
+  surface      String   @db.VarChar(100)
+  model        String   @db.VarChar(100)
+  inputTokens  Int?
+  outputTokens Int?
+  totalTokens  Int?
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([createdAt])
+  @@index([surface, createdAt])
+}
+
 enum PageCoverageStatus {
   PLANNING
   PLAN_FAILED

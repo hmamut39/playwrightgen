@@ -32,6 +32,7 @@
     "evals:raw": "vitest run --config vitest.evals.config.ts",
     "db:migrate:preview": "node scripts/migrate-preview.mjs",
     "db:migrate:production": "node scripts/migrate-production.mjs",
+    "cost:free-tools": "node --conditions=react-server --import tsx scripts/free-tool-cost.ts",
     "audit:phone": "node scripts/audit-phone.mjs"
   },
   "dependencies": {

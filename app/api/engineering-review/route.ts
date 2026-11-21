@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 
 import {
     buildReleaseReviewContext,
@@ -15,6 +15,7 @@ import {
     reserveFreeToolRun,
 } from "@/lib/operations/free-tool-access";
 import { logOperationalEvent } from "@/lib/operations/safe-telemetry";
+import { recordPublicAiUsage } from "@/lib/services/public-ai-usage";
 
 /**
  * Release Review for a described change. The analysis itself lives in
@@ -99,6 +100,24 @@ export async function POST(req: Request) {
             totalTokens: provider.totalTokens,
             providerRequestId: provider.requestId,
         });
+        /*
+         * What it cost, kept rather than only logged.
+         *
+         * `result.model` and not `report.model`: the model name is stripped
+         * from the public response two lines above, on purpose, and reading
+         * the stripped copy here would have stored "undefined" as the model
+         * for every release review -- a column that looks filled and prices
+         * as nothing.
+         */
+        after(() =>
+            recordPublicAiUsage({
+                surface: "release-review",
+                model: result.model,
+                inputTokens: provider.inputTokens,
+                outputTokens: provider.outputTokens,
+                totalTokens: provider.totalTokens,
+            }),
+        );
 
         return NextResponse.json(
             { result: report, remaining: quota.remaining },

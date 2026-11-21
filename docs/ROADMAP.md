@@ -3730,6 +3730,59 @@ is missing, because its red is believed and its green is trusted. Both of
 these were read as "the model is unreliable here" for a fortnight. Neither
 was.
 
+**What a stranger's week costs, which nothing could answer (2026-11-21).**
+The workspace has kept token counts since its first version. The free tools
+-- the ones a stranger meets, the ones that decide whether this is affordable
+to give away -- kept none. The counts were written to the application log and
+nowhere else, and a log is gone in a day, so the number the January trial
+turns on had no answer anywhere in the product or its database.
+
+`PublicAiUsage` now keeps one row per free-tool model call: the surface, the
+model and the counts. `npm run cost:free-tools` reads it and says what the
+window cost, per surface and in total, at the dated rates.
+
+**What it refuses to record is the point.** No visitor, no address, no page
+URL, not even a hashed one. This is a cost ledger, not a record of who looked
+at what, and an identifier in it would be personal data collected for a
+question that does not need it. So the per-visitor figure is not measured --
+it is *bounded*: every published daily allowance spent in full, every day, at
+the measured average cost of a run. A ceiling derived from the product's own
+rules rather than from watching anybody, and the report says in as many words
+that it is not a measurement of a person.
+
+The arithmetic has one trap in it, found while wiring the routes. Repairing a
+draft spends from the **quick-generate** allowance -- five calls a day across
+both together, not five of each -- so the surfaces share a pool and the
+ceiling takes the dearer of the two rather than their sum. Bounding them
+separately would have doubled that half of the number, and it would have
+looked perfectly reasonable.
+
+Two mistakes worth keeping:
+
+- The first migration added a `proven` column so the free tools could report
+  cost per proven test, the way the workspace does. Nothing could ever have
+  filled it: generating a draft and proving it on the live page are two
+  separate requests, and the one that proves it opens a browser and calls no
+  model at all. Linking them needs exactly the identifier this table refuses
+  to keep. A column that is always null is a lie in the schema, so the next
+  migration drops it -- `drop_a_column_nothing_could_fill` -- rather than
+  editing an applied one.
+- A test asserted a report did **not** contain "thin". It passed for the
+  wrong reason: "No**thin**g here records who ran what" contains it. The
+  marker now reads "too few to average", which is also what a reader wants to
+  be told.
+
+The recorder cannot fail or slow a request: it runs in `after()`, so the
+answer has already gone back, and it swallows its own errors. A cost ledger
+that could take the generator down with it would be a straight downgrade for
+the visitor, who gets nothing from it.
+
+**Not yet live.** The migration is additive -- one new table -- and is applied
+to the development and test databases. Production is the owner's to run:
+`npm run db:migrate:production` (verified against
+restless-frost-04247280/br-flat-boat-axjnmd13), and the code is held back
+until it has.
+
 **What is actually done about each risk, and what is not (2026-11-21).**
 The product had no security page. A prospect evaluating it had the privacy
 policy, the terms, and whatever they could infer. The claims existed -- tenant
