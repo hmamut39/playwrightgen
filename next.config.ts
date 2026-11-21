@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+import { SECURITY_HEADER_RULES } from "./lib/security/response-headers";
+
 const nextConfig: NextConfig = {
   /**
    * Set by `next upgrade --agent=security` on 2026-10-28, taking 16.4.0 to
@@ -62,6 +64,20 @@ const nextConfig: NextConfig = {
       // English is compiled in; a server has no locale to show them in.
       "node_modules/typescript/lib/*/diagnosticMessages.generated.json",
     ],
+  },
+  /**
+   * The response headers a browser is told, from the one list the security
+   * posture on /about reads too.
+   *
+   * Not in development: a configured headers() function kills the hot-reload
+   * WebSocket. The whole story, with what was measured, is beside the list.
+   */
+  /**
+   * The response headers a browser is told, from the one list the security
+   * posture on /about reads too.
+   */
+  async headers() {
+    return SECURITY_HEADER_RULES;
   },
   async redirects() {
     return [

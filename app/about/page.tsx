@@ -2,6 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { SITE_AUTHOR, SITE_NAME, SITE_PURPOSE } from "@/lib/site";
+import {
+  OWASP_CHECKED_ON,
+  OWASP_EDITION,
+  OWASP_POSTURE,
+  OWASP_POSTURE_LIMITS,
+  OWASP_SOURCE,
+} from "@/lib/security/owasp-posture";
 
 /**
  * Who made PlaywrightGen, and what it is for.
@@ -24,6 +31,16 @@ export const metadata: Metadata = {
     url: "/about",
   },
 };
+
+/** 2026-11-21 as "21 November 2026", for a sentence rather than a log line. */
+function readable(iso: string): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
 
 export default function AboutPage() {
   return (
@@ -74,6 +91,63 @@ export default function AboutPage() {
         Your tests run on your own machines, in your own CI, against your own
         environment. {SITE_NAME} never executes your code and never receives
         your repository contents &mdash; only a bounded summary of results.
+      </p>
+
+      {/*
+        * What is done about each risk on the current OWASP list, and what is
+        * not.
+        *
+        * On this page rather than a new one, because a security page nobody
+        * links to is a security page nobody reads, and because every claim
+        * here is of the same kind as the two sections above it: something
+        * this product does or refuses to do. The claims that can be checked
+        * are checked by tests/unit/owasp-posture.test.ts against the code
+        * that makes them true, so a sentence here cannot outlive its
+        * implementation -- which is how three files came to state one sending
+        * address and one setting moved only one of them.
+        */}
+      <h2 className="mt-12 text-2xl font-semibold tracking-[-0.02em] text-slate-950">
+        How it is secured
+      </h2>
+      <p className="mt-4 text-base leading-7 text-slate-700">
+        Mapped against the{" "}
+        <a
+          href={OWASP_SOURCE}
+          rel="noreferrer"
+          target="_blank"
+          className="font-medium text-slate-950 underline underline-offset-4"
+        >
+          {OWASP_EDITION}
+        </a>
+        , read on {readable(OWASP_CHECKED_ON)}. Where there is nothing in place, it says
+        so in the same voice as the rest.
+      </p>
+
+      <div className="mt-8 space-y-8">
+        {OWASP_POSTURE.map((risk) => (
+          <section key={risk.id}>
+            <h3 className="text-sm font-semibold tracking-[-0.01em] text-slate-950">
+              <span className="font-mono text-xs text-slate-500">{risk.id}</span> &middot;{" "}
+              {risk.title}
+            </h3>
+            <ul className="mt-2 space-y-2">
+              {risk.inPlace.map((line) => (
+                <li key={line} className="text-sm leading-6 text-slate-700">
+                  {line}
+                </li>
+              ))}
+            </ul>
+            {risk.gap ? (
+              <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+                <span className="font-semibold">Not done:</span> {risk.gap}
+              </p>
+            ) : null}
+          </section>
+        ))}
+      </div>
+
+      <p className="mt-8 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700">
+        {OWASP_POSTURE_LIMITS}
       </p>
 
       <h2 className="mt-12 text-2xl font-semibold tracking-[-0.02em] text-slate-950">

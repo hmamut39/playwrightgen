@@ -3730,6 +3730,65 @@ is missing, because its red is believed and its green is trusted. Both of
 these were read as "the model is unreliable here" for a fortnight. Neither
 was.
 
+**What is actually done about each risk, and what is not (2026-11-21).**
+The product had no security page. A prospect evaluating it had the privacy
+policy, the terms, and whatever they could infer. The claims existed -- tenant
+scoping, signed webhooks, a route inventory the build enforces -- and were
+spread across thirteen documents and the code itself.
+
+They are now on /about, mapped against the **OWASP Top 10:2025**, read from
+the official site today. 2025 is a different list from the one most pages
+still quote: Security Misconfiguration moved up to second, server-side request
+forgery was rolled into Broken Access Control, vulnerable components became
+Software Supply Chain Failures, and **Mishandling of Exceptional Conditions**
+is new at A10 -- which happens to be the fault class this product has found in
+itself most often, so it is the one entry where the honest answer is the
+longest.
+
+Two rules hold the page up, and tests enforce both:
+
+- **Every claim names what makes it true, and the checkable ones are
+  checked.** `tests/unit/owasp-posture.test.ts` runs the real SSRF guard
+  against the cloud metadata address and eleven other refusals, greps the
+  whole source tree for the raw-query escapes the page says appear nowhere,
+  asserts the audit gates exist in the workflows at high severity, that the
+  receipt signer uses HMAC and a constant-time comparison, that the injection
+  eval really contains the page that tries to give the model orders, and that
+  no npm script can `db push`. A claim here cannot outlive the code it
+  describes, which is exactly how the sending address went wrong.
+- **Where there is nothing, it says so in the same voice.** Six of the ten
+  carry a "Not done" box, and a test fails if fewer than three do. No external
+  penetration test, no SOC 2, no bug bounty -- said at the bottom, not left to
+  be inferred from ten green paragraphs.
+
+**The gap it found and closed.** Checked from outside, production sent exactly
+one security header: HSTS, from the platform. Nothing stopped a browser
+sniffing a response into a type it was never sent as, putting any page of this
+product in a frame on any site, or handing the full path of a workspace page
+-- organization, project and artifact ids -- to whatever a person clicked
+through to. Four headers now go out on every path, with nosniff on the built
+assets too. There is still no Content-Security-Policy, and the page says so:
+it is the one that can break sign-in or checkout for everybody at once.
+
+**And a measurement mistake worth keeping.** Loading the page showed one
+console error: the hot-reload WebSocket failing with ERR_INVALID_HTTP_RESPONSE.
+Four loads with the new headers, all broken; two without them, both clean. On
+that evidence the headers were disabled in development and a careful comment
+was written explaining why.
+
+The evidence was too small. Counted six at a time: four of six broken with the
+headers, **three of six broken with the config restored to the version that
+has never had a headers() function at all**. The failure is intermittent, it
+predates this work, and it belongs to the headless browser and the dev server.
+The headers went back to applying everywhere.
+
+Four out of four is not a rate, and a difference against an unmeasured
+baseline is not a cause. The same discipline this repository keeps insisting
+on for the evals -- do not call a case flaky on two runs -- applies to one's
+own diagnosis, and did not get applied until it had already produced a fix, a
+test and a paragraph of confident explanation for something that was never
+happening.
+
 **Twelve thousand tokens answers no question anybody has (2026-11-21).**
 Every AI run in this product has stored its token counts since the first
 version -- `AiRun`, `AutomationArtifactVersion` and `FailureAnalysis` each
