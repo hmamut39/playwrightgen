@@ -28,6 +28,7 @@
     "db:verify:test": "node scripts/migrate-test-database.mjs --verify-only",
     "db:migrate:test": "node scripts/migrate-test-database.mjs",
     "evals": "node scripts/run-evals.mjs",
+    "evals:trend": "node scripts/eval-trend.mjs",
     "evals:raw": "vitest run --config vitest.evals.config.ts",
     "db:migrate:preview": "node scripts/migrate-preview.mjs",
     "db:migrate:production": "node scripts/migrate-production.mjs",

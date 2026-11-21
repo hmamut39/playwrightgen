@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -155,7 +155,20 @@ if (!first.cases) {
 
 const cases = first.cases;
 const passed = cases.filter((entry) => entry.status === "passed").length;
-const run = { ranAt: new Date().toISOString(), score: { passed, total: cases.length }, cases };
+const run = {
+  ranAt: new Date().toISOString(),
+  // Which code was measured.
+  //
+  // Without this, two runs that disagree cannot be told apart from two runs
+  // of different code that disagree for the obvious reason. On 15 November
+  // the suite scored 54/57, 56/57 and 54/57 within three hours, and nothing
+  // in the records said whether those were three measurements of one commit
+  // -- the strongest evidence a case is unreliable -- or of three. The trend
+  // report could only fall back on the calendar date and had to say so.
+  commit: commitMeasured(),
+  score: { passed, total: cases.length },
+  cases,
+};
 
 const previous = readPrevious();
 writeFileSync(join(RESULTS, `${run.ranAt.replace(/[:.]/g, "-")}.json`), JSON.stringify(run, null, 2));
@@ -239,6 +252,24 @@ if (coverage) console.log(coverage);
 // a failure of the run, and a gate that cannot tell the two apart gates
 // nothing.
 process.exit(0);
+
+/**
+ * The commit these scores belong to, and whether the tree was clean.
+ *
+ * `dirty` matters as much as the sha. A run with uncommitted changes is a
+ * measurement of code that exists nowhere else, so two such runs sharing a
+ * sha prove nothing about the model -- which is exactly the mistake a reader
+ * would make if only the sha were recorded.
+ */
+function commitMeasured() {
+  const git = (args) => execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  try {
+    return { sha: git(["rev-parse", "HEAD"]).trim(), dirty: git(["status", "--porcelain"]).trim() !== "" };
+  } catch {
+    // No git, or no commits yet. Said as nothing rather than guessed at.
+    return null;
+  }
+}
 
 /** What each case is expected to do, moved only by hand. */
 function readBaseline() {

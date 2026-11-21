@@ -56,6 +56,11 @@ next-env.d.ts
 # with, not a measurement from one afternoon. The gate is worth nothing if
 # the thing it compares against is not in the repository.
 !/evals/results/baseline.json
+# Which side each case came down on, run by run. CI uploads its scores as a
+# workflow artifact that expires after 90 days, so a series that is not
+# committed is a series that disappears. Statuses only: no failure text, which
+# carries the absolute paths of whichever machine ran it.
+!/evals/results/history.json
 
 # Browser profiles and screenshots from local walkthrough scripts. They are
 # written beside the repository by Playwright's launchPersistentContext and

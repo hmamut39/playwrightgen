@@ -3730,6 +3730,61 @@ is missing, because its red is believed and its green is trusted. Both of
 these were read as "the model is unreliable here" for a fortnight. Neither
 was.
 
+**The score was hiding ten unstable cases (2026-11-21).** The gate compares
+one run with a blessed baseline, which answers "is this run allowed". Nothing
+answered "has this case been telling the truth", and that is what the score
+hides. Across the eight runs CI kept between 19 October and 16 November the
+score read 50/55, 52/55, 51/55, 51/57, 54/57, 56/57, 54/57, 56/57 -- a tidy
+climb -- while **ten of the sixty cases changed side underneath it**, one of
+them five times. A suite whose membership is stable and whose verdicts are
+not looks exactly like a suite that is improving.
+
+`npm run evals:trend` reports per case instead of per run. It reads every run
+it can find and prints each case's whole life as a line --
+`XX......X..X.  5x` -- so instability is visible as a shape rather than
+inferred from a number that moved.
+
+Three distinctions it refuses to flatten, because flattening any of them makes
+the report worse than nothing:
+
+- A case that was skipped and is now measured has not changed side. The two
+  live-page cases skipped for five runs without a remote browser key and then
+  began passing; counted naively that is the biggest flip in the suite, and it
+  is not a flip at all. It is the measurement beginning.
+- A case that was measured and is now skipped gets shouted about, because a
+  check that quietly stopped is the house fault class.
+- A case measured twice cannot support the word flaky. The report says how
+  many runs it is speaking from and says less when it knows less.
+
+**The first draft of it overclaimed, and that was the useful part.** It said
+six cases "disagreed with themselves twice in one day, with nothing released
+in between -- those cannot be the work of a commit". It read well and the data
+could not support it: 15 November held three eval runs *and several commits*,
+and nothing in the records said which commit any run measured. So the records
+now say. `run-evals.mjs` stores the sha and whether the tree was dirty --
+both halves, because a run of uncommitted code measured something that exists
+nowhere else, and two dirty runs sharing a sha prove nothing. Until two runs
+of one clean commit exist, the report states what it actually knows: *"None of
+these runs recorded which commit it measured, so none of the above can be
+pinned on the model yet."*
+
+The other half is that there was nowhere for the history to live. `evals/results/*`
+is excluded from version control on purpose -- one afternoon's measurement is
+not a fact about the repository -- and CI's weekly full-suite runs were
+uploaded as a workflow artifact that **nothing had ever read and that expires
+after 90 days**. The October runs were three weeks from being gone. `--ci`
+reads them through `gh`, and `--record` folds them into
+`evals/results/history.json`, which is committed: statuses only, no failure
+text, because a stack trace carries the absolute paths of whichever machine
+produced it. Twenty-six runs are in there now.
+
+One bug in it worth recording for its shape: the script printed nothing at
+all, successfully, on its first run. The "was I run or imported" guard built a
+file URL by hand, which on Windows is short a slash and leaves the drive
+letter's colon unencoded, so it never matched and the whole body was skipped.
+Exit code 0, no output, no error -- the same silence the report exists to
+catch.
+
 **The gate was watching a fifth of the suite (found and fixed 2026-11-14).**
 The committed baseline held 12 cases from three files; the suite runs 57 from
 thirteen. The other 45 were measured every week, printed one by one as "new",
