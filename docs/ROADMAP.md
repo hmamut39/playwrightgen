@@ -3730,6 +3730,40 @@ is missing, because its red is believed and its green is trusted. Both of
 these were read as "the model is unreliable here" for a fortnight. Neither
 was.
 
+**"Takes about a minute", measured (2026-11-21).** It is the first promise
+this product makes to a stranger, under the home page's own form, and nothing
+had ever timed it. Someone told to expect a minute who waits two and a half
+has been misled before they have seen a single result -- and they are
+watching a spinner, which is where people leave.
+
+Timed from pressing **Write & prove it** to the verdict being on screen,
+locally:
+
+- `demo.playwright.dev/todomvc` &mdash; **20 seconds**, proven on the live
+  page, 2 checks.
+- `practicesoftwaretesting.com` &mdash; **34 seconds**, proven on the live
+  page, 10 checks.
+
+So the claim was honest for the easy case and, if anything, generous. What it
+was silent about is the case that hurts: a first run that fails, where the
+loop writes a fix and runs again, up to twice. That is the path a stranger
+hit on 2026-11-15 and waited 151 seconds on. The line now reads *"Usually
+under a minute -- longer if the first run fails and it has to fix the test
+and try again."*
+
+**Still to check on production**, where a cold function and the network add
+to all of this. The local numbers are the floor, not the promise.
+
+**Two regexes of my own matched the product's text, in one afternoon.** A
+test asserted a report did not contain "thin", and passed because
+"No**thin**g here records who ran what" contains it. Then the timing run
+ended twenty-one seconds in, reporting a finished run that had not finished,
+because `/needs [A-Z_]+/i` -- case-insensitive -- matched **"What needs to
+be done?"**, the TodoMVC placeholder quoted in the generated code. Both were
+caught only because the result looked implausible. A loose pattern over text
+a product generates will eventually match the product's own words, and it
+fails by passing.
+
 **A new team followed its own instructions, all the way (2026-11-21).**
 The first walk read the empty screens. This one does the work: write a
 requirement, submit it, approve it, let the AI propose test cases, approve

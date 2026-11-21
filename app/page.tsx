@@ -242,7 +242,19 @@ export default function Home() {
                 </button>
               </div>
               <p className="mt-2 text-xs text-slate-400">
-                Free, no account. Takes about a minute. Or{" "}
+                {/*
+                  * Measured on 2026-11-21 rather than estimated: twenty
+                  * seconds on the TodoMVC demo (2 checks) and thirty-four on
+                  * a real shop (10 checks), both proven on the live page.
+                  * "About a minute" was therefore honest for the easy case
+                  * and silent about the one that hurts -- a first run that
+                  * fails, where the loop writes a fix and runs again, twice
+                  * if it needs to. A visitor told "a minute" who is still
+                  * waiting at two and a half has been misled before they
+                  * have seen anything, and that is where people leave.
+                  */}
+                Free, no account. Usually under a minute &mdash; longer if the first
+                run fails and it has to fix the test and try again. Or{" "}
                 <Link href="/generator" className="font-semibold text-cyan-200 hover:text-cyan-100">try a ready-made demo</Link>
                 {" "}&middot;{" "}
                 <Link href="/workspace" className="font-semibold text-cyan-200 hover:text-cyan-100">open your Workspace</Link>
