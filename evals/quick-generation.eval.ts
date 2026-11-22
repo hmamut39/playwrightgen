@@ -124,6 +124,32 @@ describe("Quick Generate draft quality", () => {
     expect(result.code).not.toMatch(/\b(?:eval\s*\(|new\s+Function\s*\()/);
   }, 120_000);
 
+  it("writes data it invented as a literal, not as an environment variable", async () => {
+    /*
+     * Found on 2026-11-22 by timing the home page's promise against
+     * production. The draft came back needing **E2E_TODO_TEXT**: the model
+     * had turned the text of a todo the test types into an environment
+     * variable, so a stranger's first run ended at "needs E2E_TODO_TEXT from
+     * your environment" instead of a passing test. The same page an hour
+     * earlier had written 'buy milk' as a literal and passed in twenty
+     * seconds.
+     *
+     * The prompt had asked for it: "Read secrets and test data from
+     * process.env". A todo's text is test data. Credentials and anything
+     * naming something real still belong in the environment -- this asks for
+     * the other half of that distinction, on a flow that has no secrets in
+     * it at all.
+     */
+    const { result } = await generate("invented-data-is-literal", {
+      request:
+        "A visitor types a task into the new-todo box, presses Enter, and sees that task appear in the list below.",
+      pageUrl: "https://demo.playwright.dev/todomvc/",
+    });
+
+    // Nothing here is a credential, so nothing here needs the environment.
+    expect(result.code).not.toMatch(/process\.env/);
+  }, 120_000);
+
   it("states what it had to assume instead of filling gaps silently", async () => {
     // Deliberately underspecified: no selectors, no credentials, no URL. The
     // interface promises that anything not supplied is listed rather than

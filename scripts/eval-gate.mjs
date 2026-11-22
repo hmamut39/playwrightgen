@@ -19,6 +19,36 @@
 
 const key = (entry) => `${entry.file}::${entry.name}`;
 
+/**
+ * Whether a parsed file from `evals/results/` is a run at all.
+ *
+ * The directory holds three kinds of file and only one of them is a run.
+ * `baseline.json` is a decision, `history.json` is a series of runs, and the
+ * dated files are the runs themselves. Reading either of the other two as a
+ * run crashes the reporter on `previous.cases.map`.
+ *
+ * That has now happened twice. The first time it was the baseline, and the
+ * fix was to exclude it **by name** -- which worked until `history.json` was
+ * added on 2026-11-21 and the weekly job was one scheduled run away from
+ * failing again. A list of names to skip is a list that the next new file is
+ * not on. Asking what a file *is* survives the next one.
+ */
+export function isEvalRun(value) {
+  if (!value || typeof value !== "object") return false;
+  if (!Array.isArray(value.cases)) return false;
+  /*
+   * A run happened at a moment and carries a score. The baseline has cases
+   * too -- it is made from a run -- but it is a decision, not an event: no
+   * `ranAt`, no `score`. Checking only for `cases` let it through, and the
+   * reporter died one line further on, reading `previous.score.passed`.
+   * Caught by running the thing rather than by the test written beside it,
+   * which asserted the baseline was a run because the author believed it.
+   */
+  if (typeof value.ranAt !== "string") return false;
+  const score = value.score;
+  return Boolean(score) && typeof score === "object" && typeof score.passed === "number";
+}
+
 export function compareWithBaseline(run, baseline) {
   const known = new Map((baseline?.cases ?? []).map((entry) => [key(entry), entry]));
 

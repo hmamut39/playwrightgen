@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "nod
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { acceptedBaseline, compareWithBaseline, coverageNote, gateReport } from "./eval-gate.mjs";
+import { acceptedBaseline, compareWithBaseline, coverageNote, gateReport, isEvalRun } from "./eval-gate.mjs";
 
 /**
  * Runs the evals and keeps the score, so one run can be compared with the next.
@@ -282,19 +282,33 @@ function readBaseline() {
 
 /** The most recent archived run, if there is one to compare against. */
 function readPrevious() {
+  /*
+   * The newest file in here that is actually a run.
+   *
+   * This directory holds three kinds of file: the dated runs, the baseline
+   * (a decision, with no cases), and history.json (a series of runs). Only
+   * the first is a previous run, and reading either of the others as one
+   * crashes the reporter on previous.cases.map.
+   *
+   * That has happened twice. The first time it was the baseline and the fix
+   * was to skip it by name, which held until history.json arrived on
+   * 2026-11-21 and the weekly job was one scheduled run from failing again.
+   * A list of names to skip is a list the next new file is not on, so this
+   * asks what each file is and takes the newest that answers "a run".
+   */
   const archived = readdirSync(RESULTS)
-    // Not the baseline, which lives here too and carries no score: reading
-    // it as a previous run crashed the reporter, and would have taken the
-    // weekly job down on its first real run.
-    .filter((name) => name.endsWith(".json") && name !== "latest.json" && name !== "baseline.json")
-    .sort();
-  const last = archived.at(-1);
-  if (!last) return null;
-  try {
-    return JSON.parse(readFileSync(join(RESULTS, last), "utf8"));
-  } catch {
-    return null;
+    .filter((name) => name.endsWith(".json") && name !== "latest.json")
+    .sort()
+    .reverse();
+  for (const name of archived) {
+    try {
+      const parsed = JSON.parse(readFileSync(join(RESULTS, name), "utf8"));
+      if (isEvalRun(parsed)) return parsed;
+    } catch {
+      // Unreadable or half-written: try the one before it.
+    }
   }
+  return null;
 }
 
 function report(run, previous) {

@@ -1,5 +1,5 @@
 {
-  "blessedAt": "2026-11-15T18:09:09.855Z",
+  "blessedAt": "2026-11-22T14:57:46.737Z",
   "cases": [
     {
       "file": "draft-repair.eval.ts",
@@ -285,6 +285,11 @@
     {
       "file": "test-case-proposals.eval.ts",
       "name": "Test Case proposal quality keeps proposals to a reviewable number",
+      "status": "passed"
+    },
+    {
+      "file": "quick-generation.eval.ts",
+      "name": "Quick Generate draft quality writes data it invented as a literal, not as an environment variable",
       "status": "passed"
     }
   ]

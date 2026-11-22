@@ -3730,6 +3730,49 @@ is missing, because its red is believed and its green is trusted. Both of
 these were read as "the model is unreliable here" for a fortnight. Neither
 was.
 
+**A first run that ends in "set E2E_TODO_TEXT" (2026-11-22).** Timing the
+home page's promise against production, rather than locally, settled the
+number and turned up something worse than the number.
+
+**The timing holds.** 22 seconds on production against 20 locally, for the
+TodoMVC demo proven in a real browser. "Usually under a minute" is honest.
+
+**The draft was not runnable.** It came back needing `process.env.E2E_TODO_TEXT`:
+the model had turned *the text of a todo the test types in* into an
+environment variable, so the run ended at "needs E2E_TODO_TEXT from your
+environment, which the preview does not have". The same page an hour earlier
+had written `'buy milk'` as a literal and passed.
+
+The prompt asked for it, in as many words: *"Read secrets and test data from
+process.env with a clear name and a comment."* A todo's text is test data. It
+now distinguishes the two halves -- secrets and anything naming something
+real go in the environment with no literal fallback; data the test invents
+for itself must be a literal, because an environment variable for invented
+data stops the test running anywhere until somebody sets something the test
+never needed.
+
+Measured, not assumed: all eight `quick-generation` eval cases pass with the
+new wording, including a new one that fails if a flow with no secrets in it
+reaches for `process.env` at all.
+
+**And the eval runner crashed while accepting that case.** `readPrevious()`
+takes the newest file in `evals/results/` as the previous run, and
+`history.json` -- added on 2026-11-21 -- is not a run. The reporter died on
+`previous.cases.map`. **The weekly job was one scheduled run from failing**,
+and nothing would have said why.
+
+The comment above that line already described this happening once before,
+with `baseline.json`, fixed by excluding it **by name**. A list of names to
+skip is a list the next new file is not on. It now asks what a file *is*.
+
+The first attempt at that was too loose -- `isEvalRun` accepted anything with
+`cases`, which the baseline has -- and the reporter died one line further on
+at `previous.score.passed`. The test written beside it asserted the baseline
+*was* a run, because that is what I believed while writing both. Running the
+thing said otherwise: a run is an event, with a moment and a score; the
+baseline is a decision. Two mistakes, the second one caught only because the
+first fix was tried rather than reasoned about.
+
 **The owner used his own tool and found two faults in one screen
 (2026-11-22).** The first run anybody has done of Quick Generate as a visitor
 rather than as a script. It passed -- TodoMVC, a draft written from the real

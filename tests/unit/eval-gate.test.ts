@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { acceptedBaseline, compareWithBaseline, coverageNote, gateReport } from "@/scripts/eval-gate.mjs";
+import { acceptedBaseline, compareWithBaseline, coverageNote, gateReport, isEvalRun } from "@/scripts/eval-gate.mjs";
 
 /**
  * The gate decides whether an eval run may pass, so it is worth more than the
@@ -393,5 +393,41 @@ describe("a case that moves between two kinds of not passing", () => {
 
     expect(comparison.recoveries).toHaveLength(1);
     expect(comparison.stillFailing).toHaveLength(0);
+  });
+});
+
+describe("telling a run from the other files beside it", () => {
+  it("recognises a run", () => {
+    expect(
+      isEvalRun({ ranAt: "2026-11-22T00:00:00.000Z", score: { passed: 8, total: 8 }, cases: [] }),
+    ).toBe(true);
+  });
+
+  it("rejects the baseline and the history, which live in the same directory", () => {
+    /*
+     * Both have crashed the reporter. The baseline did it first, on
+     * previous.cases.map, and was excluded by name; history.json arrived on
+     * 2026-11-21 and the weekly job was one scheduled run from failing the
+     * same way. A list of names to skip is a list the next new file is not
+     * on.
+     *
+     * The first version of this test asserted the baseline *was* a run,
+     * because it has cases and the author believed that was the whole
+     * shape. Running the thing said otherwise: the reporter died one line
+     * further on, at previous.score.passed. A run is an event -- it has a
+     * moment and a score -- and the baseline is a decision.
+     */
+    expect(isEvalRun({ blessedAt: "2026-11-14", cases: [] })).toBe(false);
+    expect(isEvalRun({ recordedAt: "2026-11-21T00:00:00.000Z", runs: [] })).toBe(false);
+  });
+
+  it("rejects a run with no score, which is what the baseline looks like", () => {
+    expect(isEvalRun({ ranAt: "2026-11-22T00:00:00.000Z", cases: [] })).toBe(false);
+  });
+
+  it("rejects anything that is not an object with cases", () => {
+    for (const value of [null, undefined, 7, "run", [], {}, { cases: "none" }]) {
+      expect(isEvalRun(value), JSON.stringify(value) ?? "undefined").toBe(false);
+    }
   });
 });
