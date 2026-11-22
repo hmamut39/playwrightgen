@@ -38,6 +38,16 @@ export type FreeToolCost = {
   usd: number | null;
   /** Surfaces seen in the data that have no published limit to bound. */
   unbounded: string[];
+  /**
+   * Allowances with no priced run yet, which the ceiling therefore leaves out.
+   *
+   * Without this the report said "a single visitor cannot cost more than
+   * $0.143 in a week" on the strength of one surface having been used once,
+   * while two other allowances -- five calls a day each -- sat unmeasured.
+   * "Cannot cost more than" is a claim about every way the money can be
+   * spent, so a ceiling built from part of them has to say which part.
+   */
+  unmeasured: string[];
   /** The most one visitor could cost in seven days, at these averages. */
   worstWeekUsd: number | null;
 };
@@ -98,11 +108,18 @@ export function summariseFreeToolCost(rows: UsageRow[], pools: AllowancePools): 
    * somehow spending the same allowance twice.
    */
   let worstWeekUsd: number | null = null;
-  for (const pool of Object.values(pools)) {
+  const unmeasured: string[] = [];
+  for (const [name, pool] of Object.entries(pools)) {
     const averages = surfaces
       .filter((entry) => pool.surfaces.includes(entry.surface) && entry.averageUsd !== null)
       .map((entry) => entry.averageUsd as number);
-    if (averages.length === 0) continue;
+    if (averages.length === 0) {
+      // An allowance nobody has spent yet is still an allowance somebody can
+      // spend. Left out of the arithmetic because there is no price for it,
+      // and named so the ceiling is not read as covering it.
+      unmeasured.push(name);
+      continue;
+    }
     worstWeekUsd = (worstWeekUsd ?? 0) + Math.max(...averages) * pool.limit * 7;
   }
 
@@ -111,6 +128,7 @@ export function summariseFreeToolCost(rows: UsageRow[], pools: AllowancePools): 
     runs: rows.length,
     usd: priced.length > 0 ? priced.reduce((total, entry) => total + (entry.usd ?? 0), 0) : null,
     unbounded,
+    unmeasured,
     worstWeekUsd,
   };
 }
@@ -169,6 +187,12 @@ export function freeToolCostReport(cost: FreeToolCost, days: number): string[] {
     "That is a ceiling worked out from the limits, not a measurement of anybody. " +
       "Nothing here records who ran what, on purpose, so one person's week does not exist in this data.",
   );
+  if (cost.unmeasured.length > 0) {
+    lines.push(
+      `It covers only the allowances that have been used: ${cost.unmeasured.join(", ")} ` +
+        `${cost.unmeasured.length === 1 ? "has" : "have"} no priced run yet, so the real ceiling is higher.`,
+    );
+  }
   if (cost.unbounded.length > 0) {
     lines.push(
       `Not in that ceiling: ${cost.unbounded.join(", ")} -- no published daily limit to bound ${

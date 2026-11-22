@@ -93,6 +93,29 @@ describe("the ceiling on one visitor", () => {
     expect(cost.worstWeekUsd).toBeCloseTo(0.0065 * 5 * 7 * 2, 10);
   });
 
+  it("says which allowances the ceiling does not cover yet", () => {
+    /*
+     * Found the day the ledger went live: one run on one surface, and the
+     * report said "a single visitor cannot cost more than $0.143 in a week"
+     * while two other allowances -- five calls a day each -- had never been
+     * measured. "Cannot cost more than" is a claim about every way the money
+     * can be spent, so a ceiling built from part of them has to say so.
+     */
+    const cost = summariseFreeToolCost([run("quick-generate")], LIMITS);
+    const text = freeToolCostReport(cost, 7).join("\n");
+
+    expect(cost.unmeasured).toEqual(["coverage-review"]);
+    expect(text).toContain("covers only the allowances that have been used");
+    expect(text).toContain("the real ceiling is higher");
+  });
+
+  it("says nothing of the kind once every allowance has been measured", () => {
+    const cost = summariseFreeToolCost([run("quick-generate"), run("coverage-review")], LIMITS);
+
+    expect(cost.unmeasured).toEqual([]);
+    expect(freeToolCostReport(cost, 7).join("\n")).not.toContain("the real ceiling is higher");
+  });
+
   it("leaves out a surface it cannot bound, and names it", () => {
     /*
      * A surface with no published limit cannot be capped. Dropping it
