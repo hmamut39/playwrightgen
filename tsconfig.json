@@ -30,5 +30,9 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  // scratchpad/ is gitignored throwaway: walk scripts, one-off database
+  // reads, patches. CI never sees it, but locally a half-finished file in
+  // there failed `npm run typecheck` and `npm run build` -- a file the
+  // repository does not track should not be able to break the repository.
+  "exclude": ["node_modules", "scratchpad"]
 }
