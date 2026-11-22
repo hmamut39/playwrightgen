@@ -3730,6 +3730,49 @@ is missing, because its red is believed and its green is trusted. Both of
 these were read as "the model is unreliable here" for a fortnight. Neither
 was.
 
+**The feedback channel was silently broken, and a real report had been
+waiting a fortnight (2026-11-21).** January needs two things: strangers can
+use it, and their feedback reaches the owner. The first half has been walked
+all day. Nothing had ever proved the second.
+
+A report sent through the live site, from the dialog a visitor uses, logged:
+
+    "code":"notice_not_sent","reason":"The playwrightgen.com domain is not
+     verified. Please, add and verify your domain on resend.com/domains"
+    "code":"feedback_received","status":"succeeded"
+
+The mail did not send. The visitor was told *"That went straight to the
+person who builds this."* The domain was verified in Resend this morning, so
+whatever is verified there is not the address `LIVE_CHECKS_EMAIL_FROM` sends
+from -- **an owner action, and the only blocked part of this.**
+
+**Worse: nothing had ever read the store.** The route has kept every report
+for 180 days since it was written, and the mail was the only way any of them
+reached a person. `npm run feedback` now reads them, and the first run found
+five -- four of them tests, and one real, from 2026-11-07:
+
+> "The pricing page says checkout is disabled but the button still looks
+> clickable."
+
+Unread for a fortnight. The first genuine piece of user feedback this product
+has ever received, and it was right about something real.
+
+**What it was pulling at.** The pricing page advertised **"7 days free"**.
+`lib/services/entitlements.ts` granted **fourteen**. A third constant --
+also named `TRIAL_DAYS`, also 7 -- was Stripe's subscription trial in the
+checkout route, which is a different trial that no visitor could know about.
+Three lengths, two sharing a name, one of them quoted at the public.
+Advertising less than is given is the safer direction and still wrong: a team
+plans an evaluation around the number on the page. The label is now derived
+from `OPENING_TRIAL_DAYS`, Stripe's is `STRIPE_TRIAL_DAYS`, and a test
+fails if the advertised figure and the granted one part company again.
+
+The reply to a visitor no longer claims a delivery that did not happen: when
+the notice fails it says the report is saved and read, which is true, instead
+of saying it reached a person, which was not. Somebody who believes their
+report was read does not write it again, and the ones that get written are
+the whole point of the channel.
+
 **"Takes about a minute", measured (2026-11-21).** It is the first promise
 this product makes to a stranger, under the home page's own form, and nothing
 had ever timed it. Someone told to expect a minute who waits two and a half

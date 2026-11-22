@@ -19,7 +19,14 @@ import {
  * back from CI, which is the only thing that demonstrates what this costs money
  * for. A shorter trial ends before the first real run arrives.
  */
-const TRIAL_DAYS = 7;
+/*
+ * Named apart from the opening allowance in lib/plan.ts, which is a different
+ * trial: that one starts when a workspace is made and needs no card, this one
+ * is Stripe's and starts when somebody subscribes. Both were called
+ * TRIAL_DAYS, in two files, with two values, and the pricing page quoted the
+ * wrong one of them at visitors.
+ */
+const STRIPE_TRIAL_DAYS = 7;
 
 const requestSchema = z.object({
   orgSlug: z.string().trim().min(1).max(100),
@@ -100,7 +107,7 @@ export async function POST(request: Request) {
           // Set here rather than on the Stripe price so the trial cannot be
           // lost by someone editing the price in the dashboard, and so it is
           // identical in test and live mode.
-          trial_period_days: TRIAL_DAYS,
+          trial_period_days: STRIPE_TRIAL_DAYS,
           metadata: {
             playwrightgenOrganizationId: context.organization.id,
             playwrightgenPlan: "TEAM",

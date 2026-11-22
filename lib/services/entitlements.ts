@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { PrismaClient } from "@/generated/prisma/client";
+import { OPENING_TRIAL_DAYS } from "@/lib/plan";
 import { getPrismaClient } from "@/lib/db/prisma";
 
 /**
@@ -81,7 +82,12 @@ export const TEAM_LIMITS = { aiDailyLimit: 60, aiMinuteLimit: 12 } as const;
  * the three ways the stored version goes wrong. It also needs no migration,
  * so it cannot be half-deployed.
  */
-export const TRIAL_DAYS = 14;
+/**
+ * The same number the pricing page advertises, read from where it is
+ * advertised. Two copies of this drifted to 7 and 14; one of them is now the
+ * only one.
+ */
+export const TRIAL_DAYS = OPENING_TRIAL_DAYS;
 
 function numeric(value: string | undefined, fallback: number): number {
   const parsed = Number(value);

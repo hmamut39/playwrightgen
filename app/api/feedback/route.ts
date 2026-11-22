@@ -160,6 +160,17 @@ export async function handleFeedbackRequest(
     await store.zremrangebyrank(FEEDBACK_KEY, 0, -(MAX_KEPT + 1));
 
     const recipient = process.env.FEEDBACK_NOTIFY_EMAIL?.trim() || process.env.WAITLIST_NOTIFY_EMAIL?.trim();
+    /*
+     * Whether the notice left, which the reply has to stop claiming blindly.
+     *
+     * On 2026-11-21 a report sent through the live site logged
+     * "notice_not_sent -- the playwrightgen.com domain is not verified", and
+     * the visitor was told it had gone straight to the person who builds
+     * this. It had gone to Redis. Saying so is not a detail: somebody who
+     * believes their report was read does not write it again, and the whole
+     * point of the channel is the ones that get written.
+     */
+    let notified = false;
     if (recipient) {
       try {
         const { RESEND_API_KEY } = validateResendEnvironment();
@@ -169,6 +180,7 @@ export async function handleFeedbackRequest(
           subject: `PlaywrightGen feedback${path ? ` from ${path}` : ""}`,
           text: [`From: ${who}`, `Page: ${path ?? "(not given)"}`, "", parsed.data.message].join("\n"),
         });
+        notified = true;
       } catch (error) {
         // Kept, not sent. Losing the report because a mail server was slow
         // would be the one outcome worse than not being told -- so the person
@@ -179,7 +191,14 @@ export async function handleFeedbackRequest(
       }
     }
 
-    return respond("feedback_received", 200, "Thank you. That went straight to the person who builds this.");
+    return respond(
+      "feedback_received",
+      200,
+      notified
+        ? "Thank you. That went straight to the person who builds this."
+        : // Kept, which is true, and no claim about a person having seen it.
+          "Thank you. That is saved, and the person who builds this reads these.",
+    );
   } catch {
     return respond("feedback_unavailable", 503, "That could not be sent just now. Please try again shortly.");
   }
