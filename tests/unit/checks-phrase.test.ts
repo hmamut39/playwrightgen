@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { checksCount, checksPhrase } from "@/lib/free-tools/preview-run/checks-phrase";
+import { checksCount, checksPhrase, stepsPhrase } from "@/lib/free-tools/preview-run/checks-phrase";
 
 /**
  * The number under "proven on your real page" has to be the one a tester would
@@ -39,5 +39,30 @@ describe("what a live run says it checked", () => {
   it("offers null rather than a number a caller would have to invent", () => {
     expect(checksCount({ checks: 0 })).toBe(0);
     expect(checksCount({})).toBeNull();
+  });
+});
+
+describe("the detail line under a verdict", () => {
+  it("says both numbers at once, so they stop contradicting each other", () => {
+    /*
+     * The free generator showed "Passed on the live page: 2 checks in 3s"
+     * directly above "5 passed · 0 failed · 3s". Both came from one run; two
+     * is the assertions, five is every operation. Neither line said which it
+     * meant. Found by the owner using his own tool on 2026-11-22.
+     */
+    expect(stepsPhrase({ passed: 5, checks: 2 })).toBe("5 steps passed, 2 of them checks");
+  });
+
+  it("reads correctly for one of each", () => {
+    expect(stepsPhrase({ passed: 1, checks: 1 })).toBe("1 step passed, 1 of them check");
+  });
+
+  it("invents no second number for a run that never counted assertions", () => {
+    expect(stepsPhrase({ passed: 7 })).toBe("7 steps passed");
+    expect(stepsPhrase({ passed: 7, checks: null })).toBe("7 steps passed");
+  });
+
+  it("says zero plainly", () => {
+    expect(stepsPhrase({ passed: 0, checks: 0 })).toBe("0 steps passed, 0 of them checks");
   });
 });

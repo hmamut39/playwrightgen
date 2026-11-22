@@ -3730,6 +3730,46 @@ is missing, because its red is believed and its green is trusted. Both of
 these were read as "the model is unreliable here" for a fortnight. Neither
 was.
 
+**The owner used his own tool and found two faults in one screen
+(2026-11-22).** The first run anybody has done of Quick Generate as a visitor
+rather than as a script. It passed -- TodoMVC, a draft written from the real
+page, proven in three seconds -- and the result screen said two things that
+cannot both be true.
+
+**"1 of 1 locators match the page", above a list of two locators "Not on the
+page we opened".** One of the two was
+`getByRole('textbox', { name: 'What needs to be done?' })`: the main input,
+which the accessibility tree contained, which the generated code's own
+comment quoted *from* that tree, and which the passing run had just used.
+
+Both numbers came from the product, and they came from different places. The
+badge is `checkLocatorsAgainstPage` -- deterministic, measured against the
+tree. The list is `unverifiedLocators` -- the **model's own account** of
+what it could not see, printed verbatim under a heading that states it as
+fact. A reader cannot tell which is which, so the fix is not to explain the
+discrepancy but to stop printing it: `reviewUnverifiedLocators` drops any
+claim the page contradicts, before anybody sees it.
+
+What it keeps matters as much. `getByText('buy milk')` stays, because the
+todo genuinely does not exist until the test creates it -- that is what the
+panel is *for*. A locator with no literal name to compare stays too:
+unverifiable is not contradicted, and dropping it would be the same sin
+pointing the other way.
+
+**"Passed on the live page: 2 checks in 3s", above "5 passed · 0 failed".**
+The same assertions-versus-operations mix-up fixed on the workspace badge
+yesterday, still live on the free page a stranger meets first. Two is the
+assertions; five is every operation, each `goto` and `fill` among them.
+Both lines said "passed". The detail now reads **"5 steps passed, 2 of them
+checks"** -- one phrase, so the larger number is the work and the smaller is
+the proof inside it.
+
+Worth noting where this came from. Twelve commits yesterday were found by
+walking the product with scripts, and neither of these appeared. They took
+one person pressing the button and reading what came back -- which is the
+entire argument for the January trial, demonstrated on the product's own
+author inside a minute.
+
 **The feedback channel was silently broken, and a real report had been
 waiting a fortnight (2026-11-21).** January needs two things: strangers can
 use it, and their feedback reaches the owner. The first half has been walked

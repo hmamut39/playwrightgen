@@ -7,6 +7,7 @@ import { z } from "zod";
 import { generatedCodeSafetyFindings } from "@/lib/ai/generated-code-safety";
 
 import { extractLocatorNames, normalizeName } from "@/lib/free-tools/locator-names";
+import { reviewUnverifiedLocators } from "@/lib/free-tools/unverified-locators";
 import { alignContainerNames, alignTestIdLocators, siteTestIdAttribute } from "@/lib/free-tools/test-id-attribute";
 import { alignRootNavigation } from "@/lib/free-tools/navigation";
 
@@ -267,8 +268,26 @@ export async function generateQuickDraft(
       : response.output_parsed.warnings,
   };
 
+  /*
+   * The model's "confirm these before the first run" list, checked against
+   * the page the product just read.
+   *
+   * Shown verbatim, that list is a model's self-report printed under the
+   * heading "Not on the page we opened" -- a statement of fact about a page
+   * the product has in front of it. On 2026-11-22 it listed the TodoMVC main
+   * input, which the tree contained, which the generated code quoted from the
+   * tree, and which the passing run had just used, while a badge beside it
+   * read "1 of 1 locators match the page". Both numbers came from the
+   * product; one was measured and one was repeated, and a reader cannot tell
+   * which. So a claim the page contradicts is dropped before anybody sees it.
+   */
+  const unverified = input.pageSnapshot
+    ? reviewUnverifiedLocators(output.unverifiedLocators, input.pageSnapshot.aria)
+    : { kept: output.unverifiedLocators, dropped: [] };
+
   return {
     ...output,
+    unverifiedLocators: unverified.kept,
     model,
     provider: {
       requestId: response._request_id ?? null,

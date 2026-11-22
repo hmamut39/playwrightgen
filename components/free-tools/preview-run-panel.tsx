@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { LimitReached, readFreeToolLimit, type FreeToolLimit } from "@/components/free-tools/limit-reached";
-import { checksPhrase } from "@/lib/free-tools/preview-run/checks-phrase";
+import { checksPhrase, stepsPhrase } from "@/lib/free-tools/preview-run/checks-phrase";
 
 export type OperationResult = { source: string; status: "passed" | "failed" | "skipped" | "not_reached"; detail?: string };
 export type StepResult = { name: string; status: "passed" | "failed" | "partial" | "not_reached"; operations: OperationResult[] };
@@ -314,7 +314,7 @@ export function PreviewRunPanel({
           )}
 
           <p className="text-xs text-slate-400">
-            {shown.result.counts.passed} passed &middot; {shown.result.counts.failed} failed
+            {stepsPhrase(shown.result.counts)} &middot; {shown.result.counts.failed} failed
             {shown.result.counts.skipped ? ` · ${shown.result.counts.skipped} not run in the preview` : ""}
             {shown.result.counts.notReached ? ` · ${shown.result.counts.notReached} not reached` : ""}
             {" "}&middot; {Math.round(shown.result.durationMs / 1000)}s

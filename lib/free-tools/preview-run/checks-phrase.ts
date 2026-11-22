@@ -28,3 +28,24 @@ export function checksPhrase(evidence: { passed: number; checks?: number | null 
 export function checksCount(evidence: { checks?: number | null }): number | null {
   return typeof evidence.checks === "number" ? evidence.checks : null;
 }
+
+/**
+ * The detail under a verdict, where both numbers have to appear at once.
+ *
+ * The free generator showed "Passed on the live page: 2 checks in 3s" and,
+ * directly beneath it, "5 passed · 0 failed · 3s". Both came from the same
+ * run. Two is the assertions; five is every operation, each goto and fill
+ * among them. Neither line said which it meant, so the screen read as a
+ * product that could not count -- the owner found it within a minute of
+ * using his own tool on 2026-11-22.
+ *
+ * Saying them together, in one phrase, is what makes them stop fighting: the
+ * larger number is the work, the smaller one is the proof inside it.
+ */
+export function stepsPhrase(evidence: { passed: number; checks?: number | null }): string {
+  const steps = `${evidence.passed} step${evidence.passed === 1 ? "" : "s"} passed`;
+  const checks = checksCount(evidence);
+  // Runs recorded before assertions were counted have no second number, and
+  // inventing one is exactly what checksPhrase exists to prevent.
+  return checks === null ? steps : `${steps}, ${checks} of them check${checks === 1 ? "" : "s"}`;
+}
