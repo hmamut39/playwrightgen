@@ -3730,6 +3730,38 @@ is missing, because its red is believed and its green is trusted. Both of
 these were read as "the model is unreliable here" for a fortnight. Neither
 was.
 
+**The MCP server, connected to from outside, and nothing was wrong
+(2026-11-22).** It has its own page in the navigation, a section on the
+pricing page and sixteen advertised tools, and nothing had ever spoken to it
+except this product's own tests. A stranger with Cursor or Claude Code is a
+likely first user, and they would have found any fault before we did.
+
+A throwaway workspace, the editor token taken off the Automation page the way
+the instructions say, and JSON-RPC over HTTP the way an editor speaks it:
+
+- `initialize` answers with protocol 2025-06-18 and its own instructions.
+- `tools/list` returns **sixteen tools**, which is the number the MCP page
+  claims, with the names it lists.
+- `list_requirements` on an empty project answers *"This project has no
+  approved requirements yet. 0 verified, 0 failing, 0 not verified"* rather
+  than an empty array and a shrug.
+- `project_overview` returns a real summary with blocking conditions
+  counted.
+
+Nothing to fix, which is worth writing down: every other surface walked this
+week produced at least one fault, and a walk that finds none is only
+meaningful if the walks that find faults are recorded beside it.
+
+**The public evidence page was checked too**, since the home page invites
+strangers to it. It works, and it refuses to overclaim on the product's own
+showcase: *"No requirement has been approved yet, so none of it states what
+the product was agreed to do."* That is the right sentence and the wrong
+demonstration -- the one public example of the evidence chain shows an
+incomplete chain. Completing it means a person approving a requirement in
+that project, and an approval is a record that a human agreed something, so
+it is not something to fabricate on their behalf. An owner action, left as
+one.
+
 **Cover a page, walked, and planning timed on two very different pages
 (2026-11-22).** The feature the pricing page leads with, and the last major
 surface with no walk behind it. It works, start to finish, in under two
