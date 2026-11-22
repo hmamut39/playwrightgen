@@ -51,8 +51,30 @@ export type ProveRound =
     };
 
 export type ProveGenerateResult = { ok: true; code: string; title: string; payload: unknown } | { ok: false; limit: boolean; message: string };
+/**
+ * What one run of the draft reported.
+ *
+ * `checks` is required and nullable rather than optional, which is the
+ * difference between a caller deciding not to say and a caller forgetting.
+ * It was optional, and two of the four callers -- the MCP server and the
+ * automation repair path -- never passed it, so their rounds fell back to
+ * counting operations. The same run then read "Passed: 17 steps" on one line
+ * and "12 checks passed" on another, with nothing saying why the numbers
+ * differed. Null means the runner did not count assertions; a number means it
+ * did.
+ */
 export type ProveRunResult =
-  | { ok: true; verdict: RunVerdict; passed: number; checks?: number; failed: number; skipped: number; receipt: string | null; failure: ProveFailure | null; payload: unknown }
+  | {
+      ok: true;
+      verdict: RunVerdict;
+      passed: number;
+      checks: number | null;
+      failed: number;
+      skipped: number;
+      receipt: string | null;
+      failure: ProveFailure | null;
+      payload: unknown;
+    }
   | { ok: false; limit: boolean; message: string };
 export type ProveFixResult = { ok: true; code: string; explanation: string; payload: unknown } | { ok: false; limit: boolean; message: string };
 

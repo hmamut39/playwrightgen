@@ -317,6 +317,9 @@ export default function QuickGeneratePage() {
             ok: true as const,
             verdict: verdictFromCounts(data.result.counts, data.result.timedOut),
             passed: data.result.counts.passed,
+            // Assertions. Without this the round below reported operations
+            // and the same run read "17 steps" beside "12 checks".
+            checks: typeof data.result.counts.checks === "number" ? data.result.counts.checks : null,
             failed: data.result.counts.failed,
             skipped: data.result.counts.skipped + data.result.counts.notReached,
             receipt: typeof data.receipt === "string" ? data.receipt : null,

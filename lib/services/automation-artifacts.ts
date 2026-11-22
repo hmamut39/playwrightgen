@@ -607,7 +607,7 @@ async function proveGeneratedCode(
             ok: true as const,
             verdict: runVerdict(result),
             passed: result.counts.passed,
-            checks: result.counts.checks,
+            checks: result.counts.checks ?? null,
             failed: result.counts.failed,
             skipped: result.counts.skipped + result.counts.notReached,
             receipt,

@@ -79,7 +79,7 @@ export async function POST(req: Request) {
           run: {
             verdict: runVerdict(result),
             passed: result.counts.passed,
-            checks: result.counts.checks,
+            checks: result.counts.checks ?? null,
             failed: result.counts.failed,
             skipped: result.counts.skipped,
             notReached: result.counts.notReached,

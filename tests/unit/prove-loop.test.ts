@@ -24,6 +24,7 @@ const failed = (passed: number): ProveRunResult => ({
   ok: true,
   verdict: "failed",
   passed,
+  checks: null,
   failed: 1,
   skipped: 0,
   receipt: null,
@@ -34,6 +35,7 @@ const passedRun: ProveRunResult = {
   ok: true,
   verdict: "passed",
   passed: 12,
+  checks: null,
   failed: 0,
   skipped: 0,
   receipt: "pwgr1.body.mac",
@@ -92,7 +94,7 @@ describe("proving a draft on the live page", () => {
 
   it("does not try to fix a run that only left steps unrun", async () => {
     const { dependencies } = harness([
-      { ok: true, verdict: "partial", passed: 4, failed: 0, skipped: 2, receipt: "pwgr1.partial", failure: null, payload: {} },
+      { ok: true, verdict: "partial", passed: 4, checks: null, failed: 0, skipped: 2, receipt: "pwgr1.partial", failure: null, payload: {} },
     ]);
 
     const outcome = await proveDraftOnLivePage(dependencies);
@@ -337,6 +339,7 @@ describe("a value the preview was never given", () => {
         ok: true as const,
         verdict: "failed" as const,
         passed: 5,
+        checks: null,
         failed: 1,
         skipped: 2,
         receipt: null,
