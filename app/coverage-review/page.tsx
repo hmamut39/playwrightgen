@@ -7,6 +7,7 @@ import { useMemo, useRef, useState } from "react";
 import { ResultActions } from "@/components/free-tools/result-actions";
 import { WorkspaceHandoffButton } from "@/components/free-tools/workspace-handoff-button";
 import type { FreeToolHandoff } from "@/lib/free-tools/handoff";
+import { livePageSummary } from "@/lib/free-tools/live-page-summary";
 import { useFreeToolAllowance } from "@/components/free-tools/use-free-tool-allowance";
 import { LimitReached, readFreeToolLimit, type FreeToolLimit } from "@/components/free-tools/limit-reached";
 import { PreviewRunPanel } from "@/components/free-tools/preview-run-panel";
@@ -506,17 +507,14 @@ function LiveCoveragePanel({ livePage }: { livePage: LiveCoveragePage }) {
         <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-800">Read from the live page</p>
           <h2 className="mt-1 truncate text-xl font-semibold text-slate-950">{livePage.title || livePage.url}</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            {livePage.controls} named control{livePage.controls === 1 ? "" : "s"}: {livePage.counts.buttons} buttons,{" "}
-            {livePage.counts.fields} fields,{" "}
-            {livePage.counts.links} links &middot; {livePage.signedIn ? "seen signed in with your test account" : "seen signed out"}
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            {livePageSummary({
+              counts: livePage.counts,
+              signedIn: livePage.signedIn,
+              controls: livePage.controls,
+              offSite: surface?.offSite?.length ?? 0,
+            })}
           </p>
-          {surface?.offSite?.length ? (
-            <p className="mt-1 text-xs text-slate-500">
-              {surface.offSite.length} link{surface.offSite.length === 1 ? "" : "s"} to another site left out of the
-              count &mdash; they lead away from the app you are testing.
-            </p>
-          ) : null}
         </div>
         {surface && surface.total > 0 ? (
           <span

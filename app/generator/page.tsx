@@ -23,6 +23,7 @@ import {
   type ProveRound,
 } from "@/lib/free-tools/prove-loop";
 import { redactionNote } from "@/lib/ai/personal-data";
+import { livePageSummary } from "@/lib/free-tools/live-page-summary";
 import { checksPhrase } from "@/lib/free-tools/preview-run/checks-phrase";
 import { liveRunHeadline } from "@/lib/free-tools/preview-run/run-headline";
 import {
@@ -921,8 +922,7 @@ function LivePagePanel({ livePage, result }: { livePage: LivePage; result: Quick
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-800">Read from the live page</p>
           <p className="mt-1 truncate text-sm font-semibold text-slate-900">{livePage.title || livePage.url}</p>
           <p className="mt-0.5 text-xs text-slate-500">
-            {livePage.counts.buttons} buttons · {livePage.counts.fields} fields · {livePage.counts.links} links ·{" "}
-            {livePage.counts.headings} headings, {livePage.signedIn ? "seen signed in with your test account" : "seen signed out"}
+            {livePageSummary({ counts: livePage.counts, signedIn: livePage.signedIn })}
           </p>
           {/*
             * What was taken out of the page before the model saw it.
