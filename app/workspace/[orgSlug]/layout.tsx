@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 
+import { OpenOtherWorkspace } from "@/components/workspace/open-other-workspace";
 import { WorkspaceFrame } from "@/components/workspace/workspace-frame";
+import { workspaceYouCanOpen } from "@/lib/auth/other-workspace";
 import { WorkspaceAuthorizationError, requireWorkspaceContext } from "@/lib/auth/workspace-context";
 
 export default async function OrganizationWorkspaceLayout({
@@ -36,6 +38,18 @@ export default async function OrganizationWorkspaceLayout({
     context = await requireWorkspaceContext({ orgSlug });
   } catch (error) {
     if (error instanceof WorkspaceAuthorizationError && error.status === 404) {
+      /*
+       * Before calling it not found, ask whether this is the commonest
+       * reason a page here cannot be resolved: the address names a
+       * workspace this person belongs to, and their session is in a
+       * different one. A workspace resolves from the session's active
+       * organization, so a teammate's link into another workspace answered
+       * "That page is not here" about a project they own.
+       */
+      const other = await workspaceYouCanOpen(orgSlug);
+      if (other) {
+        return <OpenOtherWorkspace name={other.name} clerkOrganizationId={other.clerkOrganizationId} />;
+      }
       notFound();
     }
     throw error;
