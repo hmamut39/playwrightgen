@@ -22,6 +22,20 @@ test("public quality workflow surfaces remain reachable", async ({ page }) => {
 
   await open("/pricing");
   await expect(page.getByRole("heading", { name: /start free/i })).toBeVisible();
+  /*
+   * The price reads as a sentence to anything that reads text rather than
+   * pixels.
+   *
+   * It rendered as `$19<span class="ml-2">per workspace, per month</span>`:
+   * a gap to the eye, and "$19per workspace, per month" to a screen reader,
+   * to an accessibility tree, and to anyone copying it. Found on 2026-11-22
+   * by pointing this product at its own pricing page -- the test it wrote
+   * asserted getByText('$19per workspace, per month'), which looked like the
+   * generator misbehaving and was the page telling the truth about itself.
+   */
+  const priceBlock = page.getByText(/\$19\s*per workspace, per month/);
+  await expect(priceBlock).toBeVisible();
+  expect(await priceBlock.innerText()).toContain("$19 per workspace, per month");
 
   await open("/privacy");
   await expect(page.getByRole("heading", { name: "Privacy notice" })).toBeVisible();

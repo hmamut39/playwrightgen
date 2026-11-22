@@ -165,9 +165,25 @@ export default function PricingPage() {
                   {PRO_PLAN.trialLabel}
                 </span>
               </div>
+              {/*
+                * The space between the price and the interval is a real
+                * space, not only a margin.
+                *
+                * It rendered as `$19<span class="ml-2">per workspace, per
+                * month</span>`: a gap to the eye, and the text content
+                * "$19per workspace, per month" to everything that reads text
+                * rather than pixels. A screen reader says it that way, and so
+                * does the accessibility tree.
+                *
+                * Found on 2026-11-22 by pointing this product at its own
+                * pricing page: the test it generated asserted
+                * getByText('$19per workspace, per month'), which looks like
+                * the generator malfunctioning and was the page telling the
+                * truth about itself.
+                */}
               <p className="mt-3 text-4xl font-bold tracking-[-0.02em]">
-                {PRO_PLAN.priceLabel}
-                <span className="ml-2 text-sm font-normal text-slate-400">
+                {PRO_PLAN.priceLabel}{" "}
+                <span className="text-sm font-normal text-slate-400">
                   {PRO_PLAN.intervalLabel}
                 </span>
               </p>
