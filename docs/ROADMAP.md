@@ -3730,6 +3730,42 @@ is missing, because its red is believed and its green is trusted. Both of
 these were read as "the model is unreliable here" for a fortnight. Neither
 was.
 
+**Cover a page, walked, and planning timed on two very different pages
+(2026-11-22).** The feature the pricing page leads with, and the last major
+surface with no walk behind it. It works, start to finish, in under two
+minutes:
+
+- project created with a page address &mdash; **2-8 seconds**, and it starts
+  the plan by itself
+- the plan &mdash; **20-25 seconds**, four sensible tests on TodoMVC with a
+  reason written against each, six on a real shop
+- two of them written and proven in a real browser &mdash; **28-37 seconds**
+- the finished page: a downloadable suite, and coverage counted from the page
+  rather than claimed: *"The proven tests reach 1 of the page's 1 named
+  control"*, and on the shop *"3 of the page's 49"*.
+
+**One thing checked rather than reported.** The finished screen still showed
+"Proving the tests, two at a time. Keep this page open" after the run had
+ended -- which looked exactly like a stale progress message, the house fault.
+The database said the run was `DONE` with both items `PASSED`, and the code
+renders that banner only while the status is `PROVING`. So the page had been
+read a moment before the status settled: a race in the walk, not a fault in
+the product. Worth the five minutes it took to tell those apart.
+
+**"This usually takes about a minute" was wrong, and now it is measured.**
+Planning took 20 and 25 seconds on the TodoMVC demo, and **25 seconds on
+practicesoftwaretesting.com, a real shop with 49 named controls** -- so the
+size of the page barely moves it. Three measurements across two very
+different pages is enough to change a number; one measurement on the
+simplest page in the world would not have been, which is why the heavy page
+was measured before anything was edited.
+
+It now says half a minute on the three screens that describe planning, and
+the workspace welcome panel says the first two steps take "under a minute"
+together, which is true of two seconds plus twenty-five. The number matters
+because it is what somebody uses to decide whether to wait or come back
+later.
+
 **A first run that ends in "set E2E_TODO_TEXT" (2026-11-22).** Timing the
 home page's promise against production, rather than locally, settled the
 number and turned up something worse than the number.

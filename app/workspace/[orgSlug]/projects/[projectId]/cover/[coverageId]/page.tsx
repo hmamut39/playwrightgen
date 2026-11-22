@@ -96,7 +96,15 @@ export default async function PageCoverageDetail({
           </div>
           <p className="text-sm font-semibold text-slate-900">Reading the page and planning its tests&hellip;</p>
           <p className="mt-1 text-sm text-slate-600">
-            This usually takes about a minute. You can leave this page; the plan will be here when you come back.
+            {/*
+              * Measured on 2026-11-22 rather than estimated: 20 and 25
+              * seconds on the TodoMVC demo, and 25 seconds on a real shop
+              * with 49 named controls -- so page size barely moves it. "About
+              * a minute" overstated it by roughly two and a half times, and
+              * the number is what somebody decides on when they are choosing
+              * whether to wait or come back later.
+              */}
+            This usually takes about half a minute. You can leave this page; the plan will be here when you come back.
           </p>
         </div>
       ) : run.status === "PLAN_FAILED" ? (

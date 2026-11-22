@@ -89,7 +89,7 @@ export default async function NewProjectPage({
           />
           <span className="mt-1.5 block text-xs font-normal text-slate-500">
             A public page of your product. PlaywrightGen reads it, plans the tests it needs, and shows you the plan to
-            tick &mdash; about a minute. Leave it empty to set it up later.
+            tick &mdash; about half a minute. Leave it empty to set it up later.
           </span>
         </label>
         {/* The address is derived from the name; most people never need to

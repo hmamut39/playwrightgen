@@ -219,7 +219,7 @@ function FirstProjectGuide({ href }: { href: string }) {
           From nothing to tests that prove your app works
         </h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-          Four steps, and the first two take about a minute together. Each screen says what comes next.
+          Four steps, and the first two take under a minute together. Each screen says what comes next.
         </p>
       </div>
       <ol className="grid gap-px bg-slate-200 sm:grid-cols-2 lg:grid-cols-4">

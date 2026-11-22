@@ -180,7 +180,7 @@ export default async function ProjectHealthPage({
           <p className="mt-1 text-sm leading-6 text-slate-700">
             PlaywrightGen reads {project.liveUrl ? <span className="break-all font-medium">{project.liveUrl}</span> : "a page of your product"},
             plans the tests it needs, and &mdash; after you tick which ones &mdash; writes and proves each in a real browser.
-            Planning takes about a minute.
+            Planning takes about half a minute.
           </p>
           <form action={firstRunAction} className="mt-4 flex flex-col gap-2 sm:flex-row">
             {project.liveUrl ? null : (
