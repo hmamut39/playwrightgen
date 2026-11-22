@@ -11,6 +11,42 @@ release decision or a customer actually asks for: which behaviour was agreed,
 by whom, at which version, and what the last run proved. That record is what
 this product is.
 
+## See it in one minute
+
+No account, nothing to install: open
+[playwrightgen.com/generator](https://playwrightgen.com/generator), say what
+to test, paste a public URL, and press **Generate & prove on the live page**.
+
+Measured on 2026-11-22, from pressing the button to a verdict on screen:
+
+| What | Page | Time | Result |
+| --- | --- | --- | --- |
+| Write and prove a test | TodoMVC demo | **20s** | passed, 2 checks |
+| Write and prove a test | a real shop (49 controls) | **34s** | passed, 10 checks |
+| The same, behind a sign-in | saucedemo.com | **47s** | passed, 12 checks |
+| Plan every test a page needs | both of the above | **25s** | 4 and 6 tests proposed |
+| Write and prove two of them | TodoMVC demo | **28s** | both passed |
+
+Those are wall-clock times for the whole loop: reading the page, writing the
+test, running it in a real browser, fixing a failing step and running again.
+The model work behind a proven test costs **less than half a penny** at
+published rates.
+
+## What it refuses to do
+
+The useful half of a testing product is what it will not say.
+
+- A run that was partly skipped is **not** called proven.
+- A failing test whose failure looks like a real defect is **not** quietly
+  repaired, because repairing it deletes the only warning anybody was going
+  to get.
+- No coverage percentage is produced, because one number hides which
+  scenarios are actually unverified.
+- Nothing is approved by the generator, or by an agent. A person approves, or
+  it does not count.
+- Credentials given for a sign-in are used for that run, never stored, and
+  blanked out of everything the run reports.
+
 ## How it works
 
 Two ways in, one chain.
