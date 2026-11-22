@@ -4,13 +4,18 @@ The working plan, kept in the repository so any session can pick up where the
 last one stopped. Update the "Shipped" and "Next" sections at the end of every
 work session.
 
-Last updated: 2026-11-07.
+Last updated: 2026-11-22.
 
 ## Where the product is
 
 Live at https://playwrightgen.com (Vercel, Clerk production, Stripe live,
 Neon Postgres). Every item below was verified in a real browser, and the full
-test suite is 971 tests.
+test suite is 1323 tests across 167 files, which CI runs in 99 seconds.
+
+That number is read off the CI log, not remembered. It said 971 until
+2026-11-22, which is what a count written down by hand does: it stops being
+true quietly, and the file keeps asserting it. Whoever edits this line next
+should take the figure from the latest green CI run rather than adjusting it.
 
 **Where the real answer lives.** CI runs the whole suite in about ninety
 seconds; the same run locally takes twenty minutes, because the integration
@@ -3136,6 +3141,33 @@ genuine `npm audit` failures, closed by the commit after each.
 - Billing page states the plan, the daily AI allowance and the trial date.
 
 ## Next
+
+State at the close of 2026-11-22. Tree clean, `336bd3e` on `main` and on
+`origin/main`, CI green on it, and the production alias serves the deployment
+built from it. The watcher was run by hand against the live site after that
+deploy and opened it in a real browser: passed in 14s. Five free-tool runs
+completed on production today, $0.016 in total, which is why a sixth cannot be
+made from this address until the allowance resets at midnight UTC.
+
+**Waiting on the owner, both agreed and deferred to a later day:**
+
+- Complete the demo evidence chain. Open the demo project's requirements page,
+  press the switch-workspace button, add the supplied requirement, submit it
+  for review and approve it, then open the test case "Edit an existing todo
+  via double-click" and press Link Requirement. Until that is done,
+  `/proof/example` shows a chain with a gap in it, which is the first thing a
+  stranger following the evidence link will see.
+- Read `docs/LAUNCH_POSTS.md` and post, in this order: Reddit, the Playwright
+  Discord, Show HN. Nothing is published by the file existing.
+
+**Small, found while closing and not yet done:** every workflow using
+`actions/checkout@v4` and `actions/setup-node@v4` now carries a GitHub
+deprecation annotation -- Node 20 actions are being forced onto Node 24. It is
+a warning today and a broken CI run later. Bumping both to `@v5` across the
+five workflow files is the whole fix, and it needs one green run to confirm.
+
+**Still open and recorded honestly:** no Content-Security-Policy, and no
+external security audit.
 
 ## The plan to 31 December 2026
 
