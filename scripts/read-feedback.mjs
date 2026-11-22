@@ -31,6 +31,17 @@ config({ path: ".env.local", quiet: true });
 
 const FEEDBACK_KEY = "playwrightgen:feedback:v1";
 
+/**
+ * The same line lib/services/feedback-report.ts writes, inlined because this
+ * script runs without the TypeScript loader the rest of the product uses.
+ * The logic is tested there; this is the two-line copy that prints it.
+ */
+const heading = (report) => {
+  const delivery =
+    report.notified === undefined ? "delivery unrecorded" : report.notified ? "emailed" : "NEVER EMAILED";
+  return `${report.at ?? "(no date)"}  ·  ${report.path ?? "(no page)"}  ·  ${report.who ?? "(unknown)"}  ·  ${delivery}`;
+};
+
 const url = process.env.UPSTASH_REDIS_REST_URL?.trim();
 const token = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
 if (!url || !token) {
@@ -69,7 +80,14 @@ if (reports.length === 0) {
 console.log(`${reports.length} of ${total} report${total === 1 ? "" : "s"}, newest first.`);
 for (const report of reports) {
   console.log("");
-  console.log(`  ${report.at ?? "(no date)"}  ·  ${report.path ?? "(no page)"}  ·  ${report.who ?? "(unknown)"}`);
+  console.log(`  ${heading(report)}`);
   for (const line of String(report.message ?? "").split("\n")) console.log(`    ${line}`);
+}
+const unsent = reports.filter((report) => report.notified === false).length;
+if (unsent > 0) {
+  console.log("");
+  console.log(
+    `${unsent} of these were never emailed to anybody. Nothing retries them: the mail was attempted once, at the time, and failed.`,
+  );
 }
 console.log("");

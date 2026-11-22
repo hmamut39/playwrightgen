@@ -151,13 +151,11 @@ export async function handleFeedbackRequest(
 
     const now = dependencies.now();
     const path = safePath(parsed.data.path);
-    const entry = JSON.stringify({ at: new Date(now).toISOString(), who, path, message: parsed.data.message });
 
     await store.zremrangebyscore(FEEDBACK_KEY, 0, now - RETENTION_DAYS * 24 * 60 * 60 * 1_000);
-    await store.zadd(FEEDBACK_KEY, { score: now, member: entry });
     // Oldest first, so trimming from the front keeps what arrived most
     // recently. A store that grows without a ceiling is an outage later.
-    await store.zremrangebyrank(FEEDBACK_KEY, 0, -(MAX_KEPT + 1));
+
 
     const recipient = process.env.FEEDBACK_NOTIFY_EMAIL?.trim() || process.env.WAITLIST_NOTIFY_EMAIL?.trim();
     /*
@@ -190,6 +188,28 @@ export async function handleFeedbackRequest(
         responder.note("notice_not_sent", providerFailureReason(error));
       }
     }
+
+    /*
+     * Written after the notice is attempted, so the report can say whether
+     * anybody was told. Storing it first and updating afterwards would be two
+     * writes and a window in which the record is wrong.
+     *
+     * Without this a report nobody saw looked exactly like one that had been
+     * read: between the sending address being set and the API key being
+     * corrected, every notice failed and all five stored reports were
+     * indistinguishable from five that had arrived.
+     */
+    const entry = JSON.stringify({
+      at: new Date(now).toISOString(),
+      who,
+      path,
+      message: parsed.data.message,
+      notified,
+    });
+    await store.zadd(FEEDBACK_KEY, { score: now, member: entry });
+    // Oldest first, so trimming from the front keeps what arrived most
+    // recently. A store that grows without a ceiling is an outage later.
+    await store.zremrangebyrank(FEEDBACK_KEY, 0, -(MAX_KEPT + 1));
 
     return respond(
       "feedback_received",
