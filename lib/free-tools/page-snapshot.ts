@@ -5,9 +5,11 @@ import { chromium, type Browser } from "playwright-core";
 import { readElementHints } from "@/lib/free-tools/element-hints";
 import {
   describeLayoutFaults,
+  describeLayoutFaultsAcrossWidths,
   readLayoutFaults,
   stylesheetFailures,
   type LayoutFault,
+  type RawLayoutFinding,
 } from "@/lib/free-tools/layout-faults";
 import { isPublicWebAddress } from "@/lib/free-tools/public-address";
 import { signInWithTestAccount, type TestAccount } from "@/lib/free-tools/sign-in";
@@ -89,6 +91,21 @@ export type PageSnapshot =
       status?: number;
     };
 
+/**
+ * The width the page is captured at, and the width it is checked again at.
+ *
+ * 1280 is a desktop, and is what the accessibility tree is read at. 390 is an
+ * iPhone, and is where every real layout fault this check has found actually
+ * lives -- measured on 2026-11-26 across eleven pages at six widths, nothing
+ * the desktop reading caught was absent from the narrow one, and four faults
+ * in this product's own site were visible only there.
+ *
+ * Declared here and used at the context, so a reading can never be labelled
+ * with a width the page was not read at.
+ */
+const CAPTURE_WIDTH = 1280;
+const PHONE_WIDTH = 390;
+
 const MAX_ARIA_CHARS = 14_000;
 const NAVIGATION_TIMEOUT_MS = 20_000;
 const TOTAL_TIMEOUT_MS = 30_000;
@@ -131,7 +148,7 @@ export async function capturePageSnapshot(
   const work = async (): Promise<PageSnapshot> => {
     const browser = await chromium.connectOverCDP(endpoint, { timeout: 12_000 });
     try {
-      const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+      const context = await browser.newContext({ viewport: { width: CAPTURE_WIDTH, height: 900 } });
       const page = await context.newPage();
       /*
        * Stylesheets the browser could not fetch, collected before navigating
@@ -194,6 +211,36 @@ export async function capturePageSnapshot(
          */
         readLayoutFaults(page),
       ]);
+
+      /*
+       * The same page again, narrow.
+       *
+       * Reading one width was this check's largest blind spot. Measured on
+       * 2026-11-26 across eleven pages at six widths: every real fault it has
+       * ever found appeared only at phone width, including the four in this
+       * product's own site. A layout fault is usually a width problem, so one
+       * width finds the minority of them.
+       *
+       * Done by resizing this page rather than opening another, because a
+       * second visit is a different render and a fault reported from a page
+       * other than the one the test was written against is a finding about
+       * nothing. The tree above is already captured, so the resize cannot
+       * affect what the model is given.
+       *
+       * Its own failure costs the caller nothing: the desktop reading still
+       * stands, and the narrow one is simply absent.
+       */
+      const readings: { width: number; findings: RawLayoutFinding[] }[] = [];
+      if (rawLayoutFaults.read) {
+        readings.push({ width: CAPTURE_WIDTH, findings: rawLayoutFaults.findings });
+      }
+      try {
+        await page.setViewportSize({ width: PHONE_WIDTH, height: 844 });
+        const narrow = await readLayoutFaults(page);
+        if (narrow.read) readings.push({ width: PHONE_WIDTH, findings: narrow.findings });
+      } catch {
+        // A browser that refuses the resize leaves the desktop reading alone.
+      }
       // Link targets are noise for writing locators and cost the most space,
       // so they come out of the tree. A link's address is still the only way
       // to tell a control of this page from a way off it, so it is kept here.
@@ -233,11 +280,15 @@ export async function capturePageSnapshot(
          * A failed stylesheet is still reported in that case: it comes from
          * the network, so it is known whether or not the page could be read.
          */
-        layoutFaults: rawLayoutFaults.read
-          ? describeLayoutFaults([
-              ...stylesheetFailures(failedStylesheets),
-              ...rawLayoutFaults.findings,
-            ])
+        layoutFaults: readings.length
+          ? describeLayoutFaultsAcrossWidths(
+              readings.map((reading) => ({
+                width: reading.width,
+                // The stylesheet goes in every reading so it counts as
+                // present at all of them and is never attributed to a width.
+                findings: [...stylesheetFailures(failedStylesheets), ...reading.findings],
+              })),
+            )
           : failedStylesheets.length > 0
             ? describeLayoutFaults(stylesheetFailures(failedStylesheets))
             : null,

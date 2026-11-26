@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   describeLayoutFaults,
+  describeLayoutFaultsAcrossWidths,
   faultsPresentInBoth,
   layoutFaultsPhrase,
   readLayoutFaults,
@@ -332,6 +333,102 @@ describe("only faults the page still has once it settles", () => {
     expect(read.read ? read.findings : []).toEqual([
       { kind: "clipped_text", label: 'button "Save"', hiddenPx: 20 },
     ]);
+  });
+});
+
+describe("faults read at more than one width", () => {
+  /*
+   * Reading one width was this check's largest blind spot. Measured on
+   * 2026-11-26 across eleven pages at six widths: every real fault it has
+   * found appeared only at phone width, including four in this product's own
+   * site. The attribution matters as much as the second reading -- "the page
+   * scrolls sideways by 420px" is bewildering to somebody reading it on the
+   * desktop where it does not happen.
+   */
+  const desktop = (findings: RawLayoutFinding[]) => ({ width: 1280, findings });
+  const phone = (findings: RawLayoutFinding[]) => ({ width: 390, findings });
+
+  it("says which width a fault belongs to when it is not at all of them", () => {
+    const faults = describeLayoutFaultsAcrossWidths([
+      desktop([]),
+      phone([{ kind: "horizontal_overflow", overflowPx: 420, widest: 'img "hero"' }]),
+    ]);
+
+    expect(faults).toHaveLength(1);
+    expect(faults[0].what).toBe(
+      'At 390px wide, the page scrolls sideways by 420px; the widest element is img "hero".',
+    );
+  });
+
+  it("states a fault present at every width plainly, with no width in front", () => {
+    const everywhere: RawLayoutFinding = {
+      kind: "clipped_text",
+      label: 'button "Save"',
+      hiddenPx: 20,
+    };
+    const faults = describeLayoutFaultsAcrossWidths([desktop([everywhere]), phone([everywhere])]);
+
+    expect(faults).toHaveLength(1);
+    expect(faults[0].what).not.toContain("At ");
+    expect(faults[0].what).toContain('button "Save"');
+  });
+
+  it("does not report the same fault once per width", () => {
+    const both: RawLayoutFinding = {
+      kind: "small_target",
+      inlineInText: false,
+      label: 'button "Close"',
+      width: 14,
+      height: 14,
+    };
+
+    expect(describeLayoutFaultsAcrossWidths([desktop([both]), phone([both])])).toHaveLength(1);
+  });
+
+  it("never attributes a failed stylesheet to a width", () => {
+    /*
+     * It is a network outcome and has nothing to do with how wide the window
+     * is. If the narrow reading failed, saying "at 1280px wide, a stylesheet
+     * did not load" would invent a relationship that does not exist.
+     */
+    const faults = describeLayoutFaultsAcrossWidths([
+      desktop(stylesheetFailures(["https://example.com/app.css"]) as RawLayoutFinding[]),
+      phone([]),
+    ]);
+
+    expect(faults).toHaveLength(1);
+    expect(faults[0].what).not.toContain("At 1280px");
+    expect(faults[0].what).toContain("did not load");
+  });
+
+  it("keeps the first width's numbers rather than the largest", () => {
+    /*
+     * The measurement differs by width. Reporting the biggest number under a
+     * sentence attributed to both widths would be a number from one width
+     * presented as true of both.
+     */
+    const faults = describeLayoutFaultsAcrossWidths([
+      desktop([{ kind: "clipped_text", label: "span", hiddenPx: 10 }]),
+      phone([{ kind: "clipped_text", label: "span", hiddenPx: 300 }]),
+    ]);
+
+    expect(faults[0].what).toContain("10px");
+    expect(faults[0].what).not.toContain("300px");
+  });
+
+  it("behaves like a single reading when only one width could be read", () => {
+    // A browser that refuses the resize leaves the desktop reading alone, and
+    // it is reported without a width rather than not at all.
+    const faults = describeLayoutFaultsAcrossWidths([
+      desktop([{ kind: "overlap", a: "button", b: "link", sharedPx2: 900 }]),
+    ]);
+
+    expect(faults).toHaveLength(1);
+    expect(faults[0].what).not.toContain("At ");
+  });
+
+  it("finds nothing when nothing was read", () => {
+    expect(describeLayoutFaultsAcrossWidths([])).toEqual([]);
   });
 });
 

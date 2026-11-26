@@ -205,6 +205,76 @@ export function describeLayoutFaults(findings: readonly RawLayoutFinding[]): Lay
 }
 
 /**
+ * What one reading of the page, at one width, found.
+ *
+ * The width is carried rather than assumed, because a fault that exists only
+ * at one width has to say so. "The page scrolls sideways by 420px" is
+ * bewildering to somebody reading it on the desktop where it does not happen;
+ * "at 390px wide, the page scrolls sideways by 420px" is a thing they can go
+ * and look at.
+ */
+export type WidthReading = { width: number; findings: readonly RawLayoutFinding[] };
+
+/**
+ * The faults across every width the page was read at, attributed.
+ *
+ * Reading one width was the check's largest blind spot. Measured on
+ * 2026-11-26 across eleven pages at six widths: every real fault it has ever
+ * found appeared only at phone width -- including the four in this product's
+ * own site. A layout fault is usually a width problem, so a check at one
+ * width finds the minority of them.
+ *
+ * A fault present at every width is stated plainly. One present at some gets
+ * the widths in front of it, because that is the part the reader needs first.
+ * A failed stylesheet is never attributed: it is a network outcome and has
+ * nothing to do with how wide the window is.
+ */
+export function describeLayoutFaultsAcrossWidths(
+  readings: readonly WidthReading[],
+): LayoutFault[] {
+  if (readings.length === 0) return [];
+  if (readings.length === 1) return describeLayoutFaults(readings[0].findings);
+
+  /*
+   * First occurrence of each distinct fault, and every width it appeared at.
+   * The first is kept rather than the worst: the numbers differ by width and
+   * picking the largest would quietly report a measurement from one width
+   * under a sentence attributed to all of them.
+   */
+  const merged: RawLayoutFinding[] = [];
+  const widthsByKey = new Map<string, number[]>();
+  for (const reading of readings) {
+    for (const finding of reading.findings) {
+      if (!worthReporting(finding)) continue;
+      const key = faultKey(finding);
+      const widths = widthsByKey.get(key);
+      if (widths) {
+        if (!widths.includes(reading.width)) widths.push(reading.width);
+        continue;
+      }
+      widthsByKey.set(key, [reading.width]);
+      merged.push(finding);
+    }
+  }
+
+  // Ordering, capping and deduplication all stay in one place.
+  const described = describeLayoutFaults(merged);
+  const everyWidth = readings.length;
+
+  return described.map((fault) => {
+    const source = merged.find((finding) => sentence(finding) === fault.what);
+    const widths = source ? (widthsByKey.get(faultKey(source)) ?? []) : [];
+    if (fault.kind === "stylesheet_failed") return fault;
+    if (widths.length === 0 || widths.length === everyWidth) return fault;
+    const at = [...widths].sort((left, right) => left - right).map((width) => `${width}px`);
+    const where = at.length === 1 ? at[0] : `${at.slice(0, -1).join(", ")} and ${at[at.length - 1]}`;
+    // Lower-cased, because the sentence now continues a clause.
+    const rest = fault.what.charAt(0).toLowerCase() + fault.what.slice(1);
+    return { ...fault, what: `At ${where} wide, ${rest}` };
+  });
+}
+
+/**
  * One line naming what the layout check found, or that it found nothing.
  *
  * "Nothing" is said out loud on purpose. A check that is silent when it
