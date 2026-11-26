@@ -3255,6 +3255,29 @@ made from this address until the allowance resets at midnight UTC.
 - Read `docs/LAUNCH_POSTS.md` and post, in this order: Reddit, the Playwright
   Discord, Show HN. Nothing is published by the file existing.
 
+**Page polish, after /about (2026-11-26).** The owner sent imagium.io a second
+time, asking about its left icon rail and its header that stays on scroll.
+Answered: the header we already had and better -- a segmented pill with an
+active-page indicator and a scrollable row for narrow screens, against their
+plain text links, verified on production rather than from the class name. The
+rail was declined as drawn, because unlabelled icons cost a reader five hovers
+to learn what a list of words shows at a glance, and because a floating index
+competes with the work on a page that has a form on it. The idea was taken in
+words, as `components/page-section-index.tsx`, on long pages only.
+
+What measuring the pages found was consistency, not decoration: every public
+page shared a dark hero, an uppercase eyebrow and a card grid except /about,
+which was a bare column -- on the one page a stranger is sent to. Rebuilt with
+no change to its words.
+
+Still to do, in order. `/terms` and `/privacy` are the same shape of long
+document as /about was and should take the same index; they have a hero but
+no sections a reader can navigate. `/engineering-review` has the fewest
+pattern matches of the designed pages and is worth a look beside the others.
+And nothing checks that a page carries the shared language, so the next one
+written will drift again -- the measure that found this was a grep run by
+hand.
+
 **Next on the layout work, not yet done.** Three things, in order. The check
 reads the page at one viewport, 1280x900, and most layout faults are a width
 problem -- every real fault it has found so far, including ours, appeared only
