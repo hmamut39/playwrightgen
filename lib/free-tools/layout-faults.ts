@@ -368,6 +368,8 @@ export async function readLayoutFaults(
           label: string;
           rect: DOMRect;
           interactive: boolean;
+          /** A text field, select or textarea: a box other controls sit inside on purpose. */
+          isField: boolean;
           visible: boolean;
           inlineInText: boolean;
           /**
@@ -507,6 +509,7 @@ export async function readLayoutFaults(
             interactive: element.matches(
               'a[href], button, input, select, textarea, [role="button"], [role="link"]',
             ),
+            isField: element.matches("input, select, textarea"),
             visible,
             clippedAway,
             displayedBox:
@@ -618,6 +621,31 @@ export async function readLayoutFaults(
              * meaningfully cover one another at all, so the pair is skipped.
              */
             if (first.inlineInText || second.inlineInText) continue;
+            /*
+             * A control sitting wholly inside a form field is deliberate.
+             *
+             * Show-password, clear-this-input and inline search buttons are
+             * all positioned inside the field they belong to, so their boxes
+             * are contained by it by design. Measured on /sign-up on
+             * 2026-11-26: Clerk's "Show password" button was reported as
+             * covering the password input by 832px, which is the button's own
+             * area -- it is entirely within the field, exactly where it is
+             * meant to be.
+             *
+             * Containment is required, not mere overlap, and one of the pair
+             * has to be a field. A genuine collision between two controls
+             * shows up as a partial overlap, and that is still reported.
+             */
+            if (first.isField || second.isField) {
+              const outer = first.isField ? first.rect : second.rect;
+              const inner = first.isField ? second.rect : first.rect;
+              const inside =
+                inner.left >= outer.left - 1 &&
+                inner.right <= outer.right + 1 &&
+                inner.top >= outer.top - 1 &&
+                inner.bottom <= outer.bottom + 1;
+              if (inside) continue;
+            }
             const a = first.rect;
             const b = second.rect;
             const sharedWidth = Math.min(a.right, b.right) - Math.max(a.left, b.left);

@@ -11,9 +11,20 @@ import { useEffect, useState } from "react";
  * anywhere on this rail opens every label at once, so it costs one movement
  * to learn what the page contains instead of five.
  *
- * Collapsed it is a column of dashes, with the section you are in drawn
- * longer and in cyan. That is legible at a glance without reading anything,
- * and it takes a strip of margin the layout was not using.
+ * **Numbers, not dashes, and the panel is always there.** The first version
+ * collapsed to six faint dashes with no background, and the owner said what
+ * was true of it: on a dark hero they are nearly invisible, nothing says they
+ * are a control, and hover-to-discover only works for somebody who already
+ * knows it is there. That is the same objection I had raised about the rail
+ * this was modelled on.
+ *
+ * So it carries its panel at all times, and each section is numbered. A
+ * numbered column in a margin reads as "six sections, you are on the second"
+ * without hovering anything or decoding an icon, and 01/02/03 badges are
+ * already how this product numbers steps on the home page and on /mcp.
+ * Labels still open on hover, over the content, which is what a transient
+ * popover is for -- the permanently-labelled version would need about 1660px
+ * of viewport before it stopped sitting on the text.
  *
  * **Only where there is margin to put it.** The home page's content is
  * `max-w-7xl`, 1280px, so below about 1440px there is no empty gutter and a
@@ -71,8 +82,8 @@ export function HomeSectionRail({ sections }: { sections: readonly RailSection[]
       aria-label="Sections of this page"
       className="group fixed left-4 top-1/2 z-30 hidden -translate-y-1/2 min-[1440px]:block"
     >
-      <ul className="rounded-2xl border border-transparent p-1.5 transition-colors duration-200 group-focus-within:border-slate-200 group-focus-within:bg-white/95 group-focus-within:shadow-lg group-focus-within:backdrop-blur group-hover:border-slate-200 group-hover:bg-white/95 group-hover:shadow-lg group-hover:backdrop-blur">
-        {sections.map((section) => {
+      <ul className="rounded-2xl border border-slate-200/80 bg-white/90 p-1.5 shadow-md backdrop-blur transition-shadow duration-200 group-focus-within:shadow-lg group-hover:shadow-lg">
+        {sections.map((section, index) => {
           const active = current === section.id;
           return (
             <li key={section.id}>
@@ -80,20 +91,24 @@ export function HomeSectionRail({ sections }: { sections: readonly RailSection[]
                 href={`#${section.id}`}
                 aria-current={active ? "true" : undefined}
                 /*
-                 * px-2 and py-1.5 around a 12px dash give a 28x26px target,
-                 * which clears the 24x24px minimum in WCAG 2.2 (2.5.8) while
-                 * collapsed. The first real fault this product's own layout
-                 * check ever found was a 20px-tall link in its own footer, so
-                 * this is checked rather than assumed.
+                 * A 24px number badge with px-1.5/py-1 around it is a 36x32px
+                 * target while collapsed, clear of the 24x24px minimum in
+                 * WCAG 2.2 (2.5.8). The first real fault this product's own
+                 * layout check ever found was a 20px-tall link in its own
+                 * footer, so this is measured rather than assumed.
                  */
-                className="flex items-center gap-3 rounded-xl px-2 py-1.5 transition-colors hover:bg-slate-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                className="flex items-center gap-2.5 rounded-xl px-1.5 py-1 transition-colors hover:bg-slate-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
               >
                 <span
                   aria-hidden="true"
-                  className={`h-0.5 shrink-0 rounded-full transition-all duration-200 ${
-                    active ? "w-6 bg-cyan-600" : "w-3 bg-slate-400 group-hover:bg-slate-500"
+                  className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg text-[11px] font-bold tabular-nums transition-colors duration-200 ${
+                    active
+                      ? "bg-cyan-600 text-white"
+                      : "bg-slate-100 text-slate-500 group-hover:bg-slate-200/80"
                   }`}
-                />
+                >
+                  {String(index + 1).padStart(2, "0")}
+                </span>
                 <span
                   className={`max-w-0 overflow-hidden whitespace-nowrap text-sm leading-6 opacity-0 transition-all duration-200 group-focus-within:max-w-[13rem] group-focus-within:opacity-100 group-hover:max-w-[13rem] group-hover:opacity-100 ${
                     active ? "font-semibold text-slate-950" : "text-slate-600"

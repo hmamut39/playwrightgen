@@ -1,6 +1,7 @@
 import { SignIn } from "@clerk/nextjs";
 
 import { ClerkAuthShell } from "@/components/auth/clerk-auth-shell";
+import { CLERK_APPEARANCE } from "@/lib/auth/clerk-appearance";
 
 export const metadata = {
   title: "Sign in",
@@ -15,6 +16,7 @@ export default function SignInPage() {
       description="Sign in to move from requirements to approved tests, versioned Playwright automation, and evidence-backed release decisions."
     >
       <SignIn
+        appearance={CLERK_APPEARANCE}
         path="/sign-in"
         routing="path"
         fallbackRedirectUrl="/workspace"

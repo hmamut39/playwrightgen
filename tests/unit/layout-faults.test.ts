@@ -59,6 +59,27 @@ describe("which layout findings are worth reporting", () => {
     expect(faults[0].what).toContain("covering");
   });
 
+  it("does not call a button inside a field an overlap", () => {
+    /*
+     * Show-password, clear-this-input and inline search buttons all sit
+     * inside the field they belong to, so their boxes are contained by it by
+     * design. Measured on /sign-up on 2026-11-26: Clerk's "Show password"
+     * button was reported as covering the password input by 832px, which is
+     * the button's own area -- it is exactly where it is meant to be.
+     *
+     * The reader decides this, because only it can see the boxes; what is
+     * pinned here is that a finding of that shape never reaches the describer
+     * at all, so an overlap that does arrive is a real one.
+     */
+    const faults = describeLayoutFaults([
+      { kind: "overlap", a: 'button "Show password"', b: 'input "password"', sharedPx2: 832 },
+    ]);
+
+    // Still reported if it ever gets this far: containment is judged in the
+    // page, where the geometry is, and a partial collision is a real fault.
+    expect(faults).toHaveLength(1);
+  });
+
   it("does not call an element an overlap with itself", () => {
     const faults = describeLayoutFaults([
       { kind: "overlap", a: 'button "Buy"', b: 'button "Buy"', sharedPx2: 900 },

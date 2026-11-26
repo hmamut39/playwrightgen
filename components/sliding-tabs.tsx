@@ -90,7 +90,7 @@ export function SlidingTabs({
         */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute bottom-1 top-1 rounded-xl bg-white shadow-sm ring-1 ring-slate-900/5 transition-all duration-300 ease-out"
+        className="pointer-events-none absolute bottom-1 top-1 rounded-xl bg-gradient-to-b from-white to-slate-50 shadow-sm ring-1 ring-slate-900/5 transition-all duration-300 ease-out"
         style={
           pill
             ? { left: pill.left, width: pill.width, opacity: 1 }
@@ -107,8 +107,18 @@ export function SlidingTabs({
               tabRefs.current[tab.href] = element;
             }}
             aria-current={active ? "page" : undefined}
-            className={`relative z-10 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors duration-200 ${
-              active ? "text-slate-950" : "text-slate-600 hover:text-slate-950"
+            /*
+             * An inactive tab shows the pill's shape on hover, in outline.
+             *
+             * The control is segmented, and until you click something there
+             * is nothing saying so: six words in a grey box read as six
+             * words. A faint pill under the pointer answers "is this a tab or
+             * a label" before anybody has to find out by clicking.
+             */
+            className={`relative z-10 rounded-xl px-3.5 py-2 text-sm font-medium transition-all duration-200 ${
+              active
+                ? "text-slate-950"
+                : "text-slate-600 hover:bg-white/70 hover:text-slate-950 hover:shadow-sm"
             }`}
           >
             {tab.label}

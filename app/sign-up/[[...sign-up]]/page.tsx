@@ -1,6 +1,7 @@
 import { SignUp } from "@clerk/nextjs";
 
 import { ClerkAuthShell } from "@/components/auth/clerk-auth-shell";
+import { CLERK_APPEARANCE } from "@/lib/auth/clerk-appearance";
 
 export const metadata = {
   title: "Create your account",
@@ -15,6 +16,7 @@ export default function SignUpPage() {
       description="Create an account to organize requirements, test design, automation artifacts, execution evidence, and release intelligence in one secure workspace."
     >
       <SignUp
+        appearance={CLERK_APPEARANCE}
         path="/sign-up"
         routing="path"
         fallbackRedirectUrl="/workspace"
