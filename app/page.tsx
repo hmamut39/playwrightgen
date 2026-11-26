@@ -1,3 +1,4 @@
+import { HomeSectionRail, type RailSection } from "@/components/home-section-rail";
 import Link from "next/link";
 
 import { examplePublished } from "@/lib/services/release-proof";
@@ -170,6 +171,21 @@ function CheckIcon() {
   );
 }
 
+/**
+ * The rail down the left margin, naming the page's own sections.
+ *
+ * Labels are shorter than the headings they point at: a rail is read at a
+ * glance, and "One product, two ways to start" at that size is a paragraph.
+ */
+const RAIL_SECTIONS: readonly RailSection[] = [
+  { id: "top", label: "Start here" },
+  { id: "product", label: "Two ways to start" },
+  { id: "evidence-loop", label: "The evidence loop" },
+  { id: "where-you-work", label: "Works with your tools" },
+  { id: "trust-model", label: "Trust model" },
+  { id: "start-here", label: "Try it" },
+];
+
 export default function Home() {
   // Whether anything is published, which is a reading of configuration and
   // not of the database: this page is prerendered, and a build that had to
@@ -181,7 +197,9 @@ export default function Home() {
 
   return (
     <main className="overflow-hidden bg-slate-50 text-slate-950">
-      <section className="relative isolate border-b border-slate-200 bg-slate-950 px-4 py-16 text-white sm:px-6 sm:py-20 lg:px-8 lg:py-24">
+      <HomeSectionRail sections={RAIL_SECTIONS} />
+
+      <section id="top" className="relative isolate scroll-mt-24 border-b border-slate-200 bg-slate-950 px-4 py-16 text-white sm:px-6 sm:py-20 lg:px-8 lg:py-24">
         <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
           <div className="absolute left-[-10rem] top-[-14rem] h-[32rem] w-[32rem] rounded-full bg-cyan-400/15 blur-3xl" />
           <div className="absolute bottom-[-18rem] right-[-8rem] h-[38rem] w-[38rem] rounded-full bg-blue-500/15 blur-3xl" />
@@ -453,7 +471,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="border-y border-slate-200 bg-white px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
+      <section id="evidence-loop" className="scroll-mt-24 border-y border-slate-200 bg-white px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
         <div className="mx-auto max-w-7xl">
           <div className="grid gap-8 lg:grid-cols-[0.78fr_1.22fr] lg:gap-16">
             <div>
@@ -502,7 +520,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
+      <section id="where-you-work" className="scroll-mt-24 px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
         <div className="mx-auto max-w-7xl">
           <div className="max-w-3xl">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-700">
@@ -553,7 +571,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="px-4 pb-20 sm:px-6 lg:px-8 lg:pb-28">
+      <section id="trust-model" className="scroll-mt-24 px-4 pb-20 sm:px-6 lg:px-8 lg:pb-28">
         <div className="mx-auto max-w-7xl">
           {/*
             Three cards of prose answering "is this for me?" is a paragraph
@@ -596,7 +614,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="px-4 pb-20 sm:px-6 lg:px-8 lg:pb-28">
+      <section id="start-here" className="scroll-mt-24 px-4 pb-20 sm:px-6 lg:px-8 lg:pb-28">
         <div className="relative mx-auto max-w-7xl overflow-hidden rounded-[2rem] bg-slate-950 px-6 py-12 text-white shadow-xl sm:px-10 sm:py-14 lg:px-14">
           <div className="pointer-events-none absolute right-[-8rem] top-[-10rem] h-80 w-80 rounded-full bg-cyan-400/20 blur-3xl" />
           <div className="relative flex flex-col justify-between gap-9 lg:flex-row lg:items-end">
