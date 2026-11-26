@@ -83,10 +83,49 @@ genuine `npm audit` failures, closed by the commit after each.
   finding, not a filter in the page reader, so the reader still only gathers
   and the describer still decides.
 
-  23 tests in `tests/unit/layout-faults.test.ts`; the reader proved in a real
-  browser against the fixture (all five faults found, the clean page silent,
-  the block-level 14x14 button still caught); and both paths proved on
-  production -- three findings before the exemption, none after it.
+  Then shown in the two other places that read the same capture. Coverage
+  Review answers "what is not covered", which a reader takes as a verdict on
+  the page -- every control can be targeted by name, by a passing test, while
+  the page is unreadable. And the workspace forgot them entirely: a proving
+  run established the faults and wrote nothing down, so a reviewer pressing
+  Approve saw "ran on the live page, passed" with no way to learn the page
+  had a stylesheet missing. Kept on the version's live-run record as
+  `pageLayoutAtGeneration` -- named for the load it came from, not the field
+  it sits in, because a reviewer has a right to know which load established
+  what. No migration; that column is already JSONB and already the record of
+  opening that page. The wording lives in one shared component, since the same
+  fault worded twice gets corrected once.
+
+  **Four more faults found by running it on our own pages at 390px**, which
+  is the only test that mattered. Each was a true measurement and a false
+  claim. Container overflow is not clipped text: `scrollWidth - clientWidth`
+  on a wrapper measures a decorative child, and `innerText` on a wrapper
+  returns every descendant's text, so four pages reported "128px of it cannot
+  be read" about text that was entirely readable -- only a leaf can say its
+  own text does not fit. Screen-reader-only text is not clipped either: the
+  `width: 1px; overflow: hidden` pattern reports its full text width by
+  construction, and `label "Page URL"` claimed 71px was unreadable, which is
+  exactly how wide "Page URL" is. One instant is no evidence about a page
+  mid-animation, so a finding must now survive two readings 400ms apart. And
+  two findings came from hand-written visibility checks the platform already
+  answers: a closed `<details>` keeps its children's rectangles laid out as if
+  open, past the end of its own box, with every ancestor reporting `overflow:
+  visible`, so the collapsed test-account fields at y=2171 were reported as
+  overlapping a button by 6768px while their `<details>` ended at y=2084.
+  `checkVisibility()` returned false for all of them. An inline element's
+  bounding box is not a shape it occupies either -- a link in a wrapped
+  sentence spans every line it touches -- so inline pairs are skipped.
+
+  **What survived was ours and was real.** The footer's About, Terms, Privacy
+  and the feedback button were 20px tall on every page, under the 24x24px
+  minimum. Fixed with padding and a negative margin so nothing moved.
+
+  28 tests in `tests/unit/layout-faults.test.ts`, 6 for the shared panel, 5
+  for the stored record. Proved in a real browser against a fixture built
+  with five faults (all five found, clean page silent) and across four
+  external sites at two viewports each (nothing reported). On production:
+  three findings before the WCAG exemption, none after; and after the footer
+  fix, all five of our pages clean at both widths.
 
 ### Found by using the product as a team would
 - **Every detail page was a dead end** (2026-11-08): found by the owner while
@@ -3216,13 +3255,20 @@ made from this address until the allowance resets at midnight UTC.
 - Read `docs/LAUNCH_POSTS.md` and post, in this order: Reddit, the Playwright
   Discord, Show HN. Nothing is published by the file existing.
 
-**Next on the layout work, not yet done.** The faults are found and shown
-beside the draft, but nothing carries them further. Three things follow from
-that, in order: Coverage Review reads the same snapshot and should show them
-too; the workspace has no record of them, so a layout fault found during a
-proving run is forgotten when the tab closes; and a run that passes while the
-page has a stylesheet missing is still reported as a pass, which is correct
-but deserves a line on the run itself rather than only on the draft.
+**Next on the layout work, not yet done.** Three things, in order. The check
+reads the page at one viewport, 1280x900, and most layout faults are a width
+problem -- every real fault it has found so far, including ours, appeared only
+at 390px. Reading twice would roughly double what it can see. The MCP server
+and workspace page coverage both call `capturePageSnapshot` and ignore the
+faults it now returns. And a stranger has no way to ask "check this page's
+layout" on its own: it rides along with a draft, so somebody who only wants
+the layout answer has to generate a test to get it.
+
+**A measured false-positive profile, worth keeping up.** Four external sites
+at two viewports each, nothing reported, with a five-fault fixture still
+fully detected. That pairing is the only evidence that the check is both
+honest and awake; re-run `scratchpad/sweep-layout.mts` after any change to
+the reader, and add a site when one turns up an interesting fault.
 
 **Also worth researching, unprompted.** The owner's instruction on
 2026-11-26: he should not have to forward a competitor's link to get the
