@@ -3300,6 +3300,15 @@ Still to do: `/engineering-review` is the one designed page that leads with a
 light panel rather than a dark one, which may be right for a task page and is
 worth looking at beside the others rather than deciding from the source.
 
+**The second width is done (2026-11-26).** The check read 1280x900 and
+nothing else, and across eleven pages at six widths every real fault it had
+ever found appeared only at phone width -- the four in this product's own site
+among them. The same page is now read again at 390 after the tree is
+captured, by resizing rather than reopening, and a fault present at only some
+widths says which. Proved against a fixture built to be clean on a desktop and
+broken on a phone: 0 faults from the 1280 reading, 2 from both. It costs
+about 1-2 seconds: the same TodoMVC run measured 21s against 18-20s before.
+
 **Next on the layout work, not yet done.** Three things, in order. The check
 reads the page at one viewport, 1280x900, and most layout faults are a width
 problem -- every real fault it has found so far, including ours, appeared only
