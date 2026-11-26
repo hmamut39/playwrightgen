@@ -275,6 +275,34 @@ export function describeLayoutFaultsAcrossWidths(
 }
 
 /**
+ * The layout faults as plain text, for somewhere there is no screen.
+ *
+ * The editor connection and the workspace both read the same page as the free
+ * generator and both threw this away, so an assistant in somebody's editor
+ * could report a passing test on a page whose stylesheet had not loaded, and
+ * the workspace's own page coverage could call a page covered without ever
+ * looking at it.
+ *
+ * `null` for a check that could not run, because saying nothing is the only
+ * honest thing available then -- and distinct from `[]`, which is a page that
+ * was checked and is clean, and which says so out loud.
+ */
+export function layoutFaultReport(faults: readonly LayoutFault[] | null): string | null {
+  if (!faults) return null;
+  if (faults.length === 0) {
+    return "Layout: nothing clipped, overlapping, or scrolling sideways on the page read.";
+  }
+  return [
+    `Layout: ${faults.length === 1 ? "1 fault" : `${faults.length} faults`} on the page read.`,
+    ...faults.map((fault) => `- ${fault.what}`),
+    // Said every time. A reader who takes these as failures will distrust a
+    // passing run; one who takes a passing run as a verdict on the page will
+    // ship a broken one.
+    "These are not test failures and do not change the run's verdict.",
+  ].join("\n");
+}
+
+/**
  * One line naming what the layout check found, or that it found nothing.
  *
  * "Nothing" is said out loud on purpose. A check that is silent when it

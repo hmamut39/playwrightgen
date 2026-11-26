@@ -178,12 +178,12 @@ function CheckIcon() {
  * glance, and "One product, two ways to start" at that size is a paragraph.
  */
 const RAIL_SECTIONS: readonly RailSection[] = [
-  { id: "top", label: "Start here" },
-  { id: "product", label: "Two ways to start" },
-  { id: "evidence-loop", label: "The evidence loop" },
-  { id: "where-you-work", label: "Works with your tools" },
-  { id: "trust-model", label: "Trust model" },
-  { id: "start-here", label: "Try it" },
+  { id: "top", label: "Start here", icon: "play" },
+  { id: "product", label: "Two ways to start", icon: "split" },
+  { id: "evidence-loop", label: "The evidence loop", icon: "loop" },
+  { id: "where-you-work", label: "Works with your tools", icon: "code" },
+  { id: "trust-model", label: "Trust model", icon: "shield" },
+  { id: "start-here", label: "Try it", icon: "arrow" },
 ];
 
 export default function Home() {

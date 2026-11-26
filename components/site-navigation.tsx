@@ -6,9 +6,9 @@ import { usePathname } from "next/navigation";
 import { SlidingTabs } from "@/components/sliding-tabs";
 
 const freeTools = [
-  { href: "/generator", label: "Quick Generate" },
-  { href: "/coverage-review", label: "Coverage Review" },
-  { href: "/engineering-review", label: "Release Review" },
+  { href: "/generator", label: "Quick Generate", icon: "bolt" },
+  { href: "/coverage-review", label: "Coverage Review", icon: "scan" },
+  { href: "/engineering-review", label: "Release Review", icon: "shield" },
 ] as const;
 
 /** Pages that are one task with one way forward; see the check below. */
@@ -31,11 +31,16 @@ export function SiteNavigation() {
   // costs something, because a new person who wanders off it has an account
   // with no organisation and nothing to come back to.
   if (FOCUSED_TASKS.some((task) => pathname === task || pathname.startsWith(`${task}/`))) return null;
+  /*
+   * The same icon vocabulary the home page's rail uses, because these are the
+   * same categories: Quick Generate is Quick Generate in both places, and one
+   * idea wearing two different marks is worse than no mark at all.
+   */
   const navigationItems = [
-    { href: "/#product", label: "Product", match: "/" },
+    { href: "/#product", label: "Product", match: "/", icon: "layers" as const },
     ...freeTools.map((tool) => ({ ...tool, match: tool.href })),
-    { href: "/mcp", label: "MCP", match: "/mcp" },
-    { href: "/pricing", label: "Pricing", match: "/pricing" },
+    { href: "/mcp", label: "MCP", match: "/mcp", icon: "code" as const },
+    { href: "/pricing", label: "Pricing", match: "/pricing", icon: "tag" as const },
   ];
 
   return (

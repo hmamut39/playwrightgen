@@ -2,43 +2,44 @@
 
 import { useEffect, useState } from "react";
 
+import { SECTION_ICONS, type SectionIconName } from "@/components/section-icons";
+
 /**
  * Where you are on the home page, as a rail down the left margin.
  *
- * Asked for twice by the owner, after imagium.io, which pins a strip of icons
- * to the left edge and reveals each section's name only when you hover that
- * one icon. Built here with the part that bothered me fixed: hovering
- * anywhere on this rail opens every label at once, so it costs one movement
- * to learn what the page contains instead of five.
+ * Two rounds of the owner's own eyes on it, and both were right.
  *
- * **Numbers, not dashes, and the panel is always there.** The first version
- * collapsed to six faint dashes with no background, and the owner said what
- * was true of it: on a dark hero they are nearly invisible, nothing says they
- * are a control, and hover-to-discover only works for somebody who already
- * knows it is there. That is the same objection I had raised about the rail
- * this was modelled on.
+ * It first collapsed to six faint dashes with no background: on a dark hero
+ * they are nearly invisible, nothing said they were a control, and
+ * hover-to-discover only works for somebody who already knows it is there.
+ * That was the same objection I had raised about the rail this was modelled
+ * on, now true of mine.
  *
- * So it carries its panel at all times, and each section is numbered. A
- * numbered column in a margin reads as "six sections, you are on the second"
- * without hovering anything or decoding an icon, and 01/02/03 badges are
- * already how this product numbers steps on the home page and on /mcp.
- * Labels still open on hover, over the content, which is what a transient
- * popover is for -- the permanently-labelled version would need about 1660px
- * of viewport before it stopped sitting on the text.
+ * It then became numbers, 01 to 06, in a white panel. "Too simple", and the
+ * panel read as a grey smudge against the dark hero -- which the photograph
+ * of it showed plainly. A number says how many things there are and nothing
+ * about what any of them is.
+ *
+ * So: an icon per section, from the one vocabulary the header tabs draw from
+ * too, on a dark glass panel that belongs to the hero instead of sitting on
+ * top of it. The icon says what the section is before any text loads; the
+ * active one is cyan with a glow behind it; and hovering anywhere on the rail
+ * still opens every label at once, which is the part worth keeping -- one
+ * movement to learn the whole page instead of five.
  *
  * **Only where there is margin to put it.** The home page's content is
  * `max-w-7xl`, 1280px, so below about 1440px there is no empty gutter and a
- * fixed rail would sit on top of the text. `min-[1440px]:block` is the width
- * at which the margin is wider than the rail, and that is a measurement
- * rather than a preference -- which is also why this is not on the task
- * pages, where a floating index would compete with a form.
+ * fixed rail would sit on the text. `min-[1440px]:block` is where the margin
+ * is wider than the rail, measured rather than guessed -- at 1512px the panel
+ * ends at 76px and the content starts at 116px. It is also why this is not on
+ * the task pages, where a floating index would compete with a form.
  *
  * Labels stay in the DOM when collapsed, clipped by `max-w-0` rather than
- * removed, so each link keeps its accessible name. They are not reported by
- * this product's own layout check, because a box of zero width is not
- * displaying text to anybody -- see MIN_DISPLAYED_BOX_PX in layout-faults.ts.
+ * removed, so each link keeps its accessible name. A box of zero width is not
+ * displaying text to anybody, so this product's own layout check does not
+ * report them -- see MIN_DISPLAYED_BOX_PX in layout-faults.ts.
  */
-export type RailSection = { id: string; label: string };
+export type RailSection = { id: string; label: string; icon: SectionIconName };
 
 export function HomeSectionRail({ sections }: { sections: readonly RailSection[] }) {
   const [current, setCurrent] = useState<string | null>(null);
@@ -80,38 +81,46 @@ export function HomeSectionRail({ sections }: { sections: readonly RailSection[]
   return (
     <nav
       aria-label="Sections of this page"
-      className="group fixed left-4 top-1/2 z-30 hidden -translate-y-1/2 min-[1440px]:block"
+      className="group fixed left-5 top-1/2 z-30 hidden -translate-y-1/2 min-[1440px]:block"
     >
-      <ul className="rounded-2xl border border-slate-200/80 bg-white/90 p-1.5 shadow-md backdrop-blur transition-shadow duration-200 group-focus-within:shadow-lg group-hover:shadow-lg">
-        {sections.map((section, index) => {
+      <ul className="rounded-2xl border border-white/10 bg-slate-950/85 p-2 shadow-xl shadow-slate-950/20 ring-1 ring-black/5 backdrop-blur-md">
+        {sections.map((section) => {
           const active = current === section.id;
+          const Icon = SECTION_ICONS[section.icon];
           return (
             <li key={section.id}>
               <a
                 href={`#${section.id}`}
                 aria-current={active ? "true" : undefined}
                 /*
-                 * A 24px number badge with px-1.5/py-1 around it is a 36x32px
+                 * A 28px icon tile with px-1/py-1 around it is a 36x36px
                  * target while collapsed, clear of the 24x24px minimum in
                  * WCAG 2.2 (2.5.8). The first real fault this product's own
                  * layout check ever found was a 20px-tall link in its own
                  * footer, so this is measured rather than assumed.
                  */
-                className="flex items-center gap-2.5 rounded-xl px-1.5 py-1 transition-colors hover:bg-slate-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                className="group/item flex items-center gap-2.5 rounded-xl p-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
               >
                 <span
-                  aria-hidden="true"
-                  className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg text-[11px] font-bold tabular-nums transition-colors duration-200 ${
+                  className={`relative grid h-7 w-7 shrink-0 place-items-center rounded-lg transition-all duration-200 ${
                     active
-                      ? "bg-cyan-600 text-white"
-                      : "bg-slate-100 text-slate-500 group-hover:bg-slate-200/80"
+                      ? "bg-cyan-400/15 text-cyan-300 ring-1 ring-cyan-300/30"
+                      : "text-slate-400 group-hover/item:bg-white/10 group-hover/item:text-slate-100"
                   }`}
                 >
-                  {String(index + 1).padStart(2, "0")}
+                  {active ? (
+                    // A soft bloom behind the active icon, so the rail has a
+                    // focal point at a glance and not only on inspection.
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-0 rounded-lg bg-cyan-400/20 blur-[6px]"
+                    />
+                  ) : null}
+                  <Icon className="relative h-4 w-4" />
                 </span>
                 <span
                   className={`max-w-0 overflow-hidden whitespace-nowrap text-sm leading-6 opacity-0 transition-all duration-200 group-focus-within:max-w-[13rem] group-focus-within:opacity-100 group-hover:max-w-[13rem] group-hover:opacity-100 ${
-                    active ? "font-semibold text-slate-950" : "text-slate-600"
+                    active ? "font-semibold text-white" : "text-slate-300"
                   }`}
                 >
                   {section.label}

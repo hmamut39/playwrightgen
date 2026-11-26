@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { SECTION_ICONS, type SectionIconName } from "@/components/section-icons";
+
 /**
  * The header's tab group, with the active pill sliding between tabs.
  *
@@ -24,7 +26,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * because a pill that is accurate only at the width it was measured at is
  * worse than no pill.
  */
-export type SlidingTab = { href: string; label: string; match: string };
+export type SlidingTab = { href: string; label: string; match: string; icon: SectionIconName };
 
 export function SlidingTabs({
   tabs,
@@ -99,6 +101,7 @@ export function SlidingTabs({
       />
       {tabs.map((tab) => {
         const active = tab.match === pathname;
+        const Icon = SECTION_ICONS[tab.icon];
         return (
           <Link
             key={tab.href}
@@ -115,12 +118,17 @@ export function SlidingTabs({
              * words. A faint pill under the pointer answers "is this a tab or
              * a label" before anybody has to find out by clicking.
              */
-            className={`relative z-10 rounded-xl px-3.5 py-2 text-sm font-medium transition-all duration-200 ${
+            className={`group/tab relative z-10 flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 ${
               active
                 ? "text-slate-950"
                 : "text-slate-600 hover:bg-white/70 hover:text-slate-950 hover:shadow-sm"
             }`}
           >
+            <Icon
+              className={`h-4 w-4 shrink-0 transition-colors duration-200 ${
+                active ? "text-cyan-600" : "text-slate-400 group-hover/tab:text-slate-600"
+              }`}
+            />
             {tab.label}
           </Link>
         );
