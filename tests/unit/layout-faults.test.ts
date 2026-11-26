@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   describeLayoutFaults,
+  faultsPresentInBoth,
   layoutFaultsPhrase,
   readLayoutFaults,
   stylesheetFailures,
@@ -233,6 +234,83 @@ describe("reading the page", () => {
     expect(read).toEqual({ read: true, findings: raw });
     // Still under the floor: the reader gathers, it does not decide.
     expect(describeLayoutFaults(read.read ? read.findings : [])).toEqual([]);
+  });
+});
+
+describe("only faults the page still has once it settles", () => {
+  /*
+   * Every geometric fault here is measured from one instant, and a page in
+   * the middle of an entrance animation is briefly a page where everything
+   * overlaps everything. Measured on PlaywrightGen's own home page on
+   * 2026-11-26: two stacked buttons reported as sharing 1993px, which they
+   * never do once the reveal finishes. So a fault counts only if it is still
+   * there 400ms later.
+   */
+  it("drops an overlap that was only a frame of an animation", () => {
+    const mid: RawLayoutFinding[] = [
+      { kind: "overlap", a: 'a "try a demo"', b: 'a "open Workspace"', sharedPx2: 1993 },
+    ];
+    const settled: RawLayoutFinding[] = [];
+
+    expect(faultsPresentInBoth(mid, settled)).toEqual([]);
+  });
+
+  it("keeps a fault that is there both times, with the settled numbers", () => {
+    const before: RawLayoutFinding[] = [
+      { kind: "clipped_text", label: 'button "Save"', hiddenPx: 30 },
+    ];
+    const after: RawLayoutFinding[] = [
+      { kind: "clipped_text", label: 'button "Save"', hiddenPx: 34 },
+    ];
+
+    // The later measurement wins: it describes the page at rest.
+    expect(faultsPresentInBoth(before, after)).toEqual([
+      { kind: "clipped_text", label: 'button "Save"', hiddenPx: 34 },
+    ]);
+  });
+
+  it("treats the same overlapping pair found in either order as one fault", () => {
+    const before: RawLayoutFinding[] = [{ kind: "overlap", a: "button", b: "link", sharedPx2: 900 }];
+    const after: RawLayoutFinding[] = [{ kind: "overlap", a: "link", b: "button", sharedPx2: 900 }];
+
+    expect(faultsPresentInBoth(before, after)).toHaveLength(1);
+  });
+
+  it("drops a fault that only appeared after the page settled", () => {
+    // Something that arrives late is as likely to be a half-finished layout
+    // as a real fault, and one reading cannot tell them apart.
+    const before: RawLayoutFinding[] = [];
+    const after: RawLayoutFinding[] = [
+      { kind: "small_target", inlineInText: false, label: 'button "x"', width: 10, height: 10 },
+    ];
+
+    expect(faultsPresentInBoth(before, after)).toEqual([]);
+  });
+
+  it("reads the page twice and reports only what persisted", async () => {
+    const readings: RawLayoutFinding[][] = [
+      [
+        { kind: "overlap", a: "a", b: "b", sharedPx2: 500 },
+        { kind: "clipped_text", label: 'button "Save"', hiddenPx: 20 },
+      ],
+      [{ kind: "clipped_text", label: 'button "Save"', hiddenPx: 20 }],
+    ];
+    let settled = false;
+
+    const read = await readLayoutFaults(
+      { evaluate: async () => readings.shift() ?? [] },
+      {
+        settle: async () => {
+          settled = true;
+        },
+      },
+    );
+
+    expect(settled).toBe(true);
+    expect(read.read).toBe(true);
+    expect(read.read ? read.findings : []).toEqual([
+      { kind: "clipped_text", label: 'button "Save"', hiddenPx: 20 },
+    ]);
   });
 });
 

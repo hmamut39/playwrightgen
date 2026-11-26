@@ -62,6 +62,20 @@ const CLIP_FLOOR_PX = 4;
 /** At most this many of any one kind, so a systemic fault cannot drown the rest. */
 const MAX_PER_KIND = 4;
 
+/**
+ * The smallest box that is displaying text to anybody.
+ *
+ * Text meant only for a screen reader is hidden with the long-standing
+ * `width: 1px; height: 1px; overflow: hidden` pattern, which by construction
+ * reports its full text width as overflow. Measured on PlaywrightGen's own
+ * pages on 2026-11-26: `label "Page URL"` said 71px of its text could not be
+ * read, and 71px is exactly how wide "Page URL" is. The text was not clipped;
+ * it was never meant to be seen, and it is doing its job.
+ *
+ * Four pixels, because no box that small is showing a glyph to anyone.
+ */
+const MIN_DISPLAYED_BOX_PX = 4;
+
 export type RawLayoutFinding =
   | { kind: "stylesheet_failed"; href: string }
   | { kind: "horizontal_overflow"; overflowPx: number; widest: string }
@@ -225,6 +239,60 @@ export function layoutFaultsPhrase(faults: readonly LayoutFault[]): string {
  * query is unreadable in a one-line finding, and the query is never the part
  * that is wrong.
  */
+/**
+ * How long to wait before asking the page the same question again.
+ *
+ * Long enough for a reveal or entrance animation to finish -- the common ones
+ * run 150 to 300ms -- and short enough that it is not felt beside a page load
+ * and a model call.
+ */
+const SETTLE_MS = 400;
+
+/**
+ * What identifies a finding across two readings of the same page.
+ *
+ * Geometry, not identity: the same pair of controls overlapping, the same
+ * label clipped. The measured amount is deliberately left out, because a
+ * fault that persists while shifting by a pixel is still the same fault.
+ */
+function faultKey(finding: RawLayoutFinding): string {
+  switch (finding.kind) {
+    case "stylesheet_failed":
+      return `stylesheet:${finding.href}`;
+    case "horizontal_overflow":
+      return "overflow";
+    case "clipped_text":
+      return `clipped:${finding.label}`;
+    case "overlap":
+      // Sorted, so the same pair found in either order is one fault.
+      return `overlap:${[finding.a, finding.b].sort().join("|")}`;
+    case "small_target":
+      return `small:${finding.label}`;
+  }
+}
+
+/**
+ * The findings still true after the page settled.
+ *
+ * Every geometric fault here is measured from one instant, and a page in the
+ * middle of an entrance animation is briefly a page where everything overlaps
+ * everything. Measured on PlaywrightGen's own home page on 2026-11-26: two
+ * stacked buttons reported as sharing 1993px, which they never do once the
+ * reveal finishes.
+ *
+ * So a fault counts only if it is there twice, 400ms apart. A transient
+ * state cannot survive that, and a real fault is unaffected by it. The later
+ * measurement is the one reported, because it describes the page as it comes
+ * to rest.
+ */
+export function faultsPresentInBoth(
+  first: readonly RawLayoutFinding[],
+  second: readonly RawLayoutFinding[],
+): RawLayoutFinding[] {
+  const before = new Set(first.map(faultKey));
+  return second.filter((finding) => before.has(faultKey(finding)));
+}
+
 export function stylesheetFailures(urls: readonly string[]): RawLayoutFinding[] {
   const seen = new Set<string>();
   const findings: RawLayoutFinding[] = [];
@@ -243,10 +311,13 @@ export function stylesheetFailures(urls: readonly string[]): RawLayoutFinding[] 
   return findings;
 }
 
+/** The thresholds the page script needs, passed in because it has no imports. */
+export type LayoutReadArguments = { minimumTarget: number; minDisplayedBox: number };
+
 export type LayoutReadablePage = {
   evaluate(
-    fn: (argument: { minimumTarget: number }) => RawLayoutFinding[],
-    argument: { minimumTarget: number },
+    fn: (argument: LayoutReadArguments) => RawLayoutFinding[],
+    argument: LayoutReadArguments,
   ): Promise<RawLayoutFinding[]>;
 };
 
@@ -266,10 +337,14 @@ export type LayoutReadablePage = {
  */
 export type LayoutRead = { read: true; findings: RawLayoutFinding[] } | { read: false };
 
-export async function readLayoutFaults(page: LayoutReadablePage): Promise<LayoutRead> {
+export async function readLayoutFaults(
+  page: LayoutReadablePage,
+  options: { settle?: (ms: number) => Promise<void> } = {},
+): Promise<LayoutRead> {
   try {
-    const findings = await page.evaluate(
-      ({ minimumTarget }: { minimumTarget: number }) => {
+    const readOnce = () =>
+      page.evaluate(
+      ({ minimumTarget, minDisplayedBox }: { minimumTarget: number; minDisplayedBox: number }) => {
         /*
          * One pass, and deliberately no helper functions.
          *
@@ -295,6 +370,40 @@ export async function readLayoutFaults(page: LayoutReadablePage): Promise<Layout
           interactive: boolean;
           visible: boolean;
           inlineInText: boolean;
+          /**
+           * Whether this element's own children are text and nothing else.
+           *
+           * `scrollWidth - clientWidth` on a wrapper measures whatever
+           * overflows it, which is usually not its text: a section with
+           * `overflow-hidden` and one wide decorative child reports exactly
+           * the same numbers as a button whose label is cut in half. And
+           * `innerText` on a wrapper returns every descendant's text, so the
+           * wrapper looks like it has text of its own.
+           *
+           * Measured on PlaywrightGen's own pages on 2026-11-26: four pages
+           * each reported "128px of it cannot be read" about section
+           * wrappers whose text was entirely readable. Only a leaf can say
+           * that its own text does not fit.
+           */
+          leafWithText: boolean;
+          /**
+           * Whether an ancestor's clipping leaves nothing of this on screen.
+           *
+           * A collapsed section held shut with `max-height: 0; overflow:
+           * hidden` keeps real rectangles for everything inside it, in the
+           * place they would occupy if it were open. Those rectangles sit
+           * underneath whatever is painted there, so every control in a
+           * closed panel overlapped the controls of the panel below it.
+           *
+           * Measured on /generator on 2026-11-26: the test-account fields,
+           * which are collapsed until asked for, were reported as
+           * overlapping "Add evidence files" and "Generate Playwright draft"
+           * by up to 6768px. Nothing was overlapping; none of it was on
+           * screen.
+           */
+          clippedAway: boolean;
+          /** The box actually showing content, used to spot hidden-for-screen-readers text. */
+          displayedBox: boolean;
           clipsContent: boolean;
           hasText: boolean;
           hiddenPx: number;
@@ -303,8 +412,61 @@ export async function readLayoutFaults(page: LayoutReadablePage): Promise<Layout
 
         for (const element of Array.from(document.body.querySelectorAll("*")).slice(0, 2000)) {
           const style = getComputedStyle(element);
-          const visible =
+          /*
+           * Ask the browser whether this is on screen, rather than working it
+           * out from computed style.
+           *
+           * `checkVisibility` accounts for the cases hand-written checks miss,
+           * and the one that mattered was a closed `<details>`: its children
+           * keep the rectangles they would have if it were open, laid out
+           * past the end of the element's own box, and every ancestor reports
+           * `overflow: visible`, so neither an inherited-style walk nor a
+           * clipping test can see that they are hidden.
+           *
+           * Measured on /generator at 390px on 2026-11-26: the collapsed
+           * test-account fields sat at y=2171 while their `<details>` ended
+           * at y=2084, and were reported as overlapping "Generate Playwright
+           * draft" by 6768px. `checkVisibility()` returned false for every
+           * one of them. The platform already knew.
+           */
+          let visible =
             style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity) !== 0;
+          const ask = (element as unknown as {
+            checkVisibility?: (options: {
+              checkOpacity: boolean;
+              checkVisibilityCSS: boolean;
+              contentVisibilityAuto: boolean;
+            }) => boolean;
+          }).checkVisibility;
+          if (typeof ask === "function") {
+            visible = ask.call(element, {
+              checkOpacity: true,
+              checkVisibilityCSS: true,
+              contentVisibilityAuto: true,
+            });
+          }
+          /*
+           * Transparency and hiding are inherited in effect but not in
+           * computed style: an element inside an `opacity: 0` reveal wrapper
+           * reports `opacity: 1` for itself and still has a real rectangle.
+           * Without walking up, a not-yet-revealed section's controls were
+           * compared against the visible ones and reported as overlapping.
+           */
+          if (visible && typeof ask !== "function") {
+            let ancestor = element.parentElement;
+            while (ancestor && ancestor !== document.body) {
+              const ancestorStyle = getComputedStyle(ancestor);
+              if (
+                ancestorStyle.visibility === "hidden" ||
+                ancestorStyle.display === "none" ||
+                Number(ancestorStyle.opacity) === 0
+              ) {
+                visible = false;
+                break;
+              }
+              ancestor = ancestor.parentElement;
+            }
+          }
 
           const role = element.getAttribute("role") || element.tagName.toLowerCase();
           const text = element instanceof HTMLElement ? element.innerText : "";
@@ -315,14 +477,40 @@ export async function readLayoutFaults(page: LayoutReadablePage): Promise<Layout
             element.getAttribute("placeholder") ||
             "";
 
+          /*
+           * Whether anything of this element survives its ancestors'
+           * clipping. Walked from the element outward, intersecting its
+           * rectangle with each clipping ancestor's: if any intersection is
+           * empty, the element is laid out somewhere nothing is painted.
+           */
+          const rect = element.getBoundingClientRect();
+          let clippedAway = false;
+          let clipper = element.parentElement;
+          while (clipper && clipper !== document.documentElement) {
+            const clipperStyle = getComputedStyle(clipper);
+            if (clipperStyle.overflowX !== "visible" || clipperStyle.overflowY !== "visible") {
+              const bounds = clipper.getBoundingClientRect();
+              const sharedWidth = Math.min(rect.right, bounds.right) - Math.max(rect.left, bounds.left);
+              const sharedHeight = Math.min(rect.bottom, bounds.bottom) - Math.max(rect.top, bounds.top);
+              if (sharedWidth <= 0 || sharedHeight <= 0) {
+                clippedAway = true;
+                break;
+              }
+            }
+            clipper = clipper.parentElement;
+          }
+
           records.push({
             element,
             label: labelText ? `${role} "${labelText}"` : role,
-            rect: element.getBoundingClientRect(),
+            rect,
             interactive: element.matches(
               'a[href], button, input, select, textarea, [role="button"], [role="link"]',
             ),
             visible,
+            clippedAway,
+            displayedBox:
+              element.clientWidth > minDisplayedBox && element.clientHeight > minDisplayedBox,
             /*
              * An inline element carrying text is in the text flow, so its
              * height is the line-height of the prose around it -- which is
@@ -337,6 +525,7 @@ export async function readLayoutFaults(page: LayoutReadablePage): Promise<Layout
               (style.overflowX === "hidden" || style.overflow === "hidden") &&
               style.textOverflow !== "ellipsis",
             hasText: Boolean(text && text.trim()),
+            leafWithText: element.children.length === 0 && Boolean(text && text.trim()),
             hiddenPx: element.scrollWidth - element.clientWidth,
           });
         }
@@ -372,14 +561,21 @@ export async function readLayoutFaults(page: LayoutReadablePage): Promise<Layout
         }
 
         for (const record of records) {
-          // Text its own container cuts off.
-          if (record.clipsContent && record.hasText && record.hiddenPx > 0) {
+          // Text its own container cuts off, asked only of leaves.
+          if (
+            record.clipsContent &&
+            record.leafWithText &&
+            record.displayedBox &&
+            !record.clippedAway &&
+            record.hiddenPx > 0
+          ) {
             found.push({ kind: "clipped_text", label: record.label, hiddenPx: record.hiddenPx });
           }
           // Tap targets below the standard's minimum.
           if (
             record.interactive &&
             record.visible &&
+            !record.clippedAway &&
             record.rect.width > 0 &&
             record.rect.height > 0 &&
             (record.rect.width < minimumTarget || record.rect.height < minimumTarget)
@@ -399,12 +595,29 @@ export async function readLayoutFaults(page: LayoutReadablePage): Promise<Layout
          * a link overlaps it by construction and that is not a fault, so only
          * pairs where neither contains the other are considered.
          */
-        const controls = records.filter((record) => record.interactive && record.visible).slice(0, 300);
+        const controls = records
+          .filter((record) => record.interactive && record.visible && !record.clippedAway)
+          .slice(0, 300);
         for (let i = 0; i < controls.length; i += 1) {
           for (let j = i + 1; j < controls.length; j += 1) {
             const first = controls[i];
             const second = controls[j];
             if (first.element.contains(second.element) || second.element.contains(first.element)) continue;
+            /*
+             * An inline element's bounding box is not a shape it occupies.
+             * A link in a sentence that wraps across two lines has one box
+             * spanning the full width of both, so any two links in the same
+             * wrapped paragraph appear to overlap while never visually
+             * touching.
+             *
+             * Measured on the home page at 390px on 2026-11-26: "try a
+             * ready-made demo" and "open your Workspace", two inline links in
+             * one 48px-tall paragraph of prose, reported as sharing 1993px.
+             * They sit on separate lines. Per-line fragments are available
+             * through getClientRects(), but two links in a text flow cannot
+             * meaningfully cover one another at all, so the pair is skipped.
+             */
+            if (first.inlineInText || second.inlineInText) continue;
             const a = first.rect;
             const b = second.rect;
             const sharedWidth = Math.min(a.right, b.right) - Math.max(a.left, b.left);
@@ -421,9 +634,19 @@ export async function readLayoutFaults(page: LayoutReadablePage): Promise<Layout
 
         return found;
       },
-      { minimumTarget: MINIMUM_TARGET_PX },
-    );
-    return { read: true, findings };
+        { minimumTarget: MINIMUM_TARGET_PX, minDisplayedBox: MIN_DISPLAYED_BOX_PX },
+      );
+
+    /*
+     * Twice, because one instant is not evidence about a page that is still
+     * animating. Only what is true in both readings is reported; the second
+     * supplies the numbers, since it describes the page at rest.
+     */
+    const before = await readOnce();
+    const settle = options.settle ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+    await settle(SETTLE_MS);
+    const after = await readOnce();
+    return { read: true, findings: faultsPresentInBoth(before, after) };
   } catch {
     /*
      * The read failed, and that is reported as a failure rather than as an

@@ -55,7 +55,8 @@ export function FeedbackLink() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="underline underline-offset-2 hover:text-black"
+        // Same 24px minimum as the three links it sits beside.
+        className="inline-flex items-center px-1 py-1 underline underline-offset-2 hover:text-black"
       >
         Something wrong on this page?
       </button>

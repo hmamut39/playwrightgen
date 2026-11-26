@@ -74,14 +74,25 @@ export default function RootLayout({
             {children}
 
             <footer className="mt-20 border-t py-6 text-center text-sm text-slate-500">
-              <div className="flex flex-wrap justify-center gap-6">
-                <a href="/about" className="hover:text-black">
+              {/*
+                * The hit areas are grown with padding and the space given
+                * back with a negative margin, so nothing moves on the page.
+                *
+                * These were 20px tall, under the 24x24px minimum WCAG 2.2
+                * (2.5.8) sets, on every page of the site. Found on
+                * 2026-11-26 by running the product's own new layout check
+                * against playwrightgen.com at 390px wide -- the check was
+                * built that afternoon and the first real fault it reported
+                * was ours.
+                */}
+              <div className="-my-1 flex flex-wrap justify-center gap-x-6 gap-y-1">
+                <a href="/about" className="inline-flex items-center px-1 py-1 hover:text-black">
                   About
                 </a>
-                <a href="/terms" className="hover:text-black">
+                <a href="/terms" className="inline-flex items-center px-1 py-1 hover:text-black">
                   Terms
                 </a>
-                <a href="/privacy" className="hover:text-black">
+                <a href="/privacy" className="inline-flex items-center px-1 py-1 hover:text-black">
                   Privacy
                 </a>
                 {/* Beside the other three, on every page, because the page
