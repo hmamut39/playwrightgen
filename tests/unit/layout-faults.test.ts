@@ -4,6 +4,7 @@ import {
   describeLayoutFaults,
   describeLayoutFaultsAcrossWidths,
   faultsPresentInBoth,
+  layoutFaultReport,
   layoutFaultsPhrase,
   readLayoutFaults,
   stylesheetFailures,
@@ -206,6 +207,41 @@ describe("how the report is ordered and bounded", () => {
 
     expect(faults.filter((fault) => fault.kind === "small_target")).toHaveLength(4);
     expect(faults[0].kind).toBe("stylesheet_failed");
+  });
+});
+
+describe("the layout report, where there is no screen", () => {
+  /*
+   * The editor connection reads the same page as the free generator and threw
+   * this away, so an assistant could hand somebody a passing test for a page
+   * whose stylesheet had not loaded and say nothing about it.
+   */
+  it("says nothing at all when the check could not run", () => {
+    // Distinct from a clean page. The two were one value once, and the screen
+    // said "no layout faults" for a check that never happened.
+    expect(layoutFaultReport(null)).toBeNull();
+  });
+
+  it("says a checked page is clean, out loud", () => {
+    expect(layoutFaultReport([])).toContain("nothing clipped");
+  });
+
+  it("lists the faults and refuses to call them failures", () => {
+    const report = layoutFaultReport([
+      { kind: "stylesheet_failed", what: "A stylesheet did not load (/app.css)." },
+      { kind: "overlap", what: "Two controls overlap." },
+    ]);
+
+    expect(report).toContain("2 faults");
+    expect(report).toContain("- A stylesheet did not load (/app.css).");
+    expect(report).toContain("- Two controls overlap.");
+    // Said every time: an assistant reading this must not report a failing
+    // test, and must not report a clean page either.
+    expect(report).toContain("not test failures");
+  });
+
+  it("counts one fault in the singular", () => {
+    expect(layoutFaultReport([{ kind: "overlap", what: "x" }])).toContain("1 fault");
   });
 });
 

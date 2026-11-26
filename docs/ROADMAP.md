@@ -3309,6 +3309,23 @@ widths says which. Proved against a fixture built to be clean on a desktop and
 broken on a phone: 0 faults from the 1280 reading, 2 from both. It costs
 about 1-2 seconds: the same TodoMVC run measured 21s against 18-20s before.
 
+**The editor connection reports layout faults now (2026-11-26).** It read the
+same page as the free generator and threw them away, so an assistant could
+hand somebody a passing test for a page whose stylesheet had not loaded and
+say nothing about it. `layoutFaultReport` formats them as text for somewhere
+there is no screen, and says every time that they are not test failures --
+an assistant that reports a failing test from them is as wrong as one that
+reports a clean page.
+
+**Page coverage needs a decision, not more code.** It is the last caller that
+drops them. Its only JSON column is documented as "the page's named controls
+at planning time", so putting layout faults there would repeat the
+conflation this codebase has already paid for twice. It wants a column of its
+own, which is a migration and therefore the owner's call. Worth knowing
+before asking: the workspace is not blind today, because an automation
+version already carries `pageLayoutAtGeneration` from the same page; this
+would add the faults at the earlier planning step.
+
 **Next on the layout work, not yet done.** Three things, in order. The check
 reads the page at one viewport, 1280x900, and most layout faults are a width
 problem -- every real fault it has found so far, including ours, appeared only

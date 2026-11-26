@@ -6,6 +6,7 @@ import { repairDraft } from "@/lib/ai/draft-repair";
 import { weakeningFindings } from "@/lib/ai/repair-weakening";
 import { generateQuickDraft } from "@/lib/ai/quick-generation";
 import { requireWorkspaceContext } from "@/lib/auth/workspace-context";
+import { layoutFaultReport } from "@/lib/free-tools/layout-faults";
 import { capturePageSnapshot, isPublicWebAddress } from "@/lib/free-tools/page-snapshot";
 import { checksPhrase } from "@/lib/free-tools/preview-run/checks-phrase";
 import { runVerdict } from "@/lib/free-tools/preview-run/receipt";
@@ -772,6 +773,20 @@ const tools: Tool[] = [
         ...draft.testPlan.map((item, index) => `${index + 1}. ${item.scenario}: ${item.intent} (expect: ${item.expectedOutcome})`),
         unverified.length ? `\nConfirm these locators, which were not on the page read: ${unverified.join(", ")}` : null,
         draft.warnings.length ? `\nWarnings: ${draft.warnings.join(" ")}` : null,
+        /*
+         * What the page looked like, which no assertion in this draft can
+         * tell you.
+         *
+         * The editor connection read the page and dropped this, so an
+         * assistant could hand somebody a passing test for a page whose
+         * stylesheet had not loaded and say nothing about it. Reported
+         * separately and never folded into the verdict: the behaviour can
+         * pass while the page still looks wrong, which is the whole reason
+         * it is reported at all.
+         */
+        snapshot?.ok && layoutFaultReport(snapshot.layoutFaults)
+          ? `\n${layoutFaultReport(snapshot.layoutFaults)}`
+          : null,
         "",
         "```ts",
         draft.code,
