@@ -3270,13 +3270,35 @@ page shared a dark hero, an uppercase eyebrow and a card grid except /about,
 which was a bare column -- on the one page a stranger is sent to. Rebuilt with
 no change to its words.
 
-Still to do, in order. `/terms` and `/privacy` are the same shape of long
-document as /about was and should take the same index; they have a hero but
-no sections a reader can navigate. `/engineering-review` has the fewest
-pattern matches of the designed pages and is worth a look beside the others.
-And nothing checks that a page carries the shared language, so the next one
-written will drift again -- the measure that found this was a grep run by
-hand.
+`/terms` and `/privacy` followed the same day. Both were long documents with a
+hero and no way through them: no anchors, so neither page could link into the
+other's answer and support could not send anybody to a sentence, and no index,
+so finding the one line a reader came for meant reading all of it. Their
+anchor ids are written down rather than slugified from the headings, because
+a generated slug changes when somebody edits a title and the saved link dies
+silently.
+
+`tests/unit/public-page-language.test.ts` now keeps the measure that found
+/about, since a grep run by hand finds a thing once. Only the panel is
+asserted universally: "every page leads with a dark hero" fails
+/engineering-review, which leads with a white panel by choice, and "every page
+has an eyebrow" fails /pricing, which opens with a badge pill. A loose
+`bg-slate-950` check passes a page whose only dark thing is a button, which is
+what the old /about was -- so the predicate requires the dark background and
+the rounded surface in one class attribute. Verified against that old version:
+it fails both panel assertions, so the test has teeth.
+
+**Run `npm run test:authorization` before pushing a public page.** Those
+browser checks run here in about 44 seconds and they caught what the unit
+suite could not: the /terms index put "No paid purchase today" on the page
+twice, as a heading and as the link to it, and an old `getByText` assertion
+failed on strict mode. It was right to -- it had been asserting the words
+appear somewhere, which an index entry satisfies with no section underneath
+it. Three public pages were changed without running it.
+
+Still to do: `/engineering-review` is the one designed page that leads with a
+light panel rather than a dark one, which may be right for a task page and is
+worth looking at beside the others rather than deciding from the source.
 
 **Next on the layout work, not yet done.** Three things, in order. The check
 reads the page at one viewport, 1280x900, and most layout faults are a width
