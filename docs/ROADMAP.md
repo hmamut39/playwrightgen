@@ -72,9 +72,21 @@ genuine `npm audit` failures, closed by the commit after each.
   page" for a check that never ran. `readLayoutFaults` now returns
   `{ read: true, findings } | { read: false }` and the snapshot field is
   `LayoutFault[] | null`, so no caller can collapse the two by accident.
-  21 tests in `tests/unit/layout-faults.test.ts`, and the reader itself proved
-  in a real browser against the fixture: all five faults found, the clean
-  page silent.
+  A fourth fault found only by running it on production. Against the TodoMVC
+  demo it reported three small tap targets -- "real TodoMVC app." at 120x16,
+  "Remo H. Jansen" at 74x11, "TodoMVC" at 44x11 -- all true measurements, all
+  footer credit links inside a sentence, and all three explicitly allowed by
+  WCAG 2.2's own Inline exception for a target "constrained by the
+  line-height of non-target text". Quoting a standard and then applying it
+  more harshly than written is worse than citing none: the reader who checks
+  finds the product wrong and is right. The exemption is a field on the
+  finding, not a filter in the page reader, so the reader still only gathers
+  and the describer still decides.
+
+  23 tests in `tests/unit/layout-faults.test.ts`; the reader proved in a real
+  browser against the fixture (all five faults found, the clean page silent,
+  the block-level 14x14 button still caught); and both paths proved on
+  production -- three findings before the exemption, none after it.
 
 ### Found by using the product as a team would
 - **Every detail page was a dead end** (2026-11-08): found by the owner while
@@ -3203,6 +3215,22 @@ made from this address until the allowance resets at midnight UTC.
   stranger following the evidence link will see.
 - Read `docs/LAUNCH_POSTS.md` and post, in this order: Reddit, the Playwright
   Discord, Show HN. Nothing is published by the file existing.
+
+**Next on the layout work, not yet done.** The faults are found and shown
+beside the draft, but nothing carries them further. Three things follow from
+that, in order: Coverage Review reads the same snapshot and should show them
+too; the workspace has no record of them, so a layout fault found during a
+proving run is forgotten when the tab closes; and a run that passes while the
+page has a stylesheet missing is still reported as a pass, which is correct
+but deserves a line on the run itself rather than only on the draft.
+
+**Also worth researching, unprompted.** The owner's instruction on
+2026-11-26: he should not have to forward a competitor's link to get the
+field researched. The imagium comparison was useful because it established
+what that product actually does rather than what its salesperson claimed, and
+it turned into a capability gap that could be built. Repeat that periodically
+for adjacent tools, and judge them the same way -- read their own pages and
+docs, quote verbatim, and look for age signals.
 
 **Small, found while closing and not yet done:** every workflow using
 `actions/checkout@v4` and `actions/setup-node@v4` now carries a GitHub
