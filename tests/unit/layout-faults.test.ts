@@ -85,7 +85,7 @@ describe("the tap-target minimum", () => {
     // boundary as a fault would make the product disagree with the standard
     // it cites, which is worse than not checking.
     const faults = describeLayoutFaults([
-      { kind: "small_target", label: 'link "x"', width: 24, height: 24 },
+      { kind: "small_target", inlineInText: false, label: 'link "x"', width: 24, height: 24 },
     ]);
 
     expect(faults).toEqual([]);
@@ -93,10 +93,10 @@ describe("the tap-target minimum", () => {
 
   it("reports a target one pixel under on either axis", () => {
     const narrow = describeLayoutFaults([
-      { kind: "small_target", label: 'link "x"', width: 23, height: 24 },
+      { kind: "small_target", inlineInText: false, label: 'link "x"', width: 23, height: 24 },
     ]);
     const short = describeLayoutFaults([
-      { kind: "small_target", label: 'link "x"', width: 24, height: 23 },
+      { kind: "small_target", inlineInText: false, label: 'link "x"', width: 24, height: 23 },
     ]);
 
     expect(narrow).toHaveLength(1);
@@ -104,11 +104,36 @@ describe("the tap-target minimum", () => {
     expect(narrow[0].what).toContain("WCAG 2.2");
   });
 
+  it("exempts a link inside a sentence, as the standard does", () => {
+    /*
+     * WCAG 2.2's 2.5.8 has an Inline exception: a target "in a sentence or
+     * whose size is otherwise constrained by the line-height of non-target
+     * text" is allowed to be small. Without this the check reported every
+     * credit link in a footer -- measured on the TodoMVC demo on 2026-11-26,
+     * three findings, all prose links 11 to 16px tall, every one of them
+     * permitted by the standard being quoted at them.
+     */
+    const faults = describeLayoutFaults([
+      { kind: "small_target", inlineInText: true, label: 'a "real TodoMVC app."', width: 120, height: 16 },
+    ]);
+
+    expect(faults).toEqual([]);
+  });
+
+  it("still reports a small control laid out on its own", () => {
+    // An icon button is not in a sentence, so no exception applies to it.
+    const faults = describeLayoutFaults([
+      { kind: "small_target", inlineInText: false, label: 'button "Close"', width: 14, height: 14 },
+    ]);
+
+    expect(faults).toHaveLength(1);
+  });
+
   it("ignores a control with no box at all", () => {
     // Zero-sized is a different fault, and usually a deliberately hidden
     // input. Calling it a small target would be a finding about nothing.
     const faults = describeLayoutFaults([
-      { kind: "small_target", label: "input", width: 0, height: 0 },
+      { kind: "small_target", inlineInText: false, label: "input", width: 0, height: 0 },
     ]);
 
     expect(faults).toEqual([]);
@@ -118,7 +143,7 @@ describe("the tap-target minimum", () => {
 describe("how the report is ordered and bounded", () => {
   it("leads with the fault that breaks the whole page", () => {
     const faults = describeLayoutFaults([
-      { kind: "small_target", label: 'link "a"', width: 10, height: 10 },
+      { kind: "small_target", inlineInText: false, label: 'link "a"', width: 10, height: 10 },
       { kind: "horizontal_overflow", overflowPx: 300, widest: "div" },
       { kind: "stylesheet_failed", href: "/app.css" },
       { kind: "clipped_text", label: "h1", hiddenPx: 40 },
@@ -148,6 +173,7 @@ describe("how the report is ordered and bounded", () => {
      */
     const many: RawLayoutFinding[] = Array.from({ length: 30 }, (_, index) => ({
       kind: "small_target" as const,
+      inlineInText: false,
       label: `link "${index}"`,
       width: 16,
       height: 16,
@@ -255,7 +281,7 @@ describe("stylesheets the browser refused", () => {
 
   it("leads the report, because it breaks the whole page", () => {
     const faults = describeLayoutFaults([
-      { kind: "small_target", label: 'link "a"', width: 8, height: 8 },
+      { kind: "small_target", inlineInText: false, label: 'link "a"', width: 8, height: 8 },
       ...stylesheetFailures(["https://example.com/app.css"]),
     ]);
 

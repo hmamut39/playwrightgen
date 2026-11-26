@@ -67,7 +67,24 @@ export type RawLayoutFinding =
   | { kind: "horizontal_overflow"; overflowPx: number; widest: string }
   | { kind: "clipped_text"; label: string; hiddenPx: number }
   | { kind: "overlap"; a: string; b: string; sharedPx2: number }
-  | { kind: "small_target"; label: string; width: number; height: number };
+  | {
+      kind: "small_target";
+      label: string;
+      width: number;
+      height: number;
+      /**
+       * Whether this target sits inside a sentence.
+       *
+       * WCAG 2.2's 2.5.8 exempts it then -- the "Inline" exception, for a
+       * target "in a sentence or whose size is otherwise constrained by the
+       * line-height of non-target text". Without this the check reported
+       * every credit link in a footer: measured on the TodoMVC demo, three
+       * findings, all of them prose links 11 to 16px tall and all of them
+       * allowed by the standard being quoted at them. Citing a standard and
+       * then ignoring its exceptions is worse than not citing one.
+       */
+      inlineInText: boolean;
+    };
 
 export type LayoutFaultKind = RawLayoutFinding["kind"];
 
@@ -132,6 +149,8 @@ function worthReporting(finding: RawLayoutFinding): boolean {
       // One pixel of sideways scroll is rounding, not a layout fault.
       return finding.overflowPx >= CLIP_FLOOR_PX;
     case "small_target":
+      // The standard's own Inline exception, applied before its minimum.
+      if (finding.inlineInText) return false;
       return (
         finding.width > 0 &&
         finding.height > 0 &&
@@ -275,6 +294,7 @@ export async function readLayoutFaults(page: LayoutReadablePage): Promise<Layout
           rect: DOMRect;
           interactive: boolean;
           visible: boolean;
+          inlineInText: boolean;
           clipsContent: boolean;
           hasText: boolean;
           hiddenPx: number;
@@ -303,6 +323,14 @@ export async function readLayoutFaults(page: LayoutReadablePage): Promise<Layout
               'a[href], button, input, select, textarea, [role="button"], [role="link"]',
             ),
             visible,
+            /*
+             * An inline element carrying text is in the text flow, so its
+             * height is the line-height of the prose around it -- which is
+             * exactly the condition WCAG 2.2's 2.5.8 Inline exception
+             * describes. An inline-block or block control is laid out on its
+             * own and gets no exemption.
+             */
+            inlineInText: style.display === "inline" && Boolean(text && text.trim()),
             // `text-overflow: ellipsis` is text cut off on purpose, and the
             // page already signals it to the reader, so it is not a fault.
             clipsContent:
@@ -361,6 +389,7 @@ export async function readLayoutFaults(page: LayoutReadablePage): Promise<Layout
               label: record.label,
               width: record.rect.width,
               height: record.rect.height,
+              inlineInText: record.inlineInText,
             });
           }
         }
