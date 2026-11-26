@@ -154,6 +154,18 @@ export async function POST(req: Request) {
                 controls: readControls(snapshot.aria, { pageUrl: snapshot.finalUrl, linkTargets: snapshot.linkTargets }).length,
                 // Computed from the page and the pasted tests, not by the model.
                 surface: existingTests ? measureSurfaceCoverage(snapshot.aria, existingTests, { pageUrl: snapshot.finalUrl, linkTargets: snapshot.linkTargets }) : null,
+                /*
+                 * Layout faults from the same load.
+                 *
+                 * This tool answers "what is not covered", and a page can be
+                 * fully covered by passing tests while being unreadable:
+                 * every assertion here is a role, a name or a piece of text,
+                 * and none of them see a control clipped in half. Coverage
+                 * without this reads as a verdict on the page, which it is
+                 * not. Null means the check could not run, which is never
+                 * shown as a clean result.
+                 */
+                layoutFaults: snapshot.layoutFaults,
               }
             : { status: "not_read", reason: snapshot.reason, httpStatus: snapshot.status }
           : null,

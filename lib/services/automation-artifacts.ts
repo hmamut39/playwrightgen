@@ -37,6 +37,7 @@ import { weakeningFindings } from "@/lib/ai/repair-weakening";
 import { executeLiveRun, prepareLiveRun } from "@/lib/free-tools/preview-run/run-draft";
 import { runVerdict } from "@/lib/free-tools/preview-run/receipt";
 import { firstFailureOf, linesNotRun, proveDraftOnLivePage, type LineNotRun } from "@/lib/free-tools/prove-loop";
+import type { LayoutFault } from "@/lib/free-tools/layout-faults";
 import { capturePageSnapshot } from "@/lib/free-tools/page-snapshot";
 import { alignContainerNames, alignTestIdLocators, siteTestIdAttribute } from "@/lib/free-tools/test-id-attribute";
 import { alignRootNavigation } from "@/lib/free-tools/navigation";
@@ -553,6 +554,25 @@ export type AutomationLiveRun = {
   pageUrl: string;
   ranAt: string;
   receipt: string | null;
+  /**
+   * Layout faults on the page this version was generated from.
+   *
+   * Named for where it came from, not for where it is stored. These are read
+   * from the accessibility-tree capture at the start of this job, not from
+   * the proving run below -- the run executes Playwright and never looks at
+   * the page's geometry. Both are the same page, moments apart, which is why
+   * they sit in one record; the distinction is kept in the name because a
+   * reviewer deciding whether to approve has a right to know which load
+   * established what.
+   *
+   * Absent on versions recorded before the check existed, and on any version
+   * whose page could not be read -- neither of which means a clean page.
+   *
+   * It never affects the verdict. A version can be approved with a layout
+   * fault against it: the behaviour was proved, and the page looking wrong is
+   * a separate decision for a person to take.
+   */
+  pageLayoutAtGeneration?: LayoutFault[];
 };
 
 export function readAutomationLiveRun(value: Prisma.JsonValue | null): AutomationLiveRun | null {
@@ -578,6 +598,25 @@ export function readAutomationLiveRun(value: Prisma.JsonValue | null): Automatio
     pageUrl: typeof run.pageUrl === "string" ? run.pageUrl : "",
     ranAt: run.ranAt,
     receipt: typeof run.receipt === "string" ? run.receipt : null,
+    /*
+     * Absent stays absent. An empty array here would say the page was checked
+     * and found clean, which is not something an old record can establish --
+     * and a reviewer reading "no layout faults" about a version generated
+     * before the check existed has been told something untrue.
+     */
+    ...(Array.isArray(run.pageLayoutAtGeneration)
+      ? {
+          pageLayoutAtGeneration: run.pageLayoutAtGeneration
+            .filter(
+              (entry): entry is LayoutFault =>
+                Boolean(entry) &&
+                typeof entry === "object" &&
+                typeof (entry as { what?: unknown }).what === "string" &&
+                typeof (entry as { kind?: unknown }).kind === "string",
+            )
+            .map((entry) => ({ kind: entry.kind, what: entry.what })),
+        }
+      : {}),
   };
 }
 
@@ -747,7 +786,23 @@ async function finishAutomationGeneration(
     const proven = await proveGeneratedCode(pending, result.code);
     if (proven) {
       result = { ...result, code: proven.code };
-      liveRun = proven.liveRun;
+      /*
+       * The layout evidence comes from the page read at the top of this job,
+       * not from the proving run -- the run executes Playwright and never
+       * looks at the page's geometry. It is attached here because this is the
+       * first point where both exist, and it is named for the load it came
+       * from so a reviewer is never misled about which established what.
+       *
+       * Attached only when the page was actually read. A snapshot that failed
+       * carries null, and null must not become an empty array: that would
+       * tell a reviewer the page was checked and found clean.
+       */
+      liveRun = {
+        ...proven.liveRun,
+        ...(snapshot?.ok && snapshot.layoutFaults
+          ? { pageLayoutAtGeneration: snapshot.layoutFaults }
+          : {}),
+      };
     }
   }
 

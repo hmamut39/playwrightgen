@@ -7,6 +7,7 @@ import { useMemo, useRef, useState } from "react";
 import { ResultActions } from "@/components/free-tools/result-actions";
 import { WorkspaceHandoffButton } from "@/components/free-tools/workspace-handoff-button";
 import type { FreeToolHandoff } from "@/lib/free-tools/handoff";
+import { LayoutFaultsPanel, type ShownLayoutFault } from "@/components/free-tools/layout-faults-panel";
 import { livePageSummary } from "@/lib/free-tools/live-page-summary";
 import { useFreeToolAllowance } from "@/components/free-tools/use-free-tool-allowance";
 import { LimitReached, readFreeToolLimit, type FreeToolLimit } from "@/components/free-tools/limit-reached";
@@ -90,6 +91,15 @@ type LiveCoveragePage =
         /** Absent on reviews saved before off-site links were separated out. */
         offSite?: { role: string; name: string }[];
       } | null;
+      /**
+       * Layout faults from the same load.
+       *
+       * This tool answers "what is not covered", and a page can be fully
+       * covered by passing tests and still be unreadable. An array is the
+       * result, `null` means the check could not run, and absent means the
+       * review was saved before the check existed.
+       */
+      layoutFaults?: ShownLayoutFault[] | null;
     }
   | { status: "not_read"; reason: string; httpStatus?: number };
 
@@ -515,6 +525,15 @@ function LiveCoveragePanel({ livePage }: { livePage: LiveCoveragePage }) {
               offSite: surface?.offSite?.length ?? 0,
             })}
           </p>
+          {/*
+            * Coverage is not a verdict on the page.
+            *
+            * Every control can be targeted by name, by a passing test, while
+            * the page is unreadable -- a clipped label has the same
+            * accessible name as a whole one. Shared with the generator,
+            * which reads the same snapshot.
+            */}
+          <LayoutFaultsPanel faults={livePage.layoutFaults} />
         </div>
         {surface && surface.total > 0 ? (
           <span

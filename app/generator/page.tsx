@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { GenerationProgress } from "@/components/free-tools/generation-progress";
+import { LayoutFaultsPanel, type ShownLayoutFault } from "@/components/free-tools/layout-faults-panel";
 import { ResultActions } from "@/components/free-tools/result-actions";
 import { WorkspaceHandoffButton } from "@/components/free-tools/workspace-handoff-button";
 import type { FreeToolHandoff } from "@/lib/free-tools/handoff";
@@ -73,7 +74,7 @@ type LivePage =
        * the check existed -- an old saved draft genuinely has no answer, and
        * showing "no faults found" for it would invent one.
        */
-      layoutFaults?: { kind: string; what: string }[] | null;
+      layoutFaults?: ShownLayoutFault[] | null;
     }
   | { status: "not_read"; reason: string; httpStatus?: number };
 
@@ -950,51 +951,8 @@ function LivePagePanel({ livePage, result }: { livePage: LivePage; result: Quick
               {redactionNote(livePage.redacted)}
             </p>
           ) : null}
-          {/*
-            * How the page looked, which the draft cannot tell you.
-            *
-            * Every assertion written here is functional -- a role, a name, a
-            * piece of text -- so a passing run says the behaviour works and
-            * says nothing about whether the page is readable. A button
-            * clipped to "Add to ca" has the same accessible name as one that
-            * is not. Without this line a green run reads as a verdict on the
-            * page, which it never was.
-            *
-            * Said even when nothing is found. A check that is silent on
-            * success cannot be told apart from a check that did not run.
-            *
-            * Which is why null -- the check could not run -- renders nothing
-            * at all rather than the clean line. No claim is made, and the
-            * absence of the line is the only honest signal available.
-            */}
-          {livePage.layoutFaults ? (
-            livePage.layoutFaults.length === 0 ? (
-              <p className="mt-2 text-xs leading-5 text-emerald-800">
-                No layout faults on this page: nothing clipped, overlapping, or
-                scrolling sideways.
-              </p>
-            ) : (
-              <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
-                <p className="text-xs font-bold text-amber-900">
-                  {livePage.layoutFaults.length === 1
-                    ? "1 layout fault on this page"
-                    : `${livePage.layoutFaults.length} layout faults on this page`}
-                </p>
-                <ul className="mt-1 space-y-1">
-                  {livePage.layoutFaults.map((fault) => (
-                    <li key={fault.what} className="text-xs leading-5 text-amber-900">
-                      {fault.what}
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-1.5 text-xs leading-5 text-amber-800">
-                  These are not test failures. The behaviour below can pass
-                  while the page still looks wrong, so they are reported
-                  separately and never change the run&rsquo;s verdict.
-                </p>
-              </div>
-            )
-          ) : null}
+          {/* Shared with Coverage Review, which reads the same snapshot. */}
+          <LayoutFaultsPanel faults={livePage.layoutFaults} />
         </div>
         {check && check.checked > 0 ? (
           <span

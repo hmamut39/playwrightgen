@@ -403,6 +403,45 @@ export default async function AutomationArtifactPage({
                     </ul>
                   </details>
                 ) : null}
+                {/*
+                  * What the page looked like, beside the decision to approve.
+                  *
+                  * Every assertion in this version is functional -- a role, a
+                  * name, a piece of text -- so "ran on the live page, passed"
+                  * is a verdict on the behaviour and never on the page. A
+                  * reviewer approving a version whose page has a missing
+                  * stylesheet should know that before they press the button,
+                  * not after a customer finds it.
+                  *
+                  * It does not block approval and does not change the
+                  * verdict. The behaviour was proved; whether the page
+                  * looking wrong should stop a release is a person's call.
+                  *
+                  * Absent on every version generated before this was kept,
+                  * and on any whose page could not be read -- which is why
+                  * nothing renders rather than a clean line.
+                  */}
+                {liveRun?.pageLayoutAtGeneration?.length ? (
+                  <details className="mt-2 text-xs">
+                    <summary className="cursor-pointer font-medium text-amber-800">
+                      {liveRun.pageLayoutAtGeneration.length === 1
+                        ? "1 layout fault on the page this was generated from"
+                        : `${liveRun.pageLayoutAtGeneration.length} layout faults on the page this was generated from`}
+                    </summary>
+                    <ul className="mt-2 space-y-1.5">
+                      {liveRun.pageLayoutAtGeneration.map((fault) => (
+                        <li key={fault.what} className="break-words leading-5 text-amber-900">
+                          {fault.what}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-2 leading-5 text-slate-500">
+                      Read from the page when this version was generated, not
+                      from the run. These are not test failures and do not
+                      change the verdict above.
+                    </p>
+                  </details>
+                ) : null}
               </div>
               <div className="flex flex-wrap gap-2 text-xs font-semibold">
                 {liveRun ? (
