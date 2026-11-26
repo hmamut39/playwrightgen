@@ -43,7 +43,20 @@ test("public quality workflow surfaces remain reachable", async ({ page }) => {
 
   await open("/terms");
   await expect(page.getByRole("heading", { name: "Preview terms" })).toBeVisible();
-  await expect(page.getByText(/No paid purchase today/i)).toBeVisible();
+  /*
+   * The heading, not the text.
+   *
+   * A section index was added to this page on 2026-11-26, listing each
+   * section by name, so "No paid purchase today" is now on the page twice --
+   * once as the heading and once as the link to it. `getByText` matched both
+   * and failed on strict mode, correctly: it had been asserting that the
+   * words appear somewhere, which an index entry satisfies without the
+   * section existing at all.
+   *
+   * Asking for the heading is the stronger claim and the one that was meant,
+   * and it is what the two assertions above it already do.
+   */
+  await expect(page.getByRole("heading", { name: "No paid purchase today" })).toBeVisible();
 });
 
 test("GitHub setup sends signed-out users through first-party sign-in", async ({
