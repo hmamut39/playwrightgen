@@ -184,6 +184,16 @@ export async function POST(req: Request) {
               // masks a customer's data and keeps quiet about it has taken a
               // decision on their behalf without telling them which.
               redacted: snapshot.redacted,
+              /*
+               * What the page looked like, not only what it offered.
+               *
+               * The draft and its run answer "does this behaviour work". They
+               * cannot answer "is this page readable", because a control
+               * clipped to "Add to ca" has the same accessible name as one
+               * that is not. Carried beside the draft so a passing run never
+               * stands alone as the whole verdict on the page.
+               */
+              layoutFaults: snapshot.layoutFaults,
             }
           : { status: "not_read", reason: snapshot.reason, httpStatus: snapshot.status }
         : null,

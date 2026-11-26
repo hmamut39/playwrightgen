@@ -32,6 +32,50 @@ genuine `npm audit` failures, closed by the commit after each.
 
 ## Shipped (most recent first)
 
+### Found by looking at what else exists
+
+- **Every assertion was functional, so nothing saw the page** (2026-11-26):
+  found when a salesperson sent the owner a visual-testing tool, imagium.io,
+  on LinkedIn. That product is not a competitor -- it compares a screenshot
+  against an approved baseline and never opens a browser or writes a test --
+  but the pitch exposed something real. Every assertion this product writes
+  is a role, a name or a piece of text, so a run could pass green while the
+  page was visibly broken: a control clipped to "Add to ca" has the same
+  accessible name as one that is not. A passing run read as a verdict on the
+  page, and it never was.
+
+  Answered without screenshot diffing, deliberately. Baselines are the
+  largest single source of flake in real suites, they need an approval
+  subsystem that does not exist here, and a product whose identity is
+  declining to assert what it cannot back should not adopt the technique
+  known for crying wolf. Instead `lib/free-tools/layout-faults.ts` reports
+  only what one load establishes on its own evidence: a stylesheet the
+  browser refused, text a container cuts off, two controls covering each
+  other, content forcing sideways scroll, and a tap target under the 24x24px
+  minimum that WCAG 2.2 (2.5.8) sets -- a number cited, not invented. Each
+  has a floor with a stated reason, so sub-pixel rounding cannot fire it.
+
+  Two faults found in the building of it, both by running the reader against
+  a fixture built with five faults in it and getting zero back. The page
+  script used named inner functions, and esbuild's `keepNames` rewrites those
+  into a `__name` helper that exists in the bundle and not in the page, so
+  the whole read died with `ReferenceError: __name is not defined` -- and the
+  catch reported that as "no faults". It is now one pass with no helper
+  functions, which is bundler-proof and cheaper. And `link.sheet === null`
+  turned out not to detect a failed stylesheet at all: measured in Chromium,
+  an aborted sheet leaves an empty `CSSStyleSheet` that `document.styleSheets`
+  counts, so the broken sheet and the working one both read `false`. That one
+  is read from the network instead, where the browser states the outcome.
+
+  The honesty fix matters more than either. A failed read returned `[]`, the
+  same value as a clean page, so the screen said "No layout faults on this
+  page" for a check that never ran. `readLayoutFaults` now returns
+  `{ read: true, findings } | { read: false }` and the snapshot field is
+  `LayoutFault[] | null`, so no caller can collapse the two by accident.
+  21 tests in `tests/unit/layout-faults.test.ts`, and the reader itself proved
+  in a real browser against the fixture: all five faults found, the clean
+  page silent.
+
 ### Found by using the product as a team would
 - **Every detail page was a dead end** (2026-11-08): found by the owner while
   setting up the demo account -- after approving an automation version he had

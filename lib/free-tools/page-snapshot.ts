@@ -3,6 +3,12 @@ import "server-only";
 import { chromium, type Browser } from "playwright-core";
 
 import { readElementHints } from "@/lib/free-tools/element-hints";
+import {
+  describeLayoutFaults,
+  readLayoutFaults,
+  stylesheetFailures,
+  type LayoutFault,
+} from "@/lib/free-tools/layout-faults";
 import { isPublicWebAddress } from "@/lib/free-tools/public-address";
 import { signInWithTestAccount, type TestAccount } from "@/lib/free-tools/sign-in";
 
@@ -52,6 +58,20 @@ export type PageSnapshot =
        * happened here.
        */
       redacted: PersonalDataFound;
+      /**
+       * Layout faults this one load established, worst first.
+       *
+       * The tree above says what the page offers; it cannot say whether the
+       * page is readable. A control clipped to "Add to ca" has the same
+       * accessible name as one that is not, so a test written from the tree
+       * passes over it.
+       *
+       * An empty array means the check ran and found nothing. `null` means it
+       * could not run, and that must never be shown to a reader as a clean
+       * result -- the two were the same value once, and the screen called
+       * both of them "no layout faults".
+       */
+      layoutFaults: LayoutFault[] | null;
       /** Present when a test account signed in first: the login form's tree. */
       signedIn?: { loginForm: string };
     }
@@ -113,6 +133,24 @@ export async function capturePageSnapshot(
     try {
       const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
       const page = await context.newPage();
+      /*
+       * Stylesheets the browser could not fetch, collected before navigating
+       * because the evidence is the request itself and it is gone afterwards.
+       *
+       * This is the one layout fault the page cannot be asked about: an
+       * aborted stylesheet leaves an empty CSSStyleSheet behind, which looks
+       * exactly like a working one from inside the document. The network says
+       * plainly what the DOM only implies.
+       */
+      const failedStylesheets: string[] = [];
+      page.on("requestfailed", (request) => {
+        if (request.resourceType() === "stylesheet") failedStylesheets.push(request.url());
+      });
+      page.on("response", (served) => {
+        if (served.status() >= 400 && served.request().resourceType() === "stylesheet") {
+          failedStylesheets.push(served.url());
+        }
+      });
       const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: NAVIGATION_TIMEOUT_MS });
       // An error page is a page: it loads, it has a heading and a title, and
       // the reader used to hand it over as though it were the application.
@@ -137,7 +175,7 @@ export async function capturePageSnapshot(
       }
       const finalUrl = page.url();
       if (!isPublicWebAddress(finalUrl)) return { ok: false, reason: "blocked_address" };
-      const [title, fullAria, testIds, elementHints] = await Promise.all([
+      const [title, fullAria, testIds, elementHints, rawLayoutFaults] = await Promise.all([
         page.title(),
         page.locator("body").ariaSnapshot({ timeout: 8_000 }),
         page.evaluate(() =>
@@ -147,6 +185,14 @@ export async function capturePageSnapshot(
             .slice(0, 60),
         ),
         readElementHints(page),
+        /*
+         * Read beside the tree, in the same load, because a second visit
+         * would be a different render -- and a layout fault reported from a
+         * page other than the one the test was written against would be a
+         * finding about nothing. It returns [] on any failure of its own and
+         * never fails the capture.
+         */
+        readLayoutFaults(page),
       ]);
       // Link targets are noise for writing locators and cost the most space,
       // so they come out of the tree. A link's address is still the only way
@@ -177,6 +223,24 @@ export async function capturePageSnapshot(
         linkTargets,
         truncated: aria.length > MAX_ARIA_CHARS,
         counts: countRoles(aria),
+        /*
+         * Null when the read itself failed, which is not the same as finding
+         * nothing. A page that forbids evaluation and a page with nothing
+         * wrong used to produce the same empty list, so the screen said "No
+         * layout faults on this page" for both -- the product asserting
+         * something it had not established.
+         *
+         * A failed stylesheet is still reported in that case: it comes from
+         * the network, so it is known whether or not the page could be read.
+         */
+        layoutFaults: rawLayoutFaults.read
+          ? describeLayoutFaults([
+              ...stylesheetFailures(failedStylesheets),
+              ...rawLayoutFaults.findings,
+            ])
+          : failedStylesheets.length > 0
+            ? describeLayoutFaults(stylesheetFailures(failedStylesheets))
+            : null,
         ...(signedIn
           ? { signedIn: { loginForm: redactPersonalData(signedIn.loginForm).text } }
           : {}),
